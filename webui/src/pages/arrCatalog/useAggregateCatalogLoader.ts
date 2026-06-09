@@ -133,11 +133,13 @@ export function useAggregateCatalogLoader<
   );
   const { snapshot, store } = useRowsStore<TAggRow>(rowsStoreOpts as never);
 
+  const filtersKey = useMemo(() => JSON.stringify(filters), [filters]);
+
   const filteredRows = useMemo<ReadonlyArray<TAggRow>>(() => {
     const filterFn = adapter.filterRows;
     if (!filterFn) return rows;
-    return filterFn(rows, filtersRef.current, debouncedSearch);
-  }, [rows, debouncedSearch, adapter]);
+    return filterFn(rows, filters, debouncedSearch);
+  }, [rows, debouncedSearch, adapter, filtersKey, filters]);
 
   const sortedRows = useMemo<ReadonlyArray<TAggRow>>(() => {
     const sortFn = adapter.sortRows;
@@ -320,12 +322,13 @@ export function useAggregateCatalogLoader<
     [adapter, instances, dataSync.syncData, pushToast],
   );
 
-  // Trigger initial load when the user navigates to the aggregate view.
+  // Trigger load when entering aggregate view or when server-side filter params change.
   useEffect(() => {
     if (!active) return;
     if (selection !== "aggregate") return;
+    setPage(0);
     void loadAggregate();
-  }, [active, selection, loadAggregate]);
+  }, [active, selection, filtersKey, loadAggregate]);
 
   // Sync the aggregate filter with the global search whenever the user is on the
   // aggregate view.

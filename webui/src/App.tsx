@@ -10,6 +10,7 @@ import { SearchProvider, useSearch } from "./context/SearchContext";
 import { WebUIProvider, useWebUI } from "./context/WebUIContext";
 import { useNetworkStatus } from "./hooks/useNetworkStatus";
 import { getMeta, getStatus, triggerUpdate, logout, fetchWebToken } from "./api/client";
+import { webPath } from "./api/urlBase";
 import { LoginPage } from "./pages/LoginPage";
 import type { ArrInfo, MetaResponse } from "./api/types";
 import { IconImage } from "./components/IconImage";
@@ -26,6 +27,7 @@ import LidarrIcon from "./icons/lidarr.svg";
 import QbitIcon from "./icons/qbittorrent.svg";
 import ConfigIcon from "./icons/gear.svg";
 import logoUrl from "./assets/logov2-clean.svg";
+import { safeClick } from "./utils/safeClick";
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -383,7 +385,7 @@ function ChangelogModal({
                 <>
                   <a
                     className="btn primary"
-                    href={`/web/download-update`}
+                    href={webPath("/web/download-update")}
                     download={binaryDownloadName ?? undefined}
                     target="_blank"
                     rel="noreferrer"
@@ -550,6 +552,22 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
   const [configDirty, setConfigDirty] = useState(false);
   const { push } = useToast();
   const { setValue: setSearchValue } = useSearch();
+
+  const switchTab = useCallback(
+    (tabId: Tab) => {
+      if (activeTab === "config" && tabId !== "config" && configDirty) {
+        const shouldLeave = window.confirm(
+          "You have unsaved configuration changes. Leave without saving?"
+        );
+        if (!shouldLeave) {
+          return;
+        }
+      }
+      setActiveTab(tabId);
+      setSearchValue("");
+    },
+    [activeTab, configDirty, setSearchValue]
+  );
   const { viewDensity, setViewDensity } = useWebUI();
   const isOnline = useNetworkStatus();
   const [meta, setMeta] = useState<MetaResponse | null>(null);
@@ -694,7 +712,7 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
           "config",
         ];
         if (tabIndex < tabIds.length) {
-          setActiveTab(tabIds[tabIndex]);
+          switchTab(tabIds[tabIndex]);
         }
         return;
       }
@@ -702,7 +720,7 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [setSearchValue, configuredArrTabs]);
+  }, [setSearchValue, configuredArrTabs, switchTab]);
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -755,11 +773,16 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
   }, [refreshMeta, refreshStatus, activeTab]);
 
   useEffect(() => {
-    void refreshStatus();
+    const initialId = window.setTimeout(() => {
+      void refreshStatus();
+    }, 0);
     const id = window.setInterval(() => {
       void refreshStatus();
     }, 5 * 1000); // Refresh every 5 seconds for more dynamic tab loading
-    return () => window.clearInterval(id);
+    return () => {
+      window.clearTimeout(initialId);
+      window.clearInterval(id);
+    };
   }, [refreshStatus]);
 
   useEffect(() => {
@@ -1049,7 +1072,7 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
               GitHub
             </a>
             <a
-              href="/web/docs"
+              href={webPath("/web/docs")}
               target="_blank"
               rel="noreferrer"
               className="btn small ghost"
@@ -1086,18 +1109,7 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
               type="button"
               key={tab.id}
               className={activeTab === tab.id ? "active" : ""}
-              onClick={() => {
-                if (activeTab === "config" && tab.id !== "config" && configDirty) {
-                  const shouldLeave = window.confirm(
-                    "You have unsaved configuration changes. Leave without saving?"
-                  );
-                  if (!shouldLeave) {
-                    return;
-                  }
-                }
-                setActiveTab(tab.id);
-                setSearchValue("");
-              }}
+              onClick={safeClick(() => switchTab(tab.id))}
             >
               <IconImage src={tab.icon} />
               <span>{tab.label}</span>

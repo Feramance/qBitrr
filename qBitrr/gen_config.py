@@ -61,6 +61,15 @@ def _add_web_settings_section(config: TOMLDocument):
     )
     _gen_default_line(
         web_settings,
+        [
+            "Public URL path prefix when served behind a reverse proxy (no trailing slash).",
+            'Example: "/qbitrr" serves the UI at https://host/qbitrr/ui. Leave empty for site root.',
+        ],
+        "UrlBase",
+        "",
+    )
+    _gen_default_line(
+        web_settings,
         "Enable username/password login",
         "LocalAuthEnabled",
         False,
@@ -1736,6 +1745,18 @@ def _normalize_theme_value(value: Any) -> str:
         return "Dark"
 
 
+def _normalize_url_base_value(value: Any) -> str:
+    """Normalize WebUI.UrlBase to '' or a leading-slash path without trailing slash."""
+    if value is None:
+        return ""
+    raw = str(value).strip()
+    if not raw:
+        return ""
+    if not raw.startswith("/"):
+        raw = f"/{raw}"
+    return raw.rstrip("/")
+
+
 def _normalize_view_density_value(value: Any) -> str:
     """
     Normalize view density value to always be 'Comfortable' or 'Compact' (case insensitive input).
@@ -1819,6 +1840,7 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
         ("Port", 6969),
         ("Token", ""),
         ("BehindHttpsProxy", False),
+        ("UrlBase", ""),
         ("LiveArr", True),
         ("GroupSonarr", True),
         ("GroupLidarr", True),
@@ -1846,6 +1868,13 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
         normalized_density = _normalize_view_density_value(current_density)
         if current_density != normalized_density:
             webui_section["ViewDensity"] = normalized_density
+            changed = True
+
+    if "UrlBase" in webui_section:
+        current_url_base = webui_section["UrlBase"]
+        normalized_url_base = _normalize_url_base_value(current_url_base)
+        if current_url_base != normalized_url_base:
+            webui_section["UrlBase"] = normalized_url_base
             changed = True
 
     # Validate qBit section

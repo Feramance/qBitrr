@@ -19,6 +19,7 @@ import type {
   LidarrTracksResponse,
   StatusResponse,
 } from "./types";
+import { setUrlBaseFromMeta, webPath } from "./urlBase";
 
 export class AuthError extends Error {
   code?: string;
@@ -82,6 +83,13 @@ function clearStoredToken(): void {
   }
 }
 
+function resolveRequestInput(input: RequestInfo | URL): RequestInfo | URL {
+  if (typeof input === "string" && input.startsWith("/")) {
+    return webPath(input);
+  }
+  return input;
+}
+
 function buildInit(init: RequestInit | undefined, token: string | null): RequestInit {
   const headers = new Headers(init?.headers || {});
   Object.entries(JSON_HEADERS).forEach(([key, value]) => {
@@ -104,7 +112,7 @@ async function fetchWithAuthRetry<T>(
   retries = MAX_AUTH_RETRIES
 ): Promise<T> {
   const token = resolveToken();
-  const response = await fetch(input, buildInit(init, token));
+  const response = await fetch(resolveRequestInput(input), buildInit(init, token));
   if (response.status === 401 && retries > 0 && token) {
     clearStoredToken();
     return fetchWithAuthRetry(input, init, handler, retries - 1);
@@ -173,7 +181,9 @@ async function handleText(res: Response): Promise<string> {
 
 export async function getMeta(params?: { force?: boolean }): Promise<MetaResponse> {
   const query = params?.force ? "?force=1" : "";
-  return fetchJson<MetaResponse>(`/web/meta${query}`);
+  const meta = await fetchJson<MetaResponse>(`/web/meta${query}`);
+  setUrlBaseFromMeta(meta.url_base);
+  return meta;
 }
 
 export async function getStatus(): Promise<StatusResponse> {
@@ -236,7 +246,7 @@ export async function getLogTail(
 }
 
 export function getLogDownloadUrl(name: string): string {
-  return `/web/logs/${encodeURIComponent(name)}/download`;
+  return webPath(`/web/logs/${encodeURIComponent(name)}/download`);
 }
 
 export type ArrOpenItemKind = "movie" | "series" | "artist";
@@ -247,7 +257,7 @@ export function getArrOpenItemUrl(
   entryId: number
 ): string {
   const encodedCategory = encodeURIComponent(category);
-  return `/web/arr/${encodedCategory}/open/${kind}/${entryId}`;
+  return webPath(`/web/arr/${encodedCategory}/open/${kind}/${entryId}`);
 }
 
 export function getRadarrOpenMovieUrl(category: string, movieId: number): string {
@@ -445,7 +455,7 @@ export async function testArrConnection(
 }
 
 export async function login(req: LoginRequest): Promise<{ success: boolean }> {
-  const res = await fetch("/web/login", {
+  const res = await fetch(webPath("/web/login"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
@@ -461,7 +471,7 @@ export async function login(req: LoginRequest): Promise<{ success: boolean }> {
 }
 
 export async function setPassword(req: SetPasswordRequest): Promise<{ success: boolean }> {
-  const res = await fetch("/web/auth/set-password", {
+  const res = await fetch(webPath("/web/auth/set-password"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
@@ -476,12 +486,12 @@ export async function setPassword(req: SetPasswordRequest): Promise<{ success: b
 }
 
 export async function logout(): Promise<void> {
-  await fetch("/web/logout", { method: "POST", credentials: "include" });
+  await fetch(webPath("/web/logout"), { method: "POST", credentials: "include" });
   clearStoredToken();
 }
 
 export async function fetchWebToken(): Promise<string | null> {
-  const res = await fetch("/web/token", { credentials: "include" });
+  const res = await fetch(webPath("/web/token"), { credentials: "include" });
   if (!res.ok) return null;
   const data = await res.json().catch(() => ({})) as Record<string, unknown>;
   return typeof data.token === "string" ? data.token : null;

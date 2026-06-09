@@ -98,6 +98,10 @@ AuthDisabled = true
 # When true, the app trusts X-Forwarded-Proto and sets the session cookie as Secure. Leave false for plain HTTP.
 BehindHttpsProxy = false
 
+# Public URL path prefix when served behind a reverse proxy (no trailing slash).
+# Example: "/qbitrr" serves the UI at https://host/qbitrr/ui. Leave empty for site root.
+UrlBase = ""
+
 # Enable username/password login
 LocalAuthEnabled = false
 

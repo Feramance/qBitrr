@@ -337,6 +337,7 @@ export interface MetaResponse {
   local_auth_enabled?: boolean;
   oidc_enabled?: boolean;
   setup_required?: boolean;
+  url_base?: string;
 }
 
 export interface LoginRequest {

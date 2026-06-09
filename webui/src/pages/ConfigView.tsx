@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState, type JSX } from "react";
+import { createPortal } from "react-dom";
 import { produce } from "immer";
 import equal from "fast-deep-equal";
 import { get, set } from "lodash-es";
@@ -36,6 +37,7 @@ import AddIcon from "../icons/plus.svg";
 import SaveIcon from "../icons/check-mark.svg";
 import DeleteIcon from "../icons/trash.svg";
 import CloseIcon from "../icons/close.svg";
+import { safeClick } from "../utils/safeClick";
 
 type FieldType = "text" | "number" | "checkbox" | "password" | "select" | "tags" | "duration";
 
@@ -387,6 +389,30 @@ const WEB_SETTINGS_FIELDS: FieldDefinition[] = [
     type: "checkbox",
     description: "Set when the WebUI is reached over HTTPS (e.g. reverse proxy). Enables Secure cookies.",
   },
+  {
+    label: "Url Base",
+    path: ["WebUI", "UrlBase"],
+    type: "text",
+    placeholder: "/qbitrr",
+    description:
+      "Public path prefix when behind a reverse proxy (e.g. /qbitrr). Leave empty for site root.",
+    validate: (value) => {
+      const raw = String(value ?? "").trim();
+      if (!raw) {
+        return undefined;
+      }
+      if (!raw.startsWith("/")) {
+        return "UrlBase must start with / (e.g. /qbitrr).";
+      }
+      if (raw.endsWith("/")) {
+        return "UrlBase must not end with a trailing slash.";
+      }
+      if (raw.includes("//")) {
+        return "UrlBase is invalid.";
+      }
+      return undefined;
+    },
+  },
 ];
 
 const AUTH_SETTINGS_FIELDS: FieldDefinition[] = [
@@ -464,8 +490,11 @@ const QBIT_FIELDS: FieldDefinition[] = [
     label: "Host",
     path: ["Host"],
     type: "text",
-    required: true,
-    validate: (value) => {
+    validate: (value, context) => {
+      const disabled = Boolean(getValue(context.section ?? {}, ["Disabled"]));
+      if (disabled) {
+        return undefined;
+      }
       if (!String(value ?? "").trim()) {
         return "qBit Host is required.";
       }
@@ -674,7 +703,6 @@ const ARR_GENERAL_FIELDS: FieldDefinition[] = [
     path: ["URI"],
     type: "text",
     placeholder: "http://host:port",
-    required: true,
     validate: (value, context) => {
       const uri = String(value ?? "").trim();
       const managed = Boolean(getValue(context.section ?? {}, ["Managed"]));
@@ -692,7 +720,6 @@ const ARR_GENERAL_FIELDS: FieldDefinition[] = [
     path: ["APIKey"],
     type: "password",
     secure: true,
-    required: true,
     validate: (value, context) => {
       const apiKey = String(value ?? "").trim();
       const managed = Boolean(getValue(context.section ?? {}, ["Managed"]));
@@ -709,8 +736,11 @@ const ARR_GENERAL_FIELDS: FieldDefinition[] = [
     label: "Category",
     path: ["Category"],
     type: "text",
-    required: true,
-    validate: (value) => {
+    validate: (value, context) => {
+      const managed = Boolean(getValue(context.section ?? {}, ["Managed"]));
+      if (!managed) {
+        return undefined;
+      }
       if (!String(value ?? "").trim()) {
         return "Category is required.";
       }
@@ -730,7 +760,16 @@ const ARR_GENERAL_FIELDS: FieldDefinition[] = [
     path: ["importMode"],
     type: "select",
     options: IMPORT_MODE_OPTIONS,
-    required: true,
+    validate: (value, context) => {
+      const managed = Boolean(getValue(context.section ?? {}, ["Managed"]));
+      if (!managed) {
+        return undefined;
+      }
+      if (isEmptyValue(value)) {
+        return "Import Mode is required.";
+      }
+      return undefined;
+    },
   },
   {
     label: "RSS Sync Timer",
@@ -1466,35 +1505,265 @@ function validateFieldGroup(
   }
 }
 
-function validateFormState(formState: ConfigDocument | null): ValidationError[] {
+function isManagedArrSection(section: ConfigDocument | null): boolean {
+  return Boolean(getValue(section, ["Managed"]));
+}
+
+function isEnabledQbitSection(section: ConfigDocument | null): boolean {
+  return !getValue(section, ["Disabled"]);
+}
+
+function validateSection(
+  formState: ConfigDocument | null,
+  sectionKey: string
+): ValidationError[] {
+  if (!formState) return [];
+  const value = formState[sectionKey];
+  if (!value || typeof value !== "object") {
+    return [];
+  }
+  const section = value as ConfigDocument;
+  const errors: ValidationError[] = [];
+  const sectionContext: ValidationContext = { root: formState, section, sectionKey };
+
+  if (QBIT_SECTION_REGEX.test(sectionKey)) {
+    if (!isEnabledQbitSection(section)) {
+      return [];
+    }
+    validateFieldGroup(errors, QBIT_FIELDS, section, [sectionKey], sectionContext);
+    return errors;
+  }
+
+  if (SERVARR_SECTION_REGEX.test(sectionKey)) {
+    if (!isManagedArrSection(section)) {
+      return [];
+    }
+    const fieldSets = getArrFieldSets(sectionKey);
+    validateFieldGroup(errors, fieldSets.generalFields, section, [sectionKey], sectionContext);
+    validateFieldGroup(errors, fieldSets.entryFields, section, [sectionKey], sectionContext);
+    validateFieldGroup(errors, fieldSets.entryOmbiFields, section, [sectionKey], sectionContext);
+    validateFieldGroup(errors, fieldSets.entryOverseerrFields, section, [sectionKey], sectionContext);
+    validateFieldGroup(errors, fieldSets.torrentFields, section, [sectionKey], sectionContext);
+    validateFieldGroup(errors, fieldSets.seedingFields, section, [sectionKey], sectionContext);
+    return errors;
+  }
+
+  if (sectionKey === "Settings") {
+    validateFieldGroup(errors, SETTINGS_FIELDS, formState, [], { root: formState });
+  } else if (sectionKey === "WebUI") {
+    validateFieldGroup(errors, WEB_SETTINGS_FIELDS, formState, [], { root: formState });
+  } else if (sectionKey === "Authentication") {
+    validateFieldGroup(errors, AUTH_SETTINGS_FIELDS, formState, [], { root: formState });
+  }
+
+  return errors;
+}
+
+function sectionHasCategoryChanges(
+  sectionKey: string,
+  formState: ConfigDocument,
+  originalConfig: ConfigDocument | null
+): boolean {
+  const categoryPath = `${sectionKey}.Category`;
+  const flattenedOriginal = flatten(originalConfig ?? {});
+  const flattenedCurrent = flatten(formState);
+  return !equal(flattenedCurrent[categoryPath], flattenedOriginal[categoryPath]);
+}
+
+function validateSectionsForSave(
+  formState: ConfigDocument | null,
+  sectionKeys: string[],
+  originalConfig: ConfigDocument | null,
+  includeCategoryCrossCheck: boolean
+): ValidationError[] {
   if (!formState) return [];
   const errors: ValidationError[] = [];
-  const rootContext: ValidationContext = { root: formState };
-  validateFieldGroup(errors, SETTINGS_FIELDS, formState, [], rootContext);
-  validateFieldGroup(errors, WEB_SETTINGS_FIELDS, formState, [], rootContext);
-  validateFieldGroup(errors, AUTH_SETTINGS_FIELDS, formState, [], rootContext);
-
-  for (const [key, value] of Object.entries(formState)) {
-    if (QBIT_SECTION_REGEX.test(key) && value && typeof value === "object") {
-      const section = value as ConfigDocument;
-      const sectionContext: ValidationContext = { root: formState, section, sectionKey: key };
-      validateFieldGroup(errors, QBIT_FIELDS, section, [key], sectionContext);
-    } else if (SERVARR_SECTION_REGEX.test(key) && value && typeof value === "object") {
-      const section = value as ConfigDocument;
-      const sectionContext: ValidationContext = { root: formState, section, sectionKey: key };
-      const fieldSets = getArrFieldSets(key);
-      validateFieldGroup(errors, fieldSets.generalFields, section, [key], sectionContext);
-      validateFieldGroup(errors, fieldSets.entryFields, section, [key], sectionContext);
-      validateFieldGroup(errors, fieldSets.entryOmbiFields, section, [key], sectionContext);
-      validateFieldGroup(errors, fieldSets.entryOverseerrFields, section, [key], sectionContext);
-      validateFieldGroup(errors, fieldSets.torrentFields, section, [key], sectionContext);
-      validateFieldGroup(errors, fieldSets.seedingFields, section, [key], sectionContext);
+  for (const sectionKey of sectionKeys) {
+    errors.push(...validateSection(formState, sectionKey));
+  }
+  if (includeCategoryCrossCheck) {
+    for (const issue of getCategoryCrossSectionIssues(formState)) {
+      errors.push(issue);
+    }
+  } else {
+    const categoryTouched = sectionKeys.some((key) =>
+      sectionHasCategoryChanges(key, formState, originalConfig)
+    );
+    if (categoryTouched) {
+      for (const issue of getCategoryCrossSectionIssues(formState)) {
+        errors.push(issue);
+      }
     }
   }
-  for (const issue of getCategoryCrossSectionIssues(formState)) {
-    errors.push(issue);
-  }
   return errors;
+}
+
+function getChangedSectionKeys(
+  formState: ConfigDocument,
+  originalConfig: ConfigDocument | null,
+  pendingRenames: Map<string, string>
+): string[] {
+  const flattenedOriginal = flatten(originalConfig ?? {});
+  const flattenedCurrent = flatten(formState);
+  const sections = new Set<string>();
+
+  for (const [key, value] of Object.entries(flattenedCurrent)) {
+    if (!equal(value, flattenedOriginal[key])) {
+      sections.add(key.split(".")[0] ?? key);
+    }
+  }
+  for (const key of Object.keys(flattenedOriginal)) {
+    if (!(key in flattenedCurrent)) {
+      sections.add(key.split(".")[0] ?? key);
+    }
+  }
+  for (const [oldName] of pendingRenames) {
+    sections.add(oldName);
+    const newName = pendingRenames.get(oldName);
+    if (newName) {
+      sections.add(newName);
+    }
+  }
+  for (const [key, value] of Object.entries(originalConfig ?? {})) {
+    if (
+      !(key in formState) &&
+      SERVARR_SECTION_REGEX.test(key) &&
+      value &&
+      typeof value === "object"
+    ) {
+      sections.add(key);
+    }
+  }
+
+  return [...sections];
+}
+
+function buildSectionChanges(
+  formState: ConfigDocument,
+  originalConfig: ConfigDocument | null,
+  sectionKey: string,
+  pendingRenames: Map<string, string>
+): Record<string, unknown> {
+  const flattenedOriginal = flatten(originalConfig ?? {});
+  const flattenedCurrent = flatten(formState);
+  const changes: Record<string, unknown> = {};
+  const prefix = `${sectionKey}.`;
+
+  for (const [key, value] of Object.entries(flattenedCurrent)) {
+    if (key !== sectionKey && !key.startsWith(prefix)) {
+      continue;
+    }
+    const originalValue = flattenedOriginal[key];
+    if (!equal(value, originalValue)) {
+      changes[key] = value;
+    }
+  }
+
+  for (const key of Object.keys(flattenedOriginal)) {
+    if ((key === sectionKey || key.startsWith(prefix)) && !(key in flattenedCurrent)) {
+      changes[key] = null;
+    }
+  }
+
+  for (const [oldName, newName] of pendingRenames) {
+    if (oldName !== sectionKey && newName !== sectionKey) {
+      continue;
+    }
+    for (const key of Object.keys(flattenedOriginal)) {
+      if (key === oldName || key.startsWith(`${oldName}.`)) {
+        if (!(key in changes)) {
+          changes[key] = null;
+        }
+      }
+    }
+  }
+
+  if (
+    !(sectionKey in formState) &&
+    SERVARR_SECTION_REGEX.test(sectionKey) &&
+    sectionKey in (originalConfig ?? {})
+  ) {
+    changes[sectionKey] = null;
+  }
+
+  return changes;
+}
+
+function prunePendingRenames(
+  pendingRenames: Map<string, string>,
+  savedSectionKeys: Iterable<string> | "all"
+): Map<string, string> {
+  if (savedSectionKeys === "all") {
+    return new Map();
+  }
+  const saved = new Set(savedSectionKeys);
+  const next = new Map(pendingRenames);
+  for (const [oldName, newName] of pendingRenames) {
+    if (saved.has(oldName) || saved.has(newName)) {
+      next.delete(oldName);
+    }
+  }
+  return next;
+}
+
+function sectionKeysFromChanges(changes: Record<string, unknown>): string[] {
+  const sections = new Set<string>();
+  for (const key of Object.keys(changes)) {
+    sections.add(key.split(".")[0] ?? key);
+  }
+  return [...sections];
+}
+
+function buildAllChanges(
+  formState: ConfigDocument,
+  originalConfig: ConfigDocument | null,
+  pendingRenames: Map<string, string>
+): Record<string, unknown> {
+  const flattenedOriginal = flatten(originalConfig ?? {});
+  const flattenedCurrent = flatten(formState);
+  const changes: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(flattenedCurrent)) {
+    const originalValue = flattenedOriginal[key];
+    if (!equal(value, originalValue)) {
+      changes[key] = value;
+    }
+  }
+  for (const key of Object.keys(flattenedOriginal)) {
+    if (!(key in flattenedCurrent)) {
+      changes[key] = null;
+    }
+  }
+  for (const [key, value] of Object.entries(originalConfig ?? {})) {
+    if (
+      !(key in formState) &&
+      SERVARR_SECTION_REGEX.test(key) &&
+      value &&
+      typeof value === "object"
+    ) {
+      changes[key] = null;
+    }
+  }
+  for (const [oldName] of pendingRenames) {
+    for (const key of Object.keys(flattenedOriginal)) {
+      if (key === oldName || key.startsWith(`${oldName}.`)) {
+        if (!(key in changes)) {
+          changes[key] = null;
+        }
+      }
+    }
+  }
+
+  return changes;
+}
+
+function formatValidationErrors(validationErrors: ValidationError[]): string {
+  const formatted = validationErrors
+    .map((error) => `${error.path.join(".")}: ${error.message}`)
+    .join("\n");
+  return validationErrors.length === 1
+    ? formatted
+    : `Please resolve the following issues:\n${formatted}`;
 }
 
 // Note: cloneConfig is no longer needed - using immer's produce for immutable updates
@@ -1664,6 +1933,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   const [formState, setFormState] = useState<ConfigDocument | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [savingSection, setSavingSection] = useState<string | null>(null);
   const [pendingRenames, setPendingRenames] = useState<Map<string, string>>(new Map());
 
   const loadConfig = useCallback(async () => {
@@ -1853,6 +2123,14 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
     if (!anyModalOpen) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        const target = event.target;
+        if (
+          target instanceof HTMLInputElement ||
+          target instanceof HTMLTextAreaElement ||
+          target instanceof HTMLSelectElement
+        ) {
+          return;
+        }
         setActiveArrKey(null);
         setActiveQbitKey(null);
         setSettingsOpen(false);
@@ -2057,68 +2335,13 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
     [formState, push, activeQbitKey]
   );
 
-  const handleSubmit = useCallback(async () => {
-    if (!formState) return;
-    setSaving(true);
-    try {
-      const validationErrors = validateFormState(formState);
-      if (validationErrors.length) {
-        const formatted = validationErrors
-          .map((error) => `${error.path.join(".")}: ${error.message}`)
-          .join("\n");
-        const message =
-          validationErrors.length === 1
-            ? formatted
-            : `Please resolve the following issues:\n${formatted}`;
-        push(message, "error");
-        setSaving(false);
-        return;
-      }
-      const flattenedOriginal = flatten(originalConfig ?? {});
-      const flattenedCurrent = flatten(formState);
-      const changes: Record<string, unknown> = {};
-      for (const [key, value] of Object.entries(flattenedCurrent)) {
-        const originalValue = flattenedOriginal[key];
-        // Use fast-deep-equal for accurate comparison
-        if (!equal(value, originalValue)) {
-          changes[key] = value;
-        }
-      }
-      for (const key of Object.keys(flattenedOriginal)) {
-        if (!(key in flattenedCurrent)) {
-          changes[key] = null;
-        }
-      }
-      // Add top-level tombstones for removed Arr sections to ensure full section deletion.
-      for (const [key, value] of Object.entries(originalConfig ?? {})) {
-        if (
-          !(key in formState) &&
-          SERVARR_SECTION_REGEX.test(key) &&
-          value &&
-          typeof value === "object"
-        ) {
-          changes[key] = null;
-        }
-      }
-      // Explicitly mark all keys under renamed sections for deletion
-      for (const [oldName] of pendingRenames) {
-        for (const key of Object.keys(flattenedOriginal)) {
-          if (key === oldName || key.startsWith(`${oldName}.`)) {
-            // Mark for deletion if not already tracked
-            if (!(key in changes)) {
-              changes[key] = null;
-            }
-          }
-        }
-      }
-      if (Object.keys(changes).length === 0) {
-        push("No changes detected", "info");
-        setSaving(false);
-        return;
-      }
-      const { configReloaded, reloadType, affectedInstances } = await updateConfig({ changes });
-
-      // Build appropriate success message
+  const applyConfigSaveResult = useCallback(
+    async (
+      configReloaded: boolean,
+      reloadType: string,
+      affectedInstances: string[] | undefined,
+      savedSectionKeys: Iterable<string> | "all"
+    ) => {
       let message = "Configuration saved";
       if (reloadType === "full") {
         message += " • All instances reloaded";
@@ -2133,32 +2356,115 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       }
       push(message, "success");
 
-      // Only clear browser cache if backend reloaded (non-frontend-only changes)
-      if (configReloaded && 'caches' in window) {
+      if (configReloaded && "caches" in window) {
         try {
           const cacheNames = await caches.keys();
-          await Promise.all(
-            cacheNames.map(cacheName => caches.delete(cacheName))
-          );
+          await Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)));
         } catch {
           // cache clear failed, non-critical
         }
       }
 
       await loadConfig();
-      // Clear pending renames after successful save and reload
-      setPendingRenames(new Map());
+      setPendingRenames((prev) => prunePendingRenames(prev, savedSectionKeys));
+    },
+    [loadConfig, push]
+  );
+
+  const saveSection = useCallback(
+    async (sectionKey: string): Promise<boolean> => {
+      if (!formState) return false;
+      setSavingSection(sectionKey);
+      try {
+        const validationErrors = validateSectionsForSave(
+          formState,
+          [sectionKey],
+          originalConfig,
+          false
+        );
+        if (validationErrors.length) {
+          push(formatValidationErrors(validationErrors), "error");
+          return false;
+        }
+
+        const changes = buildSectionChanges(
+          formState,
+          originalConfig,
+          sectionKey,
+          pendingRenames
+        );
+        if (Object.keys(changes).length === 0) {
+          push(`No changes detected for ${sectionKey}`, "info");
+          return false;
+        }
+
+        const { configReloaded, reloadType, affectedInstances } = await updateConfig({ changes });
+        const savedKeys = sectionKeysFromChanges(changes);
+        for (const [oldName, newName] of pendingRenames) {
+          if (oldName === sectionKey || newName === sectionKey) {
+            savedKeys.push(oldName, newName);
+          }
+        }
+        await applyConfigSaveResult(
+          configReloaded,
+          reloadType,
+          affectedInstances,
+          savedKeys
+        );
+        return true;
+      } catch (error) {
+        push(
+          error instanceof Error ? error.message : "Failed to update configuration",
+          "error"
+        );
+        return false;
+      } finally {
+        setSavingSection(null);
+      }
+    },
+    [formState, originalConfig, pendingRenames, push, applyConfigSaveResult]
+  );
+
+  const handleSubmit = useCallback(async () => {
+    if (!formState) return;
+    setSaving(true);
+    try {
+      const changedSections = getChangedSectionKeys(formState, originalConfig, pendingRenames);
+      const validationErrors = validateSectionsForSave(
+        formState,
+        changedSections,
+        originalConfig,
+        true
+      );
+      if (validationErrors.length) {
+        push(formatValidationErrors(validationErrors), "error");
+        setSaving(false);
+        return;
+      }
+
+      const changes = buildAllChanges(formState, originalConfig, pendingRenames);
+      if (Object.keys(changes).length === 0) {
+        push("No changes detected", "info");
+        setSaving(false);
+        return;
+      }
+
+      const { configReloaded, reloadType, affectedInstances } = await updateConfig({ changes });
+      await applyConfigSaveResult(
+        configReloaded,
+        reloadType,
+        affectedInstances,
+        "all"
+      );
     } catch (error) {
       push(
-        error instanceof Error
-          ? error.message
-          : "Failed to update configuration",
+        error instanceof Error ? error.message : "Failed to update configuration",
         "error"
       );
     } finally {
       setSaving(false);
     }
-  }, [formState, originalConfig, loadConfig, pendingRenames, push]);
+  }, [formState, originalConfig, pendingRenames, push, applyConfigSaveResult]);
 
   if (loading || !formState) {
     return (
@@ -2249,6 +2555,15 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
                             Delete
                           </button>
                           <button
+                            className="btn secondary"
+                            type="button"
+                            disabled={savingSection === key || saving}
+                            onClick={() => void saveSection(key)}
+                          >
+                            <IconImage src={SaveIcon} />
+                            {savingSection === key ? "Saving..." : "Save"}
+                          </button>
+                          <button
                             className="btn primary"
                             type="button"
                             onClick={() => setActiveQbitKey(key)}
@@ -2323,6 +2638,15 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
                                   </button>
                                 ) : null}
                                 <button
+                                  className="btn secondary"
+                                  type="button"
+                                  disabled={savingSection === key || saving}
+                                  onClick={() => void saveSection(key)}
+                                >
+                                  <IconImage src={SaveIcon} />
+                                  {savingSection === key ? "Saving..." : "Save"}
+                                </button>
+                                <button
                                   className="btn primary"
                                   type="button"
                                   onClick={() => setActiveArrKey(key)}
@@ -2360,6 +2684,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           onChange={handleFieldChange}
           onRename={handleRenameSection}
           onClose={() => setActiveArrKey(null)}
+          onSave={() => saveSection(activeArrKey)}
           overlapWarnings={categoryOverlapWarnings}
         />
       ) : null}
@@ -2405,6 +2730,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           onChange={handleFieldChange}
           onRename={handleRenameQbitSection}
           onClose={() => setActiveQbitKey(null)}
+          onSave={() => saveSection(activeQbitKey)}
           onDelete={() => deleteQbitInstance(activeQbitKey)}
           overlapWarnings={categoryOverlapWarnings}
         />
@@ -2519,58 +2845,101 @@ function DurationInput({
   const display = parseDurationDisplay(value, nativeUnit, fallback);
   const [num, setNum] = useState(display.number);
   const [unit, setUnit] = useState<DurationUnit>(display.unit);
-  // rawInput tracks the user's in-progress text; null when not actively editing
   const [rawInput, setRawInput] = useState<string | null>(null);
   const isEditing = useRef(false);
+  const unitDirty = useRef(false);
 
   useEffect(() => {
     if (!isEditing.current) {
       const d = parseDurationDisplay(value, nativeUnit, fallback);
       queueMicrotask(() => {
         setNum(d.number);
-        setUnit(d.unit);
+        if (!unitDirty.current) {
+          setUnit(d.unit);
+        }
       });
     }
   }, [value, nativeUnit, fallback]);
 
   const handleNumChange = (raw: string) => {
-    // Only allow numeric characters, optional leading minus, optional decimal
     if (raw !== "" && !NUMERIC_INPUT_RE.test(raw)) return;
     setRawInput(raw);
-    // Don't commit empty or incomplete strings — wait until blur
     if (raw === "" || raw === "-") return;
     const n = Number(raw);
     if (!Number.isFinite(n)) return;
     setNum(n);
+    unitDirty.current = false;
     const out = durationDisplayToValue(n, unit, nativeUnit, allowNegative);
     onChange(out);
   };
 
   const handleUnitChange = (newUnit: DurationUnit) => {
     setUnit(newUnit);
-    const out = durationDisplayToValue(num, newUnit, nativeUnit, allowNegative);
+    unitDirty.current = true;
+    if (rawInput === "" || rawInput === "-") {
+      return;
+    }
+    const effectiveNum = rawInput !== null ? Number(rawInput) : num;
+    if (!Number.isFinite(effectiveNum)) {
+      return;
+    }
+    setNum(effectiveNum);
+    unitDirty.current = false;
+    const out = durationDisplayToValue(effectiveNum, newUnit, nativeUnit, allowNegative);
     onChange(out);
   };
 
   const handleFocus = () => {
     isEditing.current = true;
-    // When field shows "Disabled" (-1), clear to empty so user can type a value
+    unitDirty.current = false;
     setRawInput(num === -1 && allowNegative ? "" : String(num));
   };
 
   const handleBlur = () => {
     isEditing.current = false;
+    const pendingRaw = rawInput;
     setRawInput(null);
-    // Revert to the last externally-committed value (reverts empty/invalid edits)
+
+    if (pendingRaw === "" && allowNegative) {
+      unitDirty.current = false;
+      setNum(-1);
+      onChange(-1);
+      return;
+    }
+
+    if (pendingRaw === "" || pendingRaw === "-") {
+      const d = parseDurationDisplay(value, nativeUnit, fallback);
+      setNum(d.number);
+      if (!unitDirty.current) {
+        setUnit(d.unit);
+      }
+      unitDirty.current = false;
+      return;
+    }
+
+    unitDirty.current = false;
     const d = parseDurationDisplay(value, nativeUnit, fallback);
     setNum(d.number);
     setUnit(d.unit);
   };
 
-  // While editing show the raw string; otherwise show the formatted display value
-  const displayVal = rawInput !== null
-    ? rawInput
-    : (num === -1 && allowNegative ? "Disabled" : String(num));
+  const handleSetDisabled = () => {
+    if (!allowNegative) return;
+    isEditing.current = false;
+    unitDirty.current = false;
+    setRawInput(null);
+    setNum(-1);
+    setUnit("s");
+    onChange(-1);
+  };
+
+  const isDisabledValue = num === -1 && allowNegative && rawInput === null;
+  const displayVal =
+    rawInput !== null ? rawInput : isDisabledValue ? "" : String(num);
+  const inputPlaceholder =
+    allowNegative && (isDisabledValue || rawInput === "")
+      ? "Disabled"
+      : placeholder;
 
   return (
     <div className="duration-input">
@@ -2580,7 +2949,7 @@ function DurationInput({
         onFocus={handleFocus}
         onBlur={handleBlur}
         onChange={(e) => handleNumChange(e.target.value)}
-        placeholder={placeholder}
+        placeholder={inputPlaceholder}
       />
       <select
         value={unit}
@@ -2593,6 +2962,15 @@ function DurationInput({
           </option>
         ))}
       </select>
+      {allowNegative ? (
+        <button
+          type="button"
+          className="btn small ghost duration-input__disabled"
+          onClick={handleSetDisabled}
+        >
+          Use disabled
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -3271,12 +3649,17 @@ function ArrTorrentSummary({
   );
 }
 
+function ConfigModalPortal({ children }: { children: React.ReactNode }): JSX.Element {
+  return createPortal(children, document.body);
+}
+
 interface ArrInstanceModalProps {
   keyName: string;
   state: ConfigDocument | ConfigDocument[keyof ConfigDocument] | null;
   onChange: (path: string[], def: FieldDefinition, value: unknown) => void;
   onRename: (oldName: string, newName: string) => void;
   onClose: () => void;
+  onSave: () => Promise<boolean>;
   overlapWarnings: string[];
 }
 
@@ -3286,6 +3669,7 @@ function ArrInstanceModal({
   onChange,
   onRename,
   onClose,
+  onSave,
   overlapWarnings,
 }: ArrInstanceModalProps): JSX.Element {
   const { generalFields, entryFields, entryOmbiFields, entryOverseerrFields, torrentFields, seedingFields, trackerFields } =
@@ -3301,6 +3685,7 @@ function ArrInstanceModal({
   const [qualityProfiles, setQualityProfiles] = useState<
     Array<{ id: number; name: string }>
   >([]);
+  const [savingModal, setSavingModal] = useState(false);
 
   // Helper to get value from state
   const getValue = (path: string[]): unknown => {
@@ -3387,43 +3772,49 @@ function ArrInstanceModal({
     }
   }
 
-  // Handle save with connection test
   const handleSave = async () => {
-    const uri = getValue(["URI"]) as string;
-    const apiKey = getValue(["APIKey"]) as string;
+    if (savingModal) return;
+    setSavingModal(true);
+    try {
+      const uri = getValue(["URI"]) as string;
+      const apiKey = getValue(["APIKey"]) as string;
+      const managed = Boolean(getValue(["Managed"]));
 
-    // If credentials exist, test connection before saving
-    if (uri && apiKey) {
-      const success = await handleTestConnection(false);
-      if (success) {
-        push("Configuration saved successfully", "success");
+      if (managed && uri && apiKey) {
+        const success = await handleTestConnection(false);
+        if (!success) {
+          return;
+        }
+      }
+
+      const saved = await onSave();
+      if (saved) {
         onClose();
       }
-      // If unsuccessful, stay open so user can fix config
-    } else {
-      // No credentials to test, just close
-      onClose();
+    } finally {
+      setSavingModal(false);
     }
   };
 
   return (
-    <div className="modal-backdrop" role="presentation">
-      <div
-        className="modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="arr-instance-modal-title"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="modal-header">
-          <h2 id="arr-instance-modal-title">
-            Configure <code>{keyName}</code>
-          </h2>
-          <button className="btn ghost" type="button" onClick={onClose}>
-            <IconImage src={CloseIcon} />
-            Close
-          </button>
-        </div>
+    <ConfigModalPortal>
+      <div className="modal-backdrop" role="presentation">
+        <div
+          className="modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="arr-instance-modal-title"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="modal-header">
+            <h2 id="arr-instance-modal-title">
+              Configure <code>{keyName}</code>
+            </h2>
+            <button className="btn ghost" type="button" onClick={safeClick(onClose)}>
+              <IconImage src={CloseIcon} />
+              Close
+            </button>
+          </div>
         <div className="modal-body">
           <ArrTorrentSummary state={state} />
           <CategoryOverlapAlert messages={overlapWarnings} />
@@ -3548,13 +3939,19 @@ function ArrInstanceModal({
               "Test"
             )}
           </button>
-          <button className="btn primary" type="button" onClick={handleSave}>
+          <button
+            className="btn primary"
+            type="button"
+            onClick={() => void handleSave()}
+            disabled={savingModal || testState.testing}
+          >
             <IconImage src={SaveIcon} />
-            Save
+            {savingModal ? "Saving..." : "Save"}
           </button>
         </div>
       </div>
     </div>
+    </ConfigModalPortal>
   );
 }
 
@@ -3583,6 +3980,7 @@ interface QbitInstanceModalProps {
   onChange: (path: string[], def: FieldDefinition, value: unknown) => void;
   onRename: (oldName: string, newName: string) => void;
   onClose: () => void;
+  onSave: () => Promise<boolean>;
   onDelete?: () => void;
   overlapWarnings: string[];
 }
@@ -3593,27 +3991,44 @@ function QbitInstanceModal({
   onChange,
   onRename,
   onClose,
+  onSave,
   onDelete,
   overlapWarnings,
 }: QbitInstanceModalProps): JSX.Element {
+  const [savingModal, setSavingModal] = useState(false);
+
+  const handleDone = async () => {
+    if (savingModal) return;
+    setSavingModal(true);
+    try {
+      const saved = await onSave();
+      if (saved) {
+        onClose();
+      }
+    } finally {
+      setSavingModal(false);
+    }
+  };
+
   return (
-    <div className="modal-backdrop" role="presentation">
-      <div
-        className="modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="qbit-instance-modal-title"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="modal-header">
-          <h2 id="qbit-instance-modal-title">
-            Configure <code>{keyName}</code>
-          </h2>
-          <button className="btn ghost" type="button" onClick={onClose}>
-            <IconImage src={CloseIcon} />
-            Close
-          </button>
-        </div>
+    <ConfigModalPortal>
+      <div className="modal-backdrop" role="presentation">
+        <div
+          className="modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="qbit-instance-modal-title"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="modal-header">
+            <h2 id="qbit-instance-modal-title">
+              Configure <code>{keyName}</code>
+            </h2>
+            <button className="btn ghost" type="button" onClick={safeClick(onClose)}>
+              <IconImage src={CloseIcon} />
+              Close
+            </button>
+          </div>
         <div className="modal-body">
           <QbitTorrentSummary state={state} />
           <CategoryOverlapAlert messages={overlapWarnings} />
@@ -3642,22 +4057,28 @@ function QbitInstanceModal({
             <button
               className="btn danger"
               type="button"
-              onClick={() => {
+              onClick={safeClick(() => {
                 onDelete();
                 onClose();
-              }}
+              })}
             >
               <IconImage src={DeleteIcon} />
               Delete
             </button>
           )}
-          <button className="btn primary" type="button" onClick={onClose}>
+          <button
+            className="btn primary"
+            type="button"
+            onClick={() => void handleDone()}
+            disabled={savingModal}
+          >
             <IconImage src={SaveIcon} />
-            Done
+            {savingModal ? "Saving..." : "Save"}
           </button>
         </div>
       </div>
     </div>
+    </ConfigModalPortal>
   );
 }
 
@@ -3686,21 +4107,22 @@ function SimpleConfigModal({
 
   if (!state) return null;
   return (
-    <div className="modal-backdrop" role="presentation">
-      <div
-        className="modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={`${title}-modal-title`}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="modal-header">
-          <h2 id={`${title}-modal-title`}>{title}</h2>
-          <button className="btn ghost" type="button" onClick={onClose}>
-            <IconImage src={CloseIcon} />
-            Close
-          </button>
-        </div>
+    <ConfigModalPortal>
+      <div className="modal-backdrop" role="presentation">
+        <div
+          className="modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={`${title}-modal-title`}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="modal-header">
+            <h2 id={`${title}-modal-title`}>{title}</h2>
+            <button className="btn ghost" type="button" onClick={safeClick(onClose)}>
+              <IconImage src={CloseIcon} />
+              Close
+            </button>
+          </div>
         <div className="modal-body">
           <FieldGroup
             title={null}
@@ -3779,13 +4201,14 @@ function SimpleConfigModal({
           )}
         </div>
         <div className="modal-footer">
-          <button className="btn primary" type="button" onClick={onClose}>
+          <button className="btn primary" type="button" onClick={safeClick(onClose)}>
             <IconImage src={SaveIcon} />
             Done
           </button>
         </div>
       </div>
     </div>
+    </ConfigModalPortal>
   );
 }
 
@@ -3831,22 +4254,23 @@ function SetPasswordModal({ onClose }: SetPasswordModalProps): JSX.Element {
   };
 
   return (
-    <div className="modal-backdrop" role="presentation">
-      <div
-        className="modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="set-password-modal-title"
-        onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: 480 }}
-      >
-        <div className="modal-header">
-          <h2 id="set-password-modal-title">Set Password</h2>
-          <button className="btn ghost" type="button" onClick={onClose}>
-            <IconImage src={CloseIcon} />
-            Close
-          </button>
-        </div>
+    <ConfigModalPortal>
+      <div className="modal-backdrop" role="presentation">
+        <div
+          className="modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="set-password-modal-title"
+          onClick={(e) => e.stopPropagation()}
+          style={{ maxWidth: 480 }}
+        >
+          <div className="modal-header">
+            <h2 id="set-password-modal-title">Set Password</h2>
+            <button className="btn ghost" type="button" onClick={safeClick(onClose)}>
+              <IconImage src={CloseIcon} />
+              Close
+            </button>
+          </div>
         <div className="modal-body">
           {success ? (
             <div style={{ padding: "1rem 0", color: "var(--success)" }}>
@@ -3907,7 +4331,12 @@ function SetPasswordModal({ onClose }: SetPasswordModalProps): JSX.Element {
               </div>
               {error && <div style={{ color: "var(--danger)", fontSize: "0.875rem" }}>{error}</div>}
               <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
-                <button className="btn ghost" type="button" onClick={onClose} disabled={submitting}>
+                <button
+                  className="btn ghost"
+                  type="button"
+                  onClick={safeClick(onClose)}
+                  disabled={submitting}
+                >
                   Cancel
                 </button>
                 <button className="btn primary" type="submit" disabled={submitting}>
@@ -3919,12 +4348,13 @@ function SetPasswordModal({ onClose }: SetPasswordModalProps): JSX.Element {
         </div>
         {success && (
           <div className="modal-footer">
-            <button className="btn primary" type="button" onClick={onClose}>
+            <button className="btn primary" type="button" onClick={safeClick(onClose)}>
               Close
             </button>
           </div>
         )}
       </div>
     </div>
+    </ConfigModalPortal>
   );
 }

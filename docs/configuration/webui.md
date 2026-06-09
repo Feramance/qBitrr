@@ -260,6 +260,37 @@ BehindHttpsProxy = true
 
 ---
 
+## UrlBase
+
+```toml
+UrlBase = ""
+```
+
+**Type:** String (URL path)
+**Default:** `""` (site root)
+
+Public path prefix when qBitrr is served behind a reverse proxy on a subpath instead of a dedicated subdomain.
+
+**Examples:**
+
+| UrlBase | UI URL |
+|---------|--------|
+| `""` | `https://host/ui` |
+| `"/qbitrr"` | `https://host/qbitrr/ui` |
+
+**Rules:**
+
+- Must start with `/` when set (e.g. `/qbitrr`, not `qbitrr`)
+- Must **not** end with a trailing slash
+- Set this to match the path your reverse proxy exposes publicly
+
+When `UrlBase` is set, qBitrr prefixes redirects, session cookies, OIDC callback URLs, and WebUI API calls accordingly. The React app reads the prefix from the page URL and `/web/meta`.
+
+!!! tip "OIDC under a subpath"
+    Register the redirect URI as `https://your-host<UrlBase><CallbackPath>` — for example `https://example.com/qbitrr/signin-oidc` when `UrlBase = "/qbitrr"` and `CallbackPath = "/signin-oidc"`.
+
+---
+
 ## LiveArr
 
 ```toml
@@ -403,12 +434,14 @@ ViewDensity = "Comfortable"
 
 ---
 
-### Example 3: Localhost Only (with Reverse Proxy)
+### Example 3: Subpath Behind Reverse Proxy
 
 ```toml
 [WebUI]
 Host = "127.0.0.1"
 Port = 6969
+UrlBase = "/qbitrr"
+BehindHttpsProxy = true
 Token = ""  # Reverse proxy handles auth
 LiveArr = true
 GroupSonarr = true
@@ -417,17 +450,21 @@ Theme = "Dark"
 ViewDensity = "Comfortable"
 ```
 
-**Nginx reverse proxy:**
+**Nginx reverse proxy** (prefix-stripping `proxy_pass` — most common):
 
 ```nginx
 location /qbitrr/ {
     proxy_pass http://127.0.0.1:6969/;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
 }
 ```
 
 **Access:** `https://yourdomain.com/qbitrr/ui`
+
+`UrlBase` must match the public path (`/qbitrr`). Nginx strips the prefix before forwarding to qBitrr; the app still generates browser-facing URLs under `/qbitrr/...`.
 
 ---
 
@@ -450,7 +487,14 @@ Theme = "Dark"
 
 ## Reverse Proxy Configuration
 
-### Nginx
+### Subpath vs dedicated host
+
+| Deployment | `UrlBase` | Typical proxy |
+|------------|-----------|---------------|
+| Dedicated host (`qbitrr.example.com`) | `""` | `location / { proxy_pass http://127.0.0.1:6969; }` |
+| Shared host subpath (`example.com/qbitrr`) | `"/qbitrr"` | `location /qbitrr/ { proxy_pass http://127.0.0.1:6969/; }` |
+
+### Nginx (dedicated host)
 
 ```nginx
 server {

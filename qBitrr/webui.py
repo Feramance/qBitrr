@@ -48,6 +48,78 @@ _openapi_spec: dict[str, Any] | None = None
 _openapi_spec_api_only: dict[str, Any] | None = None
 
 
+def normalize_url_base(value: str | None) -> str:
+    """Normalize WebUI.UrlBase to '' or a leading-slash path without trailing slash."""
+    if not value:
+        return ""
+    raw = str(value).strip()
+    if not raw:
+        return ""
+    if not raw.startswith("/"):
+        raw = f"/{raw}"
+    return raw.rstrip("/")
+
+
+def configured_url_base() -> str:
+    """Return the configured public URL path prefix for the WebUI."""
+    return normalize_url_base(CONFIG.get("WebUI.UrlBase", fallback=""))
+
+
+def _forwarded_url_prefix(environ: dict[str, Any]) -> str:
+    """Read public path prefix set by a reverse proxy (strip-mode deployments)."""
+    for header in ("HTTP_X_FORWARDED_PREFIX", "HTTP_X_SCRIPT_NAME"):
+        raw = environ.get(header, "")
+        if not raw:
+            continue
+        return normalize_url_base(raw.split(",")[0].strip())
+    return ""
+
+
+def _merge_script_name(environ: dict[str, Any], prefix: str) -> None:
+    """Set SCRIPT_NAME so Flask generates browser-facing URLs under UrlBase."""
+    if not prefix:
+        return
+    existing = environ.get("SCRIPT_NAME", "").rstrip("/")
+    if existing == prefix or existing.endswith(prefix):
+        return
+    environ["SCRIPT_NAME"] = f"{existing}{prefix}" if existing else prefix
+
+
+class UrlBaseMiddleware:
+    """Normalize UrlBase for WSGI: strip incoming prefix or honor proxy strip headers."""
+
+    def __init__(self, app: Any) -> None:
+        self._app = app
+
+    def __call__(self, environ: dict[str, Any], start_response: Any) -> Any:
+        prefix = configured_url_base()
+        path = environ.get("PATH_INFO", "") or "/"
+        if not prefix:
+            return self._app(environ, start_response)
+
+        forwarded_prefix = _forwarded_url_prefix(environ)
+        if path == prefix or path.startswith(f"{prefix}/"):
+            _merge_script_name(environ, prefix)
+            stripped = path[len(prefix) :]
+            environ["PATH_INFO"] = stripped or "/"
+        elif forwarded_prefix == prefix:
+            _merge_script_name(environ, prefix)
+        return self._app(environ, start_response)
+
+
+def _unwrap_url_base_middleware(wsgi_app: Any) -> Any:
+    """Return the WSGI app below any stacked UrlBaseMiddleware layers."""
+    while isinstance(wsgi_app, UrlBaseMiddleware):
+        wsgi_app = wsgi_app._app
+    return wsgi_app
+
+
+def _install_url_base_middleware(app: Flask) -> None:
+    """Ensure exactly one UrlBaseMiddleware wraps the current WSGI stack."""
+    inner = _unwrap_url_base_middleware(app.wsgi_app)
+    app.wsgi_app = UrlBaseMiddleware(inner)
+
+
 def _openapi_path_in_api_first_spec(path: str) -> bool:
     """Paths exposed in the filtered OpenAPI doc (Swagger): `/api/*` plus mirrored poster thumbnails."""
     if not path.startswith("/web/"):
@@ -300,6 +372,9 @@ class WebUI:
         self.host = host
         self.port = port
         self.app = Flask(__name__)
+        url_base = configured_url_base()
+        if url_base:
+            self.app.config["APPLICATION_ROOT"] = url_base
         self.logger = logging.getLogger("qBitrr.WebUI")
         run_logs(self.logger, "WebUI")
         self.logger.info("Initialising WebUI on %s:%s", self.host, self.port)
@@ -330,21 +405,7 @@ class WebUI:
 
             self.app.wsgi_app = ProxyFix(self.app.wsgi_app, x_for=1, x_proto=1)
 
-        class _QbitrrPrefixMiddleware:
-            """Support both / and /qbitrr path topologies behind reverse proxies."""
-
-            def __init__(self, app):
-                self._app = app
-
-            def __call__(self, environ, start_response):
-                path = environ.get("PATH_INFO", "")
-                if path == "/qbitrr" or path.startswith("/qbitrr/"):
-                    environ["SCRIPT_NAME"] = f"{environ.get('SCRIPT_NAME', '')}/qbitrr".rstrip("/")
-                    stripped = path[len("/qbitrr") :]
-                    environ["PATH_INFO"] = stripped or "/"
-                return self._app(environ, start_response)
-
-        self.app.wsgi_app = _QbitrrPrefixMiddleware(self.app.wsgi_app)
+        _install_url_base_middleware(self.app)
 
         # Add cache control and security headers
         @self.app.after_request
@@ -382,13 +443,17 @@ class WebUI:
         # Flask session config (HttpOnly signed cookies for web login)
         # Keep session signing separate from bearer token auth.
         self.app.secret_key = secrets.token_hex(32)
-        self.app.config.update(
-            SESSION_COOKIE_NAME="qbitrr_session",
-            SESSION_COOKIE_HTTPONLY=True,
-            SESSION_COOKIE_SAMESITE="Lax",
-            SESSION_COOKIE_SECURE=bool(CONFIG.get("WebUI.BehindHttpsProxy", fallback=False)),
-            PERMANENT_SESSION_LIFETIME=timedelta(days=7),
-        )
+        session_config: dict[str, Any] = {
+            "SESSION_COOKIE_NAME": "qbitrr_session",
+            "SESSION_COOKIE_HTTPONLY": True,
+            "SESSION_COOKIE_SAMESITE": "Lax",
+            "SESSION_COOKIE_SECURE": bool(CONFIG.get("WebUI.BehindHttpsProxy", fallback=False)),
+            "PERMANENT_SESSION_LIFETIME": timedelta(days=7),
+        }
+        url_base = configured_url_base()
+        if url_base:
+            session_config["SESSION_COOKIE_PATH"] = f"{url_base}/"
+        self.app.config.update(session_config)
 
         # OIDC via Authlib
         self._oauth = OAuth(self.app)
@@ -2025,10 +2090,15 @@ class WebUI:
         def health():
             return jsonify({"status": "ok"})
 
+        def _public_url(path: str) -> str:
+            if not path.startswith("/"):
+                path = f"/{path}"
+            prefix = request.script_root.rstrip("/") or configured_url_base()
+            return f"{prefix}{path}" if prefix else path
+
         @app.get("/")
         def index():
-            prefix = request.script_root.rstrip("/")
-            return redirect(f"{prefix}/ui" if prefix else "/ui")
+            return redirect(_public_url("/ui"))
 
         def _get_supplied_token() -> str | None:
             _webui_logger = logging.getLogger("qBitrr.WebUI")
@@ -2096,13 +2166,13 @@ class WebUI:
         def api_swagger_docs():
             if (resp := require_token()) is not None:
                 return resp
-            return _swagger_ui_response("/api/openapi.json")
+            return _swagger_ui_response(_public_url("/api/openapi.json"))
 
         @app.get("/web/docs")
         def web_swagger_docs():
             if (resp := require_token()) is not None:
                 return resp
-            return _swagger_ui_response("/web/openapi.json")
+            return _swagger_ui_response(_public_url("/web/openapi.json"))
 
         @app.get("/ui")
         def ui_index():
@@ -2110,9 +2180,7 @@ class WebUI:
             # Add cache-busting parameter based on config reload timestamp
             from flask import make_response
 
-            prefix = request.script_root.rstrip("/")
-            target = f"{prefix}/static/index.html" if prefix else "/static/index.html"
-            response = make_response(redirect(target))
+            response = make_response(redirect(_public_url("/static/index.html")))
             # Prevent caching of the UI entry point
             response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
             response.headers["Pragma"] = "no-cache"
@@ -2137,8 +2205,7 @@ class WebUI:
 
         @app.get("/login")
         def login_page():
-            prefix = request.script_root.rstrip("/")
-            return redirect(f"{prefix}/ui" if prefix else "/ui")
+            return redirect(_public_url("/ui"))
 
         @app.post("/web/login")
         def web_login():
@@ -2230,13 +2297,14 @@ class WebUI:
         def web_oidc_challenge():
             if not _oidc_enabled():
                 return jsonify({"error": "OIDC not configured"}), 400
-            redirect_uri = request.host_url.rstrip("/") + oidc_callback_path
+            url_base = configured_url_base()
+            redirect_uri = request.host_url.rstrip("/") + url_base + oidc_callback_path
             return self._oauth.oidc.authorize_redirect(redirect_uri)
 
         @app.get(oidc_callback_path)
         def web_oidc_callback():
             if not _oidc_enabled():
-                return redirect("/ui")
+                return redirect(_public_url("/ui"))
             try:
                 token = self._oauth.oidc.authorize_access_token()
                 userinfo = token.get("userinfo") or self._oauth.oidc.userinfo()
@@ -2249,8 +2317,8 @@ class WebUI:
                 self.logger.info("User %s logged in via OIDC", username)
             except Exception:
                 self.logger.warning("OIDC callback failed", exc_info=True)
-                return redirect("/ui?auth_error=1")
-            return redirect("/ui")
+                return redirect(_public_url("/ui?auth_error=1"))
+            return redirect(_public_url("/ui"))
 
         def _processes_payload() -> dict[str, Any]:
             procs = []
@@ -3332,6 +3400,7 @@ class WebUI:
             stored_hash = (CONFIG.get("WebUI.PasswordHash", fallback="") or "").strip()
             setup_required = auth_required and not stored_hash and not oidc_enabled
             result["setup_required"] = setup_required
+            result["url_base"] = configured_url_base()
             return jsonify(result)
 
         def _handle_update():
@@ -3662,6 +3731,7 @@ class WebUI:
                 "WebUI.Host",
                 "WebUI.Port",
                 "WebUI.Token",
+                "WebUI.UrlBase",
                 "WebUI.AuthDisabled",
                 "WebUI.BehindHttpsProxy",
                 "WebUI.LocalAuthEnabled",
@@ -3709,6 +3779,8 @@ class WebUI:
                 # Never overwrite a real secret with the redaction placeholder from the client
                 if _is_sensitive_dotted_key(key) and str(val).strip() == REDACTED_PLACEHOLDER:
                     continue
+                if key == "WebUI.UrlBase":
+                    val = normalize_url_base(str(val) if val is not None else "")
                 _toml_set(CONFIG.config, key, val)
                 if key == "WebUI.Token":
                     # Update in-memory token immediately
@@ -4094,6 +4166,16 @@ class WebUI:
             # Clear rebuilding flag
             self._rebuilding_arrs = False
 
+    def _apply_webui_runtime_settings(self) -> None:
+        """Refresh UrlBase middleware and session cookie path from current config."""
+        _install_url_base_middleware(self.app)
+        url_base = configured_url_base()
+        if url_base:
+            self.app.config["APPLICATION_ROOT"] = url_base
+        else:
+            self.app.config.pop("APPLICATION_ROOT", None)
+        self.app.config["SESSION_COOKIE_PATH"] = f"{url_base}/" if url_base else "/"
+
     def _restart_webui(self):
         """
         Gracefully restart the WebUI server without affecting Arr processes.
@@ -4111,6 +4193,9 @@ class WebUI:
         new_host = CONFIG.get("WebUI.Host", fallback="0.0.0.0")
         new_port = CONFIG.get("WebUI.Port", fallback=6969)
         new_token = CONFIG.get("WebUI.Token", fallback=None)
+
+        # UrlBase and related settings apply without binding a new port
+        self._apply_webui_runtime_settings()
 
         # Check if restart is actually needed
         needs_restart = new_host != self.host or new_port != self.port

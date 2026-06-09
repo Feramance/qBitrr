@@ -11,6 +11,15 @@ export default defineConfig({
     fs: {
       allow: [resolve(__dirname, "..")],
     },
+    proxy: {
+      "/web": "http://127.0.0.1:6969",
+      "/api": "http://127.0.0.1:6969",
+      "/ui": "http://127.0.0.1:6969",
+      "/static": "http://127.0.0.1:6969",
+      "/sw.js": "http://127.0.0.1:6969",
+      "/login": "http://127.0.0.1:6969",
+      "/health": "http://127.0.0.1:6969",
+    },
   },
   build: {
     outDir: resolve(__dirname, "../qBitrr/static"),

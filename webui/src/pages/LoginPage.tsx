@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { login, setPassword, AuthError } from "../api/client";
+import { webPath } from "../api/urlBase";
 
 interface LoginPageProps {
   onSuccess: () => void;
@@ -126,7 +127,7 @@ export function LoginPage({ onSuccess, localAuthEnabled, oidcEnabled, setupRequi
               <div className="oidc-section">
                 {localAuthEnabled && <div className="login-divider">or</div>}
                 <a
-                  href="/web/auth/oidc/challenge"
+                  href={webPath("/web/auth/oidc/challenge")}
                   className="btn ghost login-oidc-btn"
                 >
                   Sign in with SSO

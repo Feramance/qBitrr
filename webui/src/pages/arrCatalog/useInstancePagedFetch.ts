@@ -118,8 +118,11 @@ export function useInstancePagedFetch<
 
   const pagesRef = useRef<Record<number, ReadonlyArray<TInstRow>>>({});
   const keyRef = useRef<string>("");
+  const fetchGenRef = useRef(0);
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
+  const selectionRef = useRef(selection);
+  selectionRef.current = selection;
   const prevSelectionRef = useRef<string | null>(selection);
   const sawNonEmptyRef = useRef(false);
   const stableEmptyStreakRef = useRef(0);
@@ -150,6 +153,7 @@ export function useInstancePagedFetch<
       options: { showLoading?: boolean } = {},
     ) => {
       const showLoading = options.showLoading ?? true;
+      const gen = ++fetchGenRef.current;
       if (showLoading) setLoading(true);
       try {
         const currentFilters = filtersRef.current;
@@ -183,6 +187,12 @@ export function useInstancePagedFetch<
           requestQuery,
           currentFilters,
         );
+        if (
+          gen !== fetchGenRef.current ||
+          selectionRef.current !== category
+        ) {
+          return;
+        }
         setLatestResponse(response);
         const extracted = adapter.extractPage(response);
         const resolvedPage = Math.max(
@@ -253,7 +263,9 @@ export function useInstancePagedFetch<
           "error",
         );
       } finally {
-        if (showLoading) setLoading(false);
+        if (showLoading && gen === fetchGenRef.current) {
+          setLoading(false);
+        }
       }
     },
     // `useDataSync` returns a new object each render; depend on stable callbacks only.

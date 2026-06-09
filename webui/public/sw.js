@@ -50,6 +50,14 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+function pathIncludesApi(pathname) {
+  return pathname === '/api' || pathname.startsWith('/api/') || pathname.includes('/api/');
+}
+
+function pathIncludesWebLogs(pathname) {
+  return pathname.includes('/web/logs/');
+}
+
 // Fetch event - network-first strategy for API calls, cache-first for assets
 self.addEventListener('fetch', (event) => {
   const { request } = event;
@@ -61,12 +69,12 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Skip log file requests - they can be very large and shouldn't be cached
-  if (url.pathname.startsWith('/web/logs/') && !url.pathname.endsWith('/download')) {
+  if (pathIncludesWebLogs(url.pathname) && !url.pathname.endsWith('/download')) {
     return;
   }
 
   // Network-first for API calls
-  if (url.pathname.startsWith('/api/')) {
+  if (pathIncludesApi(url.pathname)) {
     event.respondWith(
       fetch(request)
         .then((response) => {

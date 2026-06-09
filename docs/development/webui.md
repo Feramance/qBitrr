@@ -16,7 +16,9 @@ npm run dev
 # Visit http://localhost:5173
 ```
 
-The development server proxies API requests to http://localhost:6969 where qBitrr backend should be running.
+The development server proxies `/web`, `/api`, `/ui`, `/static`, and related paths to `http://127.0.0.1:6969` where the qBitrr backend should be running.
+
+For subpath deployments (`WebUI.UrlBase`), test against the built bundle served by Flask (`npm run build`, then open `http://localhost:6969/ui` or `http://localhost:6969/qbitrr/ui` with `UrlBase` set) rather than the Vite dev server alone.
 
 ## Tech Stack
 
@@ -26,8 +28,8 @@ The development server proxies API requests to http://localhost:6969 where qBitr
 - **TypeScript** - Type-safe JavaScript
 - **Vite** - Fast build tool with HMR
 - **Mantine v8** - Component library
-- **React Router** - Client-side routing
-- **Axios** - HTTP client
+- **fetch API** - HTTP client (`src/api/client.ts`)
+- **urlBase helper** - Prefixes API paths when `WebUI.UrlBase` is set (`src/api/urlBase.ts`)
 
 ### State Management
 
@@ -54,7 +56,8 @@ webui/
 │   └── ...
 ├── src/
 │   ├── api/                # API client
-│   │   ├── client.ts       # Axios instance
+│   │   ├── client.ts       # fetch wrapper
+│   │   ├── urlBase.ts      # UrlBase path prefix helper
 │   │   └── types.ts        # TypeScript interfaces
 │   ├── components/         # Reusable components
 │   │   ├── ConfirmDialog.tsx
