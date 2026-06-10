@@ -2351,6 +2351,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
         message += ` • Reloaded: ${affectedInstances.join(", ")}`;
       } else if (reloadType === "webui") {
         message += " • WebUI restarting...";
+        window.setTimeout(() => window.location.reload(), 500);
       } else if (reloadType === "frontend") {
         message += " • Theme/display settings updated";
       }

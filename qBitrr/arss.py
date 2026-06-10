@@ -157,6 +157,16 @@ def _parse_qbittorrent_tag_list(tags_str: str | None) -> set[str]:
     return {p.strip() for p in tags_str.split(",") if p.strip()}
 
 
+def _prune_instance_hash_map(mapping: dict[str, set[str]], hashes: set[str]) -> None:
+    """Remove hashes from a per-instance map, dropping empty instance buckets."""
+    if not hashes:
+        return
+    for inst_name in list(mapping):
+        mapping[inst_name] -= hashes
+        if not mapping[inst_name]:
+            del mapping[inst_name]
+
+
 def _normalize_media_status(value: int | str | None) -> str:
     """Normalise Overseerr media status values across API versions."""
     int_mapping = {
@@ -597,7 +607,7 @@ class Arr:
         self.files_probed = set()
         self.import_torrents = []
         self.change_priority = {}
-        self.recheck = set()
+        self.recheck_by_instance: dict[str, set[str]] = {}
         self.pause = set()
         self.skip_blacklist = set()
         self.delete = set()
@@ -1983,16 +1993,43 @@ class Arr:
                         ).on_conflict_ignore()
 
     def _process_errored(self) -> None:
-        # Recheck all torrents marked for rechecking.
-        if self.recheck:
-            self.needs_cleanup = True
-            updated_recheck = list(self.recheck)
-            self.manager.qbit.torrents_recheck(torrent_hashes=updated_recheck)
+        # Recheck all torrents marked for rechecking on their owning qBit instance.
+        if not self.recheck_by_instance:
+            return
+        self.needs_cleanup = True
+        qbit_manager = self.manager.qbit_manager
+        still_pending: dict[str, set[str]] = {}
+        for instance_name, hashes in self.recheck_by_instance.items():
+            if not hashes:
+                continue
+            client = qbit_manager.get_client(instance_name)
+            if client is None:
+                self.logger.warning(
+                    "Cannot recheck %d torrent(s) on qBit instance '%s': no client",
+                    len(hashes),
+                    instance_name,
+                )
+                still_pending[instance_name] = set(hashes)
+                continue
+            updated_recheck = list(hashes)
+            try:
+                self._qbit_retry(
+                    lambda c=client, h=updated_recheck: c.torrents_recheck(torrent_hashes=h)
+                )
+            except _QBIT_TORRENT_DELETE_EXCEPTIONS as e:
+                self.logger.error(
+                    "Failed to recheck %d torrent(s) on qBit instance '%s': %s",
+                    len(updated_recheck),
+                    instance_name,
+                    e,
+                )
+                still_pending[instance_name] = set(hashes)
+                continue
             for k in updated_recheck:
                 if k not in self.timed_ignore_cache_2:
                     self.timed_ignore_cache_2.add(k)
                     self.timed_ignore_cache.add(k)
-            self.recheck.clear()
+        self.recheck_by_instance = still_pending
 
     def _log_deletion_summary_line(self) -> None:
         n_delete = len(self.delete)
@@ -2085,9 +2122,7 @@ class Arr:
         for inst_name, hashes in self.delete_by_instance.items():
             if hashes:
                 per_instance_batches.setdefault(inst_name, set()).update(hashes)
-        per_instance_hashes = set()
-        for hashes in per_instance_batches.values():
-            per_instance_hashes.update(hashes)
+        per_instance_deleted: set[str] = set()
         qbit_manager = self.manager.qbit_manager
         for inst_name, hashes in per_instance_batches.items():
             client = qbit_manager.get_client(inst_name)
@@ -2102,6 +2137,7 @@ class Arr:
                 self._qbit_retry(
                     lambda c=client, h=list(hashes): c.torrents_delete(hashes=h, delete_files=True)
                 )
+                per_instance_deleted.update(hashes)
                 self._evict_hashes_from_qbit_side_caches(hashes)
             except _QBIT_TORRENT_DELETE_EXCEPTIONS as e:
                 self.logger.error(
@@ -2110,12 +2146,12 @@ class Arr:
                     inst_name,
                     e,
                 )
-        self.remove_from_qbit_by_instance.clear()
-        self.delete_by_instance.clear()
-        to_delete_all = to_delete_all - per_instance_hashes
+        _prune_instance_hash_map(self.remove_from_qbit_by_instance, per_instance_deleted)
+        _prune_instance_hash_map(self.delete_by_instance, per_instance_deleted)
+        to_delete_all = to_delete_all - per_instance_deleted
+        deleted_hashes: set[str] = set()
         if self.remove_from_qbit or self.skip_blacklist or to_delete_all:
             # Remove all bad torrents from the Client.
-            deleted_hashes: set[str] = set()
             if to_delete_all:
                 try:
                     self._qbit_retry(
@@ -2148,12 +2184,14 @@ class Arr:
                 else:
                     deleted_hashes.update(temp_to_delete)
             self._evict_hashes_from_qbit_side_caches(deleted_hashes)
-        if self.missing_files_post_delete or self.downloads_with_bad_error_message_blocklist:
-            self.missing_files_post_delete.clear()
-            self.downloads_with_bad_error_message_blocklist.clear()
-        self.skip_blacklist.clear()
-        self.remove_from_qbit.clear()
-        self.delete.clear()
+        all_deleted = per_instance_deleted | deleted_hashes
+        if self.missing_files_post_delete:
+            self.missing_files_post_delete -= all_deleted
+        if self.downloads_with_bad_error_message_blocklist:
+            self.downloads_with_bad_error_message_blocklist -= all_deleted
+        self.skip_blacklist -= all_deleted
+        self.remove_from_qbit -= all_deleted
+        self.delete -= all_deleted
 
     def _process_file_priority(self) -> None:
         # Set all files marked as "Do not download" to not download.
@@ -5757,7 +5795,9 @@ class Arr:
     ):
         self._mark_for_deletion(torrent, "manually failed", instance_name=instance_name)
 
-    def _process_single_torrent_recheck_cat(self, torrent: qbittorrentapi.TorrentDictionary):
+    def _process_single_torrent_recheck_cat(
+        self, torrent: qbittorrentapi.TorrentDictionary, instance_name: str = "default"
+    ):
         self.logger.notice(
             "Re-checking manually set torrent: "
             "[Progress: %s%%][Added On: %s]"
@@ -5773,7 +5813,7 @@ class Arr:
             torrent.name,
             torrent.hash,
         )
-        self.recheck.add(torrent.hash)
+        self.recheck_by_instance.setdefault(instance_name, set()).add(torrent.hash)
 
     def _mark_for_deletion(
         self,
@@ -5992,7 +6032,9 @@ class Arr:
             torrent.hash,
         )
 
-    def _process_single_torrent_errored(self, torrent: qbittorrentapi.TorrentDictionary):
+    def _process_single_torrent_errored(
+        self, torrent: qbittorrentapi.TorrentDictionary, instance_name: str = "default"
+    ):
         self.logger.trace(
             "Rechecking Errored torrent: "
             "[Progress: %s%%][Added On: %s]"
@@ -6008,7 +6050,7 @@ class Arr:
             torrent.name,
             torrent.hash,
         )
-        self.recheck.add(torrent.hash)
+        self.recheck_by_instance.setdefault(instance_name, set()).add(torrent.hash)
 
     def _process_single_torrent_fully_completed_torrent(
         self,
@@ -6964,7 +7006,7 @@ class Arr:
             self._process_single_torrent_failed_cat(torrent, instance_name)
         elif torrent.category == RECHECK_CATEGORY:
             # Bypass everything else if manually marked for rechecking
-            self._process_single_torrent_recheck_cat(torrent)
+            self._process_single_torrent_recheck_cat(torrent, instance_name)
         elif self._is_missing_files_torrent(torrent):
             # Missing-files (and ERROR+missingFiles): bypass all other processing, delete from client.
             self._process_single_torrent_missing_files(torrent, instance_name)
@@ -7051,7 +7093,7 @@ class Arr:
         # Sometimes torrents will error, this causes them to be rechecked so they
         # complete downloading.
         elif torrent.state_enum == TorrentStates.ERROR:
-            self._process_single_torrent_errored(torrent)
+            self._process_single_torrent_errored(torrent, instance_name)
         # If a torrent was not just added,
         # and the amount left to download is 0 and the torrent
         # is Paused tell the Arr tools to process it.
@@ -8174,7 +8216,7 @@ class PlaceHolderArr(Arr):
         self.files_to_cleanup = set()
         self.import_torrents = []
         self.change_priority = {}
-        self.recheck = set()
+        self.recheck_by_instance: dict[str, set[str]] = {}
         self.pause = set()
         self.skip_blacklist = set()
         self.remove_from_qbit = set()
@@ -8367,9 +8409,7 @@ class PlaceHolderArr(Arr):
         for inst_name, hashes in self.delete_by_instance.items():
             if hashes:
                 per_instance_batches.setdefault(inst_name, set()).update(hashes)
-        per_instance_hashes = set()
-        for hashes in per_instance_batches.values():
-            per_instance_hashes.update(hashes)
+        per_instance_deleted: set[str] = set()
         # Delete per-instance so we use the correct qBit client.
         for instance_name, hashes in per_instance_batches.items():
             client = qbit_manager.get_client(instance_name)
@@ -8388,6 +8428,7 @@ class PlaceHolderArr(Arr):
                     max_backoff=3,
                     exceptions=_QBIT_TORRENT_DELETE_EXCEPTIONS,
                 )
+                per_instance_deleted.update(hashes)
                 deleted_hashes.update(hashes)
             except _QBIT_TORRENT_DELETE_EXCEPTIONS as e:
                 self.logger.error(
@@ -8396,10 +8437,12 @@ class PlaceHolderArr(Arr):
                     instance_name,
                     e,
                 )
-        to_delete_all = to_delete_all - per_instance_hashes
+        _prune_instance_hash_map(self.remove_from_qbit_by_instance, per_instance_deleted)
+        _prune_instance_hash_map(self.delete_by_instance, per_instance_deleted)
+        to_delete_all = to_delete_all - per_instance_deleted
+        temp_to_delete: set[str] = set()
         # Remaining remove_from_qbit/skip_blacklist and to_delete_all via default client.
         if self.remove_from_qbit or self.skip_blacklist or to_delete_all:
-            temp_to_delete = set()
             if to_delete_all:
                 if self.manager.qbit:
                     try:
@@ -8450,54 +8493,69 @@ class PlaceHolderArr(Arr):
                     )
             cleaned_hashes = deleted_hashes.union(temp_to_delete)
             self._evict_hashes_from_qbit_side_caches(cleaned_hashes)
-        if self.missing_files_post_delete or self.downloads_with_bad_error_message_blocklist:
-            self.missing_files_post_delete.clear()
-            self.downloads_with_bad_error_message_blocklist.clear()
-        self.skip_blacklist.clear()
-        self.remove_from_qbit.clear()
-        self.remove_from_qbit_by_instance.clear()
-        self.delete_by_instance.clear()
-        self.delete.clear()
+        all_deleted = deleted_hashes | temp_to_delete
+        if self.missing_files_post_delete:
+            self.missing_files_post_delete -= all_deleted
+        if self.downloads_with_bad_error_message_blocklist:
+            self.downloads_with_bad_error_message_blocklist -= all_deleted
+        self.skip_blacklist -= all_deleted
+        self.remove_from_qbit -= all_deleted
+        self.delete -= all_deleted
 
     def _process_errored(self):
-        # Recheck all torrents marked for rechecking.
-        if not self.recheck:
+        # Recheck all torrents marked for rechecking on their owning qBit instance.
+        if not self.recheck_by_instance:
             return
-        temp = defaultdict(list)
-        updated_recheck = []
-        for h in self.recheck:
-            updated_recheck.append(h)
-            if c := self.manager.qbit_manager.cache.get(h):
-                temp[c].append(h)
-        with contextlib.suppress(Exception):
-            with_retry(
-                lambda: self.manager.qbit.torrents_recheck(torrent_hashes=updated_recheck),
-                retries=3,
-                backoff=0.5,
-                max_backoff=3,
-                exceptions=(
-                    qbittorrentapi.exceptions.APIError,
-                    qbittorrentapi.exceptions.APIConnectionError,
-                    requests.exceptions.RequestException,
-                ),
-            )
-        for k, v in temp.items():
-            with contextlib.suppress(Exception):
+        qbit_manager = self.manager.qbit_manager
+        still_pending: dict[str, set[str]] = {}
+        for instance_name, hashes in self.recheck_by_instance.items():
+            if not hashes:
+                continue
+            client = qbit_manager.get_client(instance_name)
+            if client is None:
+                self.logger.warning(
+                    "Cannot recheck %d torrent(s) on qBit instance '%s': no client",
+                    len(hashes),
+                    instance_name,
+                )
+                still_pending[instance_name] = set(hashes)
+                continue
+            temp = defaultdict(list)
+            updated_recheck = list(hashes)
+            for h in updated_recheck:
+                if c := qbit_manager.cache.get(h):
+                    temp[c].append(h)
+            try:
                 with_retry(
-                    lambda: self.manager.qbit.torrents_set_category(torrent_hashes=v, category=k),
+                    lambda c=client, h=updated_recheck: c.torrents_recheck(torrent_hashes=h),
                     retries=3,
                     backoff=0.5,
                     max_backoff=3,
-                    exceptions=(
-                        qbittorrentapi.exceptions.APIError,
-                        qbittorrentapi.exceptions.APIConnectionError,
-                        requests.exceptions.RequestException,
-                    ),
+                    exceptions=_QBIT_TORRENT_DELETE_EXCEPTIONS,
                 )
-
-        for k in updated_recheck:
-            self.timed_ignore_cache.add(k)
-        self.recheck.clear()
+            except _QBIT_TORRENT_DELETE_EXCEPTIONS as e:
+                self.logger.error(
+                    "Failed to recheck %d torrent(s) on qBit instance '%s': %s",
+                    len(updated_recheck),
+                    instance_name,
+                    e,
+                )
+                still_pending[instance_name] = set(hashes)
+                continue
+            for category, torrent_hashes in temp.items():
+                with contextlib.suppress(Exception):
+                    with_retry(
+                        lambda c=client, cat=category, hs=torrent_hashes: c.torrents_set_category(
+                            torrent_hashes=hs, category=cat
+                        ),
+                        retries=3,
+                        backoff=0.5,
+                        max_backoff=3,
+                        exceptions=_QBIT_TORRENT_DELETE_EXCEPTIONS,
+                    )
+            for k in updated_recheck:
+                self.timed_ignore_cache.add(k)
+        self.recheck_by_instance = still_pending
 
     def process(self):
         self._process_resume()
