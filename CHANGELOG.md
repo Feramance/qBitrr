@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### 🐛 Bug Fixes
+- **Multi-instance delete retry**: Retain torrents in `delete_by_instance` when per-instance qBittorrent deletion fails, instead of clearing pending state and leaving orphan torrents (regression from v5.12.3 per-instance routing).
+- **Multi-instance recheck routing**: Route errored and manually recheck-marked torrents through the owning qBittorrent client instead of always using the default instance.
+- **WebUI UrlBase cache**: Reload the page after WebUI config saves (UrlBase, port, auth) so the SPA picks up the new URL prefix instead of serving API 404s until a manual hard refresh.
+
+---
+
 ## v5.12.4 (09/06/2026)
 
 ### 🐛 Bug Fixes
