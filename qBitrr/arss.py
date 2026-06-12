@@ -7403,7 +7403,10 @@ class Arr:
                     with database_lock():
                         with_database_retry(
                             lambda: self.model_queue.delete()
-                            .where(self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
+                            .where(
+                                (self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
+                                & (self.model_queue.ArrInstance == self._name)
+                            )
                             .execute(),
                             logger=self.logger,
                         )
@@ -7418,7 +7421,10 @@ class Arr:
                     with database_lock():
                         with_database_retry(
                             lambda: self.model_queue.delete()
-                            .where(self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
+                            .where(
+                                (self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
+                                & (self.model_queue.ArrInstance == self._name)
+                            )
                             .execute(),
                             logger=self.logger,
                         )
