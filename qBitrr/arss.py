@@ -8420,9 +8420,7 @@ class PlaceHolderArr(Arr):
                     instance_name,
                     e,
                 )
-        _prune_hashes_from_instance_map(
-            self.remove_from_qbit_by_instance, deleted_hashes
-        )
+        _prune_hashes_from_instance_map(self.remove_from_qbit_by_instance, deleted_hashes)
         _prune_hashes_from_instance_map(self.delete_by_instance, deleted_hashes)
         self.delete -= deleted_hashes
         to_delete_all = to_delete_all - per_instance_attempted_hashes
