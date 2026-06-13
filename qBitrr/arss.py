@@ -187,6 +187,18 @@ def _is_media_processing(status: str) -> bool:
     return status in {"PROCESSING", "PARTIALLY_AVAILABLE"}
 
 
+def _prune_hashes_from_instance_map(
+    mapping: dict[str, set[str]], hashes_to_remove: set[str]
+) -> None:
+    """Drop deleted hashes from per-instance sets and remove empty instance keys."""
+    if not hashes_to_remove:
+        return
+    for inst in list(mapping):
+        mapping[inst] -= hashes_to_remove
+        if not mapping[inst]:
+            del mapping[inst]
+
+
 if TYPE_CHECKING:
     from qBitrr.main import qBitManager
 
@@ -2085,9 +2097,10 @@ class Arr:
         for inst_name, hashes in self.delete_by_instance.items():
             if hashes:
                 per_instance_batches.setdefault(inst_name, set()).update(hashes)
-        per_instance_hashes = set()
+        per_instance_attempted_hashes: set[str] = set()
         for hashes in per_instance_batches.values():
-            per_instance_hashes.update(hashes)
+            per_instance_attempted_hashes.update(hashes)
+        per_instance_deleted_hashes: set[str] = set()
         qbit_manager = self.manager.qbit_manager
         for inst_name, hashes in per_instance_batches.items():
             client = qbit_manager.get_client(inst_name)
@@ -2102,6 +2115,7 @@ class Arr:
                 self._qbit_retry(
                     lambda c=client, h=list(hashes): c.torrents_delete(hashes=h, delete_files=True)
                 )
+                per_instance_deleted_hashes.update(hashes)
                 self._evict_hashes_from_qbit_side_caches(hashes)
             except _QBIT_TORRENT_DELETE_EXCEPTIONS as e:
                 self.logger.error(
@@ -2110,9 +2124,12 @@ class Arr:
                     inst_name,
                     e,
                 )
-        self.remove_from_qbit_by_instance.clear()
-        self.delete_by_instance.clear()
-        to_delete_all = to_delete_all - per_instance_hashes
+        _prune_hashes_from_instance_map(
+            self.remove_from_qbit_by_instance, per_instance_deleted_hashes
+        )
+        _prune_hashes_from_instance_map(self.delete_by_instance, per_instance_deleted_hashes)
+        self.delete -= per_instance_deleted_hashes
+        to_delete_all = to_delete_all - per_instance_attempted_hashes
         if self.remove_from_qbit or self.skip_blacklist or to_delete_all:
             # Remove all bad torrents from the Client.
             deleted_hashes: set[str] = set()
@@ -4276,7 +4293,8 @@ class Arr:
                         ):
                             searched = True
                             self.model_queue.update(Completed=True).where(
-                                self.model_queue.EntryId == db_entry["id"]
+                                (self.model_queue.EntryId == db_entry["id"])
+                                & (self.model_queue.ArrInstance == self._name)
                             ).execute()
 
                         # Note: Lidarr quality profiles are set at artist level, not album level.
@@ -7403,7 +7421,10 @@ class Arr:
                     with database_lock():
                         with_database_retry(
                             lambda: self.model_queue.delete()
-                            .where(self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
+                            .where(
+                                (self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
+                                & (self.model_queue.ArrInstance == self._name)
+                            )
                             .execute(),
                             logger=self.logger,
                         )
@@ -7418,7 +7439,10 @@ class Arr:
                     with database_lock():
                         with_database_retry(
                             lambda: self.model_queue.delete()
-                            .where(self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
+                            .where(
+                                (self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
+                                & (self.model_queue.ArrInstance == self._name)
+                            )
                             .execute(),
                             logger=self.logger,
                         )
@@ -8367,9 +8391,9 @@ class PlaceHolderArr(Arr):
         for inst_name, hashes in self.delete_by_instance.items():
             if hashes:
                 per_instance_batches.setdefault(inst_name, set()).update(hashes)
-        per_instance_hashes = set()
+        per_instance_attempted_hashes: set[str] = set()
         for hashes in per_instance_batches.values():
-            per_instance_hashes.update(hashes)
+            per_instance_attempted_hashes.update(hashes)
         # Delete per-instance so we use the correct qBit client.
         for instance_name, hashes in per_instance_batches.items():
             client = qbit_manager.get_client(instance_name)
@@ -8396,7 +8420,12 @@ class PlaceHolderArr(Arr):
                     instance_name,
                     e,
                 )
-        to_delete_all = to_delete_all - per_instance_hashes
+        _prune_hashes_from_instance_map(
+            self.remove_from_qbit_by_instance, deleted_hashes
+        )
+        _prune_hashes_from_instance_map(self.delete_by_instance, deleted_hashes)
+        self.delete -= deleted_hashes
+        to_delete_all = to_delete_all - per_instance_attempted_hashes
         # Remaining remove_from_qbit/skip_blacklist and to_delete_all via default client.
         if self.remove_from_qbit or self.skip_blacklist or to_delete_all:
             temp_to_delete = set()
@@ -8455,8 +8484,6 @@ class PlaceHolderArr(Arr):
             self.downloads_with_bad_error_message_blocklist.clear()
         self.skip_blacklist.clear()
         self.remove_from_qbit.clear()
-        self.remove_from_qbit_by_instance.clear()
-        self.delete_by_instance.clear()
         self.delete.clear()
 
     def _process_errored(self):
