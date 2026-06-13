@@ -1,5 +1,17 @@
 # Changelog
 
+## v5.12.5 (13/06/2026)
+
+### 🐛 Bug Fixes
+- [[patch] Multi-instance delete retry, recheck routing, and UrlBase cache fixes](https://github.com/Feramance/qBitrr/commit/6f342037249e4e4cde1129829468dfc18104e74c) - @Feramance
+- [fix: retain failed per-instance deletes and route recheck to owning qBit client](https://github.com/Feramance/qBitrr/commit/61569c113f197faac7589eb030f9dbb97a66c9ad) - @Feramance
+
+### 🔧 Maintenance
+- [test: add multi-instance delete/recheck unit tests and changelog](https://github.com/Feramance/qBitrr/commit/343258a6a1cb81f5d59ab1b261517df593fccc9e) - @Feramance
+- [Further release flow updates](https://github.com/Feramance/qBitrr/commit/d8c60afaa7b029a4230246616d5a82b8eb7edb85) - @Feramance
+
+---
+
 ## Unreleased
 
 ### 🐛 Bug Fixes
