@@ -1,5 +1,21 @@
 # Changelog
 
+## v5.12.6 (15/06/2026)
+
+### 🐛 Bug Fixes
+- [[patch] Dependabot webui dependency bumps and other bug fixes](https://github.com/Feramance/qBitrr/commit/d45efba660e99e48791338dae5d19222f4c22893) - @Feramance
+- [fix: keep pause/resume_by_instance as defaultdict after processing (#467)](https://github.com/Feramance/qBitrr/commit/3e2217763bd2258eed7234e2b38a5cfdb0ca1ad9) - @Feramance
+- [fix: multi-instance delete/pause routing and Radarr/Lidarr queue scoping (#464)](https://github.com/Feramance/qBitrr/commit/7073146a5452fe4e510e06784e236859f7259e83) - @Feramance
+
+### 🔧 Maintenance
+- [Build(deps): Bump react-hook-form from 7.78.0 to 7.79.0 in /webui (#458)](https://github.com/Feramance/qBitrr/commit/7a8823b4ffe4fe07697c47c600c9f5c16435688c) - @Feramance
+- [Build(deps-dev): Bump eslint from 10.4.1 to 10.5.0 in /webui (#457)](https://github.com/Feramance/qBitrr/commit/7adb8db299cdf9676f421fc4aaf4f042e9a4ef3f) - @Feramance
+- [Build(deps-dev): Bump eslint-plugin-react-refresh from 0.5.2 to 0.5.3 in /webui (#460)](https://github.com/Feramance/qBitrr/commit/3fa7655740ad8e5bb03c07afcb9236c127d81b12) - @Feramance
+- [Build(deps-dev): Bump @tailwindcss/postcss from 4.3.0 to 4.3.1 in /webui (#456)](https://github.com/Feramance/qBitrr/commit/1a163d0a7dcd8751b91e401c0976ca7d565e360b) - @Feramance
+- [Build(deps-dev): Bump @types/node from 25.9.2 to 25.9.3 in /webui (#455)](https://github.com/Feramance/qBitrr/commit/751c871b9f8588cd8a512fbf6aa784f4669d304e) - @Feramance
+
+---
+
 ## v5.12.5 (13/06/2026)
 
 ### 🐛 Bug Fixes
