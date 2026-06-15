@@ -4408,7 +4408,8 @@ class Arr:
                         ):
                             searched = True
                             self.model_queue.update(Completed=True).where(
-                                self.model_queue.EntryId == db_entry["id"]
+                                (self.model_queue.EntryId == db_entry["id"])
+                                & (self.model_queue.ArrInstance == self._name)
                             ).execute()
 
                         # Note: Lidarr quality profiles are set at artist level, not album level.
@@ -7541,7 +7542,10 @@ class Arr:
                     with database_lock():
                         with_database_retry(
                             lambda: self.model_queue.delete()
-                            .where(self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
+                            .where(
+                                (self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
+                                & (self.model_queue.ArrInstance == self._name)
+                            )
                             .execute(),
                             logger=self.logger,
                         )
@@ -7556,7 +7560,10 @@ class Arr:
                     with database_lock():
                         with_database_retry(
                             lambda: self.model_queue.delete()
-                            .where(self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
+                            .where(
+                                (self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
+                                & (self.model_queue.ArrInstance == self._name)
+                            )
                             .execute(),
                             logger=self.logger,
                         )
