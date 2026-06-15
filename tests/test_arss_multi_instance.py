@@ -228,6 +228,30 @@ class TestArrPauseResumeRouting(unittest.TestCase):
         arr.manager.qbit.torrents_resume.assert_not_called()
         self.assertEqual(arr.resume_by_instance, {})
 
+    def test_pause_by_instance_stays_defaultdict_after_success(self) -> None:
+        arr = _bare_arr()
+        arr.pause_by_instance = defaultdict(set, {"vpn": {"hash1"}})
+        client = MagicMock()
+        arr.manager.qbit_manager.get_client.return_value = client
+
+        with patch("qBitrr.arss.with_retry", side_effect=lambda fn, **_: fn()):
+            arr._process_paused()
+
+        arr.pause_by_instance["vpn"].add("hash2")
+        self.assertEqual(arr.pause_by_instance["vpn"], {"hash2"})
+
+    def test_resume_by_instance_stays_defaultdict_after_success(self) -> None:
+        arr = _bare_arr()
+        arr.resume_by_instance = defaultdict(set, {"vpn": {"hash1"}})
+        client = MagicMock()
+        arr.manager.qbit_manager.get_client.return_value = client
+
+        with patch("qBitrr.arss.with_retry", side_effect=lambda fn, **_: fn()):
+            arr._process_resume()
+
+        arr.resume_by_instance["seedbox"].add("hash2")
+        self.assertEqual(arr.resume_by_instance["seedbox"], {"hash2"})
+
 
 def _bare_placeholder_arr() -> PlaceHolderArr:
     """Build a PlaceHolderArr with only the attributes needed for pause tests."""
