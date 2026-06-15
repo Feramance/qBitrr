@@ -200,7 +200,7 @@ class TestArrPauseResumeRouting(unittest.TestCase):
         arr.manager.qbit_manager.get_client.assert_called_once_with("vpn")
         client.torrents_pause.assert_called_once_with(torrent_hashes=["hash1"])
         arr.manager.qbit.torrents_pause.assert_not_called()
-        self.assertEqual(arr.pause_by_instance, {})
+        self.assertEqual(dict(arr.pause_by_instance), {})
 
     def test_retains_pause_on_failure(self) -> None:
         arr = _bare_arr()
@@ -226,7 +226,7 @@ class TestArrPauseResumeRouting(unittest.TestCase):
         arr.manager.qbit_manager.get_client.assert_called_once_with("vpn")
         client.torrents_resume.assert_called_once_with(torrent_hashes=["hash1"])
         arr.manager.qbit.torrents_resume.assert_not_called()
-        self.assertEqual(arr.resume_by_instance, {})
+        self.assertEqual(dict(arr.resume_by_instance), {})
 
     def test_pause_by_instance_stays_defaultdict_after_success(self) -> None:
         arr = _bare_arr()
