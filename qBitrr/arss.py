@@ -167,6 +167,15 @@ def _prune_instance_hash_map(mapping: dict[str, set[str]], hashes: set[str]) -> 
             del mapping[inst_name]
 
 
+def _collect_instance_hash_map_hashes(*maps: dict[str, set[str]]) -> set[str]:
+    """Return all hashes still queued across one or more per-instance maps."""
+    pending: set[str] = set()
+    for mapping in maps:
+        for hashes in mapping.values():
+            pending.update(hashes)
+    return pending
+
+
 def _normalize_media_status(value: int | str | None) -> str:
     """Normalise Overseerr media status values across API versions."""
     int_mapping = {
@@ -609,9 +618,11 @@ class Arr:
         self.change_priority = {}
         self.recheck_by_instance: dict[str, set[str]] = {}
         self.pause = set()
+        self.pause_by_instance: dict[str, set[str]] = defaultdict(set)
         self.skip_blacklist = set()
         self.delete = set()
         self.resume = set()
+        self.resume_by_instance: dict[str, set[str]] = defaultdict(set)
         self.remove_from_qbit = set()
         self.remove_from_qbit_by_instance: dict[str, set[str]] = {}
         self.delete_by_instance: dict[str, set[str]] = {}
@@ -1677,14 +1688,47 @@ class Arr:
         return data
 
     def _process_paused(self) -> None:
-        # Bulks pause all torrents flagged for pausing.
-        if self.pause and AUTO_PAUSE_RESUME:
+        # Pause torrents on their owning qBittorrent instance.
+        if not AUTO_PAUSE_RESUME:
+            return
+        qbit_manager = self.manager.qbit_manager
+        still_pending: dict[str, set[str]] = {}
+        if self.pause_by_instance:
             self.needs_cleanup = True
-            self.logger.debug("Pausing %s torrents", len(self.pause))
+            for instance_name, hashes in self.pause_by_instance.items():
+                if not hashes:
+                    continue
+                client = qbit_manager.get_client(instance_name)
+                if client is None:
+                    self.logger.warning(
+                        "Cannot pause %d torrent(s) on qBit instance '%s': no client",
+                        len(hashes),
+                        instance_name,
+                    )
+                    still_pending[instance_name] = set(hashes)
+                    continue
+                for i in hashes:
+                    self.logger.debug("Pausing %s (%s)", i, qbit_manager.name_cache.get(i))
+                try:
+                    with_retry(
+                        lambda c=client, hs=hashes: c.torrents_pause(torrent_hashes=list(hs)),
+                        retries=3,
+                        backoff=0.5,
+                        max_backoff=3,
+                        exceptions=(
+                            qbittorrentapi.exceptions.APIError,
+                            qbittorrentapi.exceptions.APIConnectionError,
+                            requests.exceptions.RequestException,
+                        ),
+                    )
+                except Exception:
+                    still_pending[instance_name] = set(hashes)
+                    continue
+            self.pause_by_instance = still_pending
+        if self.pause:
+            self.needs_cleanup = True
             for i in self.pause:
-                self.logger.debug(
-                    "Pausing %s (%s)", i, self.manager.qbit_manager.name_cache.get(i)
-                )
+                self.logger.debug("Pausing %s (%s)", i, qbit_manager.name_cache.get(i))
             with contextlib.suppress(Exception):
                 with_retry(
                     lambda: self.manager.qbit.torrents_pause(torrent_hashes=list(self.pause)),
@@ -2101,6 +2145,7 @@ class Arr:
         to_delete_all = self.delete.union(
             self.missing_files_post_delete, self.downloads_with_bad_error_message_blocklist
         )
+        queue_delete_targets = set(to_delete_all)
         skip_blacklist = {
             i.upper() for i in self.skip_blacklist.union(self.missing_files_post_delete)
         }
@@ -2113,7 +2158,6 @@ class Arr:
         ):
             self._log_deletion_summary_line()
             self._log_deletion_sample_debug(to_delete_all)
-        self._process_failed_dispatch_queue_deletes(to_delete_all, skip_blacklist, cross_arr=False)
         # Delete torrents from the correct qBit instance (multi-instance).
         per_instance_batches: dict[str, set[str]] = {}
         for inst_name, hashes in self.remove_from_qbit_by_instance.items():
@@ -2148,25 +2192,29 @@ class Arr:
                 )
         _prune_instance_hash_map(self.remove_from_qbit_by_instance, per_instance_deleted)
         _prune_instance_hash_map(self.delete_by_instance, per_instance_deleted)
+        pending_per_instance = _collect_instance_hash_map_hashes(
+            self.delete_by_instance, self.remove_from_qbit_by_instance
+        )
         to_delete_all = to_delete_all - per_instance_deleted
+        to_delete_default = to_delete_all - pending_per_instance
         deleted_hashes: set[str] = set()
-        if self.remove_from_qbit or self.skip_blacklist or to_delete_all:
-            # Remove all bad torrents from the Client.
-            if to_delete_all:
+        if self.remove_from_qbit or self.skip_blacklist or to_delete_default:
+            # Remove remaining torrents via the default client.
+            if to_delete_default:
                 try:
                     self._qbit_retry(
                         lambda: self.manager.qbit.torrents_delete(
-                            hashes=to_delete_all, delete_files=True
+                            hashes=to_delete_default, delete_files=True
                         )
                     )
                 except _QBIT_TORRENT_DELETE_EXCEPTIONS as e:
                     self.logger.error(
                         "Failed to delete %d torrent(s) from qBit: %s",
-                        len(to_delete_all),
+                        len(to_delete_default),
                         e,
                     )
                 else:
-                    deleted_hashes.update(to_delete_all)
+                    deleted_hashes.update(to_delete_default)
             if self.remove_from_qbit or self.skip_blacklist:
                 temp_to_delete = self.remove_from_qbit.union(self.skip_blacklist)
                 try:
@@ -2184,7 +2232,13 @@ class Arr:
                 else:
                     deleted_hashes.update(temp_to_delete)
             self._evict_hashes_from_qbit_side_caches(deleted_hashes)
-        all_deleted = per_instance_deleted | deleted_hashes
+        confirmed_deleted = per_instance_deleted | deleted_hashes
+        dispatch_targets = confirmed_deleted & queue_delete_targets
+        if dispatch_targets:
+            self._process_failed_dispatch_queue_deletes(
+                dispatch_targets, skip_blacklist, cross_arr=False
+            )
+        all_deleted = confirmed_deleted
         if self.missing_files_post_delete:
             self.missing_files_post_delete -= all_deleted
         if self.downloads_with_bad_error_message_blocklist:
@@ -2208,7 +2262,43 @@ class Arr:
             del self.change_priority[hash_]
 
     def _process_resume(self) -> None:
-        if self.resume and AUTO_PAUSE_RESUME:
+        if not AUTO_PAUSE_RESUME:
+            return
+        qbit_manager = self.manager.qbit_manager
+        still_pending: dict[str, set[str]] = {}
+        if self.resume_by_instance:
+            self.needs_cleanup = True
+            for instance_name, hashes in self.resume_by_instance.items():
+                if not hashes:
+                    continue
+                client = qbit_manager.get_client(instance_name)
+                if client is None:
+                    self.logger.warning(
+                        "Cannot resume %d torrent(s) on qBit instance '%s': no client",
+                        len(hashes),
+                        instance_name,
+                    )
+                    still_pending[instance_name] = set(hashes)
+                    continue
+                try:
+                    with_retry(
+                        lambda c=client, hs=hashes: c.torrents_resume(torrent_hashes=list(hs)),
+                        retries=3,
+                        backoff=0.5,
+                        max_backoff=3,
+                        exceptions=(
+                            qbittorrentapi.exceptions.APIError,
+                            qbittorrentapi.exceptions.APIConnectionError,
+                            requests.exceptions.RequestException,
+                        ),
+                    )
+                except Exception:
+                    still_pending[instance_name] = set(hashes)
+                    continue
+                for k in hashes:
+                    self.timed_ignore_cache.add(k)
+            self.resume_by_instance = still_pending
+        if self.resume:
             self.needs_cleanup = True
             self.manager.qbit.torrents_resume(torrent_hashes=self.resume)
             for k in self.resume:
@@ -4314,7 +4404,8 @@ class Arr:
                         ):
                             searched = True
                             self.model_queue.update(Completed=True).where(
-                                self.model_queue.EntryId == db_entry["id"]
+                                (self.model_queue.EntryId == db_entry["id"])
+                                & (self.model_queue.ArrInstance == self._name)
                             ).execute()
 
                         # Note: Lidarr quality profiles are set at artist level, not album level.
@@ -5886,7 +5977,10 @@ class Arr:
         )
 
     def _process_single_torrent_queued_upload(
-        self, torrent: qbittorrentapi.TorrentDictionary, leave_alone: bool
+        self,
+        torrent: qbittorrentapi.TorrentDictionary,
+        leave_alone: bool,
+        instance_name: str = "default",
     ):
         if leave_alone or torrent.state_enum == TorrentStates.FORCED_UPLOAD:
             self.logger.trace(
@@ -5905,7 +5999,7 @@ class Arr:
                 torrent.hash,
             )
         else:
-            self.pause.add(torrent.hash)
+            self.pause_by_instance[instance_name].add(torrent.hash)
             self.logger.trace(
                 "Pausing torrent: Queued Upload | "
                 "[Progress: %s%%][Added On: %s]"
@@ -5994,9 +6088,11 @@ class Arr:
                 torrent.hash,
             )
 
-    def _process_single_torrent_paused(self, torrent: qbittorrentapi.TorrentDictionary):
+    def _process_single_torrent_paused(
+        self, torrent: qbittorrentapi.TorrentDictionary, instance_name: str = "default"
+    ):
         self.timed_ignore_cache.add(torrent.hash)
-        self.resume.add(torrent.hash)
+        self.resume_by_instance[instance_name].add(torrent.hash)
         self.logger.debug(
             "Resuming incomplete paused torrent: "
             "[Progress: %s%%][Added On: %s]"
@@ -6129,7 +6225,10 @@ class Arr:
         self.remove_from_qbit_by_instance.setdefault(instance_name, set()).add(torrent.hash)
 
     def _process_single_torrent_uploading(
-        self, torrent: qbittorrentapi.TorrentDictionary, leave_alone: bool
+        self,
+        torrent: qbittorrentapi.TorrentDictionary,
+        leave_alone: bool,
+        instance_name: str = "default",
     ):
         if leave_alone or torrent.state_enum == TorrentStates.FORCED_UPLOAD:
             self.logger.trace(
@@ -6163,7 +6262,7 @@ class Arr:
                 torrent.name,
                 torrent.hash,
             )
-            self.pause.add(torrent.hash)
+            self.pause_by_instance[instance_name].add(torrent.hash)
 
     def _process_single_torrent_already_cleaned_up(
         self, torrent: qbittorrentapi.TorrentDictionary
@@ -6329,10 +6428,13 @@ class Arr:
         self.cleaned_torrents.add(torrent.hash)
 
     def _process_single_completed_paused_torrent(
-        self, torrent: qbittorrentapi.TorrentDictionary, leave_alone: bool
+        self,
+        torrent: qbittorrentapi.TorrentDictionary,
+        leave_alone: bool,
+        instance_name: str = "default",
     ):
         if leave_alone:
-            self.resume.add(torrent.hash)
+            self.resume_by_instance[instance_name].add(torrent.hash)
             self.logger.trace(
                 "Resuming torrent: "
                 "[Progress: %s%%][Added On: %s]"
@@ -7018,7 +7120,7 @@ class Arr:
             and not self.in_tags(torrent, "qBitrr-free_space_paused", instance_name)
             and not self.in_tags(torrent, "qBitrr-ignored", instance_name)
         ):
-            self.resume.add(torrent.hash)
+            self.resume_by_instance[instance_name].add(torrent.hash)
             self.logger.debug(
                 "Resuming stopped torrent: %s (%s) - State[%s]",
                 torrent.name,
@@ -7046,7 +7148,7 @@ class Arr:
                 and not self.in_tags(torrent, "qBitrr-free_space_paused", instance_name)
                 and not self.in_tags(torrent, "qBitrr-ignored", instance_name)
             ):
-                self.resume.add(torrent.hash)
+                self.resume_by_instance[instance_name].add(torrent.hash)
                 self.logger.debug(
                     "Resuming stopped torrent (in ignore cache): %s (%s) - State[%s]",
                     torrent.name,
@@ -7056,7 +7158,7 @@ class Arr:
             else:
                 self._process_single_torrent_added_to_ignore_cache(torrent)
         elif torrent.state_enum == TorrentStates.QUEUED_UPLOAD:
-            self._process_single_torrent_queued_upload(torrent, leave_alone)
+            self._process_single_torrent_queued_upload(torrent, leave_alone, instance_name)
         # Resume monitored downloads which have been paused.
         elif (
             torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD
@@ -7064,7 +7166,7 @@ class Arr:
             and not self.in_tags(torrent, "qBitrr-free_space_paused", instance_name)
             and not self.in_tags(torrent, "qBitrr-ignored", instance_name)
         ):
-            self._process_single_torrent_paused(torrent)
+            self._process_single_torrent_paused(torrent, instance_name)
         elif (
             torrent.progress <= self.maximum_deletable_percentage
             and not self.is_complete_state(torrent)
@@ -7116,7 +7218,7 @@ class Arr:
             and torrent.content_path
             and self.seeding_mode_global_remove_torrent != -1
         ) and torrent.hash in self.cleaned_torrents:
-            self._process_single_torrent_uploading(torrent, leave_alone)
+            self._process_single_torrent_uploading(torrent, leave_alone, instance_name)
         # Mark a torrent for deletion
         elif (
             torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD
@@ -7152,7 +7254,7 @@ class Arr:
                 # A downloading torrent is not stalled, parse its contents.
                 self._process_single_torrent_process_files(torrent, instance_name=instance_name)
         elif self.is_complete_state(torrent) and leave_alone:
-            self._process_single_completed_paused_torrent(torrent, leave_alone)
+            self._process_single_completed_paused_torrent(torrent, leave_alone, instance_name)
         else:
             self._process_single_torrent_unprocessed(torrent)
 
@@ -7445,7 +7547,10 @@ class Arr:
                     with database_lock():
                         with_database_retry(
                             lambda: self.model_queue.delete()
-                            .where(self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
+                            .where(
+                                (self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
+                                & (self.model_queue.ArrInstance == self._name)
+                            )
                             .execute(),
                             logger=self.logger,
                         )
@@ -7460,7 +7565,10 @@ class Arr:
                     with database_lock():
                         with_database_retry(
                             lambda: self.model_queue.delete()
-                            .where(self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
+                            .where(
+                                (self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
+                                & (self.model_queue.ArrInstance == self._name)
+                            )
                             .execute(),
                             logger=self.logger,
                         )
@@ -8386,6 +8494,7 @@ class PlaceHolderArr(Arr):
         to_delete_all = self.delete.union(
             self.missing_files_post_delete, self.downloads_with_bad_error_message_blocklist
         )
+        queue_delete_targets = set(to_delete_all)
         skip_blacklist = {
             i.upper() for i in self.skip_blacklist.union(self.missing_files_post_delete)
         }
@@ -8399,7 +8508,6 @@ class PlaceHolderArr(Arr):
             return
         self._log_deletion_summary_line()
         self._log_deletion_sample_debug(to_delete_all)
-        self._process_failed_dispatch_queue_deletes(to_delete_all, skip_blacklist, cross_arr=True)
         deleted_hashes: set[str] = set()
         qbit_manager = self.manager.qbit_manager
         per_instance_batches: dict[str, set[str]] = {}
@@ -8439,27 +8547,31 @@ class PlaceHolderArr(Arr):
                 )
         _prune_instance_hash_map(self.remove_from_qbit_by_instance, per_instance_deleted)
         _prune_instance_hash_map(self.delete_by_instance, per_instance_deleted)
+        pending_per_instance = _collect_instance_hash_map_hashes(
+            self.delete_by_instance, self.remove_from_qbit_by_instance
+        )
         to_delete_all = to_delete_all - per_instance_deleted
+        to_delete_default = to_delete_all - pending_per_instance
         temp_to_delete: set[str] = set()
-        # Remaining remove_from_qbit/skip_blacklist and to_delete_all via default client.
-        if self.remove_from_qbit or self.skip_blacklist or to_delete_all:
-            if to_delete_all:
+        # Remaining remove_from_qbit/skip_blacklist and to_delete_default via default client.
+        if self.remove_from_qbit or self.skip_blacklist or to_delete_default:
+            if to_delete_default:
                 if self.manager.qbit:
                     try:
                         with_retry(
                             lambda: self.manager.qbit.torrents_delete(
-                                hashes=to_delete_all, delete_files=True
+                                hashes=to_delete_default, delete_files=True
                             ),
                             retries=3,
                             backoff=0.5,
                             max_backoff=3,
                             exceptions=_QBIT_TORRENT_DELETE_EXCEPTIONS,
                         )
-                        temp_to_delete.update(to_delete_all)
+                        temp_to_delete.update(to_delete_default)
                     except _QBIT_TORRENT_DELETE_EXCEPTIONS as e:
                         self.logger.error(
                             "Failed to delete %d torrent(s) from qBit (to_delete_all): %s",
-                            len(to_delete_all),
+                            len(to_delete_default),
                             e,
                         )
                 else:
@@ -8493,7 +8605,13 @@ class PlaceHolderArr(Arr):
                     )
             cleaned_hashes = deleted_hashes.union(temp_to_delete)
             self._evict_hashes_from_qbit_side_caches(cleaned_hashes)
-        all_deleted = deleted_hashes | temp_to_delete
+        confirmed_deleted = deleted_hashes | temp_to_delete
+        dispatch_targets = confirmed_deleted & queue_delete_targets
+        if dispatch_targets:
+            self._process_failed_dispatch_queue_deletes(
+                dispatch_targets, skip_blacklist, cross_arr=True
+            )
+        all_deleted = confirmed_deleted
         if self.missing_files_post_delete:
             self.missing_files_post_delete -= all_deleted
         if self.downloads_with_bad_error_message_blocklist:
@@ -8877,13 +8995,15 @@ class TorrentPolicyManager(Arr):
     def _process_paused(self) -> None:
         if self.pause_by_instance and AUTO_PAUSE_RESUME:
             self.needs_cleanup = True
+            still_pending: defaultdict[str, set[str]] = defaultdict(set)
             for instance_name, hashes in self.pause_by_instance.items():
                 if not hashes:
                     continue
                 client = self.manager.qbit_manager.get_client(instance_name)
                 if client is None:
+                    still_pending[instance_name].update(hashes)
                     continue
-                with contextlib.suppress(Exception):
+                try:
                     with_retry(
                         lambda c=client, hs=hashes: c.torrents_pause(torrent_hashes=list(hs)),
                         retries=3,
@@ -8895,7 +9015,10 @@ class TorrentPolicyManager(Arr):
                             requests.exceptions.RequestException,
                         ),
                     )
-            self.pause_by_instance.clear()
+                except Exception:
+                    still_pending[instance_name].update(hashes)
+                    continue
+            self.pause_by_instance = still_pending
         # Keep compatibility if any hash was queued in the legacy set path.
         if self.pause and AUTO_PAUSE_RESUME and self.manager.qbit:
             with contextlib.suppress(Exception):
