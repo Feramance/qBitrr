@@ -1708,9 +1708,7 @@ class Arr:
                     still_pending[instance_name] = set(hashes)
                     continue
                 for i in hashes:
-                    self.logger.debug(
-                        "Pausing %s (%s)", i, qbit_manager.name_cache.get(i)
-                    )
+                    self.logger.debug("Pausing %s (%s)", i, qbit_manager.name_cache.get(i))
                 try:
                     with_retry(
                         lambda c=client, hs=hashes: c.torrents_pause(torrent_hashes=list(hs)),
@@ -1730,9 +1728,7 @@ class Arr:
         if self.pause:
             self.needs_cleanup = True
             for i in self.pause:
-                self.logger.debug(
-                    "Pausing %s (%s)", i, qbit_manager.name_cache.get(i)
-                )
+                self.logger.debug("Pausing %s (%s)", i, qbit_manager.name_cache.get(i))
             with contextlib.suppress(Exception):
                 with_retry(
                     lambda: self.manager.qbit.torrents_pause(torrent_hashes=list(self.pause)),
@@ -5981,7 +5977,10 @@ class Arr:
         )
 
     def _process_single_torrent_queued_upload(
-        self, torrent: qbittorrentapi.TorrentDictionary, leave_alone: bool, instance_name: str = "default"
+        self,
+        torrent: qbittorrentapi.TorrentDictionary,
+        leave_alone: bool,
+        instance_name: str = "default",
     ):
         if leave_alone or torrent.state_enum == TorrentStates.FORCED_UPLOAD:
             self.logger.trace(
@@ -6226,7 +6225,10 @@ class Arr:
         self.remove_from_qbit_by_instance.setdefault(instance_name, set()).add(torrent.hash)
 
     def _process_single_torrent_uploading(
-        self, torrent: qbittorrentapi.TorrentDictionary, leave_alone: bool, instance_name: str = "default"
+        self,
+        torrent: qbittorrentapi.TorrentDictionary,
+        leave_alone: bool,
+        instance_name: str = "default",
     ):
         if leave_alone or torrent.state_enum == TorrentStates.FORCED_UPLOAD:
             self.logger.trace(
@@ -6426,7 +6428,10 @@ class Arr:
         self.cleaned_torrents.add(torrent.hash)
 
     def _process_single_completed_paused_torrent(
-        self, torrent: qbittorrentapi.TorrentDictionary, leave_alone: bool, instance_name: str = "default"
+        self,
+        torrent: qbittorrentapi.TorrentDictionary,
+        leave_alone: bool,
+        instance_name: str = "default",
     ):
         if leave_alone:
             self.resume_by_instance[instance_name].add(torrent.hash)
