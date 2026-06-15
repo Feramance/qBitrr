@@ -1692,7 +1692,7 @@ class Arr:
         if not AUTO_PAUSE_RESUME:
             return
         qbit_manager = self.manager.qbit_manager
-        still_pending: dict[str, set[str]] = {}
+        still_pending: defaultdict[str, set[str]] = defaultdict(set)
         if self.pause_by_instance:
             self.needs_cleanup = True
             for instance_name, hashes in self.pause_by_instance.items():
@@ -2265,7 +2265,7 @@ class Arr:
         if not AUTO_PAUSE_RESUME:
             return
         qbit_manager = self.manager.qbit_manager
-        still_pending: dict[str, set[str]] = {}
+        still_pending: defaultdict[str, set[str]] = defaultdict(set)
         if self.resume_by_instance:
             self.needs_cleanup = True
             for instance_name, hashes in self.resume_by_instance.items():
