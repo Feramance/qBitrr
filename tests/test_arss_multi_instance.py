@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import tempfile
 import unittest
 from collections import defaultdict
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import qbittorrentapi
@@ -263,6 +265,66 @@ def _bare_placeholder_arr() -> PlaceHolderArr:
     arr.manager = MagicMock()
     arr.manager.qbit = MagicMock()
     return arr
+
+
+def _bare_arr_for_imports() -> Arr:
+    """Build an Arr with only the attributes needed for _process_imports."""
+    arr = Arr.__new__(Arr)
+    arr.logger = MagicMock()
+    arr.needs_cleanup = False
+    arr.import_torrents = []
+    arr.sent_to_scan = set()
+    arr.sent_to_scan_hashes = set()
+    arr.timed_ignore_cache = set()
+    arr.type = "radarr"
+    arr.import_mode = "Auto"
+    arr.client = MagicMock()
+    return arr
+
+
+class TestProcessImportsScanFailure(unittest.TestCase):
+    """Ensure failed Arr import scans can be retried on a later loop."""
+
+    def test_does_not_mark_imported_when_scan_fails(self) -> None:
+        arr = _bare_arr_for_imports()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            content_path = Path(tmpdir) / "Movie.2024" / "Movie.2024.mkv"
+            content_path.parent.mkdir()
+            content_path.touch()
+            torrent = MagicMock()
+            torrent.hash = "abc123"
+            torrent.content_path = str(content_path)
+            arr.import_torrents = [(torrent, "default")]
+
+            arr.client.post_command.side_effect = ConnectionError("arr offline")
+            with patch.object(arr, "add_tags") as add_tags:
+                with patch("qBitrr.arss.with_retry", side_effect=lambda fn, **_: fn()):
+                    arr._process_imports()
+
+            add_tags.assert_not_called()
+            self.assertNotIn("abc123", arr.sent_to_scan_hashes)
+            self.assertNotIn(content_path.parent, arr.sent_to_scan)
+            self.assertEqual(arr.import_torrents, [])
+
+    def test_marks_imported_only_after_successful_scan(self) -> None:
+        arr = _bare_arr_for_imports()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            content_path = Path(tmpdir) / "Movie.2024" / "Movie.2024.mkv"
+            content_path.parent.mkdir()
+            content_path.touch()
+            torrent = MagicMock()
+            torrent.hash = "abc123"
+            torrent.content_path = str(content_path)
+            arr.import_torrents = [(torrent, "vpn")]
+
+            with patch.object(arr, "add_tags") as add_tags:
+                with patch("qBitrr.arss.with_retry", side_effect=lambda fn, **_: fn()):
+                    arr._process_imports()
+
+            arr.client.post_command.assert_called_once()
+            add_tags.assert_called_once_with(torrent, ["qBitrr-imported"], "vpn")
+            self.assertIn("abc123", arr.sent_to_scan_hashes)
+            self.assertIn(content_path.parent, arr.sent_to_scan)
 
 
 class TestPlaceHolderArrPauseRetention(unittest.TestCase):
