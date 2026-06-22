@@ -270,7 +270,7 @@ Releases publish to PyPI via [Trusted Publishing](https://docs.pypi.org/trusted-
    - Environment name: `pypi`
 2. **GitHub** — Repo **Settings → Environments** → create environment `pypi` (optional deployment protection rules as desired).
 
-The `publish_pypi` job in [`.github/workflows/release.yml`](../../.github/workflows/release.yml) uses `pypa/gh-action-pypi-publish@release/v1` with `id-token: write` and the `pypi` environment. PEP 740 attestations are generated automatically.
+The `publish_pypi` job in [`.github/workflows/release.yml`](https://github.com/Feramance/qBitrr/blob/master/.github/workflows/release.yml) uses `pypa/gh-action-pypi-publish@release/v1` with `id-token: write` and the `pypi` environment. PEP 740 attestations are generated automatically.
 
 **After the first successful OIDC publish:**
 
