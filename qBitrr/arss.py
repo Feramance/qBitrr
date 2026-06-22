@@ -1762,7 +1762,7 @@ class Arr:
                     continue
                 if path in self.sent_to_scan:
                     continue
-                self.sent_to_scan_hashes.add(torrent.hash)
+                scan_succeeded = False
                 try:
                     scan_commands = {
                         "sonarr": "DownloadedEpisodesScan",
@@ -1787,6 +1787,7 @@ class Arr:
                             exceptions=_ARR_RETRY_EXCEPTIONS_EXTENDED,
                         )
                         self.logger.success("%s: %s", scan_cmd, path)
+                        scan_succeeded = True
                 except Exception as ex:
                     self.logger.error(
                         "Downloaded scan error: [%s][%s][%s][%s]",
@@ -1795,8 +1796,10 @@ class Arr:
                         self.import_mode,
                         ex,
                     )
-                self.add_tags(torrent, ["qBitrr-imported"], instance_name)
-                self.sent_to_scan.add(path)
+                if scan_succeeded:
+                    self.sent_to_scan_hashes.add(torrent.hash)
+                    self.add_tags(torrent, ["qBitrr-imported"], instance_name)
+                    self.sent_to_scan.add(path)
             self.import_torrents.clear()
 
     def _process_failed_individual(

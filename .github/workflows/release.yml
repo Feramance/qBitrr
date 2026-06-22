@@ -36,7 +36,7 @@ jobs:
       release_hash: ${{ steps.release_hash.outputs.value }}
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         fetch-depth: 0
         token: ${{ secrets.PAT }}
@@ -104,7 +104,7 @@ jobs:
       release_tag: ${{ steps.check_release.outputs.tag }}
       release_exists: ${{ steps.check_release.outputs.exists }}
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         fetch-depth: 0
         ref: master
@@ -148,7 +148,7 @@ jobs:
       uses: ASzc/change-string-case-action@v8
       with:
         string: ${{ github.repository }}
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         fetch-depth: 0
         ref: master
@@ -211,7 +211,7 @@ jobs:
           arch: arm64
     steps:
     - name: Checkout code
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         ref: master
         fetch-depth: 0
@@ -287,7 +287,7 @@ jobs:
     - package_binaries
     if: needs.prepare_release.result == 'success'
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         fetch-depth: 0
         ref: master
@@ -332,7 +332,7 @@ jobs:
     - publish_pypi
     if: needs.prepare_release.result == 'success'
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         fetch-depth: 0
         ref: master
@@ -590,7 +590,7 @@ jobs:
     - changelog
     if: needs.prepare_release.result == 'success'
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         fetch-depth: 0
         ref: master
