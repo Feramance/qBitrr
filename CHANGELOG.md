@@ -1,5 +1,29 @@
 # Changelog
 
+## v5.12.7 (30/06/2026)
+
+### 🐛 Bug Fixes
+- [[patch] Build(deps-dev): Bump postcss from 8.5.15 to 8.5.16 in /webui (#482)](https://github.com/Feramance/qBitrr/commit/5b87debde786acbf4aafbd345024cdba8041b400) - @Feramance
+- [fix: only mark torrents imported after successful Arr scan (#468)](https://github.com/Feramance/qBitrr/commit/6405d2426dcf0303532e70d098060ffb7dff1e05) - @Feramance
+
+### 🔧 Maintenance
+- [Build(deps-dev): Bump eslint from 10.5.0 to 10.6.0 in /webui (#483)](https://github.com/Feramance/qBitrr/commit/fb96bc6e50b5210ce5f773cddc9889e29703a2e6) - @Feramance
+- [Build(deps-dev): Bump @types/node from 26.0.0 to 26.0.1 in /webui (#481)](https://github.com/Feramance/qBitrr/commit/f26cd55bf393c7f2020adfdb4837558d17fe1553) - @Feramance
+- [Build(deps): Bump @mantine/hooks from 9.3.2 to 9.4.1 in /webui (#480)](https://github.com/Feramance/qBitrr/commit/2c99b5c76190e402155f5da554ce0ee517dded47) - @Feramance
+- [Build(deps): Bump @mantine/core from 9.3.2 to 9.4.1 in /webui (#479)](https://github.com/Feramance/qBitrr/commit/ce7e0151d52fabaacfbdaf6d27bd96bb13d78bf1) - @Feramance
+- [Build(deps-dev): Bump autoprefixer from 10.5.0 to 10.5.2 in /webui (#478)](https://github.com/Feramance/qBitrr/commit/7a90b90879de652dc23885fe903b0482bee8bebb) - @Feramance
+- [[pre-commit.ci] auto fixes from pre-commit.com hooks](https://github.com/Feramance/qBitrr/commit/f280d7f19802a3652dfd7cf913268c040f7c20f1) - @Feramance
+- [fix(docs): Use GitHub URL for release workflow link in strict mkdocs build](https://github.com/Feramance/qBitrr/commit/24bc26364311509e296a13bc3650130995e67895) - @Feramance
+- [Build(deps-dev): Bump @types/node from 25.9.3 to 26.0.0 in /webui (#473)](https://github.com/Feramance/qBitrr/commit/13199dea2196863b59a936a7e080e4eab3646fd4) - @Feramance
+- [Build(deps): Bump actions/checkout from 6 to 7 (#469)](https://github.com/Feramance/qBitrr/commit/190a2ac000c3de82d72bdae97d5a897b11a46900) - @Feramance
+- [Build(deps): Bump @mantine/dates from 9.3.1 to 9.3.2 in /webui (#474)](https://github.com/Feramance/qBitrr/commit/e11da2c6f9e60d3168d241e11092585d250cd8ff) - @Feramance
+- [Build(deps): Bump @mantine/hooks from 9.3.1 to 9.3.2 in /webui (#475)](https://github.com/Feramance/qBitrr/commit/0c208cd095ff5e5acc94149b6384d23e1b4401e7) - @Feramance
+- [Build(deps): Bump @mantine/core from 9.3.1 to 9.3.2 in /webui (#472)](https://github.com/Feramance/qBitrr/commit/91e31248c80a4138e0daf42236c8d135f1076220) - @Feramance
+- [Build(deps): Bump react-hook-form from 7.79.0 to 7.80.0 in /webui (#471)](https://github.com/Feramance/qBitrr/commit/7bf4fc73a64d6a405283ff5a142595cb076e2a02) - @Feramance
+- [Build(deps-dev): Bump typescript-eslint from 8.61.0 to 8.61.1 in /webui (#470)](https://github.com/Feramance/qBitrr/commit/2ae9757ebfe41dfd5f7c1d0175f5f6b280be4e8b) - @Feramance
+
+---
+
 ## v5.12.6 (15/06/2026)
 
 ### 🐛 Bug Fixes
