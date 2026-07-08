@@ -264,6 +264,7 @@ def _bare_placeholder_arr() -> PlaceHolderArr:
     arr.pause_by_instance = defaultdict(set)
     arr.resume = set()
     arr.resume_by_instance = defaultdict(set)
+    arr.import_torrents = []
     arr.timed_ignore_cache = MagicMock()
     arr.manager = MagicMock()
     arr.manager.qbit = MagicMock()
