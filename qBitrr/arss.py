@@ -8329,12 +8329,14 @@ class PlaceHolderArr(Arr):
         self.change_priority = {}
         self.recheck_by_instance: dict[str, set[str]] = {}
         self.pause = set()
+        self.pause_by_instance: dict[str, set[str]] = defaultdict(set)
         self.skip_blacklist = set()
         self.remove_from_qbit = set()
         self.remove_from_qbit_by_instance: dict[str, set[str]] = {}
         self.delete_by_instance: dict[str, set[str]] = {}
         self.delete = set()
         self.resume = set()
+        self.resume_by_instance: dict[str, set[str]] = defaultdict(set)
         self.expiring_bool = ExpiringSet(max_age_seconds=10)
         self.ignore_torrents_younger_than = CONFIG.get_duration(
             "Settings.IgnoreTorrentsYoungerThan", fallback=180

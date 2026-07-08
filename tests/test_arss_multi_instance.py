@@ -262,6 +262,9 @@ def _bare_placeholder_arr() -> PlaceHolderArr:
     arr.needs_cleanup = False
     arr.pause = set()
     arr.pause_by_instance = defaultdict(set)
+    arr.resume = set()
+    arr.resume_by_instance = defaultdict(set)
+    arr.timed_ignore_cache = MagicMock()
     arr.manager = MagicMock()
     arr.manager.qbit = MagicMock()
     return arr
@@ -330,6 +333,17 @@ class TestProcessImportsScanFailure(unittest.TestCase):
 class TestPlaceHolderArrPauseRetention(unittest.TestCase):
     """Ensure free-space pause requests survive transient qBit failures."""
 
+    def test_process_with_empty_pause_resume_queues_does_not_raise(self) -> None:
+        arr = _bare_placeholder_arr()
+
+        with (
+            patch("qBitrr.arss.AUTO_PAUSE_RESUME", True),
+            patch.object(arr, "_process_errored"),
+            patch.object(arr, "_process_file_priority"),
+            patch.object(arr, "_process_failed"),
+        ):
+            arr.process()
+
     def test_retains_pause_when_client_unavailable(self) -> None:
         arr = _bare_placeholder_arr()
         arr.pause_by_instance = defaultdict(set, {"vpn": {"hash1"}})
@@ -339,6 +353,16 @@ class TestPlaceHolderArrPauseRetention(unittest.TestCase):
             arr._process_paused()
 
         self.assertEqual(dict(arr.pause_by_instance), {"vpn": {"hash1"}})
+
+    def test_retains_resume_when_client_unavailable(self) -> None:
+        arr = _bare_placeholder_arr()
+        arr.resume_by_instance = defaultdict(set, {"vpn": {"hash1"}})
+        arr.manager.qbit_manager.get_client.return_value = None
+
+        with patch("qBitrr.arss.AUTO_PAUSE_RESUME", True):
+            arr._process_resume()
+
+        self.assertEqual(dict(arr.resume_by_instance), {"vpn": {"hash1"}})
 
 
 if __name__ == "__main__":
