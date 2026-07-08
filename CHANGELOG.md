@@ -1,5 +1,19 @@
 # Changelog
 
+## v5.12.8 (08/07/2026)
+
+### 🐛 Bug Fixes
+- [[patch] fix: initialize placeholder pause resume queues (#490)](https://github.com/Feramance/qBitrr/commit/94ae548d8b8ce0033b6b8618a8502da2d3b2b553) - @Feramance
+
+### 🔧 Maintenance
+- [Bump react-hook-form from 7.80.0 to 7.81.0 in /webui (#489)](https://github.com/Feramance/qBitrr/commit/41ee9d02fc932b6afdc412d483d08d4c0f405d62) - @Feramance
+- [Bump @tailwindcss/postcss from 4.3.1 to 4.3.2 in /webui (#488)](https://github.com/Feramance/qBitrr/commit/a7c279c22d1f6dfcc07f08228d9683577a8d1ef3) - @Feramance
+- [Bump typescript-eslint from 8.61.1 to 8.62.1 in /webui (#487)](https://github.com/Feramance/qBitrr/commit/085127ddb7f6351b8b37ab5d8038d8b49d1c24ce) - @Feramance
+- [Bump globals from 17.6.0 to 17.7.0 in /webui (#486)](https://github.com/Feramance/qBitrr/commit/e238fbc8d8a907948eb4068182e709aa86ff01aa) - @Feramance
+- [Bump @types/node from 26.0.1 to 26.1.0 in /webui (#484)](https://github.com/Feramance/qBitrr/commit/143924ec1d25be5acbf169bbbd402f36f6ff57c8) - @Feramance
+
+---
+
 ## v5.12.7 (30/06/2026)
 
 ### 🐛 Bug Fixes
