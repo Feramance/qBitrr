@@ -1,5 +1,17 @@
 # Changelog
 
+## v5.12.10 (08/07/2026)
+
+### 🐛 Bug Fixes
+- [Fix qBit session sharing across forked Arr workers.](https://github.com/Feramance/qBitrr/commit/6877f22333ecf17256e08c57db644e5b54cd4b63) - @Feramance
+
+### 🔧 Maintenance
+- [Ensured legacy handling of multi instance works as intended](https://github.com/Feramance/qBitrr/commit/4ab1063b6196b4dd3e2b949ce3e31b609af086e8) - @Feramance
+- [[pre-commit.ci] auto fixes from pre-commit.com hooks](https://github.com/Feramance/qBitrr/commit/85da4ffd751d450c7fd2dcf47ba92a41ee61e799) - @Feramance
+- [Bump @vitejs/plugin-react from 6.0.2 to 6.0.3 in /webui](https://github.com/Feramance/qBitrr/commit/798c0a710e9b2481d615a4216c01d22c2a2c12f4) - @Feramance
+
+---
+
 ## v5.12.9 (08/07/2026)
 
 ### 🐛 Bug Fixes
