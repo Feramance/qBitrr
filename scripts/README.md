@@ -125,12 +125,12 @@ The database corruption issue was caused by `synchronous=0` (OFF) in SQLite conf
 "synchronous": 0  # No fsync() - FAST but UNSAFE
 ```
 
-**New (SAFE):**
+**Current (SAFEST):**
 ```python
-"synchronous": 1  # NORMAL - balances safety and performance
+"synchronous": 2  # FULL - maximum durability with WAL mode
 ```
 
-With the fix in place, corruption should **not occur** during normal operation.
+With the fix in place, corruption should be **rare** during normal operation. qBitrr also runs periodic WAL checkpoint + `quick_check` maintenance every 5 minutes and auto-repairs when corruption is detected.
 
 ---
 
@@ -138,9 +138,9 @@ With the fix in place, corruption should **not occur** during normal operation.
 
 Despite the fix, corruption can still occur due to:
 - Hardware failures (disk errors, RAM issues)
-- Power loss during write (very rare with `synchronous=1`)
+- Power loss or OOM kill during write (mitigated by `synchronous=2` and periodic checkpoint)
 - Filesystem corruption
-- Container/VM crashes
+- Container/VM crashes or `docker kill` / `docker stop -t 0` (skips WAL checkpoint)
 
 ### Recovery Steps
 
@@ -187,7 +187,23 @@ Despite the fix, corruption can still occur due to:
 
 ## Backups
 
-Both scripts create backups before making changes:
+### Scheduled / online backup
+
+[`backup_database.py`](backup_database.py) creates a consistent copy using the SQLite backup API while qBitrr is running:
+
+```bash
+# Docker
+docker compose exec -T qbitrr python scripts/backup_database.py
+
+# Native (from repo root)
+python scripts/backup_database.py
+```
+
+Default output: `qBitManager/backups/qbitrr.db.YYYYMMDD`. Use in cron for daily backups (see [database troubleshooting](../docs/troubleshooting/database.md#scheduled-backups-recommended)).
+
+### Repair backups
+
+Repair scripts create backups before making changes:
 
 - `repair_database.py` → `qbitrr.db.backup`
 - `repair_database_targeted.py` → `qbitrr.db.corrupted_YYYYMMDD_HHMMSS`
@@ -242,7 +258,7 @@ conn.execute('PRAGMA wal_checkpoint(TRUNCATE)');
 print('WAL checkpointed successfully')"
 ```
 
-**Note:** With the new `wal_autocheckpoint=1000` setting, WAL should checkpoint automatically.
+**Note:** With `wal_autocheckpoint=100` and the 5-minute maintenance thread, WAL should checkpoint regularly. Use `backup_database.py` for scheduled backups.
 
 ---
 
@@ -250,28 +266,29 @@ print('WAL checkpointed successfully')"
 
 ### Database Configuration
 
-Current SQLite pragmas (after fix):
+Current SQLite pragmas (see `qBitrr/database.py`):
 ```python
 {
     "journal_mode": "wal",              # Write-Ahead Logging
-    "synchronous": 1,                   # NORMAL - safe and fast
+    "synchronous": 2,                   # FULL - maximum durability
     "cache_size": -64_000,              # 64MB cache
     "foreign_keys": 1,                  # Enable FK constraints
-    "wal_autocheckpoint": 1000,         # Auto checkpoint every 1000 pages
+    "read_uncommitted": 1,              # Reduce read lock contention (WebUI)
+    "wal_autocheckpoint": 100,          # Auto checkpoint every 100 pages
     "journal_size_limit": 67108864,     # 64MB max WAL size
 }
 ```
 
-### Why synchronous=1 (NORMAL)?
+### Why synchronous=2 (FULL)?
 
 - **0 (OFF):** No fsync() → FAST but UNSAFE (corruption on crash)
-- **1 (NORMAL):** fsync() at critical moments → SAFE and reasonably fast ✓
-- **2 (FULL):** Extra fsync() calls → SAFEST but slower
+- **1 (NORMAL):** fsync() at critical moments → SAFE and reasonably fast
+- **2 (FULL):** Extra fsync() calls → SAFEST (current default) ✓
 
-With WAL mode, NORMAL provides excellent performance while preventing corruption.
+With WAL mode, FULL trades a small write latency cost for the strongest protection against unclean shutdown corruption.
 
 ---
 
-**Last Updated:** 2026-01-28
-**Fix Commit:** 465c306d
-**Status:** Database corruption issue **RESOLVED**
+**Last Updated:** 2026-06-11
+**Fix Commit:** 465c306d (synchronous); periodic maintenance added v5.12+
+**Status:** Corruption risk **mitigated** — use graceful stops and daily backups
