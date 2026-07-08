@@ -1,5 +1,12 @@
 # Changelog
 
+## v5.12.9 (08/07/2026)
+
+### 🐛 Bug Fixes
+- [[patch] Further fixes](https://github.com/Feramance/qBitrr/commit/201bb9564ce4dfd6fb2100d0069bc443dad1815a) - @Feramance
+
+---
+
 ## v5.12.8 (08/07/2026)
 
 ### 🐛 Bug Fixes
