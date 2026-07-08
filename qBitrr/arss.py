@@ -12,6 +12,7 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable, Iterator
 from copy import copy
 from datetime import datetime, timedelta, timezone
+from multiprocessing import current_process
 from typing import TYPE_CHECKING, Any, NoReturn
 
 import ffmpeg
@@ -116,11 +117,22 @@ _ARR_RETRY_EXCEPTIONS_EXTENDED = (
     PyarrConnectionError,
 )
 
-_QBIT_TORRENT_DELETE_EXCEPTIONS = (
+_QBIT_WRITE_RETRY_EXCEPTIONS = (
     qbittorrentapi.exceptions.APIError,
     qbittorrentapi.exceptions.APIConnectionError,
+    requests.exceptions.ChunkedEncodingError,
+    requests.exceptions.ContentDecodingError,
     requests.exceptions.RequestException,
 )
+
+_QBIT_READ_RETRY_EXCEPTIONS = (
+    *_QBIT_WRITE_RETRY_EXCEPTIONS,
+    JSONDecodeError,
+    ValueError,
+)
+
+# Backward-compatible alias for destructive qBit write operations.
+_QBIT_TORRENT_DELETE_EXCEPTIONS = _QBIT_WRITE_RETRY_EXCEPTIONS
 
 
 class _TrackerDataUnavailable(Exception):
@@ -240,12 +252,18 @@ class Arr:
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
         self.logger = logging.getLogger(f"qBitrr.{self._name}")
         run_logs(self.logger, self._name)
+        self._dedicated_qbit_clients: dict[str, qbittorrentapi.Client] = {}
 
         # Set completed_folder path (used for category creation and file monitoring)
         if not QBIT_DISABLED:
             try:
                 # Check default instance for existing category configuration
-                categories = self.manager.qbit_manager.client.torrent_categories.categories
+                primary_client = self._get_primary_qbit_client()
+                if primary_client is None:
+                    raise qbittorrentapi.exceptions.APIConnectionError(
+                        "No qBit clients configured"
+                    )
+                categories = primary_client.torrent_categories.categories
                 categ = categories.get(self.category)
                 if categ and categ.get("savePath"):
                     self.logger.trace("Category exists with save path [%s]", categ["savePath"])
@@ -616,6 +634,7 @@ class Arr:
         self.files_probed = set()
         self.import_torrents = []
         self.change_priority = {}
+        self.change_priority_by_instance: dict[str, dict[str, list]] = defaultdict(dict)
         self.recheck_by_instance: dict[str, set[str]] = {}
         self.pause = set()
         self.pause_by_instance: dict[str, set[str]] = defaultdict(set)
@@ -753,7 +772,7 @@ class Arr:
 
         if not QBIT_DISABLED and not TAGLESS:
             try:
-                _client = self.manager.qbit_manager.client
+                _client = self._get_primary_qbit_client()
                 if _client is not None:
                     _client.torrents_create_tags(
                         [
@@ -772,7 +791,7 @@ class Arr:
                 )
         elif not QBIT_DISABLED and TAGLESS:
             try:
-                _client = self.manager.qbit_manager.client
+                _client = self._get_primary_qbit_client()
                 if _client is not None:
                     _client.torrents_create_tags(["qBitrr-ignored"])
             except qbittorrentapi.exceptions.APIConnectionError as e:
@@ -859,8 +878,66 @@ class Arr:
             retries=retries,
             backoff=backoff,
             max_backoff=max_backoff,
-            exceptions=_QBIT_TORRENT_DELETE_EXCEPTIONS,
+            exceptions=_QBIT_WRITE_RETRY_EXCEPTIONS,
         )
+
+    def _should_use_dedicated_qbit_client(self) -> bool:
+        """Return True when running inside a child worker process."""
+        return current_process().name != "MainProcess"
+
+    def _get_qbit_client(self, instance_name: str = "qBit") -> qbittorrentapi.Client | None:
+        """Get a qBit client, creating a dedicated per-process session when needed."""
+        qbit_manager = self.manager.qbit_manager
+        if not self._should_use_dedicated_qbit_client():
+            return qbit_manager.get_client(instance_name)
+        client = self._dedicated_qbit_clients.get(instance_name)
+        if client is None:
+            client = qbit_manager.create_client_for_instance(instance_name)
+            self._dedicated_qbit_clients[instance_name] = client
+            self.logger.debug(
+                "Created dedicated qBit client for worker '%s' instance '%s'",
+                self._name,
+                instance_name,
+            )
+        return client
+
+    def _get_primary_qbit_client(self) -> qbittorrentapi.Client | None:
+        """Get the first configured qBit client, preferring a dedicated child session."""
+        qbit_manager = self.manager.qbit_manager
+        for instance_name in qbit_manager.get_all_instances():
+            client = self._get_qbit_client(instance_name)
+            if client is not None:
+                return client
+        return None
+
+    def _get_legacy_default_qbit_client(self) -> qbittorrentapi.Client | None:
+        """Return the primary qBit client for legacy non-instance-scoped operations."""
+        return self._get_primary_qbit_client()
+
+    def _is_qbit_instance_reachable(self, instance_name: str) -> bool:
+        """Probe qBit reachability using this worker's dedicated or shared client."""
+        client = self._get_qbit_client(instance_name)
+        if client is None:
+            return False
+        try:
+            client.app_version()
+            return True
+        except Exception as exc:
+            self.logger.debug(
+                "qBit instance '%s' unreachable in worker '%s': %s",
+                instance_name,
+                self._name,
+                exc,
+            )
+            return False
+
+    def _is_any_qbit_instance_reachable(self) -> bool:
+        """Return True when any configured qBit instance responds in this worker."""
+        qbit_manager = self.manager.qbit_manager
+        instances = qbit_manager.get_all_instances()
+        if not instances:
+            return False
+        return any(self._is_qbit_instance_reachable(name) for name in instances)
 
     def _retry_profile_switch_update(self, update_fn: Callable, kind: str) -> bool:
         """Retry Arr quality-profile updates using the configured switch-attempt count."""
@@ -1066,7 +1143,7 @@ class Arr:
 
         for instance_name in all_instances:
             try:
-                client = qbit_manager.get_client(instance_name)
+                client = self._get_qbit_client(instance_name)
                 if client is None:
                     self.logger.warning(
                         "Skipping category creation on instance '%s' (client unavailable)",
@@ -1426,11 +1503,7 @@ class Arr:
                     retries=3,
                     backoff=0.5,
                     max_backoff=3,
-                    exceptions=(
-                        qbittorrentapi.exceptions.APIError,
-                        qbittorrentapi.exceptions.APIConnectionError,
-                        requests.exceptions.RequestException,
-                    ),
+                    exceptions=_QBIT_READ_RETRY_EXCEPTIONS,
                 )
             except Exception as e:
                 self.logger.warning("Failed to remove tags %s from %s: %s", tags, torrent.name, e)
@@ -1457,11 +1530,7 @@ class Arr:
                     retries=3,
                     backoff=0.5,
                     max_backoff=3,
-                    exceptions=(
-                        qbittorrentapi.exceptions.APIError,
-                        qbittorrentapi.exceptions.APIConnectionError,
-                        requests.exceptions.RequestException,
-                    ),
+                    exceptions=_QBIT_READ_RETRY_EXCEPTIONS,
                 )
             except Exception as e:
                 self.logger.warning("Failed to add tags %s to %s: %s", tags, torrent.name, e)
@@ -1698,7 +1767,7 @@ class Arr:
             for instance_name, hashes in self.pause_by_instance.items():
                 if not hashes:
                     continue
-                client = qbit_manager.get_client(instance_name)
+                client = self._get_qbit_client(instance_name)
                 if client is None:
                     self.logger.warning(
                         "Cannot pause %d torrent(s) on qBit instance '%s': no client",
@@ -1715,11 +1784,7 @@ class Arr:
                         retries=3,
                         backoff=0.5,
                         max_backoff=3,
-                        exceptions=(
-                            qbittorrentapi.exceptions.APIError,
-                            qbittorrentapi.exceptions.APIConnectionError,
-                            requests.exceptions.RequestException,
-                        ),
+                        exceptions=_QBIT_WRITE_RETRY_EXCEPTIONS,
                     )
                 except Exception:
                     still_pending[instance_name] = set(hashes)
@@ -1729,18 +1794,16 @@ class Arr:
             self.needs_cleanup = True
             for i in self.pause:
                 self.logger.debug("Pausing %s (%s)", i, qbit_manager.name_cache.get(i))
-            with contextlib.suppress(Exception):
-                with_retry(
-                    lambda: self.manager.qbit.torrents_pause(torrent_hashes=list(self.pause)),
-                    retries=3,
-                    backoff=0.5,
-                    max_backoff=3,
-                    exceptions=(
-                        qbittorrentapi.exceptions.APIError,
-                        qbittorrentapi.exceptions.APIConnectionError,
-                        requests.exceptions.RequestException,
-                    ),
-                )
+            legacy_client = self._get_legacy_default_qbit_client()
+            if legacy_client is not None:
+                with contextlib.suppress(Exception):
+                    with_retry(
+                        lambda c=legacy_client: c.torrents_pause(torrent_hashes=list(self.pause)),
+                        retries=3,
+                        backoff=0.5,
+                        max_backoff=3,
+                        exceptions=_QBIT_WRITE_RETRY_EXCEPTIONS,
+                    )
             self.pause.clear()
 
     def _process_imports(self) -> None:
@@ -2044,12 +2107,12 @@ class Arr:
         if not self.recheck_by_instance:
             return
         self.needs_cleanup = True
-        qbit_manager = self.manager.qbit_manager
+        self.manager.qbit_manager
         still_pending: dict[str, set[str]] = {}
         for instance_name, hashes in self.recheck_by_instance.items():
             if not hashes:
                 continue
-            client = qbit_manager.get_client(instance_name)
+            client = self._get_qbit_client(instance_name)
             if client is None:
                 self.logger.warning(
                     "Cannot recheck %d torrent(s) on qBit instance '%s': no client",
@@ -2170,9 +2233,9 @@ class Arr:
             if hashes:
                 per_instance_batches.setdefault(inst_name, set()).update(hashes)
         per_instance_deleted: set[str] = set()
-        qbit_manager = self.manager.qbit_manager
+        self.manager.qbit_manager
         for inst_name, hashes in per_instance_batches.items():
-            client = qbit_manager.get_client(inst_name)
+            client = self._get_qbit_client(inst_name)
             if client is None:
                 self.logger.warning(
                     "Cannot delete %d torrent(s) from qBit instance '%s': no client",
@@ -2204,36 +2267,40 @@ class Arr:
         if self.remove_from_qbit or self.skip_blacklist or to_delete_default:
             # Remove remaining torrents via the default client.
             if to_delete_default:
-                try:
-                    self._qbit_retry(
-                        lambda: self.manager.qbit.torrents_delete(
-                            hashes=to_delete_default, delete_files=True
+                legacy_client = self._get_legacy_default_qbit_client()
+                if legacy_client is not None:
+                    try:
+                        self._qbit_retry(
+                            lambda c=legacy_client: c.torrents_delete(
+                                hashes=to_delete_default, delete_files=True
+                            )
                         )
-                    )
-                except _QBIT_TORRENT_DELETE_EXCEPTIONS as e:
-                    self.logger.error(
-                        "Failed to delete %d torrent(s) from qBit: %s",
-                        len(to_delete_default),
-                        e,
-                    )
-                else:
-                    deleted_hashes.update(to_delete_default)
+                    except _QBIT_TORRENT_DELETE_EXCEPTIONS as e:
+                        self.logger.error(
+                            "Failed to delete %d torrent(s) from qBit: %s",
+                            len(to_delete_default),
+                            e,
+                        )
+                    else:
+                        deleted_hashes.update(to_delete_default)
             if self.remove_from_qbit or self.skip_blacklist:
                 temp_to_delete = self.remove_from_qbit.union(self.skip_blacklist)
-                try:
-                    self._qbit_retry(
-                        lambda: self.manager.qbit.torrents_delete(
-                            hashes=temp_to_delete, delete_files=True
+                legacy_client = self._get_legacy_default_qbit_client()
+                if legacy_client is not None:
+                    try:
+                        self._qbit_retry(
+                            lambda c=legacy_client: c.torrents_delete(
+                                hashes=temp_to_delete, delete_files=True
+                            )
                         )
-                    )
-                except _QBIT_TORRENT_DELETE_EXCEPTIONS as e:
-                    self.logger.error(
-                        "Failed to delete %d torrent(s) from qBit: %s",
-                        len(temp_to_delete),
-                        e,
-                    )
-                else:
-                    deleted_hashes.update(temp_to_delete)
+                    except _QBIT_TORRENT_DELETE_EXCEPTIONS as e:
+                        self.logger.error(
+                            "Failed to delete %d torrent(s) from qBit: %s",
+                            len(temp_to_delete),
+                            e,
+                        )
+                    else:
+                        deleted_hashes.update(temp_to_delete)
             self._evict_hashes_from_qbit_side_caches(deleted_hashes)
         confirmed_deleted = per_instance_deleted | deleted_hashes
         dispatch_targets = confirmed_deleted & queue_delete_targets
@@ -2250,31 +2317,75 @@ class Arr:
         self.remove_from_qbit -= all_deleted
         self.delete -= all_deleted
 
+    def _apply_file_priority_update(
+        self,
+        client: qbittorrentapi.Client,
+        hash_: str,
+        files: list,
+    ) -> None:
+        """Set excluded files to 'do not download' on the given qBit client."""
+        name = self.manager.qbit_manager.name_cache.get(hash_)
+        if name:
+            self.logger.debug("Updating file priority on torrent: %s (%s)", name, hash_)
+            with_retry(
+                lambda c=client, h=hash_, f=files: c.torrents_file_priority(
+                    torrent_hash=h, file_ids=f, priority=0
+                ),
+                retries=3,
+                backoff=0.5,
+                max_backoff=3,
+                exceptions=_QBIT_WRITE_RETRY_EXCEPTIONS,
+            )
+        else:
+            self.logger.error("Torrent does not exist? %s", hash_)
+
     def _process_file_priority(self) -> None:
         # Set all files marked as "Do not download" to not download.
-        for hash_, files in self.change_priority.copy().items():
+        if self.change_priority or self.change_priority_by_instance:
             self.needs_cleanup = True
-            name = self.manager.qbit_manager.name_cache.get(hash_)
-            if name:
-                self.logger.debug("Updating file priority on torrent: %s (%s)", name, hash_)
-                self.manager.qbit.torrents_file_priority(
-                    torrent_hash=hash_, file_ids=files, priority=0
+        if self.change_priority:
+            legacy_client = self._get_legacy_default_qbit_client()
+            for hash_, files in list(self.change_priority.items()):
+                if legacy_client is not None:
+                    with contextlib.suppress(Exception):
+                        self._apply_file_priority_update(legacy_client, hash_, files)
+                else:
+                    name = self.manager.qbit_manager.name_cache.get(hash_, hash_)
+                    self.logger.warning(
+                        "Cannot update file priority for %s (%s): no qBit client",
+                        name,
+                        hash_,
+                    )
+                del self.change_priority[hash_]
+        for instance_name, hash_map in list(self.change_priority_by_instance.items()):
+            if not hash_map:
+                continue
+            client = self._get_qbit_client(instance_name)
+            if client is None:
+                self.logger.warning(
+                    "Cannot update file priority for %d torrent(s) on qBit instance '%s': no client",
+                    len(hash_map),
+                    instance_name,
                 )
-            else:
-                self.logger.error("Torrent does not exist? %s", hash_)
-            del self.change_priority[hash_]
+                continue
+            for hash_, files in list(hash_map.items()):
+                with contextlib.suppress(Exception):
+                    self._apply_file_priority_update(client, hash_, files)
+                del hash_map[hash_]
+            if not hash_map:
+                del self.change_priority_by_instance[instance_name]
 
     def _process_resume(self) -> None:
         if not AUTO_PAUSE_RESUME:
             return
-        qbit_manager = self.manager.qbit_manager
+        self.manager.qbit_manager
         still_pending: defaultdict[str, set[str]] = defaultdict(set)
         if self.resume_by_instance:
             self.needs_cleanup = True
             for instance_name, hashes in self.resume_by_instance.items():
                 if not hashes:
                     continue
-                client = qbit_manager.get_client(instance_name)
+                client = self._get_qbit_client(instance_name)
                 if client is None:
                     self.logger.warning(
                         "Cannot resume %d torrent(s) on qBit instance '%s': no client",
@@ -2289,11 +2400,7 @@ class Arr:
                         retries=3,
                         backoff=0.5,
                         max_backoff=3,
-                        exceptions=(
-                            qbittorrentapi.exceptions.APIError,
-                            qbittorrentapi.exceptions.APIConnectionError,
-                            requests.exceptions.RequestException,
-                        ),
+                        exceptions=_QBIT_WRITE_RETRY_EXCEPTIONS,
                     )
                 except Exception:
                     still_pending[instance_name] = set(hashes)
@@ -2303,7 +2410,18 @@ class Arr:
             self.resume_by_instance = still_pending
         if self.resume:
             self.needs_cleanup = True
-            self.manager.qbit.torrents_resume(torrent_hashes=self.resume)
+            legacy_client = self._get_legacy_default_qbit_client()
+            if legacy_client is not None:
+                with contextlib.suppress(Exception):
+                    with_retry(
+                        lambda c=legacy_client, hs=self.resume: c.torrents_resume(
+                            torrent_hashes=list(hs)
+                        ),
+                        retries=3,
+                        backoff=0.5,
+                        max_backoff=3,
+                        exceptions=_QBIT_WRITE_RETRY_EXCEPTIONS,
+                    )
             for k in self.resume:
                 self.timed_ignore_cache.add(k)
             self.resume.clear()
@@ -2346,28 +2464,77 @@ class Arr:
             self.rss_sync_timer_last_checked is not None
             and self.rss_sync_timer_last_checked < now - timedelta(minutes=self.rss_sync_timer)
         ):
-            with_retry(
-                lambda: self.client.post_command("RssSync"),
-                retries=3,
-                backoff=0.5,
-                max_backoff=3,
-                exceptions=_ARR_RETRY_EXCEPTIONS_EXTENDED,
-            )
-            self.rss_sync_timer_last_checked = now
+            if self._run_periodic_command("RssSync"):
+                self.rss_sync_timer_last_checked = now
 
         if (
             self.refresh_downloads_timer_last_checked is not None
             and self.refresh_downloads_timer_last_checked
             < now - timedelta(minutes=self.refresh_downloads_timer)
         ):
+            if self._run_periodic_command(
+                "RefreshMonitoredDownloads", supported_types={"radarr", "sonarr"}
+            ):
+                self.refresh_downloads_timer_last_checked = now
+
+    def _run_periodic_command(
+        self,
+        command: str,
+        *,
+        supported_types: set[str] | None = None,
+    ) -> bool:
+        """Run a background Arr maintenance command without failing the worker loop.
+
+        Returns:
+            True when the command succeeded or was intentionally skipped for this Arr type.
+            False when the command was attempted and failed.
+        """
+        if supported_types is not None and self.type not in supported_types:
+            self.logger.trace(
+                "Skipping unsupported periodic command '%s' for %s type '%s'",
+                command,
+                self._name,
+                self.type,
+            )
+            return True
+        try:
             with_retry(
-                lambda: self.client.post_command("RefreshMonitoredDownloads"),
+                lambda: self.client.post_command(command),
                 retries=3,
                 backoff=0.5,
                 max_backoff=3,
                 exceptions=_ARR_RETRY_EXCEPTIONS_EXTENDED,
             )
-            self.refresh_downloads_timer_last_checked = now
+            return True
+        except (PyarrServerError, PyarrResourceNotFound) as exc:
+            self.logger.warning(
+                "Periodic command '%s' is unavailable for %s: %s",
+                command,
+                self._name,
+                exc,
+            )
+        except ValueError as exc:
+            self.logger.warning(
+                "Periodic command '%s' failed for %s: %s",
+                command,
+                self._name,
+                exc,
+            )
+        except _ARR_RETRY_EXCEPTIONS_EXTENDED as exc:
+            self.logger.warning(
+                "Periodic command '%s' failed for %s after retries: %s",
+                command,
+                self._name,
+                exc,
+            )
+        except Exception as exc:
+            self.logger.warning(
+                "Periodic command '%s' failed for %s: %s",
+                command,
+                self._name,
+                exc,
+            )
+        return False
 
     def arr_db_query_commands_count(self) -> int:
         search_commands = 0
@@ -5337,15 +5504,17 @@ class Arr:
         all_torrents = []
         qbit_manager = self.manager.qbit_manager
         target_category = normalize_category(self.category) or self.category
+        instance_failures = 0
+        last_error: Exception | None = None
 
         for instance_name in qbit_manager.get_all_instances():
-            if not qbit_manager.is_instance_alive(instance_name):
+            if not self._is_qbit_instance_reachable(instance_name):
                 self.logger.debug(
                     "Skipping unhealthy instance '%s' during torrent scan", instance_name
                 )
                 continue
 
-            client = qbit_manager.get_client(instance_name)
+            client = self._get_qbit_client(instance_name)
             if client is None:
                 continue
 
@@ -5393,11 +5562,20 @@ class Arr:
                     target_category,
                     instance_subcat_match,
                 )
-            except (qbittorrentapi.exceptions.APIError, JSONDecodeError) as e:
+            except _QBIT_READ_RETRY_EXCEPTIONS as e:
                 self.logger.warning(
                     "Failed to get torrents from instance '%s': %s", instance_name, e
                 )
+                instance_failures += 1
+                last_error = e
                 continue
+
+        if instance_failures and not all_torrents:
+            if last_error is not None:
+                raise last_error
+            raise qbittorrentapi.exceptions.APIError(
+                "Failed to fetch torrents from all qBit instances"
+            )
 
         self.logger.debug(
             "Total torrents across %d instances: %d",
@@ -5427,9 +5605,9 @@ class Arr:
         tag_to_priority = Arr.merge_global_tracker_tag_to_priority_max()
         qbit_manager = self.manager.qbit_manager
         for instance_name in qbit_manager.get_all_instances():
-            if not qbit_manager.is_instance_alive(instance_name):
+            if not self._is_qbit_instance_reachable(instance_name):
                 continue
-            client = qbit_manager.get_client(instance_name)
+            client = self._get_qbit_client(instance_name)
             if client is None:
                 continue
             try:
@@ -5579,7 +5757,7 @@ class Arr:
                     retries=5,
                     backoff=0.5,
                     max_backoff=5,
-                    exceptions=(JSONDecodeError,),
+                    exceptions=_QBIT_READ_RETRY_EXCEPTIONS,
                 )
 
                 # Filter torrents that have category attribute
@@ -5595,7 +5773,7 @@ class Arr:
                     raise DelayLoopException(length=LOOP_SLEEP_TIMER, error_type="no_downloads")
 
                 # Internet check: use the first available qBit client
-                if not has_internet(self.manager.qbit_manager.client):
+                if not has_internet(self._get_primary_qbit_client()):
                     self.manager.qbit_manager.should_delay_torrent_scan = True
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, error_type="internet")
                 if self.manager.qbit_manager.should_delay_torrent_scan:
@@ -6423,10 +6601,8 @@ class Arr:
                         torrent, "all-files-excluded deletion", instance_name=instance_name
                     )
             # Mark all bad files and folder for exclusion.
-            elif _remove_files and torrent.hash not in self.change_priority:
-                self.change_priority[torrent.hash] = list(_remove_files)
-            elif _remove_files and torrent.hash in self.change_priority:
-                self.change_priority[torrent.hash] = list(_remove_files)
+            elif _remove_files:
+                self.change_priority_by_instance[instance_name][torrent.hash] = list(_remove_files)
 
         self.cleaned_torrents.add(torrent.hash)
 
@@ -8249,7 +8425,7 @@ class Arr:
             try:
                 try:
                     try:
-                        if not self.manager.qbit_manager.is_alive:
+                        if not self._is_any_qbit_instance_reachable():
                             raise NoConnectionrException(
                                 "Could not connect to qBit client.", error_type="qbit"
                             )
@@ -8327,6 +8503,7 @@ class PlaceHolderArr(Arr):
         self.files_to_cleanup = set()
         self.import_torrents = []
         self.change_priority = {}
+        self.change_priority_by_instance: dict[str, dict[str, list]] = defaultdict(dict)
         self.recheck_by_instance: dict[str, set[str]] = {}
         self.pause = set()
         self.pause_by_instance: dict[str, set[str]] = defaultdict(set)
@@ -8354,6 +8531,7 @@ class PlaceHolderArr(Arr):
         self.needs_cleanup = False
         self._warned_no_seeding_limits = False
         self._torrent_important_trackers_cache: dict[str, tuple[set[str], set[str]]] = {}
+        self._dedicated_qbit_clients: dict[str, qbittorrentapi.Client] = {}
         self.custom_format_unmet_search = False
         self.do_not_remove_slow = False
         self.maximum_eta = CONFIG.get_duration("Settings.Torrent.MaximumETA", fallback=86400)
@@ -8514,7 +8692,7 @@ class PlaceHolderArr(Arr):
         self._log_deletion_summary_line()
         self._log_deletion_sample_debug(to_delete_all)
         deleted_hashes: set[str] = set()
-        qbit_manager = self.manager.qbit_manager
+        self.manager.qbit_manager
         per_instance_batches: dict[str, set[str]] = {}
         for inst_name, hashes in self.remove_from_qbit_by_instance.items():
             if hashes:
@@ -8525,7 +8703,7 @@ class PlaceHolderArr(Arr):
         per_instance_deleted: set[str] = set()
         # Delete per-instance so we use the correct qBit client.
         for instance_name, hashes in per_instance_batches.items():
-            client = qbit_manager.get_client(instance_name)
+            client = self._get_qbit_client(instance_name)
             if client is None:
                 self.logger.warning(
                     "Cannot delete %d torrent(s) from qBit instance '%s': no client",
@@ -8561,16 +8739,17 @@ class PlaceHolderArr(Arr):
         # Remaining remove_from_qbit/skip_blacklist and to_delete_default via default client.
         if self.remove_from_qbit or self.skip_blacklist or to_delete_default:
             if to_delete_default:
-                if self.manager.qbit:
+                legacy_client = self._get_legacy_default_qbit_client()
+                if legacy_client is not None:
                     try:
                         with_retry(
-                            lambda: self.manager.qbit.torrents_delete(
+                            lambda c=legacy_client: c.torrents_delete(
                                 hashes=to_delete_default, delete_files=True
                             ),
                             retries=3,
                             backoff=0.5,
                             max_backoff=3,
-                            exceptions=_QBIT_TORRENT_DELETE_EXCEPTIONS,
+                            exceptions=_QBIT_WRITE_RETRY_EXCEPTIONS,
                         )
                         temp_to_delete.update(to_delete_default)
                     except _QBIT_TORRENT_DELETE_EXCEPTIONS as e:
@@ -8580,21 +8759,20 @@ class PlaceHolderArr(Arr):
                             e,
                         )
                 else:
-                    self.logger.warning(
-                        "Cannot delete to_delete_all: no qBit client (manager.qbit is None)"
-                    )
+                    self.logger.warning("Cannot delete to_delete_all: no qBit client available")
             if self.remove_from_qbit or self.skip_blacklist:
                 rest = (self.remove_from_qbit.union(self.skip_blacklist)) - deleted_hashes
-                if rest and self.manager.qbit:
+                legacy_client = self._get_legacy_default_qbit_client()
+                if rest and legacy_client is not None:
                     try:
                         with_retry(
-                            lambda: self.manager.qbit.torrents_delete(
-                                hashes=rest, delete_files=True
+                            lambda c=legacy_client, h=rest: c.torrents_delete(
+                                hashes=h, delete_files=True
                             ),
                             retries=3,
                             backoff=0.5,
                             max_backoff=3,
-                            exceptions=_QBIT_TORRENT_DELETE_EXCEPTIONS,
+                            exceptions=_QBIT_WRITE_RETRY_EXCEPTIONS,
                         )
                         temp_to_delete.update(rest)
                     except _QBIT_TORRENT_DELETE_EXCEPTIONS as e:
@@ -8605,7 +8783,7 @@ class PlaceHolderArr(Arr):
                         )
                 elif rest:
                     self.logger.warning(
-                        "Cannot delete %d torrent(s): no qBit client (manager.qbit is None)",
+                        "Cannot delete %d torrent(s): no qBit client available",
                         len(rest),
                     )
             cleaned_hashes = deleted_hashes.union(temp_to_delete)
@@ -8634,7 +8812,7 @@ class PlaceHolderArr(Arr):
         for instance_name, hashes in self.recheck_by_instance.items():
             if not hashes:
                 continue
-            client = qbit_manager.get_client(instance_name)
+            client = self._get_qbit_client(instance_name)
             if client is None:
                 self.logger.warning(
                     "Cannot recheck %d torrent(s) on qBit instance '%s': no client",
@@ -8698,7 +8876,7 @@ class PlaceHolderArr(Arr):
                     retries=5,
                     backoff=0.5,
                     max_backoff=5,
-                    exceptions=(JSONDecodeError,),
+                    exceptions=_QBIT_READ_RETRY_EXCEPTIONS,
                 )
 
                 torrents_with_instances = [
@@ -8712,7 +8890,7 @@ class PlaceHolderArr(Arr):
                 if not torrents_with_instances:
                     raise DelayLoopException(length=LOOP_SLEEP_TIMER, error_type="no_downloads")
 
-                if not has_internet(self.manager.qbit_manager.client):
+                if not has_internet(self._get_primary_qbit_client()):
                     self.manager.qbit_manager.should_delay_torrent_scan = True
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, error_type="internet")
                 if self.manager.qbit_manager.should_delay_torrent_scan:
@@ -8802,6 +8980,7 @@ class TorrentPolicyManager(Arr):
         self.category_torrent_count = 0
         self.free_space_tagged_count = 0
         self._torrent_important_trackers_cache: dict[str, tuple[set[str], set[str]]] = {}
+        self._dedicated_qbit_clients: dict[str, qbittorrentapi.Client] = {}
 
         # Tracker sort state
         self.monitored_trackers = Arr.merge_global_tracker_blocks()
@@ -8854,7 +9033,7 @@ class TorrentPolicyManager(Arr):
                 shutil.disk_usage(self._path_for_disk_usage).free - self._min_free_space_bytes
             )
 
-        _client = self.manager.qbit_manager.client
+        _client = self._get_primary_qbit_client()
         if self.enable_free_space and _client is not None:
             _client.torrents_create_tags(["qBitrr-free_space_paused"])
 
@@ -8972,7 +9151,7 @@ class TorrentPolicyManager(Arr):
             for instance_name, hashes in self.resume_by_instance.items():
                 if not hashes:
                     continue
-                client = self.manager.qbit_manager.get_client(instance_name)
+                client = self._get_qbit_client(instance_name)
                 if client is None:
                     still_pending[instance_name].update(hashes)
                     continue
@@ -8982,11 +9161,7 @@ class TorrentPolicyManager(Arr):
                         retries=3,
                         backoff=0.5,
                         max_backoff=3,
-                        exceptions=(
-                            qbittorrentapi.exceptions.APIError,
-                            qbittorrentapi.exceptions.APIConnectionError,
-                            requests.exceptions.RequestException,
-                        ),
+                        exceptions=_QBIT_WRITE_RETRY_EXCEPTIONS,
                     )
                 except Exception:
                     still_pending[instance_name].update(hashes)
@@ -9004,7 +9179,7 @@ class TorrentPolicyManager(Arr):
             for instance_name, hashes in self.pause_by_instance.items():
                 if not hashes:
                     continue
-                client = self.manager.qbit_manager.get_client(instance_name)
+                client = self._get_qbit_client(instance_name)
                 if client is None:
                     still_pending[instance_name].update(hashes)
                     continue
@@ -9014,30 +9189,24 @@ class TorrentPolicyManager(Arr):
                         retries=3,
                         backoff=0.5,
                         max_backoff=3,
-                        exceptions=(
-                            qbittorrentapi.exceptions.APIError,
-                            qbittorrentapi.exceptions.APIConnectionError,
-                            requests.exceptions.RequestException,
-                        ),
+                        exceptions=_QBIT_WRITE_RETRY_EXCEPTIONS,
                     )
                 except Exception:
                     still_pending[instance_name].update(hashes)
                     continue
             self.pause_by_instance = still_pending
         # Keep compatibility if any hash was queued in the legacy set path.
-        if self.pause and AUTO_PAUSE_RESUME and self.manager.qbit:
-            with contextlib.suppress(Exception):
-                with_retry(
-                    lambda: self.manager.qbit.torrents_pause(torrent_hashes=list(self.pause)),
-                    retries=3,
-                    backoff=0.5,
-                    max_backoff=3,
-                    exceptions=(
-                        qbittorrentapi.exceptions.APIError,
-                        qbittorrentapi.exceptions.APIConnectionError,
-                        requests.exceptions.RequestException,
-                    ),
-                )
+        if self.pause and AUTO_PAUSE_RESUME:
+            legacy_client = self._get_legacy_default_qbit_client()
+            if legacy_client is not None:
+                with contextlib.suppress(Exception):
+                    with_retry(
+                        lambda c=legacy_client: c.torrents_pause(torrent_hashes=list(self.pause)),
+                        retries=3,
+                        backoff=0.5,
+                        max_backoff=3,
+                        exceptions=_QBIT_WRITE_RETRY_EXCEPTIONS,
+                    )
             self.pause.clear()
 
     def process(self):
@@ -9062,10 +9231,12 @@ class TorrentPolicyManager(Arr):
         qbit_manager = self.manager.qbit_manager
         result = []
         seen = set()
+        instance_failures = 0
+        last_error: Exception | None = None
         for instance_name in qbit_manager.get_all_instances():
-            if not qbit_manager.is_instance_alive(instance_name):
+            if not self._is_qbit_instance_reachable(instance_name):
                 continue
-            client = qbit_manager.get_client(instance_name)
+            client = self._get_qbit_client(instance_name)
             if client is None:
                 continue
             section = instance_name
@@ -9073,7 +9244,7 @@ class TorrentPolicyManager(Arr):
                 section
             )
             if use_full_list:
-                with contextlib.suppress(qbittorrentapi.exceptions.APIError):
+                try:
                     torrents = client.torrents.info(
                         status_filter="all",
                         sort="added_on",
@@ -9099,9 +9270,17 @@ class TorrentPolicyManager(Arr):
                             continue
                         seen.add(key)
                         result.append((instance_name, torrent))
+                except _QBIT_READ_RETRY_EXCEPTIONS as e:
+                    self.logger.warning(
+                        "Failed to get monitored torrents from instance '%s': %s",
+                        instance_name,
+                        e,
+                    )
+                    instance_failures += 1
+                    last_error = e
                 continue
             for cat in self.categories:
-                with contextlib.suppress(qbittorrentapi.exceptions.APIError):
+                try:
                     torrents = client.torrents.info(
                         status_filter="all",
                         category=cat,
@@ -9120,6 +9299,21 @@ class TorrentPolicyManager(Arr):
                             continue
                         seen.add(key)
                         result.append((instance_name, torrent))
+                except _QBIT_READ_RETRY_EXCEPTIONS as e:
+                    self.logger.warning(
+                        "Failed to get monitored torrents from instance '%s' category '%s': %s",
+                        instance_name,
+                        cat,
+                        e,
+                    )
+                    instance_failures += 1
+                    last_error = e
+        if instance_failures and not result:
+            if last_error is not None:
+                raise last_error
+            raise qbittorrentapi.exceptions.APIError(
+                "Failed to fetch monitored torrents from all qBit instances"
+            )
         return result
 
     def _sync_tracker_tags_before_sort(self) -> None:
@@ -9134,10 +9328,7 @@ class TorrentPolicyManager(Arr):
             retries=5,
             backoff=0.5,
             max_backoff=5,
-            exceptions=(
-                qbittorrentapi.exceptions.APIError,
-                qbittorrentapi.exceptions.APIConnectionError,
-            ),
+            exceptions=_QBIT_READ_RETRY_EXCEPTIONS,
         )
         if not torrents_with_instances:
             self.logger.debug("Pre-sort tracker/tag sync skipped: no monitored torrents")
@@ -9156,9 +9347,9 @@ class TorrentPolicyManager(Arr):
         )
 
     def _validate_qbit_preflight(self) -> None:
-        if not self.manager.qbit_manager.clients:
+        if not self._is_any_qbit_instance_reachable():
             raise DelayLoopException(length=LOOP_SLEEP_TIMER, error_type="no_downloads")
-        if not has_internet(self.manager.qbit_manager.client):
+        if not has_internet(self._get_primary_qbit_client()):
             self.manager.qbit_manager.should_delay_torrent_scan = True
             raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, error_type="internet")
         if self.manager.qbit_manager.should_delay_torrent_scan:
@@ -9200,10 +9391,7 @@ class TorrentPolicyManager(Arr):
                     retries=5,
                     backoff=0.5,
                     max_backoff=5,
-                    exceptions=(
-                        qbittorrentapi.exceptions.APIError,
-                        qbittorrentapi.exceptions.APIConnectionError,
-                    ),
+                    exceptions=_QBIT_READ_RETRY_EXCEPTIONS,
                 )
                 self.category_torrent_count = len(torrents_with_instances)
                 self.free_space_tagged_count = sum(
@@ -9269,7 +9457,6 @@ class ArrManager:
         # True when any ``[qBit*]`` **or** explicit ``[Radarr-*].MatchSubcategories = true``
         # (etc.) is active — used only for startup overlap / info logs.
         self.subcategory_match_enabled: bool = False
-        self.qbit: qbittorrentapi.Client | None = qbitmanager.client
         self.qbit_manager: qBitManager = qbitmanager
         self.ffprobe_available: bool = self.qbit_manager.ffprobe_downloader.probe_path.exists()
         self.logger = logging.getLogger("qBitrr.ArrManager")

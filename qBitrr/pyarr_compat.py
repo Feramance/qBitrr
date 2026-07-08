@@ -2,6 +2,7 @@ from __future__ import annotations
 
 """Compatibility layer for pyarr v5/v6 API differences."""
 
+import inspect
 from typing import Any
 from urllib.parse import urlparse
 
@@ -65,6 +66,27 @@ class _CompatArrClient:
     def _has_legacy(self, method: str) -> bool:
         return hasattr(self._client, method)
 
+    def _compat_post_command_v6(self, command: str, **kwargs: Any) -> Any:
+        """Fallback to a direct command POST when pyarr v6 rejects list responses."""
+        data: dict[str, Any] = {"name": command}
+        if kwargs:
+            data |= kwargs
+        http_utils = getattr(self._client, "http_utils", None)
+        if http_utils is None or not hasattr(http_utils, "request"):
+            raise ValueError("Expected a dictionary response from the 'command' endpoint")
+        request = http_utils.request
+        request_signature = inspect.signature(request)
+        request_kwargs: dict[str, Any] = {}
+        if "method" in request_signature.parameters:
+            request_kwargs["method"] = "POST"
+        if "data" in request_signature.parameters:
+            request_kwargs["data"] = data
+        elif "json" in request_signature.parameters:
+            request_kwargs["json"] = data
+        else:
+            raise ValueError("pyarr http_utils.request does not accept command payloads")
+        return request("command", **request_kwargs)
+
     def get_update(self) -> Any:
         if self._has_legacy("get_update"):
             return self._legacy_call("get_update")
@@ -80,7 +102,15 @@ class _CompatArrClient:
     def post_command(self, command: str, **kwargs: Any) -> Any:
         if self._has_legacy("post_command"):
             return self._legacy_call("post_command", command, **kwargs)
-        return self._client.command.execute(command, **kwargs)
+        try:
+            return self._client.command.execute(command, **kwargs)
+        except ValueError as exc:
+            # pyarr v6 requires the command endpoint to return a dict, but older
+            # qBitrr/pyarr combinations accepted raw command POSTs. Fall back to
+            # the direct http_utils path before surfacing the failure.
+            if str(exc) == "Expected a dictionary response from the 'command' endpoint":
+                return self._compat_post_command_v6(command, **kwargs)
+            raise
 
     def get_queue(self, **kwargs: Any) -> JsonObject:
         if self._has_legacy("get_queue"):

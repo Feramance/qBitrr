@@ -500,8 +500,6 @@ class qBitManager:
         host = CONFIG.get(f"{section_name}.Host", fallback="localhost")
         port = CONFIG.get(f"{section_name}.Port", fallback=8105)
         username = CONFIG.get(f"{section_name}.UserName", fallback=None)
-        password = CONFIG.get(f"{section_name}.Password", fallback=None)
-        skip_tls_verify = CONFIG.get(f"{section_name}.SkipTLSVerify", fallback=False)
 
         self.logger.debug(
             "Connecting to qBit instance '%s': %s:%s (user: %s)",
@@ -511,14 +509,7 @@ class qBitManager:
             mask_secret(username) if username else "(none)",
         )
 
-        client = qbittorrentapi.Client(
-            host=host,
-            port=port,
-            username=username,
-            password=password,
-            SIMPLE_RESPONSES=False,
-            VERIFY_WEBUI_CERTIFICATE=not skip_tls_verify,
-        )
+        client = self.create_client_for_instance(section_name)
 
         # Test connection and get version
         try:
@@ -636,6 +627,20 @@ class qBitManager:
                 len(managed_categories),
                 match_subcategories,
             )
+
+    def create_client_for_instance(self, instance_name: str) -> qbittorrentapi.Client:
+        """Create a fresh qBittorrent API client for a configured instance."""
+        username = CONFIG.get(f"{instance_name}.UserName", fallback=None)
+        password = CONFIG.get(f"{instance_name}.Password", fallback=None)
+        skip_tls_verify = CONFIG.get(f"{instance_name}.SkipTLSVerify", fallback=False)
+        return qbittorrentapi.Client(
+            host=CONFIG.get(f"{instance_name}.Host", fallback="localhost"),
+            port=CONFIG.get(f"{instance_name}.Port", fallback=8105),
+            username=username,
+            password=password,
+            SIMPLE_RESPONSES=False,
+            VERIFY_WEBUI_CERTIFICATE=not skip_tls_verify,
+        )
 
     def is_instance_alive(self, instance_name: str) -> bool:
         """

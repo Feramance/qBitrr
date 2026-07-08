@@ -105,6 +105,44 @@ Port = 8080
 
 ---
 
+### qBittorrent API Returns JSON Parse Errors
+
+**Symptoms:**
+
+- `JSONDecodeError('Expected object or value')`
+- `JSONDecodeError('Trailing data')`
+- `Invalid version: ''`
+- `Skipping tracker processing ... response parsing`
+
+**What it usually means:**
+
+qBitrr is receiving malformed or mixed qBittorrent API responses. This is most often caused by one
+of the following:
+
+- qBitrr and qBittorrent are talking through an unstable reverse proxy
+- qBittorrent is restarting or returning partial responses
+- older qBitrr builds reused inherited qBittorrent HTTP sessions across worker processes
+
+**What to check:**
+
+1. Connect qBitrr directly to qBittorrent if possible instead of proxying the WebUI/API.
+2. Confirm the configured qBittorrent host/port is stable and not load-balanced.
+3. Check qBittorrent logs for restarts or WebUI/API errors at the same timestamps.
+4. Upgrade qBitrr if you are on a build that predates the per-process qBittorrent client fix.
+
+**Example direct config:**
+
+```toml
+[qBit]
+Host = "qbittorrent"
+Port = 8080
+```
+
+If these errors persist after connecting directly, collect both qBitrr and qBittorrent logs from
+the same time window before filing a bug report.
+
+---
+
 ### Can't Connect to qBittorrent on Host Network
 
 **Symptom:** qBittorrent is running on host, qBitrr in Docker can't connect
