@@ -778,11 +778,13 @@ def checkpoint_database() -> bool:
     Checkpoint the database WAL to prevent corruption on shutdown.
 
     This is called automatically on graceful shutdown to ensure all
-    WAL entries are flushed to the main database file.
+    WAL entries are flushed to the main database file. Serialized with
+    worker processes via :func:`~qBitrr.db_lock.database_lock`.
 
     Returns:
         True if checkpoint successful, False otherwise
     """
+    from qBitrr.db_lock import database_lock
     from qBitrr.db_recovery import checkpoint_wal
 
     db_path = get_database_path()
@@ -791,4 +793,44 @@ def checkpoint_database() -> bool:
         return True
 
     logger.info("Checkpointing database WAL before shutdown...")
-    return checkpoint_wal(db_path, logger_override=logger)
+    with database_lock():
+        return checkpoint_wal(db_path, logger_override=logger)
+
+
+def maintain_database(*, repair_if_unhealthy: bool = True) -> bool:
+    """
+    Periodic maintenance: checkpoint WAL, verify health, optionally repair.
+
+    Runs under the cross-process file lock so checkpoint and repair never
+    race with Arr worker writes.
+
+    Returns:
+        True when the database is healthy (or repair succeeded), False otherwise.
+    """
+    from qBitrr.db_lock import check_database_health, database_lock
+    from qBitrr.db_recovery import checkpoint_wal, repair_database
+
+    db_path = get_database_path()
+    if not db_path.exists():
+        return True
+
+    with database_lock():
+        if not checkpoint_wal(db_path, logger_override=logger):
+            logger.warning("WAL checkpoint failed during database maintenance")
+
+        healthy, msg = check_database_health(db_path, logger)
+        if healthy:
+            logger.debug("Database maintenance: health check passed")
+            return True
+
+        logger.error("Database health check failed during maintenance: %s", msg)
+        if not repair_if_unhealthy:
+            return False
+
+        logger.warning("Attempting automatic database repair during maintenance...")
+        if repair_database(db_path, backup=True, logger_override=logger):
+            logger.info("Database repair during maintenance succeeded")
+            return True
+
+        logger.critical("Database repair during maintenance failed")
+        return False

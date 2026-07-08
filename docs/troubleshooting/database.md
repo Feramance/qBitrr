@@ -397,14 +397,56 @@ qBitrr automatically attempts recovery when corruption is detected:
 Follow these practices to minimize corruption risk:
 
 1. **Use local storage** — SQLite on NFS/CIFS is unreliable due to file locking and sync semantics. Keep `qbitrr.db` on a local disk or a volume backed by local storage.
-2. **Graceful shutdown** — Always use `docker stop` (not `docker kill`). Use a stop grace period so the app has time to run its shutdown handler and checkpoint the DB (see Docker section below).
-3. **Docker: init process and stop_grace_period** — The official image uses **tini** as PID 1 so that when Docker sends SIGTERM, it is forwarded to the Python process. That allows the app to run its cleanup (checkpoint WAL, then exit). Set `stop_grace_period: 30s` (or more) in your Compose file so Docker does not send SIGKILL before cleanup finishes.
+2. **Graceful shutdown** — Always use `docker compose stop qbitrr` or `docker stop qbitrr` (not `docker kill`, not `docker stop -t 0`). Use a stop grace period so the app has time to run its shutdown handler and checkpoint the DB (see [Docker troubleshooting](docker.md#database-corruption-after-restart-docker)).
+3. **Docker: init process and stop_grace_period** — The official image uses **tini** as PID 1 so that when Docker sends SIGTERM, it is forwarded to the Python process. That allows the app to run its cleanup (checkpoint WAL, then exit). Set `stop_grace_period: 60s` (or more) in your Compose file so Docker does not send SIGKILL before cleanup finishes.
 4. **Ensure adequate disk space** — WAL operations need temporary space; configure `FreeSpace` in config.
 5. **Regular backups** — Set up daily backups of `qbitrr.db` (see [Backup & Restore](#database-backup-restore)).
 6. **Proper permissions** — Ensure the qBitrr user owns the database files (`chown 1000:1000 /config/qBitManager/qbitrr.db`).
 
 !!! note "Historical Fix: synchronous Setting"
-    Prior to the fix in commit `465c306d`, qBitrr used `PRAGMA synchronous=0` (OFF), which traded data integrity for write speed. This was changed to `synchronous=1` (NORMAL), which prevents corruption from power loss/crashes with minimal performance impact (~5-10% write latency increase, mitigated by WAL mode).
+    Prior to the fix in commit `465c306d`, qBitrr used `PRAGMA synchronous=0` (OFF), which traded data integrity for write speed. Current releases use `synchronous=2` (FULL) with WAL mode for maximum durability.
+
+#### Runtime maintenance (v5.12+)
+
+qBitrr runs **periodic database maintenance** every 5 minutes in the main process:
+
+1. WAL checkpoint (under the cross-process file lock)
+2. `PRAGMA quick_check`
+3. Automatic dump/restore repair if corruption is detected
+
+Arr catalog WebUI endpoints return **503** (not 500) when corruption is detected and trigger a repair attempt before asking the client to retry.
+
+#### Investigating recurring corruption
+
+If corruption happens more than once, check operational causes before assuming an application bug:
+
+=== "OOM kills"
+    ```bash
+    # Host kernel log
+    dmesg | grep -iE 'oom|killed process'
+
+    # Was the container OOM-killed?
+    docker inspect qbitrr --format '{{.State.OOMKilled}}'
+    ```
+
+=== "Unclean shutdown"
+    ```bash
+    # Exit code and finished time
+    docker inspect qbitrr --format '{{.State.ExitCode}} {{.State.FinishedAt}}'
+
+    # Confirm graceful stop was used (not kill -t 0)
+    ```
+
+=== "Filesystem health"
+    ```bash
+    # Disk space on config volume
+    df -h .config
+
+    # btrfs hosts: scrub status (adjust device as needed)
+    sudo btrfs scrub status /
+    ```
+
+Corruption that develops **while qBitrr is running** (not only after restart) usually means the host killed the process, storage I/O errors, or disk full — not missing Arr view logic.
 
 ---
 
@@ -684,9 +726,28 @@ EOF
 
 qBitrr automatically creates backups during recovery:
 
-- **Location**: `~/config/qbitrr.db.backup`
-- **Trigger**: Before repair operations
+- **Location**: `~/config/qBitManager/qbitrr.db.backup`
+- **Trigger**: Before repair operations (startup, periodic maintenance, WebUI recovery)
 - **Retention**: Single backup (overwrites previous)
+
+#### Scheduled backups (recommended)
+
+Use [`scripts/backup_database.py`](../../scripts/backup_database.py) for **online** backups via the SQLite backup API (safe while qBitrr is running):
+
+=== "Docker (cron on host)"
+    ```bash
+    # Daily at 03:00 — adjust paths to your install
+    0 3 * * * cd /path/to/qBitrr && docker compose exec -T qbitrr \
+      python /app/scripts/backup_database.py \
+      --dest /config/qBitManager/backups/qbitrr.db.$(date -u +\%Y\%m\%d)
+    ```
+
+=== "Native / pip install"
+    ```bash
+    0 3 * * * cd /path/to/qBitrr && .venv/bin/python scripts/backup_database.py
+    ```
+
+Backups are written to `qBitManager/backups/qbitrr.db.YYYYMMDD` by default. Prune old files periodically (e.g. keep 14 days).
 
 ### Manual Backups
 
@@ -792,10 +853,12 @@ qBitrr uses optimized PRAGMA settings (automatically applied):
 
 ```sql
 PRAGMA journal_mode=WAL;           -- Write-Ahead Logging
-PRAGMA synchronous=NORMAL;         -- Balance safety vs. speed
+PRAGMA synchronous=FULL;           -- Maximum durability (see qBitrr/database.py)
 PRAGMA cache_size=-64000;          -- 64MB cache
-PRAGMA temp_store=MEMORY;          -- Temp tables in RAM
-PRAGMA mmap_size=268435456;        -- 256MB memory-mapped I/O
+PRAGMA foreign_keys=ON;
+PRAGMA read_uncommitted=ON;        -- WebUI read contention
+PRAGMA wal_autocheckpoint=100;
+PRAGMA journal_size_limit=67108864;  -- 64MB max WAL
 ```
 
 !!! info "Tuning"

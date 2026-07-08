@@ -879,9 +879,11 @@ class qBitManager:
         are regularly flushed to the main database file, minimizing data loss
         risk in case of sudden crashes or power loss.
         """
-        from qBitrr.database import checkpoint_database
+        from qBitrr.database import maintain_database
 
-        self.logger.info("Starting periodic database checkpoint thread (interval: 5 minutes)")
+        self.logger.info(
+            "Starting periodic database maintenance thread (checkpoint + health check, interval: 5 minutes)"
+        )
 
         while not self.shutdown_event.is_set():
             # Wait 5 minutes or until shutdown
@@ -892,9 +894,12 @@ class qBitManager:
                 break
 
             try:
-                checkpoint_database()
+                if not maintain_database(repair_if_unhealthy=True):
+                    self.logger.critical(
+                        "Periodic database maintenance detected corruption and repair failed"
+                    )
             except Exception as e:
-                self.logger.error("Periodic database checkpoint failed: %s", e)
+                self.logger.error("Periodic database maintenance failed: %s", e)
 
         self.logger.info("Periodic database checkpoint thread stopped")
 

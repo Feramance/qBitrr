@@ -11,6 +11,7 @@ import threading
 import time
 from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
+from functools import wraps
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -46,6 +47,51 @@ from qBitrr.webui_thumbnails import (
 _openapi_spec_lock = threading.Lock()
 _openapi_spec: dict[str, Any] | None = None
 _openapi_spec_api_only: dict[str, Any] | None = None
+
+
+def _is_database_corruption_error(exc: BaseException) -> bool:
+    """Return True when *exc* (or its cause chain) indicates SQLite corruption."""
+    msg = str(exc).lower()
+    if (
+        "disk image is malformed" in msg
+        or "database disk image is malformed" in msg
+        or "database corruption" in msg
+    ):
+        return True
+    cause = getattr(exc, "__cause__", None)
+    if cause is not None and cause is not exc:
+        return _is_database_corruption_error(cause)
+    return False
+
+
+def _arr_catalog_db_safe(handler):
+    """Catch catalog DB corruption, attempt repair, return 503 instead of 500."""
+
+    @wraps(handler)
+    def wrapper(*args, **kwargs):
+        try:
+            return handler(*args, **kwargs)
+        except Exception as e:
+            if not _is_database_corruption_error(e):
+                raise
+            log = logging.getLogger("qBitrr.WebUI")
+            log.error(
+                "Database corruption in Arr catalog handler %s: %s",
+                handler.__name__,
+                e,
+                exc_info=True,
+            )
+            from qBitrr.database import maintain_database
+
+            repaired = maintain_database(repair_if_unhealthy=True)
+            message = (
+                "Database was repaired — retry shortly"
+                if repaired
+                else "Database corruption detected — automatic repair failed"
+            )
+            return jsonify({"error": message}), 503
+
+    return wrapper
 
 
 def normalize_url_base(value: str | None) -> str:
@@ -2921,6 +2967,7 @@ class WebUI:
                 return jsonify({"error": "not found"}), 404
             return send_file(file, as_attachment=True)
 
+        @_arr_catalog_db_safe
         def _handle_radarr_movies(category: str):
             managed = _managed_objects()
             if not managed:
@@ -3033,6 +3080,7 @@ class WebUI:
                 return resp
             return _arr_thumbnail(category, "radarr", entry_id)
 
+        @_arr_catalog_db_safe
         def _handle_sonarr_series(category: str):
             managed = _managed_objects()
             if not managed:
@@ -3077,6 +3125,7 @@ class WebUI:
                 return resp
             return _arr_thumbnail(category, "sonarr", entry_id)
 
+        @_arr_catalog_db_safe
         def _handle_lidarr_albums(category: str):
             managed = _managed_objects()
             if not managed:
@@ -3148,6 +3197,7 @@ class WebUI:
                 return resp
             return _handle_lidarr_albums(category)
 
+        @_arr_catalog_db_safe
         def _handle_lidarr_artists(category: str):
             managed = _managed_objects()
             if not managed:
@@ -3182,6 +3232,7 @@ class WebUI:
             payload["category"] = str(arr.category)
             return jsonify(payload)
 
+        @_arr_catalog_db_safe
         def _handle_lidarr_artist_detail(category: str, artist_id: int):
             managed = _managed_objects()
             if not managed:

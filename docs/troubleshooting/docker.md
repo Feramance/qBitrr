@@ -317,7 +317,7 @@ docker exec qbitrr printenv | grep -i qbit
 **What qBitrr does to prevent it:**
 
 - The official image runs **tini** as PID 1 so SIGTERM is forwarded to the Python process. On SIGTERM, qBitrr checkpoints the database WAL and then exits.
-- Use **`stop_grace_period: 30s`** (or more) in your Compose file so Docker waits long enough for cleanup before sending SIGKILL.
+- Use **`stop_grace_period: 60s`** (or more) in your Compose file so Docker waits long enough for cleanup before sending SIGKILL.
 
 **Example:**
 
@@ -325,11 +325,11 @@ docker exec qbitrr printenv | grep -i qbit
 services:
   qbitrr:
     image: feramance/qbitrr:latest
-    stop_grace_period: 30s   # Give time for DB checkpoint on stop
+    stop_grace_period: 60s   # Give time for DB checkpoint on stop
     # ... rest of config
 ```
 
-**Do not:** Use `docker kill` or `docker stop -t 0`; that skips graceful shutdown and can corrupt the database.
+**Do not:** Use `docker kill` or `docker compose down` without a grace period, or `docker stop -t 0`; that skips graceful shutdown and can corrupt the database. Always prefer `docker compose stop qbitrr` (or `docker stop qbitrr`).
 
 ---
 
