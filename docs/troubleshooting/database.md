@@ -732,7 +732,7 @@ qBitrr automatically creates backups during recovery:
 
 #### Scheduled backups (recommended)
 
-Use [`scripts/backup_database.py`](../../scripts/backup_database.py) for **online** backups via the SQLite backup API (safe while qBitrr is running):
+Use `scripts/backup_database.py` for **online** backups via the SQLite backup API (safe while qBitrr is running):
 
 === "Docker (cron on host)"
     ```bash

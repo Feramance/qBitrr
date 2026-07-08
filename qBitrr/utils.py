@@ -94,6 +94,9 @@ def validate_and_return_torrent_file(file: str) -> pathlib.Path:
 def has_internet(client: qbittorrentapi.Client):
     from qBitrr.config import PING_URLS
 
+    if client is None:
+        return False
+
     # Prefer qBit's connection status to avoid frequent pings
     try:
         status = client.transfer_info().get("connection_status")

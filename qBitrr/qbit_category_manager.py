@@ -378,26 +378,7 @@ class qBitCategoryManager:
 
     def _create_dedicated_client(self):
         """Create a dedicated qBit client for this process to avoid HTTP session sharing."""
-        import qbittorrentapi
-
-        metadata = self.qbit_manager.instance_metadata.get(self.instance_name, {})
-        host = metadata.get("host", "localhost")
-        port = metadata.get("port", 8080)
-        username = metadata.get("username")
-        # Read password from config since it's not stored in metadata
-        from qBitrr.config import CONFIG
-
-        # instance_name is the config section name (e.g. "qBit" or "qBit-Seedbox")
-        password = CONFIG.get(f"{self.instance_name}.Password", fallback=None)
-        skip_tls_verify = CONFIG.get(f"{self.instance_name}.SkipTLSVerify", fallback=False)
-        client = qbittorrentapi.Client(
-            host=host,
-            port=port,
-            username=username,
-            password=password,
-            SIMPLE_RESPONSES=False,
-            VERIFY_WEBUI_CERTIFICATE=not skip_tls_verify,
-        )
+        client = self.qbit_manager.create_client_for_instance(self.instance_name)
         self.logger.debug(
             "Created dedicated qBit client for category manager '%s'",
             self.instance_name,
