@@ -483,6 +483,68 @@ class TestFilePriorityRouting(unittest.TestCase):
         )
         self.assertEqual(arr.change_priority_by_instance, {})
 
+    def test_file_priority_retains_hash_on_failure(self) -> None:
+        arr = _bare_arr()
+        arr.change_priority = {}
+        arr.change_priority_by_instance = defaultdict(dict, {"vpn": {"hash1": [1, 2]}})
+        arr.manager.qbit_manager.name_cache = {"hash1": "Example"}
+        client = MagicMock()
+        client.torrents_file_priority.side_effect = qbittorrentapi.exceptions.APIConnectionError(
+            "timeout"
+        )
+
+        with (
+            patch.object(arr, "_get_qbit_client", return_value=client),
+            patch("qBitrr.arss.with_retry", side_effect=lambda fn, **_: fn()),
+        ):
+            arr._process_file_priority()
+
+        self.assertEqual(dict(arr.change_priority_by_instance), {"vpn": {"hash1": [1, 2]}})
+
+    def test_legacy_file_priority_retains_hash_on_failure(self) -> None:
+        arr = _bare_arr()
+        arr.change_priority = {"hash1": [1, 2]}
+        arr.change_priority_by_instance = defaultdict(dict)
+        arr.manager.qbit_manager.name_cache = {"hash1": "Example"}
+        legacy_client = MagicMock()
+        legacy_client.torrents_file_priority.side_effect = (
+            qbittorrentapi.exceptions.APIConnectionError("timeout")
+        )
+
+        with (
+            patch.object(arr, "_get_legacy_default_qbit_client", return_value=legacy_client),
+            patch("qBitrr.arss.with_retry", side_effect=lambda fn, **_: fn()),
+        ):
+            arr._process_file_priority()
+
+        self.assertEqual(arr.change_priority, {"hash1": [1, 2]})
+
+    def test_file_priority_retains_hash_when_name_missing(self) -> None:
+        arr = _bare_arr()
+        arr.change_priority = {}
+        arr.change_priority_by_instance = defaultdict(dict, {"vpn": {"hash1": [1, 2]}})
+        client = MagicMock()
+
+        with patch.object(arr, "_get_qbit_client", return_value=client):
+            arr._process_file_priority()
+
+        self.assertEqual(dict(arr.change_priority_by_instance), {"vpn": {"hash1": [1, 2]}})
+        client.torrents_file_priority.assert_not_called()
+        arr.logger.error.assert_called_once_with("Torrent does not exist? %s", "hash1")
+
+    def test_legacy_file_priority_retains_hash_when_name_missing(self) -> None:
+        arr = _bare_arr()
+        arr.change_priority = {"hash1": [1, 2]}
+        arr.change_priority_by_instance = defaultdict(dict)
+        legacy_client = MagicMock()
+
+        with patch.object(arr, "_get_legacy_default_qbit_client", return_value=legacy_client):
+            arr._process_file_priority()
+
+        self.assertEqual(arr.change_priority, {"hash1": [1, 2]})
+        legacy_client.torrents_file_priority.assert_not_called()
+        arr.logger.error.assert_called_once_with("Torrent does not exist? %s", "hash1")
+
 
 class TestLegacyResumeRetry(unittest.TestCase):
     """Ensure legacy resume path retries like legacy pause."""

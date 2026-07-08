@@ -2338,25 +2338,31 @@ class Arr:
             )
         else:
             self.logger.error("Torrent does not exist? %s", hash_)
+            raise LookupError(f"Cannot update file priority for unknown torrent hash {hash_}")
 
     def _process_file_priority(self) -> None:
         # Set all files marked as "Do not download" to not download.
         if self.change_priority or self.change_priority_by_instance:
             self.needs_cleanup = True
         if self.change_priority:
+            still_pending_legacy: dict[str, list] = {}
             legacy_client = self._get_legacy_default_qbit_client()
             for hash_, files in list(self.change_priority.items()):
-                if legacy_client is not None:
-                    with contextlib.suppress(Exception):
-                        self._apply_file_priority_update(legacy_client, hash_, files)
-                else:
+                if legacy_client is None:
                     name = self.manager.qbit_manager.name_cache.get(hash_, hash_)
                     self.logger.warning(
                         "Cannot update file priority for %s (%s): no qBit client",
                         name,
                         hash_,
                     )
-                del self.change_priority[hash_]
+                    still_pending_legacy[hash_] = files
+                    continue
+                try:
+                    self._apply_file_priority_update(legacy_client, hash_, files)
+                except Exception:
+                    still_pending_legacy[hash_] = files
+            self.change_priority = still_pending_legacy
+        still_pending_by_instance: defaultdict[str, dict[str, list]] = defaultdict(dict)
         for instance_name, hash_map in list(self.change_priority_by_instance.items()):
             if not hash_map:
                 continue
@@ -2367,13 +2373,14 @@ class Arr:
                     len(hash_map),
                     instance_name,
                 )
+                still_pending_by_instance[instance_name].update(hash_map)
                 continue
             for hash_, files in list(hash_map.items()):
-                with contextlib.suppress(Exception):
+                try:
                     self._apply_file_priority_update(client, hash_, files)
-                del hash_map[hash_]
-            if not hash_map:
-                del self.change_priority_by_instance[instance_name]
+                except Exception:
+                    still_pending_by_instance[instance_name][hash_] = files
+        self.change_priority_by_instance = still_pending_by_instance
 
     def _process_resume(self) -> None:
         if not AUTO_PAUSE_RESUME:
