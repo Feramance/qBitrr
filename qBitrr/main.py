@@ -93,6 +93,7 @@ class qBitManager:
         self._name = "Manager"
         self.shutdown_event = Event()
         self.database_restart_event = Event()  # Signal for coordinated database recovery restart
+        self._database_restart_in_progress = False
         self.qBit_Host = CONFIG.get("qBit.Host", fallback="localhost")
         self.qBit_Port = CONFIG.get("qBit.Port", fallback=8105)
         self.qBit_UserName = CONFIG.get("qBit.UserName", fallback=None)
@@ -1072,6 +1073,7 @@ class qBitManager:
             while not self.shutdown_event.is_set():
                 # Check for database restart signal
                 if self.database_restart_event.is_set():
+                    self._database_restart_in_progress = True
                     self.logger.critical(
                         "Database restart signal detected - terminating ALL processes for coordinated restart..."
                     )
@@ -1147,6 +1149,7 @@ class qBitManager:
                                 self.logger.exception(
                                     "Failed to respawn processes for %s: %s", arr._name, e
                                 )
+                    self._database_restart_in_progress = False
                     continue
 
                 any_alive = False
@@ -1169,8 +1172,15 @@ class qBitManager:
                         exit_code,
                     )
 
+                    # Coordinated database recovery owns restart decisions for this cycle.
+                    if self.database_restart_event.is_set() or self._database_restart_in_progress:
+                        self.logger.info(
+                            "Skipping individual worker restart for %s/%s during coordinated database recovery",
+                            category,
+                            role,
+                        )
                     # Attempt auto-restart if enabled and process crashed (non-zero exit)
-                    if self.auto_restart_enabled and exit_code != 0:
+                    elif self.auto_restart_enabled and exit_code != 0:
                         if self._should_restart_process(category, role):
                             self.logger.info(
                                 "Attempting to restart %s worker for category '%s'",
@@ -1192,7 +1202,12 @@ class qBitManager:
                         self.child_processes.remove(proc)
 
                 # Retry failed process spawns
-                if self._pending_spawns and self.auto_restart_enabled:
+                if (
+                    self._pending_spawns
+                    and self.auto_restart_enabled
+                    and not self.database_restart_event.is_set()
+                    and not self._database_restart_in_progress
+                ):
                     retry_spawns = []
                     for arr, meta in self._pending_spawns:
                         category = meta.get("category", "")
@@ -1468,6 +1483,7 @@ def run():
 
     # Flag to track if shutdown has been initiated
     shutdown_initiated = False
+    supervisor_pid = os.getpid()
 
     try:
         manager.get_child_processes()
@@ -1478,6 +1494,9 @@ def run():
             if shutdown_initiated:
                 return  # Already cleaned up
             shutdown_initiated = True
+
+            if os.getpid() != supervisor_pid:
+                return
 
             # Checkpoint database WAL before shutdown
             try:
@@ -1504,6 +1523,8 @@ def run():
 
         # Register signal handlers for graceful shutdown
         def _signal_handler(signum, frame):
+            if os.getpid() != supervisor_pid:
+                raise SystemExit(0)
             logger.info("Received signal %s - initiating graceful shutdown", signum)
             _cleanup()
             sys.exit(0)

@@ -5789,6 +5789,7 @@ class Arr:
                 # Initialize database error tracking for exponential backoff
                 if not hasattr(self, "_db_error_count"):
                     self._db_error_count = 0
+                    self._db_first_error_time = 0
                     self._db_last_error_time = 0
 
                 # Periodic database health check (every 10th iteration)
@@ -5813,6 +5814,8 @@ class Arr:
                                 "Database recovery failed: %s. Continuing with caution...",
                                 recovery_error,
                             )
+                    else:
+                        self._reset_database_error_tracking()
 
                     self._health_check_counter = 0
 
@@ -5828,6 +5831,7 @@ class Arr:
                             managed_tag_pool=managed_tag_pool,
                         )
                 self.process()
+                self._reset_database_error_tracking()
             except NoConnectionrException as e:
                 self.logger.error(e.message)
             except PyarrConnectionError as e:
@@ -5863,6 +5867,12 @@ class Arr:
 
                 self._db_error_count += 1
                 self._db_last_error_time = current_time
+
+                self.logger.error(
+                    "Database operation failed after retry exhaustion: %s (%s)",
+                    e.__class__.__name__,
+                    e,
+                )
 
                 # Check if errors have persisted for more than 5 minutes
                 time_since_first_error = current_time - self._db_first_error_time
@@ -5929,8 +5939,7 @@ class Arr:
                         self.logger.info(
                             "Database recovery completed successfully - will retry operation after delay"
                         )
-                        # Reduce error count on successful recovery (but don't reset completely)
-                        self._db_error_count = max(0, self._db_error_count - 1)
+                        self._reset_database_error_tracking()
                     except Exception as recovery_error:
                         self.logger.critical(
                             "Automatic database recovery failed: %s. "
@@ -5955,6 +5964,12 @@ class Arr:
         except DelayLoopException:
             raise
 
+    def _reset_database_error_tracking(self) -> None:
+        """Clear consecutive database error state after a healthy iteration."""
+        self._db_error_count = 0
+        self._db_first_error_time = 0
+        self._db_last_error_time = 0
+
     def _recover_database(self):
         """
         Attempt automatic database recovery when health check fails.
@@ -5973,6 +5988,7 @@ class Arr:
         self.logger.info("Attempting WAL checkpoint...")
         if checkpoint_wal(db_path, self.logger):
             self.logger.info("WAL checkpoint successful - database recovered")
+            self._reset_database_error_tracking()
             return
 
         # Step 2: Try full repair (more invasive)
@@ -5980,6 +5996,7 @@ class Arr:
         try:
             if repair_database(db_path, backup=True, logger_override=self.logger):
                 self.logger.info("Database repair successful")
+                self._reset_database_error_tracking()
                 return
         except DatabaseRecoveryError as e:
             self.logger.error("Database repair failed: %s", e)
@@ -6025,6 +6042,7 @@ class Arr:
             healthy, msg = check_database_health(db_path, self.logger)
             if healthy:
                 self.logger.info("Database health verified - recovery complete")
+                self._reset_database_error_tracking()
                 return
             else:
                 self.logger.warning(
@@ -6040,6 +6058,7 @@ class Arr:
             healthy, msg = check_database_health(db_path, self.logger)
             if healthy:
                 self.logger.info("Database health verified after VACUUM - recovery complete")
+                self._reset_database_error_tracking()
                 return
             else:
                 self.logger.warning("VACUUM completed but database still unhealthy: %s", msg)
@@ -6055,6 +6074,7 @@ class Arr:
                 healthy, msg = check_database_health(db_path, self.logger)
                 if healthy:
                     self.logger.info("Database health verified after repair - recovery complete")
+                    self._reset_database_error_tracking()
                     return
                 else:
                     self.logger.error("Repair completed but database still unhealthy: %s", msg)
