@@ -277,6 +277,7 @@ The #1 reason qBitrr doesn't process torrents is **mismatched categories**.
 2. **Verify torrent is actually stalled:**
    - In qBittorrent, check torrent status
    - "Stalled" means no peers and no progress
+   - "Downloading metadata" (`metaDL`) is handled by the same `StalledDelay` setting
 
 3. **Enable re-search for stalled:**
    ```toml
