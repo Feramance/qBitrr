@@ -1,5 +1,17 @@
 # Changelog
 
+## v5.12.11 (14/07/2026)
+
+### 🐛 Bug Fixes
+- [[patch] v5.12.11: Database recovery and metadata stalled fixes (#497)](https://github.com/Feramance/qBitrr/commit/dc3bf8047a54a07dcc056251cd6f48bb8b6b8566) - @Feramance
+
+### 🔧 Maintenance
+- [Bump vite from 8.1.3 to 8.1.4 in /webui (#501)](https://github.com/Feramance/qBitrr/commit/1941597657551015dcb2a6946d35f6d90c2e5ac9) - @Feramance
+- [Bump postcss from 8.5.16 to 8.5.18 in /webui (#500)](https://github.com/Feramance/qBitrr/commit/d09d48589b0610743da91e1ba9fc95dd751bf25e) - @Feramance
+- [Bump eslint from 10.6.0 to 10.7.0 in /webui (#493)](https://github.com/Feramance/qBitrr/commit/1e1d3e331ed42b0f7172ed247fd95821a41f7e63) - @Feramance
+
+---
+
 ## v5.12.10 (08/07/2026)
 
 ### 🐛 Bug Fixes
