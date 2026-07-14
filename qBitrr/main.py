@@ -1100,6 +1100,23 @@ class qBitManager:
                     self._process_registry.clear()
                     # Clear the event
                     self.database_restart_event.clear()
+                    # Supervisor-led WAL checkpoint while all workers are stopped
+                    try:
+                        from qBitrr.database import checkpoint_database
+
+                        if checkpoint_database():
+                            self.logger.info(
+                                "Supervisor WAL checkpoint completed before worker respawn"
+                            )
+                        else:
+                            self.logger.warning(
+                                "Supervisor WAL checkpoint failed; continuing with worker respawn"
+                            )
+                    except Exception as checkpoint_exc:
+                        self.logger.warning(
+                            "Supervisor WAL checkpoint raised %s; continuing with worker respawn",
+                            checkpoint_exc,
+                        )
                     # Restart all Arr instances
                     self.logger.critical("Restarting all Arr instances after database recovery...")
                     if hasattr(self, "arr_manager") and self.arr_manager:
@@ -1128,6 +1145,9 @@ class qBitManager:
                                                 arr._name,
                                                 proc.pid,
                                             )
+                                            # CRITICAL: Add to child_processes so it's monitored
+                                            if proc not in self.child_processes:
+                                                self.child_processes.append(proc)
                                         else:
                                             self.logger.error(
                                                 "Respawned %s worker for %s died immediately (exitcode: %s)",
