@@ -981,6 +981,29 @@ class qBitManager:
             )
         return list(self.child_processes)
 
+    @staticmethod
+    def _expected_spawn_roles(arr) -> list[str]:
+        """Return worker roles that ``spawn_child_processes`` would create for an Arr."""
+        roles: list[str] = []
+        if getattr(arr, "search_missing", False):
+            roles.append("search")
+        if not (QBIT_DISABLED or SEARCH_ONLY):
+            roles.append("torrent")
+        return roles
+
+    def _enqueue_failed_spawn(self, arr, role: str) -> None:
+        """Track a failed worker spawn and queue it for periodic retry."""
+        category = getattr(arr, "category", "")
+        key = (category, role)
+        self._failed_spawn_attempts[key] = self._failed_spawn_attempts.get(key, 0) + 1
+        meta = {"category": category, "role": role, "name": getattr(arr, "_name", "")}
+        already_pending = any(
+            m.get("category") == category and m.get("role") == role
+            for _, m in self._pending_spawns
+        )
+        if not already_pending:
+            self._pending_spawns.append((arr, meta))
+
     def run(self) -> None:
         try:
             if not self._bootstrap_ready.wait(60.0):
@@ -1054,21 +1077,11 @@ class qBitManager:
                     ", ".join(f"{role}({cat})" for role, cat in failed_processes),
                 )
                 # Track failed processes for retry
-                for role, category in failed_processes:
-                    key = (category, role)
-                    self._failed_spawn_attempts[key] = self._failed_spawn_attempts.get(key, 0) + 1
-                    # Add to retry queue if not already there
-                    if hasattr(self, "arr_manager") and self.arr_manager:
+                if hasattr(self, "arr_manager") and self.arr_manager:
+                    for role, category in failed_processes:
                         for arr in self.arr_manager.managed_objects.values():
                             if arr.category == category:
-                                # Check if already in pending spawns (avoid duplicates)
-                                meta = {"category": category, "role": role, "name": arr._name}
-                                already_pending = any(
-                                    m.get("category") == category and m.get("role") == role
-                                    for _, m in self._pending_spawns
-                                )
-                                if not already_pending:
-                                    self._pending_spawns.append((arr, meta))
+                                self._enqueue_failed_spawn(arr, role)
                                 break
             while not self.shutdown_event.is_set():
                 # Check for database restart signal
@@ -1155,6 +1168,8 @@ class qBitManager:
                                                 arr._name,
                                                 proc.exitcode,
                                             )
+                                            self._process_registry.pop(proc, None)
+                                            self._enqueue_failed_spawn(arr, role)
                                     except Exception as start_exc:
                                         self.logger.error(
                                             "Failed to start respawned %s worker for %s: %s",
@@ -1162,6 +1177,8 @@ class qBitManager:
                                             arr._name,
                                             start_exc,
                                         )
+                                        self._process_registry.pop(proc, None)
+                                        self._enqueue_failed_spawn(arr, role)
                                 self.logger.info(
                                     "Respawned %d process(es) for %s", worker_count, arr._name
                                 )
@@ -1169,6 +1186,8 @@ class qBitManager:
                                 self.logger.exception(
                                     "Failed to respawn processes for %s: %s", arr._name, e
                                 )
+                                for role in self._expected_spawn_roles(arr):
+                                    self._enqueue_failed_spawn(arr, role)
                     self._database_restart_in_progress = False
                     continue
 
