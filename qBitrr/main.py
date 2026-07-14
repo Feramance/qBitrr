@@ -1004,6 +1004,12 @@ class qBitManager:
         if not already_pending:
             self._pending_spawns.append((arr, meta))
 
+    def _discard_unstarted_spawn(self, proc) -> None:
+        """Remove a failed or never-started worker from supervisor tracking."""
+        self._process_registry.pop(proc, None)
+        with contextlib.suppress(ValueError):
+            self.child_processes.remove(proc)
+
     def run(self) -> None:
         try:
             if not self._bootstrap_ready.wait(60.0):
@@ -1052,6 +1058,7 @@ class qBitManager:
                             proc.exitcode,
                         )
                         failed_processes.append((meta.get("role"), meta.get("category")))
+                        self._discard_unstarted_spawn(proc)
                 except Exception as exc:
                     meta = self._process_registry.get(proc, {})
                     self.logger.critical(
@@ -1062,6 +1069,7 @@ class qBitManager:
                         exc_info=exc,
                     )
                     failed_processes.append((meta.get("role"), meta.get("category")))
+                    self._discard_unstarted_spawn(proc)
 
             # Log summary
             if started_processes:
@@ -1168,7 +1176,7 @@ class qBitManager:
                                                 arr._name,
                                                 proc.exitcode,
                                             )
-                                            self._process_registry.pop(proc, None)
+                                            self._discard_unstarted_spawn(proc)
                                             self._enqueue_failed_spawn(arr, role)
                                     except Exception as start_exc:
                                         self.logger.error(
@@ -1177,7 +1185,7 @@ class qBitManager:
                                             arr._name,
                                             start_exc,
                                         )
-                                        self._process_registry.pop(proc, None)
+                                        self._discard_unstarted_spawn(proc)
                                         self._enqueue_failed_spawn(arr, role)
                                 self.logger.info(
                                     "Respawned %d process(es) for %s", worker_count, arr._name
@@ -1295,6 +1303,7 @@ class qBitManager:
                                                     role,
                                                     category,
                                                 )
+                                                self._discard_unstarted_spawn(proc)
                                                 retry_spawns.append((arr, meta))
                                                 self._failed_spawn_attempts[key] = attempts + 1
                                         except Exception as exc:
@@ -1304,8 +1313,11 @@ class qBitManager:
                                                 category,
                                                 exc,
                                             )
+                                            self._discard_unstarted_spawn(proc)
                                             retry_spawns.append((arr, meta))
                                             self._failed_spawn_attempts[key] = attempts + 1
+                                    else:
+                                        self._discard_unstarted_spawn(proc)
                         except Exception as exc:
                             self.logger.error(
                                 "Failed to respawn processes for retry: %s",
