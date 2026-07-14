@@ -110,7 +110,10 @@ A torrent is considered "stalled" when:
 - ✅ Download speed is 0 B/s
 - ✅ No peers available
 - ✅ Stuck at same completion percentage
+- ✅ Stuck fetching metadata (`metaDL` / `forcedMetaDL`)
 - ✅ Exceeds configured `StalledDelay` time
+
+Metadata-stuck torrents use the same `StalledDelay`, `ReSearchStalled`, and `IgnoreTorrentsYoungerThan` settings as stalled downloads. Timing is based on `added_on` for metadata states because qBittorrent can keep updating `last_activity` during metadata retries.
 
 ### Configuration
 

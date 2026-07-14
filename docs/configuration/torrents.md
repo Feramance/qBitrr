@@ -353,6 +353,9 @@ StalledDelay = 30  # 30 minutes
 - No download/upload progress
 - No seeds available
 - Tracker offline
+- Stuck fetching metadata (`metaDL` / `forcedMetaDL`)
+
+For metadata downloads, qBitrr measures stall time from when the torrent was **added** (`added_on`), not `last_activity`. Tracker and DHT metadata retries can keep updating `last_activity` even when metadata never completes.
 
 **Values:**
 

@@ -1317,6 +1317,16 @@ class Arr:
                 self.expiring_bool.remove(1)
         return False
 
+    _METADATA_STUCK_STATES = (
+        TorrentStates.METADATA_DOWNLOAD,
+        TorrentStates.FORCED_METADATA_DOWNLOAD,
+    )
+
+    @staticmethod
+    def _is_metadata_stuck_state(torrent: TorrentDictionary) -> bool:
+        """True when qBittorrent is fetching torrent metadata (metaDL / forcedMetaDL)."""
+        return torrent.state_enum in Arr._METADATA_STUCK_STATES
+
     @staticmethod
     def is_ignored_state(torrent: TorrentDictionary) -> bool:
         return torrent.state_enum in (
@@ -5759,6 +5769,7 @@ class Arr:
     def process_torrents(self):
         try:
             try:
+                self._ensure_database_error_tracking()
                 torrents_with_instances = with_retry(
                     lambda: self._get_torrents_from_all_instances(),
                     retries=5,
@@ -5786,11 +5797,6 @@ class Arr:
                 if self.manager.qbit_manager.should_delay_torrent_scan:
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, error_type="delay")
 
-                # Initialize database error tracking for exponential backoff
-                if not hasattr(self, "_db_error_count"):
-                    self._db_error_count = 0
-                    self._db_last_error_time = 0
-
                 # Periodic database health check (every 10th iteration)
                 if not hasattr(self, "_health_check_counter"):
                     self._health_check_counter = 0
@@ -5813,6 +5819,8 @@ class Arr:
                                 "Database recovery failed: %s. Continuing with caution...",
                                 recovery_error,
                             )
+                    else:
+                        self._reset_database_error_tracking()
 
                     self._health_check_counter = 0
 
@@ -5828,6 +5836,7 @@ class Arr:
                             managed_tag_pool=managed_tag_pool,
                         )
                 self.process()
+                self._reset_database_error_tracking()
             except NoConnectionrException as e:
                 self.logger.error(e.message)
             except PyarrConnectionError as e:
@@ -5849,10 +5858,7 @@ class Arr:
                 error_msg = str(e).lower()
                 current_time = time.time()
 
-                # Track consecutive database errors for exponential backoff
-                # Initialize tracking on first error ever
-                if not hasattr(self, "_db_first_error_time"):
-                    self._db_first_error_time = current_time
+                self._ensure_database_error_tracking()
 
                 # Reset if >5min since last error (new error sequence)
                 if (
@@ -5863,6 +5869,12 @@ class Arr:
 
                 self._db_error_count += 1
                 self._db_last_error_time = current_time
+
+                self.logger.error(
+                    "Database operation failed after retry exhaustion: %s (%s)",
+                    e.__class__.__name__,
+                    e,
+                )
 
                 # Check if errors have persisted for more than 5 minutes
                 time_since_first_error = current_time - self._db_first_error_time
@@ -5929,8 +5941,7 @@ class Arr:
                         self.logger.info(
                             "Database recovery completed successfully - will retry operation after delay"
                         )
-                        # Reduce error count on successful recovery (but don't reset completely)
-                        self._db_error_count = max(0, self._db_error_count - 1)
+                        self._reset_database_error_tracking()
                     except Exception as recovery_error:
                         self.logger.critical(
                             "Automatic database recovery failed: %s. "
@@ -5955,6 +5966,19 @@ class Arr:
         except DelayLoopException:
             raise
 
+    def _ensure_database_error_tracking(self) -> None:
+        """Initialize database error counters if not yet created."""
+        if not hasattr(self, "_db_error_count"):
+            self._db_error_count = 0
+            self._db_first_error_time = 0
+            self._db_last_error_time = 0
+
+    def _reset_database_error_tracking(self) -> None:
+        """Clear consecutive database error state after a healthy iteration."""
+        self._db_error_count = 0
+        self._db_first_error_time = 0
+        self._db_last_error_time = 0
+
     def _recover_database(self):
         """
         Attempt automatic database recovery when health check fails.
@@ -5973,6 +5997,7 @@ class Arr:
         self.logger.info("Attempting WAL checkpoint...")
         if checkpoint_wal(db_path, self.logger):
             self.logger.info("WAL checkpoint successful - database recovered")
+            self._reset_database_error_tracking()
             return
 
         # Step 2: Try full repair (more invasive)
@@ -5980,6 +6005,7 @@ class Arr:
         try:
             if repair_database(db_path, backup=True, logger_override=self.logger):
                 self.logger.info("Database repair successful")
+                self._reset_database_error_tracking()
                 return
         except DatabaseRecoveryError as e:
             self.logger.error("Database repair failed: %s", e)
@@ -6025,6 +6051,7 @@ class Arr:
             healthy, msg = check_database_health(db_path, self.logger)
             if healthy:
                 self.logger.info("Database health verified - recovery complete")
+                self._reset_database_error_tracking()
                 return
             else:
                 self.logger.warning(
@@ -6040,6 +6067,7 @@ class Arr:
             healthy, msg = check_database_health(db_path, self.logger)
             if healthy:
                 self.logger.info("Database health verified after VACUUM - recovery complete")
+                self._reset_database_error_tracking()
                 return
             else:
                 self.logger.warning("VACUUM completed but database still unhealthy: %s", msg)
@@ -6055,6 +6083,7 @@ class Arr:
                 healthy, msg = check_database_health(db_path, self.logger)
                 if healthy:
                     self.logger.info("Database health verified after repair - recovery complete")
+                    self._reset_database_error_tracking()
                     return
                 else:
                     self.logger.error("Repair completed but database still unhealthy: %s", msg)
@@ -6212,11 +6241,17 @@ class Arr:
     ):
         # Process torrents who have stalled at this point, only mark for
         # deletion if they have been added more than "IgnoreTorrentsYoungerThan"
-        # seconds ago
-        if (
-            torrent.added_on < time.time() - self.ignore_torrents_younger_than
-            and torrent.last_activity < (time.time() - self.ignore_torrents_younger_than)
-        ):
+        # seconds ago. Metadata downloads use added_on only because last_activity
+        # can keep updating during tracker/DHT metadata retries.
+        now = time.time()
+        younger_threshold = now - self.ignore_torrents_younger_than
+        if self._is_metadata_stuck_state(torrent):
+            ready_for_removal = torrent.added_on < younger_threshold
+        else:
+            ready_for_removal = (
+                torrent.added_on < younger_threshold and torrent.last_activity < younger_threshold
+            )
+        if ready_for_removal:
             if self._hnr_allows_delete(torrent, extra):
                 self._mark_for_deletion(torrent, extra, instance_name=instance_name)
         else:
@@ -6946,6 +6981,7 @@ class Arr:
             TorrentStates.PAUSED_DOWNLOAD,
             TorrentStates.FORCED_DOWNLOAD,
             TorrentStates.METADATA_DOWNLOAD,
+            TorrentStates.FORCED_METADATA_DOWNLOAD,
         )
 
         try:
@@ -7144,25 +7180,31 @@ class Arr:
                 datetime.fromtimestamp(torrent.added_on + self.ignore_torrents_younger_than),
             )
             return True
+        is_metadata_stuck = self._is_metadata_stuck_state(torrent)
+        stall_reference = torrent.added_on if is_metadata_stuck else torrent.last_activity
         if self.stalled_delay == 0:
             self.logger.trace(
-                "Stalled check: %s [Current:%s][Last Activity:%s][Limit:No Limit]",
+                "Stalled check: %s [Current:%s][Reference:%s][Limit:No Limit]",
                 torrent.name,
                 datetime.fromtimestamp(time_now),
-                datetime.fromtimestamp(torrent.last_activity),
+                datetime.fromtimestamp(stall_reference),
             )
         else:
             self.logger.trace(
-                "Stalled check: %s [Current:%s][Last Activity:%s][Limit:%s]",
+                "Stalled check: %s [Current:%s][Reference:%s][Limit:%s]",
                 torrent.name,
                 datetime.fromtimestamp(time_now),
-                datetime.fromtimestamp(torrent.last_activity),
-                datetime.fromtimestamp(torrent.last_activity + stalled_delay_seconds),
+                datetime.fromtimestamp(stall_reference),
+                datetime.fromtimestamp(stall_reference + stalled_delay_seconds),
             )
         if (
             (
                 torrent.state_enum
-                in (TorrentStates.METADATA_DOWNLOAD, TorrentStates.STALLED_DOWNLOAD)
+                in (
+                    TorrentStates.METADATA_DOWNLOAD,
+                    TorrentStates.FORCED_METADATA_DOWNLOAD,
+                    TorrentStates.STALLED_DOWNLOAD,
+                )
                 and not self.in_tags(torrent, "qBitrr-ignored", instance_name)
                 and not self.in_tags(torrent, "qBitrr-free_space_paused", instance_name)
             )
@@ -7174,10 +7216,7 @@ class Arr:
                 and not self.in_tags(torrent, "qBitrr-free_space_paused", instance_name)
             )
         ) and self.allowed_stalled:
-            if (
-                self.stalled_delay > 0
-                and time_now >= torrent.last_activity + stalled_delay_seconds
-            ):
+            if self.stalled_delay > 0 and time_now >= stall_reference + stalled_delay_seconds:
                 stalled_ignore = False
                 self.logger.trace("Process stalled, delay expired: %s", torrent.name)
             elif not self.in_tags(torrent, "qBitrr-allowed_stalled", instance_name):
@@ -7200,11 +7239,11 @@ class Arr:
                     self.logger.trace("Stalled, adding tag: %s", torrent.name)
             elif self.in_tags(torrent, "qBitrr-allowed_stalled", instance_name):
                 self.logger.trace(
-                    "Stalled: %s [Current:%s][Last Activity:%s][Limit:%s]",
+                    "Stalled: %s [Current:%s][Reference:%s][Limit:%s]",
                     torrent.name,
                     datetime.fromtimestamp(time_now),
-                    datetime.fromtimestamp(torrent.last_activity),
-                    datetime.fromtimestamp(torrent.last_activity + stalled_delay_seconds),
+                    datetime.fromtimestamp(stall_reference),
+                    datetime.fromtimestamp(stall_reference + stalled_delay_seconds),
                 )
 
         elif self.in_tags(torrent, "qBitrr-allowed_stalled", instance_name):
@@ -7259,6 +7298,7 @@ class Arr:
 
         if torrent.state_enum in (
             TorrentStates.METADATA_DOWNLOAD,
+            TorrentStates.FORCED_METADATA_DOWNLOAD,
             TorrentStates.STALLED_DOWNLOAD,
             TorrentStates.DOWNLOADING,
         ):
@@ -7314,7 +7354,12 @@ class Arr:
                 torrent.state_enum,
             )
         elif (
-            torrent.state_enum in (TorrentStates.METADATA_DOWNLOAD, TorrentStates.STALLED_DOWNLOAD)
+            torrent.state_enum
+            in (
+                TorrentStates.METADATA_DOWNLOAD,
+                TorrentStates.FORCED_METADATA_DOWNLOAD,
+                TorrentStates.STALLED_DOWNLOAD,
+            )
             and not self.in_tags(torrent, "qBitrr-ignored", instance_name)
             and not self.in_tags(torrent, "qBitrr-free_space_paused", instance_name)
             and not stalled_ignore
@@ -7322,7 +7367,7 @@ class Arr:
             self._process_single_torrent_stalled_torrent(torrent, "Stalled State", instance_name)
         elif (
             torrent.state_enum.is_downloading
-            and torrent.state_enum != TorrentStates.METADATA_DOWNLOAD
+            and not self._is_metadata_stuck_state(torrent)
             and torrent.hash not in self.special_casing_file_check
             and torrent.hash not in self.cleaned_torrents
         ):
@@ -9088,6 +9133,7 @@ class TorrentPolicyManager(Arr):
             TorrentStates.PAUSED_DOWNLOAD,
             TorrentStates.FORCED_DOWNLOAD,
             TorrentStates.METADATA_DOWNLOAD,
+            TorrentStates.FORCED_METADATA_DOWNLOAD,
         )
 
     def _clear_free_space_paused_flags_for_hashes(

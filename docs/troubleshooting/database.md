@@ -287,6 +287,10 @@ sqlite3.OperationalError: database is locked
     - Attempt 4: Wait 4.0s
     - Attempt 5: Wait 8.0s (max 10s)
 
+    qBitrr also tracks whether the failures are truly consecutive. A healthy database
+    iteration or a successful recovery clears the failure window so an old transient lock
+    does not trigger a later coordinated restart.
+
     If locks persist beyond 5 retries:
 
     ```bash
@@ -413,6 +417,17 @@ qBitrr runs **periodic database maintenance** every 5 minutes in the main proces
 1. WAL checkpoint (under the cross-process file lock)
 2. `PRAGMA quick_check`
 3. Automatic dump/restore repair if corruption is detected
+
+If database operations keep failing across workers for more than 5 minutes, qBitrr triggers a
+single coordinated restart of all Arr workers. During a healthy restart you should see:
+
+1. One `Database restart signal detected` message
+2. One supervisor-led WAL checkpoint sequence
+3. One respawn pass for each managed worker group
+
+If `All.log` shows repeated `Received signal 15` or repeated WAL checkpoint lines without
+settling, inspect the first database exception before the restart sequence. That earlier error
+is the root cause; the later shutdown noise is only recovery fallout.
 
 Arr catalog WebUI endpoints return **503** (not 500) when corruption is detected and trigger a repair attempt before asking the client to retry.
 

@@ -37,6 +37,7 @@ Select which log file to view from all available `.log` files in the logs direct
 |----------|-------------|
 | `Main.log` | Core application events, process management, config loading |
 | `WebUI.log` | HTTP server logs, API requests, authentication failures |
+| `All.log` | Aggregated events from the supervisor, WebUI, and Arr workers |
 | `<ArrName>.log` | Per-instance logs for each managed Arr (e.g., `Radarr-Movies.log`) |
 | `<ArrName>.log.<date>` | Rotated log archives (timestamped backups) |
 
@@ -486,6 +487,24 @@ Logging = false  # Disable file logging
 2. Check **Processes** tab shows instance is running
 3. Wait 30-60 seconds after instance starts (log file created on first write)
 4. Restart qBitrr to reinitialize loggers
+
+### Repeated `Received signal 15` or duplicate WAL checkpoint logs
+
+**Cause**: qBitrr is handling a coordinated database recovery restart.
+
+**What to expect**:
+1. `All.log` or `Main.log` shows `Database restart signal detected`
+2. qBitrr stops Arr worker processes
+3. The main supervisor checkpoints the SQLite WAL and respawns workers
+
+**Healthy behavior**:
+- One coordinated restart sequence
+- One WAL checkpoint sequence from the supervisor
+- Workers respawn once per managed Arr instance
+
+If these messages repeat continuously, switch to `All.log` and look for the first preceding
+database error such as `database is locked`, `disk I/O error`, or
+`database disk image is malformed`.
 
 ---
 

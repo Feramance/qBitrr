@@ -93,6 +93,7 @@ class qBitManager:
         self._name = "Manager"
         self.shutdown_event = Event()
         self.database_restart_event = Event()  # Signal for coordinated database recovery restart
+        self._database_restart_in_progress = False
         self.qBit_Host = CONFIG.get("qBit.Host", fallback="localhost")
         self.qBit_Port = CONFIG.get("qBit.Port", fallback=8105)
         self.qBit_UserName = CONFIG.get("qBit.UserName", fallback=None)
@@ -980,6 +981,35 @@ class qBitManager:
             )
         return list(self.child_processes)
 
+    @staticmethod
+    def _expected_spawn_roles(arr) -> list[str]:
+        """Return worker roles that ``spawn_child_processes`` would create for an Arr."""
+        roles: list[str] = []
+        if getattr(arr, "search_missing", False):
+            roles.append("search")
+        if not (QBIT_DISABLED or SEARCH_ONLY):
+            roles.append("torrent")
+        return roles
+
+    def _enqueue_failed_spawn(self, arr, role: str) -> None:
+        """Track a failed worker spawn and queue it for periodic retry."""
+        category = getattr(arr, "category", "")
+        key = (category, role)
+        self._failed_spawn_attempts[key] = self._failed_spawn_attempts.get(key, 0) + 1
+        meta = {"category": category, "role": role, "name": getattr(arr, "_name", "")}
+        already_pending = any(
+            m.get("category") == category and m.get("role") == role
+            for _, m in self._pending_spawns
+        )
+        if not already_pending:
+            self._pending_spawns.append((arr, meta))
+
+    def _discard_unstarted_spawn(self, proc) -> None:
+        """Remove a failed or never-started worker from supervisor tracking."""
+        self._process_registry.pop(proc, None)
+        with contextlib.suppress(ValueError):
+            self.child_processes.remove(proc)
+
     def run(self) -> None:
         try:
             if not self._bootstrap_ready.wait(60.0):
@@ -1028,6 +1058,7 @@ class qBitManager:
                             proc.exitcode,
                         )
                         failed_processes.append((meta.get("role"), meta.get("category")))
+                        self._discard_unstarted_spawn(proc)
                 except Exception as exc:
                     meta = self._process_registry.get(proc, {})
                     self.logger.critical(
@@ -1038,6 +1069,7 @@ class qBitManager:
                         exc_info=exc,
                     )
                     failed_processes.append((meta.get("role"), meta.get("category")))
+                    self._discard_unstarted_spawn(proc)
 
             # Log summary
             if started_processes:
@@ -1053,25 +1085,16 @@ class qBitManager:
                     ", ".join(f"{role}({cat})" for role, cat in failed_processes),
                 )
                 # Track failed processes for retry
-                for role, category in failed_processes:
-                    key = (category, role)
-                    self._failed_spawn_attempts[key] = self._failed_spawn_attempts.get(key, 0) + 1
-                    # Add to retry queue if not already there
-                    if hasattr(self, "arr_manager") and self.arr_manager:
+                if hasattr(self, "arr_manager") and self.arr_manager:
+                    for role, category in failed_processes:
                         for arr in self.arr_manager.managed_objects.values():
                             if arr.category == category:
-                                # Check if already in pending spawns (avoid duplicates)
-                                meta = {"category": category, "role": role, "name": arr._name}
-                                already_pending = any(
-                                    m.get("category") == category and m.get("role") == role
-                                    for _, m in self._pending_spawns
-                                )
-                                if not already_pending:
-                                    self._pending_spawns.append((arr, meta))
+                                self._enqueue_failed_spawn(arr, role)
                                 break
             while not self.shutdown_event.is_set():
                 # Check for database restart signal
                 if self.database_restart_event.is_set():
+                    self._database_restart_in_progress = True
                     self.logger.critical(
                         "Database restart signal detected - terminating ALL processes for coordinated restart..."
                     )
@@ -1098,6 +1121,23 @@ class qBitManager:
                     self._process_registry.clear()
                     # Clear the event
                     self.database_restart_event.clear()
+                    # Supervisor-led WAL checkpoint while all workers are stopped
+                    try:
+                        from qBitrr.database import checkpoint_database
+
+                        if checkpoint_database():
+                            self.logger.info(
+                                "Supervisor WAL checkpoint completed before worker respawn"
+                            )
+                        else:
+                            self.logger.warning(
+                                "Supervisor WAL checkpoint failed; continuing with worker respawn"
+                            )
+                    except Exception as checkpoint_exc:
+                        self.logger.warning(
+                            "Supervisor WAL checkpoint raised %s; continuing with worker respawn",
+                            checkpoint_exc,
+                        )
                     # Restart all Arr instances
                     self.logger.critical("Restarting all Arr instances after database recovery...")
                     if hasattr(self, "arr_manager") and self.arr_manager:
@@ -1126,6 +1166,9 @@ class qBitManager:
                                                 arr._name,
                                                 proc.pid,
                                             )
+                                            # CRITICAL: Add to child_processes so it's monitored
+                                            if proc not in self.child_processes:
+                                                self.child_processes.append(proc)
                                         else:
                                             self.logger.error(
                                                 "Respawned %s worker for %s died immediately (exitcode: %s)",
@@ -1133,6 +1176,8 @@ class qBitManager:
                                                 arr._name,
                                                 proc.exitcode,
                                             )
+                                            self._discard_unstarted_spawn(proc)
+                                            self._enqueue_failed_spawn(arr, role)
                                     except Exception as start_exc:
                                         self.logger.error(
                                             "Failed to start respawned %s worker for %s: %s",
@@ -1140,6 +1185,8 @@ class qBitManager:
                                             arr._name,
                                             start_exc,
                                         )
+                                        self._discard_unstarted_spawn(proc)
+                                        self._enqueue_failed_spawn(arr, role)
                                 self.logger.info(
                                     "Respawned %d process(es) for %s", worker_count, arr._name
                                 )
@@ -1147,6 +1194,9 @@ class qBitManager:
                                 self.logger.exception(
                                     "Failed to respawn processes for %s: %s", arr._name, e
                                 )
+                                for role in self._expected_spawn_roles(arr):
+                                    self._enqueue_failed_spawn(arr, role)
+                    self._database_restart_in_progress = False
                     continue
 
                 any_alive = False
@@ -1169,8 +1219,15 @@ class qBitManager:
                         exit_code,
                     )
 
+                    # Coordinated database recovery owns restart decisions for this cycle.
+                    if self.database_restart_event.is_set() or self._database_restart_in_progress:
+                        self.logger.info(
+                            "Skipping individual worker restart for %s/%s during coordinated database recovery",
+                            category,
+                            role,
+                        )
                     # Attempt auto-restart if enabled and process crashed (non-zero exit)
-                    if self.auto_restart_enabled and exit_code != 0:
+                    elif self.auto_restart_enabled and exit_code != 0:
                         if self._should_restart_process(category, role):
                             self.logger.info(
                                 "Attempting to restart %s worker for category '%s'",
@@ -1192,7 +1249,12 @@ class qBitManager:
                         self.child_processes.remove(proc)
 
                 # Retry failed process spawns
-                if self._pending_spawns and self.auto_restart_enabled:
+                if (
+                    self._pending_spawns
+                    and self.auto_restart_enabled
+                    and not self.database_restart_event.is_set()
+                    and not self._database_restart_in_progress
+                ):
                     retry_spawns = []
                     for arr, meta in self._pending_spawns:
                         category = meta.get("category", "")
@@ -1241,6 +1303,7 @@ class qBitManager:
                                                     role,
                                                     category,
                                                 )
+                                                self._discard_unstarted_spawn(proc)
                                                 retry_spawns.append((arr, meta))
                                                 self._failed_spawn_attempts[key] = attempts + 1
                                         except Exception as exc:
@@ -1250,8 +1313,11 @@ class qBitManager:
                                                 category,
                                                 exc,
                                             )
+                                            self._discard_unstarted_spawn(proc)
                                             retry_spawns.append((arr, meta))
                                             self._failed_spawn_attempts[key] = attempts + 1
+                                    else:
+                                        self._discard_unstarted_spawn(proc)
                         except Exception as exc:
                             self.logger.error(
                                 "Failed to respawn processes for retry: %s",
@@ -1468,6 +1534,7 @@ def run():
 
     # Flag to track if shutdown has been initiated
     shutdown_initiated = False
+    supervisor_pid = os.getpid()
 
     try:
         manager.get_child_processes()
@@ -1478,6 +1545,9 @@ def run():
             if shutdown_initiated:
                 return  # Already cleaned up
             shutdown_initiated = True
+
+            if os.getpid() != supervisor_pid:
+                return
 
             # Checkpoint database WAL before shutdown
             try:
@@ -1504,6 +1574,8 @@ def run():
 
         # Register signal handlers for graceful shutdown
         def _signal_handler(signum, frame):
+            if os.getpid() != supervisor_pid:
+                raise SystemExit(0)
             logger.info("Received signal %s - initiating graceful shutdown", signum)
             _cleanup()
             sys.exit(0)
