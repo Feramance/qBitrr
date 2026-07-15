@@ -129,8 +129,9 @@ def get_binary_download_url(release_tag: str, logger: logging.Logger) -> dict[st
         ]
 
         error_msg = f"No binary available for {system} {machine}"
-        if any(pattern in unsupported_platforms for pattern in asset_patterns):
-            error_msg += f" (platform {asset_pattern} is not built by release workflow)"
+        matched = next((p for p in asset_patterns if p in unsupported_platforms), None)
+        if matched:
+            error_msg += f" (platform {matched} is not built by release workflow)"
 
         return {
             "url": None,
