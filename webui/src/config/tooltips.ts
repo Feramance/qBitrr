@@ -54,9 +54,9 @@ export const FIELD_TOOLTIPS: Record<string, string> = {
     "Username for local auth login. Used together with the password set via Set Password.",
   "WebUI.LiveArr": "Enable live updates for Arr views.",
   "WebUI.GroupSonarr":
-    "Reserved setting: browse uses one row per series; seasons/episodes expand in the modal. Toggle kept for compatibility.",
+    "When enabled, Sonarr browse groups by series (one row per series; seasons/episodes open in the detail modal). When disabled, shows a flat episode list.",
   "WebUI.GroupLidarr":
-    "Reserved setting: browse uses one row per artist; albums/tracks expand in the modal. Toggle kept for compatibility.",
+    "When enabled, Lidarr browse groups by artist (one row per artist; albums/tracks open in the detail modal). When disabled, shows a flat album list.",
   "WebUI.Theme": "Choose the visual theme for the WebUI (light or dark).",
   "WebUI.ViewDensity":
     "View density for lists in the WebUI: Comfortable (more spacing) or Compact (more rows on screen).",

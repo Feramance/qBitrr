@@ -45,6 +45,7 @@ import type {
   ArrCatalogInstancePipelineParams,
   ArrCatalogInstancePipelineState,
   ArrCatalogSummary,
+  AnyArrCatalogDefinition,
 } from "./definition";
 import {
   isEmptyStateReady,
@@ -53,6 +54,7 @@ import {
   useCatalogPageCache,
   useCatalogSearchRegistration,
 } from "./useCatalogFetchPrimitives";
+import { SONARR_FLAT_DEFINITION } from "./sonarrFlatDefinition";
 import { ARR_CATALOG_REGISTRY } from "./registry";
 import { categoryForInstanceLabel } from "./utils";
 
@@ -716,6 +718,14 @@ export const SONARR_DEFINITION: ArrCatalogDefinition<
 };
 
 ARR_CATALOG_REGISTRY.sonarr = SONARR_DEFINITION;
+
+export { SONARR_DEFINITION as SONARR_GROUPED_DEFINITION };
+
+export function getSonarrCatalogDefinition(
+  grouped: boolean,
+): AnyArrCatalogDefinition {
+  return grouped ? SONARR_DEFINITION : SONARR_FLAT_DEFINITION;
+}
 
 interface SonarrAggregateBodyProps {
   readonly rows: ReadonlyArray<SonarrSeriesGroupRow>;

@@ -19,7 +19,8 @@ import {
   ArrCatalogListOrGrid,
 } from "./ArrCatalogListOrGrid";
 import { createStandardArrFilters } from "./createStandardArrFilters";
-import type { ArrCatalogDefinition, ArrCatalogSummary } from "./definition";
+import type { ArrCatalogDefinition, ArrCatalogSummary, AnyArrCatalogDefinition } from "./definition";
+import { LIDARR_FLAT_DEFINITION } from "./lidarrFlatDefinition";
 import { ARR_CATALOG_REGISTRY } from "./registry";
 import { useInstancePagedFetch } from "./useInstancePagedFetch";
 import { categoryForInstanceLabel } from "./utils";
@@ -454,6 +455,14 @@ export const LIDARR_DEFINITION: ArrCatalogDefinition<
 };
 
 ARR_CATALOG_REGISTRY.lidarr = LIDARR_DEFINITION;
+
+export { LIDARR_DEFINITION as LIDARR_GROUPED_DEFINITION };
+
+export function getLidarrCatalogDefinition(
+  grouped: boolean,
+): AnyArrCatalogDefinition {
+  return grouped ? LIDARR_DEFINITION : LIDARR_FLAT_DEFINITION;
+}
 
 interface LidarrAggregateBodyProps {
   readonly rows: ReadonlyArray<LidarrAggRow>;

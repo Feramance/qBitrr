@@ -15,6 +15,7 @@ import type {
   SonarrSeriesResponse,
   LidarrArtistDetailResponse,
   LidarrArtistsResponse,
+  LidarrAlbumsResponse,
   StatusResponse,
 } from "./types";
 import { setUrlBaseFromMeta, webPath } from "./urlBase";
@@ -305,6 +306,35 @@ export async function getSonarrSeries(
   }
   return fetchJson<SonarrSeriesResponse>(
     `/web/sonarr/${encodeURIComponent(category)}/series?${params}`
+  );
+}
+
+export async function getLidarrAlbums(
+  category: string,
+  page: number,
+  pageSize: number,
+  query?: string,
+  options?: {
+    missingOnly?: boolean;
+    reasonFilter?: string | null;
+  },
+): Promise<LidarrAlbumsResponse> {
+  const params = new URLSearchParams();
+  params.set("page", page.toString());
+  params.set("page_size", pageSize.toString());
+  if (query) {
+    params.set("q", query);
+  }
+  params.set("include_tracks", "true");
+  if (options?.missingOnly) {
+    params.set("has_file", "0");
+  }
+  const reason = options?.reasonFilter;
+  if (typeof reason === "string" && reason && reason !== "all") {
+    params.set("reason", reason);
+  }
+  return fetchJson<LidarrAlbumsResponse>(
+    `/web/lidarr/${encodeURIComponent(category)}/albums?${params}`,
   );
 }
 
