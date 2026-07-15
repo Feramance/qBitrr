@@ -354,6 +354,14 @@ export interface SetPasswordRequest {
 export interface ConfigUpdateResponse {
   status: string;
   configReloaded: boolean;
-  reloadType: "none" | "frontend" | "webui" | "single_arr" | "multi_arr" | "full";
+  reloadType:
+    | "none"
+    | "frontend"
+    | "webui"
+    | "live"
+    | "qbit_hot"
+    | "single_arr"
+    | "multi_arr"
+    | "full";
   affectedInstances: string[];
 }

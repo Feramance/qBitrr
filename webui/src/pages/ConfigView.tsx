@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState, type JSX } from "react";
 import { produce } from "immer";
 import equal from "fast-deep-equal";
-import { getConfig, updateConfig } from "../api/client";
+import { getConfig, refreshUrlBaseFromMeta, updateConfig } from "../api/client";
 import type { ConfigDocument } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import {
@@ -43,6 +43,11 @@ import {
   SetPasswordModal,
   SimpleConfigModal,
 } from "./config/configModals";
+import {
+  formatConfigSaveMessage,
+  shouldRefreshMetaAfterSave,
+  shouldReloadPageAfterSave,
+} from "./config/configSaveResult";
 
 interface ConfigViewProps {
   onDirtyChange?: (dirty: boolean) => void;
@@ -464,22 +469,28 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       configReloaded: boolean,
       reloadType: string,
       affectedInstances: string[] | undefined,
-      savedSectionKeys: Iterable<string> | "all"
+      savedSectionKeys: Iterable<string> | "all",
+      changedKeys: readonly string[] = []
     ) => {
-      let message = "Configuration saved";
-      if (reloadType === "full") {
-        message += " • All instances reloaded";
-      } else if (reloadType === "multi_arr" && affectedInstances?.length) {
-        message += ` • Reloaded ${affectedInstances.length} instances: ${affectedInstances.join(", ")}`;
-      } else if (reloadType === "single_arr" && affectedInstances?.length) {
-        message += ` • Reloaded: ${affectedInstances.join(", ")}`;
-      } else if (reloadType === "webui") {
-        message += " • WebUI restarting...";
-        window.setTimeout(() => window.location.reload(), 500);
-      } else if (reloadType === "frontend") {
-        message += " • Theme/display settings updated";
-      }
+      const message = formatConfigSaveMessage(
+        reloadType,
+        configReloaded,
+        affectedInstances,
+        changedKeys
+      );
       push(message, "success");
+
+      if (shouldRefreshMetaAfterSave(reloadType, changedKeys)) {
+        try {
+          await refreshUrlBaseFromMeta();
+        } catch {
+          // meta refresh failed; config was saved — user can reload manually if needed
+        }
+      }
+
+      if (shouldReloadPageAfterSave(reloadType, changedKeys)) {
+        window.setTimeout(() => window.location.reload(), 500);
+      }
 
       if (configReloaded && "caches" in window) {
         try {
@@ -534,7 +545,8 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           configReloaded,
           reloadType,
           affectedInstances,
-          savedKeys
+          savedKeys,
+          Object.keys(changes)
         );
         return true;
       } catch (error) {
@@ -579,7 +591,8 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
         configReloaded,
         reloadType,
         affectedInstances,
-        "all"
+        "all",
+        Object.keys(changes)
       );
     } catch (error) {
       push(

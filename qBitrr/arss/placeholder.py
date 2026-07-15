@@ -74,7 +74,9 @@ class PlaceHolderArr(Arr):
         self.seeding_mode_global_download_limit = -1
         self.seeding_mode_global_upload_limit = -1
         self.seeding_mode_global_bad_tracker_msg = []
-        self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(self.category)
+        self.completed_folder = pathlib.Path(get_completed_download_folder_effective()).joinpath(
+            self.category
+        )
         self._configure_worker_logging(self._name)
         self.manager.completed_folders.add(self.completed_folder)
         self.manager.category_allowlist.add(self.category)

@@ -28,6 +28,10 @@ export interface FieldDefinition {
   nativeUnit?: "seconds" | "minutes";
   /** For type "duration: allow -1 (disabled). */
   allowNegative?: boolean;
+  /** When true, show hint that the setting applies live without a full restart. */
+  applyLive?: boolean;
+  /** When true, show hint that saving requires a component or app restart. */
+  requiresRestart?: boolean;
 }
 
 export interface ValidationError {

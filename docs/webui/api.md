@@ -1174,6 +1174,8 @@ Apply changes to configuration and trigger reload.
 | Type | Description | Behavior |
 |------|-------------|----------|
 | `frontend` | Frontend-only changes | No reload (e.g., `WebUI.Theme`) |
+| `live` | Global or Arr loop settings | No worker restart; settings picked up on next loop |
+| `qbit_hot` | qBit category seeding | Refresh in-memory qBit category managers without respawn |
 | `webui` | WebUI server settings | Restart WebUI server |
 | `single_arr` | One Arr instance | Reload that instance only |
 | `multi_arr` | Multiple Arr instances | Reload each instance sequentially |

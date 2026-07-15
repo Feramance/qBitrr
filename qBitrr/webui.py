@@ -28,11 +28,12 @@ from qBitrr.catalog_rollups import (
     get_lidarr_album_and_track_rollups,
     get_lidarr_track_counts_total,
     get_radarr_counts_total,
-    get_sonarr_episode_instance_counts_total,
+    get_sonarr_series_counts_total,
 )
 from qBitrr.config import CONFIG, HOME_PATH
+from qBitrr.config_reload_policy import classify_config_changes
 from qBitrr.db_lock import database_lock
-from qBitrr.logger import run_logs
+from qBitrr.logger import reconfigure_logging_from_config, run_logs
 from qBitrr.search_activity_store import (
     clear_search_activity,
     fetch_search_activities,
@@ -1675,13 +1676,14 @@ class WebUI:
         if not pending:
             return
         client = getattr(arr, "client", None)
-        if not client or not hasattr(client, "get_series"):
+        series_api = getattr(client, "series", None) if client else None
+        if not client or not series_api or not hasattr(series_api, "get"):
             return
         for idx, series_id in pending:
             if not (0 <= idx < len(payload)):
                 continue
             try:
-                series_data = client.get_series(series_id)
+                series_data = series_api.get(item_id=series_id)
                 if not series_data:
                     continue
                 quality_profile_id = series_data.get("qualityProfileId")
@@ -1690,9 +1692,11 @@ class WebUI:
                     quality_cache = getattr(arr, "_quality_profile_cache", {})
                     if quality_profile_id in quality_cache:
                         quality_profile_name = quality_cache[quality_profile_id].get("name")
-                    elif hasattr(client, "get_quality_profile"):
+                    elif hasattr(client, "quality_profile") and hasattr(
+                        client.quality_profile, "get"
+                    ):
                         try:
-                            profile = client.get_quality_profile(quality_profile_id)
+                            profile = client.quality_profile.get(item_id=quality_profile_id)
                             quality_profile_name = profile.get("name") if profile else None
                         except Exception:
                             self.logger.debug(
@@ -1731,7 +1735,7 @@ class WebUI:
             episodes_model.EpisodeFileId == 0
         )
 
-        ep_instance_counts, rollup_total_series = get_sonarr_episode_instance_counts_total(arr)
+        ep_instance_counts, rollup_total_series = get_sonarr_series_counts_total(arr)
         monitored_count = ep_instance_counts.get("monitored", 0)
         available_count = ep_instance_counts.get("available", 0)
         missing_count = ep_instance_counts.get("missing", 0)
@@ -2832,16 +2836,12 @@ class WebUI:
             valid = {"CRITICAL", "ERROR", "WARNING", "NOTICE", "INFO", "DEBUG", "TRACE"}
             if level not in valid:
                 return jsonify({"error": f"invalid level {level}"}), 400
-            target_level = getattr(logging, level, logging.INFO)
-            logging.getLogger().setLevel(target_level)
-            for name, lg in logging.root.manager.loggerDict.items():
-                if isinstance(lg, logging.Logger) and str(name).startswith("qBitrr"):
-                    lg.setLevel(target_level)
             try:
                 _toml_set(CONFIG.config, "Settings.ConsoleLevel", level)
                 CONFIG.save()
             except Exception:
                 self.logger.debug("Failed to persist log level to config", exc_info=True)
+            reconfigure_logging_from_config()
             return jsonify({"status": "ok", "level": level})
 
         @_dual_route("/loglevel", methods=("POST",))
@@ -3636,55 +3636,8 @@ class WebUI:
                         403,
                     )
 
-            # Define key categories
-            frontend_only_keys = {
-                "WebUI.LiveArr",
-                "WebUI.GroupSonarr",
-                "WebUI.GroupLidarr",
-                "WebUI.Theme",
-                "WebUI.ViewDensity",
-            }
-            webui_restart_keys = {
-                "WebUI.Host",
-                "WebUI.Port",
-                "WebUI.Token",
-                "WebUI.UrlBase",
-                "WebUI.AuthDisabled",
-                "WebUI.BehindHttpsProxy",
-                "WebUI.LocalAuthEnabled",
-                "WebUI.OIDCEnabled",
-                "WebUI.PasswordHash",
-                "WebUI.OIDC.Authority",
-                "WebUI.OIDC.ClientId",
-                "WebUI.OIDC.ClientSecret",
-                "WebUI.OIDC.Scopes",
-                "WebUI.OIDC.CallbackPath",
-                "WebUI.OIDC.RequireHttpsMetadata",
-            }
-
             # Analyze changes to determine reload strategy
-            affected_arr_instances = set()
-            has_global_changes = False
-            has_webui_changes = False
-            has_frontend_only_changes = False
-
-            for key in changes.keys():
-                if key in frontend_only_keys:
-                    has_frontend_only_changes = True
-                elif key in webui_restart_keys:
-                    has_webui_changes = True
-                elif key.startswith("WebUI."):
-                    # Unknown WebUI key, treat as webui change for safety
-                    has_webui_changes = True
-                elif match := re.match(
-                    r"^(Radarr|Sonarr|Lidarr|Animarr)[^.]*\.(.+)$", key, re.IGNORECASE
-                ):
-                    # Arr instance specific change
-                    instance_name = key.split(".")[0]
-                    affected_arr_instances.add(instance_name)
-                else:
-                    # Settings.*, qBit.*, or unknown - requires full reload
-                    has_global_changes = True
+            plan = classify_config_changes(changes)
 
             # Apply all changes to config
             for key, val in changes.items():
@@ -3710,51 +3663,85 @@ class WebUI:
                 self.logger.debug("Failed to save config", exc_info=True)
                 return jsonify({"error": "Failed to save config"}), 500
 
-            # Determine reload strategy
-            reload_type = "none"
-            affected_instances_list = []
+            # Determine reload strategy from classified plan
+            reload_type = plan.primary_reload_type()
+            affected_instances_list = sorted(plan.affected_arr_instances)
 
-            if has_global_changes:
-                # Global settings changed - full reload required
-                # This affects ALL instances (qBit settings, loop timers, etc.)
-                reload_type = "full"
-                self.logger.notice("Global settings changed, performing full reload")
+            if plan.needs_full_restart:
+                self.logger.notice(
+                    "Full restart required for keys: %s",
+                    ", ".join(plan.full_restart_keys),
+                )
                 try:
                     self.manager.configure_auto_update()
                 except Exception:
                     self.logger.exception("Failed to refresh auto update configuration")
                 self._reload_all()
 
-            elif len(affected_arr_instances) >= 1:
-                # One or more Arr instances changed - reload each individually
-                # NEVER trigger global reload for Arr-only changes
-                reload_type = "multi_arr" if len(affected_arr_instances) > 1 else "single_arr"
-                affected_instances_list = sorted(affected_arr_instances)
+            else:
+                if plan.has_arr_worker_reload:
+                    reset_instances = set(plan.arr_reset_instances)
+                    respawn_instances = set(plan.arr_respawn_instances) - reset_instances
+                    all_reload = sorted(reset_instances | respawn_instances)
+                    affected_instances_list = all_reload
+                    reload_type = "multi_arr" if len(all_reload) > 1 else "single_arr"
+                    self.logger.notice(
+                        "Reloading %d Arr instance(s): %s",
+                        len(all_reload),
+                        ", ".join(all_reload),
+                    )
+                    for instance_name in all_reload:
+                        preserve_db = instance_name not in reset_instances
+                        self._reload_arr_instance(instance_name, preserve_db=preserve_db)
 
-                self.logger.notice(
-                    "Reloading %d Arr instance(s): %s",
-                    len(affected_instances_list),
-                    ", ".join(affected_instances_list),
-                )
+                if plan.arr_live_instances:
+                    self.logger.notice(
+                        "Applying live Arr config refresh for: %s",
+                        ", ".join(sorted(plan.arr_live_instances)),
+                    )
+                    self._apply_arr_live_refresh(plan)
 
-                # Reload each affected instance in sequence
-                for instance_name in affected_instances_list:
-                    self._reload_arr_instance(instance_name)
+                if plan.needs_qbit_hot:
+                    self.logger.notice(
+                        "Applying qBit hot reload for sections: %s",
+                        ", ".join(sorted(plan.qbit_hot_sections)),
+                    )
+                    self.manager.refresh_qbit_hot()
 
-            elif has_webui_changes:
-                # Only WebUI settings changed - restart WebUI
-                reload_type = "webui"
-                self.logger.notice("WebUI settings changed, restarting WebUI server")
-                # Run restart in background thread to avoid blocking response
-                restart_thread = threading.Thread(
-                    target=self._restart_webui, name="WebUIRestart", daemon=True
-                )
-                restart_thread.start()
+                if plan.live_keys:
+                    self.logger.notice(
+                        "Live settings changed (no worker restart): %s",
+                        ", ".join(plan.live_keys),
+                    )
 
-            elif has_frontend_only_changes:
-                # Only frontend settings changed - no reload
-                reload_type = "frontend"
-                self.logger.debug("Frontend-only settings changed, no reload required")
+                if any(k.startswith("Settings.AutoUpdate") for k in plan.live_keys):
+                    try:
+                        self.manager.configure_auto_update()
+                    except Exception:
+                        self.logger.exception("Failed to refresh auto update configuration")
+
+                if "Settings.ConsoleLevel" in plan.live_keys:
+                    try:
+                        reconfigure_logging_from_config()
+                    except Exception:
+                        self.logger.exception("Failed to reconfigure logging from config")
+
+                if plan.needs_webui_restart:
+                    self.logger.notice("WebUI settings changed, restarting WebUI server")
+                    restart_thread = threading.Thread(
+                        target=self._restart_webui, name="WebUIRestart", daemon=True
+                    )
+                    restart_thread.start()
+                    if reload_type == "none" and not plan.has_arr_worker_reload:
+                        reload_type = "webui"
+
+                if plan.frontend_keys and reload_type == "none":
+                    self.logger.debug("Frontend-only settings changed, no reload required")
+
+                if reload_type == "none" and (
+                    plan.live_keys or plan.arr_live_instances or plan.needs_qbit_hot
+                ):
+                    reload_type = plan.primary_reload_type()
 
             # Build response
             response_data = {
@@ -3772,7 +3759,7 @@ class WebUI:
             response.headers["Expires"] = "0"
 
             # Legacy header for compatibility
-            if reload_type in ("full", "single_arr", "multi_arr", "webui"):
+            if reload_type in ("full", "single_arr", "multi_arr", "webui", "live", "qbit_hot"):
                 response.headers["X-Config-Reloaded"] = "true"
 
             return response
@@ -3997,6 +3984,18 @@ class WebUI:
         def arr_test_connection():
             return _handle_test_connection()
 
+    def _apply_arr_live_refresh(self, plan: ReloadPlan) -> None:
+        """Refresh running Arr instances in-place for live-reloadable instance keys."""
+        if not hasattr(self.manager, "arr_manager") or not self.manager.arr_manager:
+            return
+        for instance_name in plan.arr_live_instances:
+            for arr in self.manager.arr_manager.managed_objects.values():
+                if getattr(arr, "_name", None) != instance_name:
+                    continue
+                if hasattr(arr, "apply_config_refresh"):
+                    arr.apply_config_refresh(preserve_db=True)
+                break
+
     def _reload_all(self):
         # Set rebuilding flag
         self._rebuilding_arrs = True
@@ -4120,7 +4119,7 @@ class WebUI:
 
         self.logger.info("WebUI will restart on %s:%s", self.host, self.port)
 
-    def _stop_arr_instance(self, arr, category: str):
+    def _stop_arr_instance(self, arr, category: str, *, delete_db: bool = True):
         """Stop and cleanup a single Arr instance."""
         self.logger.info("Stopping Arr instance: %s", category)
 
@@ -4158,25 +4157,30 @@ class WebUI:
                     )
                 self.logger.debug("Stopped %s process for %s", loop_kind, category)
 
-        # Delete database files
-        try:
-            if hasattr(arr, "search_db_file") and arr.search_db_file:
-                if arr.search_db_file.exists():
-                    self.logger.info("Deleting database file: %s", arr.search_db_file)
-                    arr.search_db_file.unlink()
-                    self.logger.success(
-                        "Deleted database file for %s", getattr(arr, "_name", category)
-                    )
-                # Delete WAL and SHM files
-                for suffix in (".db-wal", ".db-shm"):
-                    aux_file = arr.search_db_file.with_suffix(suffix)
-                    if aux_file.exists():
-                        self.logger.debug("Deleting auxiliary file: %s", aux_file)
-                        aux_file.unlink()
-        except Exception as e:
-            self.logger.warning(
-                "Failed to delete database files for %s: %s", getattr(arr, "_name", category), e
-            )
+        # Delete database files (optional — skipped for preserve-db reloads)
+        if delete_db:
+            try:
+                if hasattr(arr, "search_db_file") and arr.search_db_file:
+                    if arr.search_db_file.exists():
+                        self.logger.info("Deleting database file: %s", arr.search_db_file)
+                        arr.search_db_file.unlink()
+                        self.logger.success(
+                            "Deleted database file for %s", getattr(arr, "_name", category)
+                        )
+                    # Delete WAL and SHM files
+                    for suffix in (".db-wal", ".db-shm"):
+                        aux_file = arr.search_db_file.with_suffix(suffix)
+                        if aux_file.exists():
+                            self.logger.debug("Deleting auxiliary file: %s", aux_file)
+                            aux_file.unlink()
+            except Exception as e:
+                self.logger.warning(
+                    "Failed to delete database files for %s: %s",
+                    getattr(arr, "_name", category),
+                    e,
+                )
+        else:
+            self.logger.info("Preserving search database for %s", getattr(arr, "_name", category))
 
         # Remove from managed_objects
         self.manager.arr_manager.managed_objects.pop(category, None)
@@ -4246,9 +4250,11 @@ class WebUI:
                 "Failed to start Arr instance %s: %s", instance_name, e, exc_info=True
             )
 
-    def _reload_arr_instance(self, instance_name: str):
+    def _reload_arr_instance(self, instance_name: str, *, preserve_db: bool = False):
         """Reload a single Arr instance without affecting others."""
-        self.logger.notice("Reloading Arr instance: %s", instance_name)
+        self.logger.notice(
+            "Reloading Arr instance: %s (preserve_db=%s)", instance_name, preserve_db
+        )
 
         if not hasattr(self.manager, "arr_manager") or not self.manager.arr_manager:
             self.logger.warning("Cannot reload Arr instance: ArrManager not initialized")
@@ -4272,7 +4278,7 @@ class WebUI:
         if not instance_exists_in_config:
             if old_arr:
                 self.logger.info("Instance %s removed from config, stopping...", instance_name)
-                self._stop_arr_instance(old_arr, old_category)
+                self._stop_arr_instance(old_arr, old_category, delete_db=not preserve_db)
             else:
                 self.logger.debug("Instance %s not found in config or memory", instance_name)
             return
@@ -4281,7 +4287,7 @@ class WebUI:
         if old_arr:
             # Update existing - stop old processes first
             self.logger.info("Updating existing Arr instance: %s", instance_name)
-            self._stop_arr_instance(old_arr, old_category)
+            self._stop_arr_instance(old_arr, old_category, delete_db=not preserve_db)
         else:
             self.logger.info("Adding new Arr instance: %s", instance_name)
 

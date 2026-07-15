@@ -12,15 +12,16 @@ from qBitrr.category_paths import (
     matches_configured,
     normalize_category,
 )
+from qBitrr.config import CONFIG, get_loop_sleep_timer_effective, sync_config_from_disk
 from qBitrr.errors import DelayLoopException
+from qBitrr.qbit_seeding_config import load_qbit_seeding_config
 
 if TYPE_CHECKING:
     from qbittorrentapi import TorrentDictionary
 
     from qBitrr.main import qBitManager
 
-# Sleep timer between processing loops (seconds)
-LOOP_SLEEP_TIMER = 10
+# Sleep timer between processing loops uses live config (Settings.LoopSleepTimer).
 
 
 class qBitCategoryManager:
@@ -67,6 +68,37 @@ class qBitCategoryManager:
             len(self.managed_categories),
             ", ".join(self.managed_categories),
             self.match_subcategories,
+        )
+
+    def refresh_from_config(self, config: dict | None = None) -> None:
+        """Reload manager settings from CONFIG without respawning the worker process."""
+        sync_config_from_disk()
+        section = self.instance_name
+        if config is None:
+            seeding = load_qbit_seeding_config(section)
+            config = {
+                "managed_categories": CONFIG.get(f"{section}.ManagedCategories", fallback=[]),
+                **seeding,
+            }
+        self.managed_categories = [
+            normalize_category(c) for c in config.get("managed_categories", []) if c
+        ]
+        self.managed_categories = [c for c in self.managed_categories if c]
+        self.default_seeding = config.get("default_seeding", {})
+        self.category_overrides = {
+            normalize_category(k): v
+            for k, v in (config.get("category_overrides") or {}).items()
+            if k
+        }
+        self.trackers = self._build_merged_trackers(config.get("trackers", []))
+        self.stalled_delay = config.get("stalled_delay", -1)
+        self.ignore_torrents_younger_than = config.get("ignore_torrents_younger_than", 600)
+        self.allowed_stalled = self.stalled_delay != -1
+        self.match_subcategories = bool(config.get("match_subcategories", False))
+        self.logger.debug(
+            "Refreshed qBit category manager '%s' from config (%d categories)",
+            self.instance_name,
+            len(self.managed_categories),
         )
 
     @staticmethod
@@ -409,8 +441,10 @@ class qBitCategoryManager:
 
         while not self.qbit_manager.shutdown_event.is_set():
             try:
+                sync_config_from_disk()
+                self.refresh_from_config()
                 self.process_torrents()
-                time.sleep(LOOP_SLEEP_TIMER)
+                time.sleep(get_loop_sleep_timer_effective())
 
             except DelayLoopException as e:
                 # Intentional delay requested

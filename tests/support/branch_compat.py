@@ -52,6 +52,9 @@ def _has_auto_update_platform_message_fix() -> bool:
 HAS_AUTO_UPDATE_PLATFORM_FIX = _has_auto_update_platform_message_fix()
 
 
+HAS_CONFIG_RELOAD_POLICY = _has_module("qBitrr.config_reload_policy")
+
+
 def _has_live_reload_getters() -> bool:
     """Phase-2 config getters extracted for live reload (refactor-only)."""
     try:

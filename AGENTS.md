@@ -8,9 +8,20 @@
 - **Entry Point**: `qBitrr.main:run` → spawns WebUI, ArrManager loops, auto-update watchers
 - **Key Modules**:
   - `qBitrr/main.py` – orchestrates multiprocessing, launches arr managers and WebUI
-  - `qBitrr/arss.py` – `Arr` (Radarr/Sonarr/Lidarr via `self.type`), `ArrManager`, `PlaceHolderArr`, `FreeSpaceManager`, `TrackerSortManager`; health checks & import logic
+  - `qBitrr/arss/` – Arr package (split from legacy monolith):
+    - `arr.py` – `Arr` (Radarr/Sonarr/Lidarr via `self.type`), health checks & import logic
+    - `manager.py` – `ArrManager` orchestration
+    - `placeholder.py` – `PlaceHolderArr` worker for placeholder categories
+    - `torrent_policy.py` – free-space guard and torrent policy mixins
+    - `torrent_batch_mixin.py` – batched torrent processing helpers
+    - `db_update_handlers.py` – per-Arr-type DB update leaf functions
+    - `_shared.py` – shared imports/constants for arss submodules
+  - `qBitrr/arr_client.py` – Pyarr v6 client builders and shared JSON types
   - `qBitrr/arr_tracker_index.py` – shared tracker config → derived URI/host sets (`build_tracker_index`, `extract_tracker_host`)
-  - `qBitrr/config.py` – TOML config parsing, validation, migrations
+  - `qBitrr/qbit_seeding_config.py` – qBit-managed category seeding settings loader
+  - `qBitrr/quality_profile_helpers.py` – shared quality-profile/search-state helpers for db_update paths
+  - `qBitrr/config.py` – TOML config parsing, validation, migrations, live-reload getters
+  - `qBitrr/config_reload_policy.py` – classifies config key changes into reload strategies (live, qbit_hot, arr preserve/reset DB, full restart)
   - `qBitrr/webui.py` – Flask routes for `/api/*` (token-protected) and `/web/*` (helpers)
   - `qBitrr/ffprobe.py` – media file verification via ffprobe
   - `qBitrr/tables.py` – Peewee models for persistent state (downloads, searches, expiry)
@@ -110,7 +121,7 @@
 - **Config Changes**: Edit `qBitrr/gen_config.py` (MyConfig class); regenerate example via `qbitrr --gen-config`
 - **WebUI Changes**: Run `npm run dev` in webui/, API requests proxy to http://localhost:6969
 - **Database Schema**: Modify `qBitrr/tables.py`, add migration logic in `config.py:apply_config_migrations()`
-- **New Arr Type**: Radarr/Sonarr/Lidarr share the `Arr` class (`self.type`); add API branches in `arss.py` and config in `gen_config.py`. Special workers subclass `Arr` (`PlaceHolderArr`, etc.) without calling full `Arr.__init__`. Register new managed instances in `ArrManager.build_arr_instances()` / `main.py` as needed
+- **New Arr Type**: Radarr/Sonarr/Lidarr share the `Arr` class (`self.type`); add API branches in `qBitrr/arss/` (primarily `arr.py`, `db_update_handlers.py`) and config in `gen_config.py`. Special workers subclass `Arr` (`PlaceHolderArr`, etc.) without calling full `Arr.__init__`. Register new managed instances in `ArrManager.build_arr_instances()` / `main.py` as needed
 - **Pre-commit Bypass**: `git commit --no-verify` (discouraged; use for emergency hotfixes only)
 
 ## Testing & Validation

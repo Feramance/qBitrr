@@ -28,6 +28,16 @@ import {
   type FieldDefinition,
 } from "./configTypes";
 
+function renderReloadHint(field: FieldDefinition): JSX.Element | null {
+  if (field.applyLive) {
+    return <div className="field-hint">Applies live without restart</div>;
+  }
+  if (field.requiresRestart) {
+    return <div className="field-hint">Requires restart to take effect</div>;
+  }
+  return null;
+}
+
 export interface FieldGroupProps {
   title: string | null;
   fields: FieldDefinition[];
@@ -533,6 +543,7 @@ export function FieldGroup({
             {field.label}
           </label>
           {description && <div className="field-description">{description}</div>}
+          {renderReloadHint(field)}
         </div>
       );
     }
@@ -574,7 +585,11 @@ export function FieldGroup({
             styles={selectStyles}
           />
           {description && <div className="field-description">{description}</div>}
-          {isThemeField && <div className="field-hint">Theme changes apply immediately</div>}
+          {isThemeField ? (
+            <div className="field-hint">Theme changes apply immediately</div>
+          ) : (
+            renderReloadHint(field)
+          )}
         </div>
       );
     }
@@ -588,6 +603,7 @@ export function FieldGroup({
             placeholder={field.placeholder}
           />
           {description && <div className="field-description">{description}</div>}
+          {renderReloadHint(field)}
         </div>
       );
     }
@@ -603,6 +619,7 @@ export function FieldGroup({
             allowNegative={field.allowNegative ?? false}
           />
           {description && <div className="field-description">{description}</div>}
+          {renderReloadHint(field)}
         </div>
       );
     }
@@ -645,6 +662,7 @@ export function FieldGroup({
             placeholder={field.placeholder}
           />
           {description && <div className="field-description">{description}</div>}
+          {renderReloadHint(field)}
         </div>
       );
     }
@@ -658,6 +676,7 @@ export function FieldGroup({
           placeholder={field.placeholder}
         />
         {description && <div className="field-description">{description}</div>}
+        {renderReloadHint(field)}
       </div>
     );
   });

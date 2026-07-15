@@ -16,6 +16,7 @@ This comprehensive guide explains every setting in qBitrr's `config.toml` config
 - [Complete Minimal Config](#complete-minimal-config)
 - [Advanced/Hidden Settings](#advancedhidden-settings)
 - [Edge Case Behaviors](#edge-case-behaviors)
+- [Live config reload (WebUI saves)](#live-config-reload-webui-saves)
 - [Implementation Details](#implementation-details-not-user-configurable)
 - [See Also](#see-also)
 
@@ -1295,6 +1296,70 @@ qBitrr uses infinite retry loops in specific scenarios for reliability:
 **Impact:** Search processing pauses during Arr downtime but resumes automatically when Arr recovers.
 
 **Note:** `Searched=True` only set AFTER successful API call, so failed searches are retried.
+
+---
+
+## Live config reload (WebUI saves)
+
+When you save changes from the WebUI config editor, qBitrr classifies each key (`qBitrr/config_reload_policy.py`) and applies the lightest reload that is safe. Worker processes re-read `config.toml` on their next loop iteration via `sync_config_from_disk()`.
+
+### Live (no worker restart)
+
+These take effect on the next loop without killing Arr or qBit workers:
+
+| Key prefix | Examples |
+|------------|----------|
+| `Settings.*` | `ConsoleLevel`, `LoopSleepTimer`, `SearchLoopDelay`, `NoInternetSleepTimer`, `FailedCategory`, `RecheckCategory`, `CompletedDownloadFolder`, `AutoPauseResume`, `PingURLS`, `IgnoreTorrentsYoungerThan`, `FFprobeAutoUpdate`, `AutoUpdateEnabled`, `AutoUpdateCron`, `FreeSpace`, `FreeSpaceFolder` |
+| Arr instance (most keys) | `*.Torrent.*`, `*.EntrySearch.SearchMissing`, `*.EntrySearch.SearchLimit`, timers, seeding limits, etc. |
+
+API response: `"reloadType": "live"`, `"configReloaded": true`.
+
+### qBit hot reload (no worker respawn)
+
+qBit-managed category seeding updates in-process:
+
+| Key prefix | Examples |
+|------------|----------|
+| `qBit.*` / `qBit-*.*` | `ManagedCategories`, `MatchSubcategories`, `CategorySeeding.*`, `Trackers` |
+
+API response: `"reloadType": "qbit_hot"`.
+
+### Arr reload preserving search DB
+
+Connection or identity changes respawn that Arr instance's workers but **keep** its search database:
+
+| Keys | Examples |
+|------|----------|
+| Per-instance | `URI`, `APIKey`, `SkipTLSVerify`, `Category`, `Managed`, `importMode` |
+
+API response: `"reloadType": "single_arr"` or `"multi_arr"`.
+
+### Arr reload resetting search DB
+
+Quality-profile / temp-profile mapping changes reset search state:
+
+| Keys | Examples |
+|------|----------|
+| `*.EntrySearch.*` | `QualityProfileMappings`, `MainQualityProfile`, `TempQualityProfile`, `UseTempForMissing`, `KeepTempProfile`, `ForceResetTempProfiles`, profile timeout/retry keys |
+
+Same API response as preserve-db reload; database files are deleted before respawn.
+
+### Full restart required
+
+| Category | Examples |
+|----------|----------|
+| qBit connection | `qBit.Disabled`, `Host`, `Port`, `UserName`, `Password`, `SkipTLSVerify` |
+| Settings (logging / process gates) | `Logging`, `Tagless`, `AutoRestartProcesses`, restart limit/window/delay |
+| Unknown keys | Any unrecognized top-level section |
+
+API response: `"reloadType": "full"` — all workers are stopped and search DBs may be deleted (legacy behavior).
+
+### WebUI-only
+
+| Keys | Behavior |
+|------|----------|
+| `WebUI.Theme`, `WebUI.ViewDensity`, `WebUI.LiveArr`, … | `"reloadType": "frontend"` — no backend reload |
+| `WebUI.Host`, `WebUI.Port`, `WebUI.Token`, OIDC, … | `"reloadType": "webui"` — WebUI server restart |
 
 ---
 

@@ -71,8 +71,8 @@ class TorrentPolicyManager(Arr):
         self.remove_dead_trackers = Arr.global_remove_dead_trackers_union()
 
         # Free-space state (only needed when free-space policy is enabled).
-        self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER)
-        self._disk_usage_path = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).resolve()
+        self.completed_folder = pathlib.Path(get_completed_download_folder_effective())
+        self._disk_usage_path = pathlib.Path(get_completed_download_folder_effective()).resolve()
         self._path_for_disk_usage = self._disk_usage_path
         self._free_space_folder_is_auto = True
         self.min_free_space = "-1"
@@ -84,8 +84,12 @@ class TorrentPolicyManager(Arr):
             if _use_auto_free_space_paths:
                 arr_cats = self.categories & self.manager.arr_categories
                 chosen = next(iter(arr_cats), None) or next(iter(self.categories))
-                self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(chosen)
-                self._disk_usage_path = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).resolve()
+                self.completed_folder = pathlib.Path(
+                    get_completed_download_folder_effective()
+                ).joinpath(chosen)
+                self._disk_usage_path = pathlib.Path(
+                    get_completed_download_folder_effective()
+                ).resolve()
             else:
                 self.completed_folder = pathlib.Path(_free_space_folder)
                 self._disk_usage_path = pathlib.Path(_free_space_folder).resolve()
@@ -95,7 +99,7 @@ class TorrentPolicyManager(Arr):
                 parse_size(self.min_free_space) if self.min_free_space != "-1" else 0
             )
             if _use_auto_free_space_paths and not self.completed_folder.exists():
-                parent = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER)
+                parent = pathlib.Path(get_completed_download_folder_effective())
                 if parent.exists():
                     self.completed_folder = parent
             self._path_for_disk_usage = self._disk_usage_path

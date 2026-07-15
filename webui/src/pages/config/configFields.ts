@@ -30,8 +30,14 @@ export const SETTINGS_FIELDS: FieldDefinition[] = [
     type: "select",
     options: ["CRITICAL", "ERROR", "WARNING", "NOTICE", "INFO", "DEBUG", "TRACE"],
     required: true,
+    applyLive: true,
   },
-  { label: "Logging", path: ["Settings", "Logging"], type: "checkbox" },
+  {
+    label: "Logging",
+    path: ["Settings", "Logging"],
+    type: "checkbox",
+    requiresRestart: true,
+  },
   {
     label: "Completed Download Folder",
     path: ["Settings", "CompletedDownloadFolder"],
@@ -81,12 +87,13 @@ export const SETTINGS_FIELDS: FieldDefinition[] = [
       return undefined;
     },
   },
-  { label: "Auto Pause/Resume", path: ["Settings", "AutoPauseResume"], type: "checkbox" },
+  { label: "Auto Pause/Resume", path: ["Settings", "AutoPauseResume"], type: "checkbox", applyLive: true },
   {
     label: "No Internet Sleep",
     path: ["Settings", "NoInternetSleepTimer"],
     type: "duration",
     nativeUnit: "seconds",
+    applyLive: true,
     validate: (value) => {
       const total = parseDurationToSeconds(value, -1);
       if (!Number.isFinite(total) || total < 0) {
@@ -100,6 +107,7 @@ export const SETTINGS_FIELDS: FieldDefinition[] = [
     path: ["Settings", "LoopSleepTimer"],
     type: "duration",
     nativeUnit: "seconds",
+    applyLive: true,
     validate: (value) => {
       const total = parseDurationToSeconds(value, -1);
       if (!Number.isFinite(total) || total < 0) {
@@ -114,6 +122,7 @@ export const SETTINGS_FIELDS: FieldDefinition[] = [
     type: "duration",
     nativeUnit: "seconds",
     allowNegative: true,
+    applyLive: true,
     validate: (value) => {
       const total = parseDurationToSeconds(value, -2);
       if (total === -1) return undefined;
@@ -123,14 +132,15 @@ export const SETTINGS_FIELDS: FieldDefinition[] = [
       return undefined;
     },
   },
-  { label: "Failed Category", path: ["Settings", "FailedCategory"], type: "text" },
-  { label: "Recheck Category", path: ["Settings", "RecheckCategory"], type: "text" },
-  { label: "Tagless", path: ["Settings", "Tagless"], type: "checkbox" },
+  { label: "Failed Category", path: ["Settings", "FailedCategory"], type: "text", applyLive: true },
+  { label: "Recheck Category", path: ["Settings", "RecheckCategory"], type: "text", applyLive: true },
+  { label: "Tagless", path: ["Settings", "Tagless"], type: "checkbox", requiresRestart: true },
   {
     label: "Ignore Torrents Younger Than",
     path: ["Settings", "IgnoreTorrentsYoungerThan"],
     type: "duration",
     nativeUnit: "seconds",
+    applyLive: true,
     validate: (value) => {
       const total = parseDurationToSeconds(value, -1);
       if (!Number.isFinite(total) || total < 0) {
@@ -174,6 +184,7 @@ export const SETTINGS_FIELDS: FieldDefinition[] = [
     label: "Auto-Restart Processes",
     path: ["Settings", "AutoRestartProcesses"],
     type: "checkbox",
+    requiresRestart: true,
   },
   {
     label: "Max Process Restarts",
@@ -222,6 +233,7 @@ export const WEB_SETTINGS_FIELDS: FieldDefinition[] = [
     path: ["WebUI", "Host"],
     type: "text",
     required: true,
+    requiresRestart: true,
     validate: (value) => {
       if (!String(value ?? "").trim()) {
         return "WebUI Host is required.";
@@ -233,6 +245,7 @@ export const WEB_SETTINGS_FIELDS: FieldDefinition[] = [
     label: "WebUI Port",
     path: ["WebUI", "Port"],
     type: "number",
+    requiresRestart: true,
     validate: (value) => {
       const port = typeof value === "number" ? value : Number(value);
       if (!Number.isInteger(port) || port < 1 || port > 65535) {
@@ -261,6 +274,7 @@ export const WEB_SETTINGS_FIELDS: FieldDefinition[] = [
     placeholder: "/qbitrr",
     description:
       "Public path prefix when behind a reverse proxy (e.g. /qbitrr). Leave empty for site root.",
+    applyLive: true,
     validate: (value) => {
       const raw = String(value ?? "").trim();
       if (!raw) {

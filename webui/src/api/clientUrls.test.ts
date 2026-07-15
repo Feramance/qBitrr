@@ -47,4 +47,24 @@ describe("api client URL helpers", () => {
     expect(err.message).toBe("denied");
     expect(err.code).toBe("invalid_credentials");
   });
+
+  it("refreshUrlBaseFromMeta clears cache and re-fetches meta", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ url_base: "/new-base", current_version: "1.0.0" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const urlBase = await import("./urlBase");
+    urlBase.setUrlBaseFromMeta("/old-base");
+    const { refreshUrlBaseFromMeta } = await import("./client");
+
+    const meta = await refreshUrlBaseFromMeta();
+    expect(meta.url_base).toBe("/new-base");
+    expect(urlBase.getUrlBase()).toBe("/new-base");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/qbitrr/web/meta?force=1",
+      expect.objectContaining({ credentials: "include" }),
+    );
+  });
 });

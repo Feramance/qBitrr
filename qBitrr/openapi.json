@@ -17,6 +17,48 @@
         "description": "Not authenticated"
       }
     },
+    "schemas": {
+      "ConfigUpdateResponse": {
+        "properties": {
+          "affectedInstances": {
+            "description": "Arr instance section names reloaded (single_arr / multi_arr only).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "configReloaded": {
+            "description": "True when any backend reload action ran (excludes frontend-only changes).",
+            "type": "boolean"
+          },
+          "reloadType": {
+            "description": "Reload strategy applied after saving config changes.",
+            "enum": [
+              "none",
+              "frontend",
+              "live",
+              "qbit_hot",
+              "webui",
+              "single_arr",
+              "multi_arr",
+              "full"
+            ],
+            "type": "string"
+          },
+          "status": {
+            "example": "ok",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "configReloaded",
+          "reloadType",
+          "affectedInstances"
+        ],
+        "type": "object"
+      }
+    },
     "securitySchemes": {
       "bearerAuth": {
         "description": "Value of WebUI.Token in the Authorization header. Query ?token= is also accepted by the server but is discouraged.",
@@ -246,8 +288,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object"
+                  "$ref": "#/components/schemas/ConfigUpdateResponse"
                 }
               }
             },
@@ -1700,8 +1741,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object"
+                  "$ref": "#/components/schemas/ConfigUpdateResponse"
                 }
               }
             },

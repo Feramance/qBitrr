@@ -6,9 +6,24 @@ import sqlite3
 from typing import TYPE_CHECKING
 
 from qBitrr.arss._shared import *
+from qBitrr.quality_profile_helpers import (
+    arr_with_retry,
+    compute_quality_met,
+    compute_search_reason,
+    get_profile_name_cached,
+    mark_queue_completed,
+    plan_temp_profile_switch,
+    resolve_custom_format_score,
+    resolve_min_format_score,
+    should_mark_searched,
+)
 
 if TYPE_CHECKING:
     from qBitrr.arss.arr import Arr
+
+
+def _fetch_quality_profile(arr: Arr, quality_profile_id: int) -> JsonObject:
+    return arr_with_retry(lambda: arr.client.quality_profile.get(item_id=quality_profile_id)) or {}
 
 
 def update_sonarr_episode(arr: Arr, db_entry: JsonObject, *, request: bool) -> None:
@@ -61,28 +76,14 @@ def update_sonarr_episode(arr: Arr, db_entry: JsonObject, *, request: bool) -> N
             quality_profile_id = getattr(series_info, "qualityProfileId", None)
         if not quality_profile_id:
             quality_profile_id = db_entry.get("qualityProfileId")
-        minCustomFormat = getattr(episodeData, "MinCustomFormatScore", 0) if episodeData else 0
-        if not minCustomFormat:
-            if quality_profile_id:
-                profile = (
-                    with_retry(
-                        lambda qpid=quality_profile_id: arr.client.quality_profile.get(
-                            item_id=qpid
-                        ),
-                        retries=5,
-                        backoff=0.5,
-                        max_backoff=5,
-                        exceptions=_ARR_RETRY_EXCEPTIONS,
-                    )
-                    or {}
-                )
-                minCustomFormat = profile.get("minFormatScore") or 0
-            else:
-                arr.logger.warning(
-                    "Episode %s missing qualityProfileId; defaulting custom format threshold to 0",
-                    episode.get("id"),
-                )
-                minCustomFormat = 0
+        minCustomFormat = resolve_min_format_score(
+            stored_score=getattr(episodeData, "MinCustomFormatScore", 0) if episodeData else 0,
+            quality_profile_id=quality_profile_id,
+            fetch_profile=lambda qpid: _fetch_quality_profile(arr, qpid),
+            logger=arr.logger,
+            label="Episode",
+            entry_id=episode.get("id"),
+        )
         episode_file = episode.get("episodeFile") or {}
         if isinstance(episode_file, dict):
             episode_file_id = episode_file.get("id")
@@ -90,45 +91,35 @@ def update_sonarr_episode(arr: Arr, db_entry: JsonObject, *, request: bool) -> N
             episode_file_id = getattr(episode_file, "id", None)
         has_file = bool(episode.get("hasFile"))
         episode_data_file_id = getattr(episodeData, "EpisodeFileId", None) if episodeData else None
-        if has_file and episode_file_id:
-            if episode_data_file_id and episode_file_id == episode_data_file_id:
-                customFormat = getattr(episodeData, "CustomFormatScore", 0)
-            else:
-                file_info = (
-                    with_retry(
-                        lambda efid=episode_file_id: arr.client.episode_file.get(item_id=efid),
-                        retries=5,
-                        backoff=0.5,
-                        max_backoff=5,
-                        exceptions=_ARR_RETRY_EXCEPTIONS,
-                    )
-                    or {}
-                )
-                customFormat = file_info.get("customFormatScore") or 0
-        else:
-            customFormat = 0
+        customFormat = resolve_custom_format_score(
+            has_content=has_file,
+            content_file_id=episode_file_id,
+            stored_file_id=episode_data_file_id,
+            stored_score=getattr(episodeData, "CustomFormatScore", None) if episodeData else None,
+            fetch_file_score=lambda efid: (
+                arr_with_retry(lambda: arr.client.episode_file.get(item_id=efid)) or {}
+            ).get("customFormatScore")
+            or 0,
+        )
 
         QualityUnmet = (
             episode["episodeFile"]["qualityCutoffNotMet"] if "episodeFile" in episode else False
         )
-        if (
-            episode.get("hasFile", False)
-            and not (arr.quality_unmet_search and QualityUnmet)
-            and not (arr.custom_format_unmet_search and customFormat < minCustomFormat)
+        if should_mark_searched(
+            has_content=episode.get("hasFile", False),
+            quality_unmet_search=arr.quality_unmet_search,
+            quality_unmet=QualityUnmet,
+            custom_format_unmet_search=arr.custom_format_unmet_search,
+            custom_format=customFormat,
+            min_custom_format=minCustomFormat,
         ):
             searched = True
-            arr.model_queue.update(Completed=True).where(
-                (arr.model_queue.EntryId == episode["id"])
-                & (arr.model_queue.ArrInstance == arr._name)
-            ).execute()
+            mark_queue_completed(arr.model_queue, episode["id"], arr._name)
 
         if arr.use_temp_for_missing:
-            data = None
             profile_switch_timestamp = None
             original_profile_for_db = None
             current_profile_for_db = None
-            # Only apply temp profiles for truly missing content (no file)
-            # Do NOT apply for quality/custom format unmet or upgrade searches
             has_file = episode.get("hasFile", False)
 
             arr.logger.trace(
@@ -138,6 +129,16 @@ def update_sonarr_episode(arr: Arr, db_entry: JsonObject, *, request: bool) -> N
                 has_file,
                 quality_profile_id,
                 arr.keep_temp_profile,
+            )
+            data, profile_switch_timestamp, original_profile_for_db, current_profile_for_db = (
+                plan_temp_profile_switch(
+                    searched=searched,
+                    has_file=has_file,
+                    quality_profile_id=quality_profile_id,
+                    main_quality_profile_ids=arr.main_quality_profile_ids,
+                    temp_quality_profile_ids=arr.temp_quality_profile_ids,
+                    keep_temp_profile=arr.keep_temp_profile,
+                )
             )
             if (
                 searched
@@ -150,35 +151,25 @@ def update_sonarr_episode(arr: Arr, db_entry: JsonObject, *, request: bool) -> N
                         f"Profile ID {quality_profile_id} not found in current temp→main mappings. "
                         "Config may have changed. Skipping profile upgrade."
                     )
-                else:
-                    data: JsonObject = {"qualityProfileId": new_profile_id}
+                    profile_switch_timestamp = None
+                    original_profile_for_db = None
+                    current_profile_for_db = None
+                    data = None
+                elif data:
                     arr.logger.info(
                         "Upgrading quality profile for '%s': temp profile (ID:%s) → main profile (ID:%s) [Episode searched, reverting to main]",
                         db_entry.get("title", "Unknown"),
                         quality_profile_id,
                         new_profile_id,
                     )
-                    profile_switch_timestamp = datetime.now()
-                    original_profile_for_db = None
-                    current_profile_for_db = None
-            elif (
-                not searched
-                and not has_file
-                and quality_profile_id in arr.temp_quality_profile_ids.keys()
-            ):
-                new_profile_id = arr.temp_quality_profile_ids[quality_profile_id]
-                data: JsonObject = {"qualityProfileId": new_profile_id}
+            elif data and not searched and not has_file:
                 arr.logger.info(
                     "Downgrading quality profile for '%s': main profile (ID:%s) → temp profile (ID:%s) [Episode not searched yet]",
                     db_entry.get("title", "Unknown"),
                     quality_profile_id,
-                    new_profile_id,
+                    data["qualityProfileId"],
                 )
-                # Downgrading to temp - track original and switch time
-                profile_switch_timestamp = datetime.now()
-                original_profile_for_db = quality_profile_id
-                current_profile_for_db = new_profile_id
-            else:
+            elif not data:
                 arr.logger.trace(
                     "No quality profile change for '%s': searched=%s, profile_id=%s (in_temps=%s, in_mains=%s)",
                     db_entry.get("title", "Unknown"),
@@ -216,23 +207,20 @@ def update_sonarr_episode(arr: Arr, db_entry: JsonObject, *, request: bool) -> N
         )
         AirDateUtc = episode.get("airDateUtc")
         Monitored = episode.get("monitored", True)
-        QualityMet = not QualityUnmet if db_entry["hasFile"] else False
+        QualityMet = compute_quality_met(
+            has_content=db_entry["hasFile"], quality_unmet=QualityUnmet
+        )
         customFormatMet = customFormat >= minCustomFormat
 
-        if not episode.get("hasFile", False):
-            # Episode is missing a file - always mark as Missing
-            reason = "Missing"
-        elif arr.quality_unmet_search and QualityUnmet:
-            reason = "Quality"
-        elif arr.custom_format_unmet_search and not customFormatMet:
-            reason = "CustomFormat"
-        elif arr.do_upgrade_search:
-            reason = "Upgrade"
-        elif searched:
-            # Episode has file and search is complete
-            reason = "Not being searched"
-        else:
-            reason = "Not being searched"
+        reason = compute_search_reason(
+            has_content=episode.get("hasFile", False),
+            quality_unmet_search=arr.quality_unmet_search,
+            quality_unmet=QualityUnmet,
+            custom_format_unmet_search=arr.custom_format_unmet_search,
+            custom_format_met=customFormatMet,
+            do_upgrade_search=arr.do_upgrade_search,
+            searched=searched,
+        )
 
         to_update = {
             arr.model_file.Monitored: Monitored,
@@ -331,28 +319,14 @@ def update_sonarr_series(arr: Arr, db_entry: JsonObject) -> None:
         else:
             quality_profile_id = getattr(seriesMetadata, "qualityProfileId", None)
         if not seriesData:
-            if quality_profile_id:
-                profile = (
-                    with_retry(
-                        lambda qpid=quality_profile_id: arr.client.quality_profile.get(
-                            item_id=qpid
-                        ),
-                        retries=5,
-                        backoff=0.5,
-                        max_backoff=5,
-                        exceptions=_ARR_RETRY_EXCEPTIONS,
-                    )
-                    or {}
-                )
-                minCustomFormat = profile.get("minFormatScore") or 0
-            else:
-                arr.logger.warning(
-                    "Series %s (%s) missing qualityProfileId; "
-                    "defaulting custom format score to 0",
-                    db_entry.get("title"),
-                    EntryId,
-                )
-                minCustomFormat = 0
+            minCustomFormat = resolve_min_format_score(
+                stored_score=0,
+                quality_profile_id=quality_profile_id,
+                fetch_profile=lambda qpid: _fetch_quality_profile(arr, qpid),
+                logger=arr.logger,
+                label="Series",
+                entry_id=EntryId,
+            )
         else:
             minCustomFormat = getattr(seriesData, "MinCustomFormatScore", 0)
         episodeCount = 0
@@ -421,15 +395,11 @@ def update_sonarr_series(arr: Arr, db_entry: JsonObject) -> None:
         Monitored = db_entry["monitored"]
 
         # Get quality profile info
-        qualityProfileName = None
-        if quality_profile_id:
-            try:
-                if quality_profile_id not in arr._quality_profile_cache:
-                    profile = arr.client.quality_profile.get(item_id=quality_profile_id)
-                    arr._quality_profile_cache[quality_profile_id] = profile
-                qualityProfileName = arr._quality_profile_cache[quality_profile_id].get("name")
-            except Exception:
-                pass
+        qualityProfileName = get_profile_name_cached(
+            quality_profile_id=quality_profile_id,
+            cache=arr._quality_profile_cache,
+            fetch_profile=lambda qpid: arr.client.quality_profile.get(item_id=qpid),
+        )
 
         to_update = {
             arr.series_file_model.Monitored: Monitored,
@@ -486,77 +456,55 @@ def update_radarr_entry(arr: Arr, db_entry: JsonObject, *, request: bool) -> Non
     if arr.minimum_availability_check(db_entry) and (
         db_entry["monitored"] or arr.search_unmonitored
     ):
-        _retry_exc = (
-            requests.exceptions.ChunkedEncodingError,
-            requests.exceptions.ContentDecodingError,
-            requests.exceptions.ConnectionError,
-            JSONDecodeError,
-        )
         if movieData:
-            if not movieData.MinCustomFormatScore:
-                profile = (
-                    with_retry(
-                        lambda: arr.client.quality_profile.get(
-                            item_id=db_entry["qualityProfileId"]
-                        ),
-                        retries=5,
-                        backoff=0.5,
-                        max_backoff=5,
-                        exceptions=_retry_exc,
-                    )
-                    or {}
-                )
-                minCustomFormat = profile.get("minFormatScore", 0)
-            else:
-                minCustomFormat = movieData.MinCustomFormatScore
+            minCustomFormat = resolve_min_format_score(
+                stored_score=movieData.MinCustomFormatScore,
+                quality_profile_id=db_entry["qualityProfileId"],
+                fetch_profile=lambda qpid: _fetch_quality_profile(arr, qpid),
+                logger=arr.logger,
+                label="Movie",
+                entry_id=db_entry["id"],
+            )
             if db_entry["hasFile"]:
-                if db_entry["movieFile"]["id"] != movieData.MovieFileId:
-                    customFormat = with_retry(
-                        lambda: arr.client.movie_file.get(item_id=db_entry["movieFile"]["id"]),
-                        retries=5,
-                        backoff=0.5,
-                        max_backoff=5,
-                        exceptions=_retry_exc,
-                    )["customFormatScore"]
-                else:
-                    customFormat = movieData.CustomFormatScore
+                customFormat = resolve_custom_format_score(
+                    has_content=True,
+                    content_file_id=db_entry["movieFile"]["id"],
+                    stored_file_id=movieData.MovieFileId,
+                    stored_score=movieData.CustomFormatScore,
+                    fetch_file_score=lambda mfid: arr_with_retry(
+                        lambda: arr.client.movie_file.get(item_id=mfid)
+                    )["customFormatScore"],
+                )
             else:
                 customFormat = 0
         else:
-            profile = (
-                with_retry(
-                    lambda: arr.client.quality_profile.get(item_id=db_entry["qualityProfileId"]),
-                    retries=5,
-                    backoff=0.5,
-                    max_backoff=5,
-                    exceptions=_retry_exc,
-                )
-                or {}
+            minCustomFormat = resolve_min_format_score(
+                stored_score=0,
+                quality_profile_id=db_entry["qualityProfileId"],
+                fetch_profile=lambda qpid: _fetch_quality_profile(arr, qpid),
+                logger=arr.logger,
+                label="Movie",
+                entry_id=db_entry["id"],
             )
-            minCustomFormat = profile.get("minFormatScore", 0)
             if db_entry["hasFile"]:
-                customFormat = with_retry(
-                    lambda: arr.client.movie_file.get(item_id=db_entry["movieFile"]["id"]),
-                    retries=5,
-                    backoff=0.5,
-                    max_backoff=5,
-                    exceptions=_retry_exc,
+                customFormat = arr_with_retry(
+                    lambda: arr.client.movie_file.get(item_id=db_entry["movieFile"]["id"])
                 ).get("customFormatScore", 0)
             else:
                 customFormat = 0
         QualityUnmet = (
             db_entry["movieFile"]["qualityCutoffNotMet"] if "movieFile" in db_entry else False
         )
-        if (
-            db_entry["hasFile"]
-            and not (arr.quality_unmet_search and QualityUnmet)
-            and not (arr.custom_format_unmet_search and customFormat < minCustomFormat)
+        if should_mark_searched(
+            has_content=db_entry["hasFile"],
+            quality_unmet_search=arr.quality_unmet_search,
+            quality_unmet=QualityUnmet,
+            custom_format_unmet_search=arr.custom_format_unmet_search,
+            custom_format=customFormat,
+            min_custom_format=minCustomFormat,
         ):
             searched = True
-            arr.model_queue.update(Completed=True).where(
-                (arr.model_queue.EntryId == db_entry["id"])
-                & (arr.model_queue.ArrInstance == arr._name)
-            ).execute()
+            mark_queue_completed(arr.model_queue, db_entry["id"], arr._name)
 
         profile_switch_timestamp = None
         original_profile_for_db = None
@@ -616,35 +564,27 @@ def update_radarr_entry(arr: Arr, db_entry: JsonObject, *, request: bool) -> Non
         year = db_entry["year"]
         entryId = db_entry["id"]
         movieFileId = db_entry["movieFileId"]
-        qualityMet = not QualityUnmet if db_entry["hasFile"] else False
+        qualityMet = compute_quality_met(
+            has_content=db_entry["hasFile"], quality_unmet=QualityUnmet
+        )
         customFormatMet = customFormat >= minCustomFormat
 
-        # Get quality profile info
         qualityProfileId = db_entry.get("qualityProfileId")
-        qualityProfileName = None
-        if qualityProfileId:
-            try:
-                if qualityProfileId not in arr._quality_profile_cache:
-                    profile = arr.client.quality_profile.get(item_id=qualityProfileId)
-                    arr._quality_profile_cache[qualityProfileId] = profile
-                qualityProfileName = arr._quality_profile_cache[qualityProfileId].get("name")
-            except Exception:
-                pass
+        qualityProfileName = get_profile_name_cached(
+            quality_profile_id=qualityProfileId,
+            cache=arr._quality_profile_cache,
+            fetch_profile=lambda qpid: arr.client.quality_profile.get(item_id=qpid),
+        )
 
-        if not db_entry["hasFile"]:
-            # Movie is missing a file - always mark as Missing
-            reason = "Missing"
-        elif arr.quality_unmet_search and QualityUnmet:
-            reason = "Quality"
-        elif arr.custom_format_unmet_search and not customFormatMet:
-            reason = "CustomFormat"
-        elif arr.do_upgrade_search:
-            reason = "Upgrade"
-        elif searched:
-            # Movie has file and search is complete
-            reason = "Not being searched"
-        else:
-            reason = "Not being searched"
+        reason = compute_search_reason(
+            has_content=db_entry["hasFile"],
+            quality_unmet_search=arr.quality_unmet_search,
+            quality_unmet=QualityUnmet,
+            custom_format_unmet_search=arr.custom_format_unmet_search,
+            custom_format_met=customFormatMet,
+            do_upgrade_search=arr.do_upgrade_search,
+            searched=searched,
+        )
 
         to_update = {
             arr.model_file.MovieFileId: movieFileId,
@@ -868,16 +808,16 @@ def update_lidarr_album(arr: Arr, db_entry: JsonObject, *, request: bool) -> Non
                 # Default to False if we can't determine
                 QualityUnmet = False
 
-        if (
-            hasAllTracks
-            and not (arr.quality_unmet_search and QualityUnmet)
-            and not (arr.custom_format_unmet_search and customFormat < minCustomFormat)
+        if hasAllTracks and should_mark_searched(
+            has_content=True,
+            quality_unmet_search=arr.quality_unmet_search,
+            quality_unmet=QualityUnmet,
+            custom_format_unmet_search=arr.custom_format_unmet_search,
+            custom_format=customFormat,
+            min_custom_format=minCustomFormat,
         ):
             searched = True
-            arr.model_queue.update(Completed=True).where(
-                (arr.model_queue.EntryId == db_entry["id"])
-                & (arr.model_queue.ArrInstance == arr._name)
-            ).execute()
+            mark_queue_completed(arr.model_queue, db_entry["id"], arr._name)
 
         # Note: Lidarr quality profiles are set at artist level, not album level.
         # Temp profile logic for Lidarr is handled in artist processing below.
@@ -901,7 +841,7 @@ def update_lidarr_album(arr: Arr, db_entry: JsonObject, *, request: bool) -> Non
         releaseDate = db_entry.get("releaseDate")
         entryId = db_entry.get("id", 0)
         albumFileId = 1 if hasAllTracks else 0  # Use 1/0 to indicate presence
-        qualityMet = not QualityUnmet if hasAllTracks else False
+        qualityMet = compute_quality_met(has_content=hasAllTracks, quality_unmet=QualityUnmet)
         customFormatMet = customFormat >= minCustomFormat
 
         # Get quality profile info from artist (Lidarr albums inherit from artist)
@@ -923,19 +863,17 @@ def update_lidarr_album(arr: Arr, db_entry: JsonObject, *, request: bool) -> Non
             pass
 
         if not hasAllTracks:
-            # Album is missing tracks - always mark as Missing
             reason = "Missing"
-        elif arr.quality_unmet_search and QualityUnmet:
-            reason = "Quality"
-        elif arr.custom_format_unmet_search and not customFormatMet:
-            reason = "CustomFormat"
-        elif arr.do_upgrade_search:
-            reason = "Upgrade"
-        elif searched:
-            # Album is complete and not being searched
-            reason = "Not being searched"
         else:
-            reason = "Not being searched"
+            reason = compute_search_reason(
+                has_content=True,
+                quality_unmet_search=arr.quality_unmet_search,
+                quality_unmet=QualityUnmet,
+                custom_format_unmet_search=arr.custom_format_unmet_search,
+                custom_format_met=customFormatMet,
+                do_upgrade_search=arr.do_upgrade_search,
+                searched=searched,
+            )
 
         to_update = {
             arr.model_file.AlbumFileId: albumFileId,
@@ -1075,28 +1013,14 @@ def update_lidarr_artist(arr: Arr, db_entry: JsonObject) -> None:
         else:
             quality_profile_id = getattr(artistMetadata, "qualityProfileId", None)
         if not artistData:
-            if quality_profile_id:
-                profile = (
-                    with_retry(
-                        lambda qpid=quality_profile_id: arr.client.quality_profile.get(
-                            item_id=qpid
-                        ),
-                        retries=5,
-                        backoff=0.5,
-                        max_backoff=5,
-                        exceptions=_retry_exc,
-                    )
-                    or {}
-                )
-                minCustomFormat = profile.get("minFormatScore") or 0
-            else:
-                arr.logger.warning(
-                    "Artist %s (%s) missing qualityProfileId; "
-                    "defaulting custom format score to 0",
-                    db_entry.get("artistName"),
-                    EntryId,
-                )
-                minCustomFormat = 0
+            minCustomFormat = resolve_min_format_score(
+                stored_score=0,
+                quality_profile_id=quality_profile_id,
+                fetch_profile=lambda qpid: _fetch_quality_profile(arr, qpid),
+                logger=arr.logger,
+                label="Artist",
+                entry_id=EntryId,
+            )
         else:
             minCustomFormat = getattr(artistData, "MinCustomFormatScore", 0)
         # Calculate if artist is fully searched based on album statistics

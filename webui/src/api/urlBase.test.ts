@@ -42,6 +42,15 @@ describe("urlBase", () => {
     expect(mod.webPath("/web/status")).toBe("/proxy/web/status");
   });
 
+  it("falls back to pathname after clearUrlBaseCache", async () => {
+    const mod = await loadUrlBase("/qbitrr/ui");
+    mod.setUrlBaseFromMeta("/stale");
+    expect(mod.getUrlBase()).toBe("/stale");
+    mod.clearUrlBaseCache();
+    expect(mod.getUrlBase()).toBe("/qbitrr");
+    expect(mod.webPath("/web/meta")).toBe("/qbitrr/web/meta");
+  });
+
   it("throws when webPath receives a non-root-relative path", async () => {
     const { webPath } = await loadUrlBase("/ui");
     expect(() => webPath("web/meta")).toThrow("webPath expects a path starting with /");

@@ -680,6 +680,31 @@ class qBitManager:
             "Reloaded qBit category configs: %d instances", len(self.qbit_category_configs)
         )
 
+    def refresh_qbit_hot(self) -> None:
+        """Refresh qBit category configs and in-memory managers without respawning workers."""
+        self._reload_qbit_category_configs()
+        for instance_name, config in self.qbit_category_configs.items():
+            manager = self.qbit_category_managers.get(instance_name)
+            if manager is not None:
+                manager.refresh_from_config(config)
+            else:
+                try:
+                    self.qbit_category_managers[instance_name] = qBitCategoryManager(
+                        instance_name, self, config
+                    )
+                    self.logger.info(
+                        "Initialized qBit category manager for instance '%s' (hot reload)",
+                        instance_name,
+                    )
+                except Exception as e:
+                    self.logger.error(
+                        "Failed to initialize qBit category manager for '%s': %s",
+                        instance_name,
+                        e,
+                        exc_info=True,
+                    )
+        self.logger.info("Applied qBit hot config refresh")
+
     def _initialize_qbit_category_managers(self) -> None:
         """
         Initialize qBit category managers for instances with managed categories.
@@ -1362,9 +1387,15 @@ def _report_config_issues():
     try:
         issues = []
         # Check required settings
-        from qBitrr.config import COMPLETED_DOWNLOAD_FOLDER, CONFIG, FREE_SPACE, FREE_SPACE_FOLDER
+        from qBitrr.config import (
+            CONFIG,
+            FREE_SPACE,
+            FREE_SPACE_FOLDER,
+            get_completed_download_folder_effective,
+        )
 
-        if not COMPLETED_DOWNLOAD_FOLDER or str(COMPLETED_DOWNLOAD_FOLDER).upper() == "CHANGE_ME":
+        completed_folder = get_completed_download_folder_effective()
+        if not completed_folder or str(completed_folder).upper() == "CHANGE_ME":
             issues.append("Settings.CompletedDownloadFolder is missing or set to CHANGE_ME")
         if FREE_SPACE != "-1":
             if not FREE_SPACE_FOLDER or str(FREE_SPACE_FOLDER).upper() == "CHANGE_ME":

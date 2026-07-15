@@ -327,3 +327,11 @@ def get_ignore_torrents_younger_than_effective() -> int:
     return ENVIRO_CONFIG.settings.ignore_torrents_younger_than or CONFIG.get_duration(
         "Settings.IgnoreTorrentsYoungerThan", fallback=180
     )
+
+
+def sync_config_from_disk() -> None:
+    """Reload ``config.toml`` into the process-local CONFIG singleton (worker live reload)."""
+    try:
+        CONFIG.load()
+    except Exception:
+        _CFG_LOGGER.debug("sync_config_from_disk failed", exc_info=True)

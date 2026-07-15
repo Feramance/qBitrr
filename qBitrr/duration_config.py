@@ -8,7 +8,7 @@ strings (s/m/h/d/w/M) while remaining backwards compatible with plain numbers.
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, Literal
 
 # Multipliers for suffix -> seconds
 SUFFIX_TO_SECONDS = {
@@ -49,6 +49,46 @@ def parse_duration(
     return parse_duration_to_seconds(value, fallback=fallback)
 
 
+def _parse_duration_core(
+    value: Any,
+    *,
+    unit: Literal["seconds", "minutes"],
+    fallback: int,
+) -> int:
+    """Shared parser for suffixed duration strings and legacy bare integers."""
+    if value is None:
+        return fallback
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    s = str(value).strip()
+    if not s:
+        return fallback
+    m = _DURATION_PATTERN.match(s)
+    if not m:
+        try:
+            return int(float(s))
+        except (ValueError, TypeError):
+            return fallback
+    num = int(m.group(1))
+    raw_suffix = (m.group(2) or ("m" if unit == "minutes" else "s")).strip()
+    if unit == "minutes":
+        if raw_suffix == "M":
+            mult = SUFFIX_TO_MINUTES["M"]
+        else:
+            mult = SUFFIX_TO_MINUTES.get(raw_suffix.lower(), 1)
+        minutes = num * mult
+        if 0 < minutes < 1:
+            return 1
+        return int(minutes)
+    if raw_suffix == "M":
+        mult = SUFFIX_TO_SECONDS["M"]
+    else:
+        mult = SUFFIX_TO_SECONDS.get(raw_suffix.lower(), 1)
+    return num * mult
+
+
 def parse_duration_to_seconds(value: Any, fallback: int = -1) -> int:
     """
     Parse a config value to seconds. Accepts int (return as-is) or str with optional suffix.
@@ -57,29 +97,7 @@ def parse_duration_to_seconds(value: Any, fallback: int = -1) -> int:
     Plain number or unsuffixed string is treated as seconds (backwards compatibility).
     -1 / "-1" is allowed for "disabled" semantics.
     """
-    if value is None:
-        return fallback
-    if isinstance(value, int):
-        return value
-    if isinstance(value, float) and value.is_integer():
-        return int(value)
-    s = str(value).strip()
-    if not s:
-        return fallback
-    m = _DURATION_PATTERN.match(s)
-    if not m:
-        try:
-            return int(float(s))
-        except (ValueError, TypeError):
-            return fallback
-    num = int(m.group(1))
-    raw_suffix = (m.group(2) or "s").strip()
-    # Uppercase M = month (30 days); lowercase m = minute
-    if raw_suffix == "M":
-        mult = SUFFIX_TO_SECONDS["M"]
-    else:
-        mult = SUFFIX_TO_SECONDS.get(raw_suffix.lower(), 1)
-    return num * mult
+    return _parse_duration_core(value, unit="seconds", fallback=fallback)
 
 
 def parse_duration_to_minutes(value: Any, fallback: int = -1) -> int:
@@ -87,28 +105,4 @@ def parse_duration_to_minutes(value: Any, fallback: int = -1) -> int:
     Parse a config value to minutes. Same rules as parse_duration_to_seconds but
     returns minutes (for keys like StalledDelay, RssSyncTimer).
     """
-    if value is None:
-        return fallback
-    if isinstance(value, int):
-        return value
-    if isinstance(value, float) and value.is_integer():
-        return int(value)
-    s = str(value).strip()
-    if not s:
-        return fallback
-    m = _DURATION_PATTERN.match(s)
-    if not m:
-        try:
-            return int(float(s))
-        except (ValueError, TypeError):
-            return fallback
-    num = int(m.group(1))
-    raw_suffix = (m.group(2) or "m").strip()
-    if raw_suffix == "M":
-        mult = SUFFIX_TO_MINUTES["M"]
-    else:
-        mult = SUFFIX_TO_MINUTES.get(raw_suffix.lower(), 1)
-    minutes = num * mult
-    if 0 < minutes < 1:
-        return 1
-    return int(minutes)
+    return _parse_duration_core(value, unit="minutes", fallback=fallback)

@@ -14,6 +14,7 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
         if name in manager.groups:
             raise OSError(f"Group '{name}' has already been registered.")
         self._name = name
+        self._client_builder = client_builder
         self.managed = CONFIG.get(f"{name}.Managed", fallback=False)
         if not self.managed:
             raise SkipException
@@ -52,18 +53,18 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
                     self.completed_folder = pathlib.Path(categ["savePath"])
                 else:
                     self.logger.trace("Category does not exist or lacks save path")
-                    self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(
-                        self.category
-                    )
+                    self.completed_folder = pathlib.Path(
+                        get_completed_download_folder_effective()
+                    ).joinpath(self.category)
             except Exception as e:
                 self.logger.warning(
                     "Could not connect to qBittorrent during initialization for %s: %s. Using default path.",
                     self._name,
                     str(e).split("\n")[0] if "\n" in str(e) else str(e),
                 )
-                self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(
-                    self.category
-                )
+                self.completed_folder = pathlib.Path(
+                    get_completed_download_folder_effective()
+                ).joinpath(self.category)
             # Ensure category exists on ALL instances (deferred to avoid __init__ failures)
             try:
                 self._ensure_category_on_all_instances()
@@ -72,7 +73,9 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
                     "Could not ensure category on all instances during init: %s", e
                 )
         else:
-            self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(self.category)
+            self.completed_folder = pathlib.Path(
+                get_completed_download_folder_effective()
+            ).joinpath(self.category)
 
         if not self.completed_folder.exists() and not SEARCH_ONLY:
             try:
@@ -1053,7 +1056,7 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
 
     def _init_worker_expiring_timeouts(self) -> None:
         """Initialize expiring caches used by lightweight worker classes."""
-        ignore_seconds = get_ignore_torrents_younger_than_effective()
+        ignore_seconds = self._get_ignore_torrents_younger_than()
         self.ignore_torrents_younger_than = ignore_seconds
         self.timed_ignore_cache = ExpiringSet(max_age_seconds=ignore_seconds)
         self.timed_ignore_cache_2 = ExpiringSet(max_age_seconds=ignore_seconds * 2)
@@ -1061,6 +1064,97 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
         self.tracker_delay = ExpiringSet(max_age_seconds=600)
         self.special_casing_file_check = ExpiringSet(max_age_seconds=10)
         self.expiring_bool = ExpiringSet(max_age_seconds=10)
+
+    def _get_ignore_torrents_younger_than(self) -> int:
+        """Per-Arr ignore-younger threshold with global Settings fallback (live reload)."""
+        return CONFIG.get_duration(
+            f"{self._name}.Torrent.IgnoreTorrentsYoungerThan",
+            fallback=get_ignore_torrents_younger_than_effective(),
+        )
+
+    def _get_maximum_eta(self) -> int:
+        """Return MaximumETA from current CONFIG (live reload)."""
+        return CONFIG.get_duration(f"{self._name}.Torrent.MaximumETA", fallback=86400)
+
+    def _get_search_command_limit(self) -> int:
+        """Return EntrySearch.SearchLimit from current CONFIG (live reload)."""
+        return CONFIG.get(f"{self._name}.EntrySearch.SearchLimit", fallback=5)
+
+    def _get_rss_sync_timer(self) -> int:
+        """Return RssSyncTimer from current CONFIG (live reload)."""
+        return CONFIG.get_duration(f"{self._name}.RssSyncTimer", fallback=15, unit="minutes")
+
+    def _get_refresh_downloads_timer(self) -> int:
+        """Return RefreshDownloadsTimer from current CONFIG (live reload)."""
+        return CONFIG.get_duration(
+            f"{self._name}.RefreshDownloadsTimer", fallback=1, unit="minutes"
+        )
+
+    def _sync_loop_settings_from_config(self) -> None:
+        """Refresh high-traffic loop settings from CONFIG (call from worker loops)."""
+        sync_config_from_disk()
+        ignore_seconds = self._get_ignore_torrents_younger_than()
+        if ignore_seconds != self.ignore_torrents_younger_than:
+            self.ignore_torrents_younger_than = ignore_seconds
+            self.timed_ignore_cache = ExpiringSet(max_age_seconds=ignore_seconds)
+            self.timed_ignore_cache_2 = ExpiringSet(max_age_seconds=ignore_seconds * 2)
+            self.timed_skip = ExpiringSet(max_age_seconds=ignore_seconds)
+        self.maximum_eta = self._get_maximum_eta()
+        self.search_command_limit = self._get_search_command_limit()
+        self.rss_sync_timer = self._get_rss_sync_timer()
+        self.refresh_downloads_timer = self._get_refresh_downloads_timer()
+        self.stalled_delay = CONFIG.get_duration(
+            f"{self._name}.Torrent.StalledDelay", fallback=15, unit="minutes"
+        )
+        self.allowed_stalled = self.stalled_delay != -1
+
+    def apply_config_refresh(self, preserve_db: bool = True) -> None:
+        """Refresh in-memory Arr settings from CONFIG without deleting the search DB.
+
+        Worker processes re-read CONFIG each loop via ``_sync_loop_settings_from_config``.
+        When ``preserve_db`` is False the caller must reset the search DB and respawn workers.
+        """
+        name = self._name
+        self.managed = CONFIG.get(f"{name}.Managed", fallback=False)
+        new_uri = CONFIG.get_or_raise(f"{name}.URI")
+        new_apikey = CONFIG.get_or_raise(f"{name}.APIKey")
+        self.skip_tls_verify_servarr = CONFIG.get(f"{name}.SkipTLSVerify", fallback=False)
+        if new_uri != self.uri or new_apikey != self.apikey:
+            self.uri = new_uri
+            self.apikey = new_apikey
+            self.client = self._client_builder(
+                self.uri,
+                self.apikey,
+                verify_ssl=not self.skip_tls_verify_servarr,
+            )
+        self.re_search = CONFIG.get(f"{name}.ReSearch", fallback=False)
+        self.import_mode = CONFIG.get(f"{name}.importMode", fallback="Auto")
+        if self.import_mode == "Hardlink":
+            self.import_mode = "Auto"
+        self.arr_error_codes_to_blocklist = CONFIG.get(
+            f"{name}.ArrErrorCodesToBlocklist", fallback=[]
+        )
+        self.case_sensitive_matches = CONFIG.get(
+            f"{name}.Torrent.CaseSensitiveMatches", fallback=False
+        )
+        self.auto_delete = CONFIG.get(f"{name}.Torrent.AutoDelete", fallback=False)
+        self.search_missing = CONFIG.get(f"{name}.EntrySearch.SearchMissing", fallback=False)
+        if PROCESS_ONLY:
+            self.search_missing = False
+        self.search_command_limit = self._get_search_command_limit()
+        self._sync_loop_settings_from_config()
+        qbit_trackers = CONFIG.get("qBit.Trackers", fallback=[])
+        arr_trackers = CONFIG.get(f"{name}.Torrent.Trackers", fallback=[])
+        self.monitored_trackers = self._merge_trackers(qbit_trackers, arr_trackers)
+        self._install_tracker_index(
+            build_tracker_index(
+                self.monitored_trackers,
+                bad_tracker_messages=self.seeding_mode_global_bad_tracker_msg,
+            )
+        )
+        self.logger.info(
+            "Applied in-place config refresh for %s (preserve_db=%s)", name, preserve_db
+        )
 
     _TAGLESS_FIELD_MAP = {
         "qBitrr-allowed_seeding": "AllowedSeeding",
@@ -1433,7 +1527,8 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
         now = datetime.now()
         if (
             self.rss_sync_timer_last_checked is not None
-            and self.rss_sync_timer_last_checked < now - timedelta(minutes=self.rss_sync_timer)
+            and self.rss_sync_timer_last_checked
+            < now - timedelta(minutes=self._get_rss_sync_timer())
         ):
             if self._run_periodic_command("RssSync"):
                 self.rss_sync_timer_last_checked = now
@@ -1441,7 +1536,7 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
         if (
             self.refresh_downloads_timer_last_checked is not None
             and self.refresh_downloads_timer_last_checked
-            < now - timedelta(minutes=self.refresh_downloads_timer)
+            < now - timedelta(minutes=self._get_refresh_downloads_timer())
         ):
             if self._run_periodic_command(
                 "RefreshMonitoredDownloads", supported_types={"radarr", "sonarr"}
@@ -2872,7 +2967,7 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
                     active_commands,
                     commands,
                 )
-                if not bypass_limit and active_commands >= self.search_command_limit:
+                if not bypass_limit and active_commands >= self._get_search_command_limit():
                     self.logger.trace(
                         "Idle: Too many commands in queue: %s | "
                         "S%02dE%03d | "
@@ -2947,7 +3042,7 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
                     active_commands,
                     commands,
                 )
-                if not bypass_limit and active_commands >= self.search_command_limit:
+                if not bypass_limit and active_commands >= self._get_search_command_limit():
                     self.logger.trace(
                         "Idle: Too many commands in queue: %s | [id=%s]",
                         file_model.Title,
@@ -3017,7 +3112,7 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
                 return True
             active_commands = self.arr_db_query_commands_count()
             self.logger.info("%s active search commands, %s remaining", active_commands, commands)
-            if not bypass_limit and active_commands >= self.search_command_limit:
+            if not bypass_limit and active_commands >= self._get_search_command_limit():
                 self.logger.trace(
                     "Idle: Too many commands in queue: %s | [id=%s]",
                     file_model.Title,
@@ -3102,7 +3197,7 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
                 return True
             active_commands = self.arr_db_query_commands_count()
             self.logger.info("%s active search commands, %s remaining", active_commands, commands)
-            if not bypass_limit and active_commands >= self.search_command_limit:
+            if not bypass_limit and active_commands >= self._get_search_command_limit():
                 self.logger.trace(
                     "Idle: Too many commands in queue: %s - %s | [id=%s]",
                     file_model.ArtistTitle,
@@ -3446,6 +3541,7 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
                 )
 
     def process_torrents(self):
+        self._sync_loop_settings_from_config()
         try:
             try:
                 self._ensure_database_error_tracking()
@@ -4962,6 +5058,7 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
             event = self.manager.qbit_manager.shutdown_event
             self.logger.info("Search loop initialized successfully, entering main loop")
             while not event.is_set():
+                self._sync_loop_settings_from_config()
                 if self.loop_completed:
                     years_index = 0
                     totcommands = -1

@@ -18,7 +18,7 @@ import type {
   LidarrAlbumsResponse,
   StatusResponse,
 } from "./types";
-import { setUrlBaseFromMeta, webPath } from "./urlBase";
+import { clearUrlBaseCache, setUrlBaseFromMeta, webPath } from "./urlBase";
 
 export class AuthError extends Error {
   code?: string;
@@ -183,6 +183,12 @@ export async function getMeta(params?: { force?: boolean }): Promise<MetaRespons
   const meta = await fetchJson<MetaResponse>(`/web/meta${query}`);
   setUrlBaseFromMeta(meta.url_base);
   return meta;
+}
+
+/** Re-fetch /web/meta and refresh the cached UrlBase prefix (no page reload). */
+export async function refreshUrlBaseFromMeta(): Promise<MetaResponse> {
+  clearUrlBaseCache();
+  return getMeta({ force: true });
 }
 
 export async function getStatus(): Promise<StatusResponse> {

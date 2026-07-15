@@ -14,6 +14,7 @@ from qBitrr.config import (
     CONSOLE_LOGGING_LEVEL_STRING,
     COPIED_TO_NEW_DIR,
     ENABLE_LOGS,
+    ENVIRO_CONFIG,
     FAILED_CATEGORY,
     FREE_SPACE,
     HOME_PATH,
@@ -26,7 +27,7 @@ from qBitrr.config import (
     TAGLESS,
 )
 
-__all__ = ("run_logs",)
+__all__ = ("reconfigure_logging_from_config", "run_logs")
 
 TRACE = 5
 VERBOSE = 7
@@ -116,6 +117,25 @@ logger = logging.getLogger("qBitrr.Misc")
 
 HAS_RUN = False
 ALL_LOGS_HANDLER = None  # Global handler for unified All.log file
+
+
+def _console_level_from_config() -> str:
+    """Return the effective console log level name from env override or CONFIG."""
+    level = ENVIRO_CONFIG.settings.console_level or CONFIG.get(
+        "Settings.ConsoleLevel", fallback="INFO"
+    )
+    return str(level).upper()
+
+
+def reconfigure_logging_from_config() -> str:
+    """Apply Settings.ConsoleLevel from current CONFIG to all qBitrr loggers."""
+    level_name = _console_level_from_config()
+    target_level = logging._nameToLevel.get(level_name, logging.INFO)
+    logging.getLogger().setLevel(target_level)
+    for name, lg in logging.root.manager.loggerDict.items():
+        if isinstance(lg, logging.Logger) and str(name).startswith("qBitrr"):
+            lg.setLevel(target_level)
+    return level_name
 
 
 def run_logs(logger: Logger, _name: str = None) -> None:
