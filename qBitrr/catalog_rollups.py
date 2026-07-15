@@ -90,15 +90,12 @@ def _radarr_aggregate(arr: Any, name: str) -> dict[str, Any] | None:
     )
     monitored_count = int(row.get("monitored") or 0)
     available_count = int(row.get("available") or 0)
+    counts = _availability_counts(monitored_count, available_count)
+    counts["quality_met"] = int(row.get("quality_met") or 0)
+    counts["requests"] = int(row.get("requests") or 0)
     return {
         "movies": {
-            "counts": {
-                "available": available_count,
-                "monitored": monitored_count,
-                "missing": max(monitored_count - available_count, 0),
-                "quality_met": int(row.get("quality_met") or 0),
-                "requests": int(row.get("requests") or 0),
-            },
+            "counts": counts,
             "total": int(row.get("total") or 0),
         }
     }
@@ -130,11 +127,7 @@ def _sonarr_aggregate(arr: Any, name: str) -> dict[str, Any] | None:
         total_series = sm.select(fn.COUNT(sm.EntryId)).where(sm.ArrInstance == name).scalar() or 0
     return {
         "sonarr_episodes": {
-            "counts": {
-                "available": available_count,
-                "monitored": monitored_count,
-                "missing": max(monitored_count - available_count, 0),
-            },
+            "counts": _availability_counts(monitored_count, available_count),
             "total_series": int(total_series),
         }
     }
@@ -163,15 +156,12 @@ def _lidarr_aggregate(arr: Any, name: str) -> dict[str, Any] | None:
     )
     monitored_count = int(album_row.get("monitored") or 0)
     available_count = int(album_row.get("available") or 0)
+    album_counts = _availability_counts(monitored_count, available_count)
+    album_counts["quality_met"] = int(album_row.get("quality_met") or 0)
+    album_counts["requests"] = int(album_row.get("requests") or 0)
     out: dict[str, Any] = {
         "lidarr_albums": {
-            "counts": {
-                "available": available_count,
-                "monitored": monitored_count,
-                "missing": max(monitored_count - available_count, 0),
-                "quality_met": int(album_row.get("quality_met") or 0),
-                "requests": int(album_row.get("requests") or 0),
-            },
+            "counts": album_counts,
             "total": int(album_row.get("total") or 0),
         }
     }
@@ -202,11 +192,7 @@ def _lidarr_aggregate(arr: Any, name: str) -> dict[str, Any] | None:
         track_monitored_count = int(track_row.get("monitored") or 0)
         track_available_count = int(track_row.get("available") or 0)
         out["lidarr_tracks"] = {
-            "counts": {
-                "available": track_available_count,
-                "monitored": track_monitored_count,
-                "missing": max(track_monitored_count - track_available_count, 0),
-            },
+            "counts": _availability_counts(track_monitored_count, track_available_count),
             "total": int(track_row.get("total") or 0),
         }
     return out
@@ -261,25 +247,47 @@ def ensure_arr_webui_rollups(arr: Arr) -> None:
         _rollup_cache[cache_key] = (now, snapshot)
 
 
-def get_radarr_counts_total(arr: Arr) -> tuple[dict[str, int], int]:
+def _availability_counts(monitored_count: int, available_count: int) -> dict[str, int]:
+    """Build the standard available/monitored/missing counts dict."""
+    return {
+        "available": available_count,
+        "monitored": monitored_count,
+        "missing": max(monitored_count - available_count, 0),
+    }
+
+
+def get_rollup_slice(
+    arr: Arr,
+    section_key: str,
+    *,
+    counts_key: str = "counts",
+    total_key: str = "total",
+    zero_counts: dict[str, int] | None = None,
+) -> tuple[dict[str, int], int]:
+    """Read one rollup section from ``arr._webui_catalog_rollups`` after ensuring freshness."""
     ensure_arr_webui_rollups(arr)
-    r = getattr(arr, "_webui_catalog_rollups", None) or {}
-    m = r.get("movies") or {}
-    return (dict(m.get("counts") or _ZERO_COUNTS_RAD), int(m.get("total") or 0))
+    rollups = getattr(arr, "_webui_catalog_rollups", None) or {}
+    section = rollups.get(section_key) or {}
+    fallback = zero_counts or _ZERO_COUNTS_EP3
+    return (dict(section.get(counts_key) or fallback), int(section.get(total_key) or 0))
+
+
+def get_radarr_counts_total(arr: Arr) -> tuple[dict[str, int], int]:
+    return get_rollup_slice(arr, "movies", zero_counts=_ZERO_COUNTS_RAD)
+
+
+def get_sonarr_series_counts_total(arr: Arr) -> tuple[dict[str, int], int]:
+    """Return Sonarr episode rollup counts and total **series** count (not episodes)."""
+    return get_rollup_slice(arr, "sonarr_episodes", total_key="total_series")
 
 
 def get_sonarr_episode_instance_counts_total(arr: Arr) -> tuple[dict[str, int], int]:
-    ensure_arr_webui_rollups(arr)
-    r = getattr(arr, "_webui_catalog_rollups", None) or {}
-    s = r.get("sonarr_episodes") or {}
-    return (dict(s.get("counts") or _ZERO_COUNTS_EP3), int(s.get("total_series") or 0))
+    """Deprecated alias: returns ``total_series``, not an episode count."""
+    return get_sonarr_series_counts_total(arr)
 
 
 def get_lidarr_track_counts_total(arr: Arr) -> tuple[dict[str, int], int]:
-    ensure_arr_webui_rollups(arr)
-    r = getattr(arr, "_webui_catalog_rollups", None) or {}
-    t = r.get("lidarr_tracks") or {}
-    return (dict(t.get("counts") or _ZERO_COUNTS_EP3), int(t.get("total") or 0))
+    return get_rollup_slice(arr, "lidarr_tracks")
 
 
 def get_lidarr_album_and_track_rollups(arr: Arr) -> tuple[

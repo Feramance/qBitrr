@@ -50,6 +50,85 @@ _openapi_spec: dict[str, Any] | None = None
 _openapi_spec_api_only: dict[str, Any] | None = None
 
 
+def parse_catalog_filters(
+    req: Any,
+    *,
+    default_page_size: int = 50,
+    page_size_cap: int = 1000,
+    include_missing_only: bool = False,
+    include_reason: bool = False,
+) -> dict[str, Any]:
+    """Parse shared catalog list query parameters from a Flask request."""
+    filters: dict[str, Any] = {
+        "q": req.args.get("q", default=None, type=str),
+        "page": req.args.get("page", default=0, type=int),
+        "page_size": min(
+            req.args.get("page_size", default=default_page_size, type=int), page_size_cap
+        ),
+    }
+    if include_missing_only:
+        filters["missing_only"] = coerce_bool(
+            req.args.get("missing") or req.args.get("only_missing")
+        )
+    if include_reason:
+        filters["reason"] = req.args.get("reason", default=None, type=str)
+    return filters
+
+
+def resolve_arr_handler(
+    category: str,
+    expected_type: str,
+    managed_objects: dict[str, Any],
+    *,
+    arr_manager_ready: bool,
+    slug_resolver: Any | None = None,
+) -> tuple[Any | None, tuple[Any, int] | None]:
+    """Resolve an Arr instance for catalog routes; return (arr, error_response) or (arr, None)."""
+    from flask import jsonify
+
+    if not managed_objects:
+        if not arr_manager_ready:
+            return None, (jsonify({"error": "Arr manager is still initialising"}), 503)
+        return None, (jsonify({"error": f"Unknown {expected_type} category {category}"}), 404)
+    arr = managed_objects.get(category)
+    if arr is None and slug_resolver is not None:
+        arr = slug_resolver(category, managed_objects)
+    if arr is None or getattr(arr, "type", None) != expected_type:
+        return None, (jsonify({"error": f"Unknown {expected_type} category {category}"}), 404)
+    return arr, None
+
+
+def dual_route(app: Flask, path: str, *, methods: tuple[str, ...] = ("GET",)) -> Any:
+    """Register identical ``/api`` and ``/web`` handlers (escape hatch: register divergent pairs manually)."""
+
+    def decorator(fn: Any) -> Any:
+        endpoint_base = fn.__name__
+
+        @wraps(fn)
+        def api_view(*args: Any, **kwargs: Any) -> Any:
+            return fn(*args, **kwargs)
+
+        @wraps(fn)
+        def web_view(*args: Any, **kwargs: Any) -> Any:
+            return fn(*args, **kwargs)
+
+        app.add_url_rule(
+            f"/api{path}",
+            endpoint=f"api_{endpoint_base}",
+            view_func=api_view,
+            methods=list(methods),
+        )
+        app.add_url_rule(
+            f"/web{path}",
+            endpoint=f"web_{endpoint_base}",
+            view_func=web_view,
+            methods=list(methods),
+        )
+        return fn
+
+    return decorator
+
+
 def _is_database_corruption_error(exc: BaseException) -> bool:
     """Return True when *exc* (or its cause chain) indicates SQLite corruption."""
     msg = str(exc).lower()
@@ -406,10 +485,7 @@ class WebUI:
         self.manager = manager
         self.host = host
         self.port = port
-        self.app = Flask(__name__)
-        url_base = configured_url_base()
-        if url_base:
-            self.app.config["APPLICATION_ROOT"] = url_base
+        self.app = self._build_app()
         self.logger = logging.getLogger("qBitrr.WebUI")
         run_logs(self.logger, "WebUI")
         self.logger.info("Initialising WebUI on %s:%s", self.host, self.port)
@@ -426,84 +502,6 @@ class WebUI:
                     "the docs), bind WebUI.Host to 127.0.0.1, or place the service behind a "
                     "trusted reverse proxy with its own access controls."
                 )
-        self.app.logger.handlers.clear()
-        self.app.logger.propagate = True
-        self.app.logger.setLevel(self.logger.level)
-        werkzeug_logger = logging.getLogger("werkzeug")
-        werkzeug_logger.handlers.clear()
-        werkzeug_logger.propagate = True
-        werkzeug_logger.setLevel(self.logger.level)
-
-        # When behind HTTPS proxy, trust forwarded proto/ip for secure URLs and per-client limits
-        if CONFIG.get("WebUI.BehindHttpsProxy", fallback=False):
-            from werkzeug.middleware.proxy_fix import ProxyFix
-
-            self.app.wsgi_app = ProxyFix(self.app.wsgi_app, x_for=1, x_proto=1)
-
-        _install_url_base_middleware(self.app)
-
-        # Add cache control and security headers
-        @self.app.after_request
-        def add_cache_headers(response):
-            # Security headers
-            response.headers.setdefault("X-Frame-Options", "DENY")
-            response.headers.setdefault("X-Content-Type-Options", "nosniff")
-            response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-            # Prevent caching of index.html and service worker to ensure fresh config loads
-            if request.path in (
-                "/static/index.html",
-                "/ui",
-                "/static/sw.js",
-                "/sw.js",
-            ):
-                response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-                response.headers["Pragma"] = "no-cache"
-                response.headers["Expires"] = "0"
-            return response
-
-        # Security token (optional) - auto-generate and persist if empty
-        self.token = CONFIG.get("WebUI.Token", fallback=None)
-        if not self.token:
-            self.token = secrets.token_hex(32)
-            try:
-                _toml_set(CONFIG.config, "WebUI.Token", self.token)
-                CONFIG.save()
-            except Exception:
-                self.logger.warning(
-                    "Failed to persist generated WebUI token to config", exc_info=True
-                )
-            else:
-                self.logger.notice("Generated new WebUI token")
-
-        # Flask session config (HttpOnly signed cookies for web login)
-        # Keep session signing separate from bearer token auth.
-        self.app.secret_key = secrets.token_hex(32)
-        session_config: dict[str, Any] = {
-            "SESSION_COOKIE_NAME": "qbitrr_session",
-            "SESSION_COOKIE_HTTPONLY": True,
-            "SESSION_COOKIE_SAMESITE": "Lax",
-            "SESSION_COOKIE_SECURE": bool(CONFIG.get("WebUI.BehindHttpsProxy", fallback=False)),
-            "PERMANENT_SESSION_LIFETIME": timedelta(days=7),
-        }
-        url_base = configured_url_base()
-        if url_base:
-            session_config["SESSION_COOKIE_PATH"] = f"{url_base}/"
-        self.app.config.update(session_config)
-
-        # OIDC via Authlib
-        self._oauth = OAuth(self.app)
-        if _oidc_enabled():
-            authority = (CONFIG.get("WebUI.OIDC.Authority", fallback="") or "").rstrip("/")
-            self._oauth.register(
-                name="oidc",
-                server_metadata_url=f"{authority}/.well-known/openid-configuration",
-                client_id=CONFIG.get("WebUI.OIDC.ClientId", fallback=""),
-                client_secret=CONFIG.get("WebUI.OIDC.ClientSecret", fallback=""),
-                client_kwargs={
-                    "scope": CONFIG.get("WebUI.OIDC.Scopes", fallback="openid profile")
-                },
-            )
-
         self._github_repo = "Feramance/qBitrr"
         self._version_lock = threading.Lock()
         self._version_cache = {
@@ -546,6 +544,82 @@ class WebUI:
         self._shutdown_event = threading.Event()
         self._restart_requested = False
         self._server = None  # Will hold Waitress server reference
+
+    def _build_app(self) -> Flask:
+        """Construct and configure the Flask application (test seam)."""
+        app = Flask(__name__)
+        url_base = configured_url_base()
+        if url_base:
+            app.config["APPLICATION_ROOT"] = url_base
+        logger = logging.getLogger("qBitrr.WebUI")
+        app.logger.handlers.clear()
+        app.logger.propagate = True
+        app.logger.setLevel(logger.level)
+        werkzeug_logger = logging.getLogger("werkzeug")
+        werkzeug_logger.handlers.clear()
+        werkzeug_logger.propagate = True
+        werkzeug_logger.setLevel(logger.level)
+
+        if CONFIG.get("WebUI.BehindHttpsProxy", fallback=False):
+            from werkzeug.middleware.proxy_fix import ProxyFix
+
+            app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
+
+        _install_url_base_middleware(app)
+
+        @app.after_request
+        def add_cache_headers(response):
+            response.headers.setdefault("X-Frame-Options", "DENY")
+            response.headers.setdefault("X-Content-Type-Options", "nosniff")
+            response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+            if request.path in (
+                "/static/index.html",
+                "/ui",
+                "/static/sw.js",
+                "/sw.js",
+            ):
+                response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+                response.headers["Pragma"] = "no-cache"
+                response.headers["Expires"] = "0"
+            return response
+
+        self.token = CONFIG.get("WebUI.Token", fallback=None)
+        if not self.token:
+            self.token = secrets.token_hex(32)
+            try:
+                _toml_set(CONFIG.config, "WebUI.Token", self.token)
+                CONFIG.save()
+            except Exception:
+                logger.warning("Failed to persist generated WebUI token to config", exc_info=True)
+            else:
+                logger.notice("Generated new WebUI token")
+
+        app.secret_key = secrets.token_hex(32)
+        session_config: dict[str, Any] = {
+            "SESSION_COOKIE_NAME": "qbitrr_session",
+            "SESSION_COOKIE_HTTPONLY": True,
+            "SESSION_COOKIE_SAMESITE": "Lax",
+            "SESSION_COOKIE_SECURE": bool(CONFIG.get("WebUI.BehindHttpsProxy", fallback=False)),
+            "PERMANENT_SESSION_LIFETIME": timedelta(days=7),
+        }
+        url_base = configured_url_base()
+        if url_base:
+            session_config["SESSION_COOKIE_PATH"] = f"{url_base}/"
+        app.config.update(session_config)
+
+        self._oauth = OAuth(app)
+        if _oidc_enabled():
+            authority = (CONFIG.get("WebUI.OIDC.Authority", fallback="") or "").rstrip("/")
+            self._oauth.register(
+                name="oidc",
+                server_metadata_url=f"{authority}/.well-known/openid-configuration",
+                client_id=CONFIG.get("WebUI.OIDC.ClientId", fallback=""),
+                client_secret=CONFIG.get("WebUI.OIDC.ClientSecret", fallback=""),
+                client_kwargs={
+                    "scope": CONFIG.get("WebUI.OIDC.Scopes", fallback="openid profile")
+                },
+            )
+        return app
 
     def _fetch_version_info(self) -> dict[str, Any]:
         info = fetch_latest_release(self._github_repo)
@@ -2144,6 +2218,21 @@ class WebUI:
             if not _authorized():
                 return jsonify({"error": "unauthorized"}), 401
             return None
+
+        def _dual_route(path: str, *, methods: tuple[str, ...] = ("GET",)) -> Any:
+            """Register token-guarded identical ``/api`` and ``/web`` routes."""
+
+            def decorator(fn: Any) -> Any:
+                @wraps(fn)
+                def guarded(*args: Any, **kwargs: Any) -> Any:
+                    if (resp := require_token()) is not None:
+                        return resp
+                    return fn(*args, **kwargs)
+
+                dual_route(app, path, methods=methods)(guarded)
+                return fn
+
+            return decorator
 
         def _openapi_json_response():
             spec = _load_openapi_spec_api_only()
