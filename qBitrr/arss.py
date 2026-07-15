@@ -43,13 +43,10 @@ from qBitrr.config import (
     AUTO_PAUSE_RESUME,
     COMPLETED_DOWNLOAD_FOLDER,
     CONFIG,
-    FAILED_CATEGORY,
     LOOP_SLEEP_TIMER,
     NO_INTERNET_SLEEP_TIMER,
     PROCESS_ONLY,
     QBIT_DISABLED,
-    RECHECK_CATEGORY,
-    SEARCH_LOOP_DELAY,
     SEARCH_ONLY,
     TAGLESS,
     get_auto_pause_resume_effective,
@@ -74,6 +71,7 @@ from qBitrr.pyarr_compat import (
     RadarrAPI,
     SonarrAPI,
 )
+from qBitrr.qbit_seeding_config import load_qbit_seeding_config
 from qBitrr.search_activity_store import (
     clear_search_activity,
     fetch_search_activities,
@@ -97,6 +95,7 @@ from qBitrr.utils import (
     absolute_file_paths,
     has_internet,
     parse_size,
+    qbit_sections,
     validate_and_return_torrent_file,
     with_retry,
 )
@@ -137,13 +136,6 @@ _QBIT_TORRENT_DELETE_EXCEPTIONS = _QBIT_WRITE_RETRY_EXCEPTIONS
 
 class _TrackerDataUnavailable(Exception):
     """Raised when qBittorrent cannot provide reliable tracker metadata."""
-
-
-def _tracker_host_matches(config_uri: str, tracker_url: str) -> bool:
-    """Return True if *config_uri* and *tracker_url* refer to the same tracker host."""
-    return bool(
-        (h := _extract_tracker_host(config_uri)) and h == _extract_tracker_host(tracker_url)
-    )
 
 
 def _lidarr_track_duration_seconds(raw: Any) -> int:
@@ -2117,7 +2109,6 @@ class Arr:
         if not self.recheck_by_instance:
             return
         self.needs_cleanup = True
-        self.manager.qbit_manager
         still_pending: dict[str, set[str]] = {}
         for instance_name, hashes in self.recheck_by_instance.items():
             if not hashes:
@@ -2243,7 +2234,6 @@ class Arr:
             if hashes:
                 per_instance_batches.setdefault(inst_name, set()).update(hashes)
         per_instance_deleted: set[str] = set()
-        self.manager.qbit_manager
         for inst_name, hashes in per_instance_batches.items():
             client = self._get_qbit_client(inst_name)
             if client is None:
@@ -2395,7 +2385,6 @@ class Arr:
     def _process_resume(self) -> None:
         if not AUTO_PAUSE_RESUME:
             return
-        self.manager.qbit_manager
         still_pending: defaultdict[str, set[str]] = defaultdict(set)
         if self.resume_by_instance:
             self.needs_cleanup = True
@@ -3312,7 +3301,6 @@ class Arr:
             return
         placeholder_summary = "Updating database"
         placeholder_set = False
-        time.monotonic()
         try:
             self._webui_db_loaded = False
             try:
@@ -8537,8 +8525,6 @@ class Arr:
 
 class PlaceHolderArr(Arr):
     def __init__(self, name: str, manager: ArrManager):
-        if name in manager.groups:
-            raise OSError(f"Group '{name}' has already been registered.")
         self.type = "placeholder"
         # Subcategory paths: titlecase each segment for logs/UI; use spaced slashes
         # so ``seed/tleech`` reads as ``Seed / Tleech``.
@@ -8647,14 +8633,6 @@ class PlaceHolderArr(Arr):
         """PlaceHolderArr has no file/queue models; only TorrentLibrary when TAGLESS."""
         return None, None, None, None, (TorrentLibrary if TAGLESS else None)
 
-    def _process_single_torrent_missing_files(
-        self,
-        torrent: qbittorrentapi.TorrentDictionary,
-        instance_name: str = "default",
-    ) -> None:
-        """Track which qBit instance the torrent is on so we delete from the correct client."""
-        super()._process_single_torrent_missing_files(torrent, instance_name)
-
     def custom_format_unmet_check(self, torrent: qbittorrentapi.TorrentDictionary) -> bool:
         """PlaceHolderArr does not use Arr queue; never trigger custom-format branch."""
         return False
@@ -8662,53 +8640,18 @@ class PlaceHolderArr(Arr):
     def _apply_qbit_seeding_config(self) -> None:
         """Load qBit CategorySeeding/Trackers for this category's owning qBit section."""
         section = self.manager.qbit_managed_category_sections.get(self.category, "qBit")
-        seeding_keys = [
-            "DownloadRateLimitPerTorrent",
-            "UploadRateLimitPerTorrent",
-            "MaxUploadRatio",
-            "MaxSeedingTime",
-            "RemoveTorrent",
-        ]
-        default_seeding = {}
-        for key in seeding_keys:
-            if key == "MaxSeedingTime":
-                default_seeding[key] = CONFIG.get_duration(
-                    f"{section}.CategorySeeding.{key}", fallback=-1
-                )
-            else:
-                default_seeding[key] = CONFIG.get(f"{section}.CategorySeeding.{key}", fallback=-1)
-        for key, fallback in (
-            ("HitAndRunMode", "disabled"),
-            ("MinSeedRatio", 1.0),
-            ("MinSeedingTimeDays", 0),
-            ("HitAndRunPartialSeedRatio", 1.0),
-            ("TrackerUpdateBuffer", 0),
-        ):
-            if key == "TrackerUpdateBuffer":
-                default_seeding[key] = CONFIG.get_duration(
-                    f"{section}.CategorySeeding.{key}", fallback=fallback
-                )
-            else:
-                default_seeding[key] = CONFIG.get(
-                    f"{section}.CategorySeeding.{key}", fallback=fallback
-                )
-        category_overrides = {}
-        for cat_config in CONFIG.get(f"{section}.CategorySeeding.Categories", fallback=[]):
-            if isinstance(cat_config, dict) and "Name" in cat_config:
-                category_overrides[cat_config["Name"]] = cat_config
-        effective = dict(default_seeding)
-        if self.category in category_overrides:
-            effective.update(category_overrides[self.category])
+        seeding = load_qbit_seeding_config(section, include_ignore_younger=False)
+        effective = dict(seeding["default_seeding"])
+        if self.category in seeding["category_overrides"]:
+            effective.update(seeding["category_overrides"][self.category])
         self.seeding_mode_global_remove_torrent = effective.get("RemoveTorrent", -1)
         self.seeding_mode_global_max_upload_ratio = effective.get("MaxUploadRatio", -1)
         self.seeding_mode_global_max_seeding_time = effective.get("MaxSeedingTime", -1)
         self.seeding_mode_global_download_limit = effective.get("DownloadRateLimitPerTorrent", -1)
         self.seeding_mode_global_upload_limit = effective.get("UploadRateLimitPerTorrent", -1)
-        self.stalled_delay = CONFIG.get_duration(
-            f"{section}.CategorySeeding.StalledDelay", fallback=-1, unit="minutes"
-        )
+        self.stalled_delay = seeding["stalled_delay"]
         self.allowed_stalled = self.stalled_delay != -1
-        self.monitored_trackers = CONFIG.get(f"{section}.Trackers", fallback=[])
+        self.monitored_trackers = seeding["trackers"]
         self._install_tracker_index(
             build_tracker_index(
                 self.monitored_trackers,
@@ -8744,7 +8687,6 @@ class PlaceHolderArr(Arr):
         self._log_deletion_summary_line()
         self._log_deletion_sample_debug(to_delete_all)
         deleted_hashes: set[str] = set()
-        self.manager.qbit_manager
         per_instance_batches: dict[str, set[str]] = {}
         for inst_name, hashes in self.remove_from_qbit_by_instance.items():
             if hashes:
@@ -9701,11 +9643,10 @@ class ArrManager:
         # MatchSubcategories logging / ManagedCategories '/' hint: true when any qBit
         # instance opts in OR some Arr sets ``MatchSubcategories = true`` explicitly.
         self.subcategory_match_enabled = False
-        for section in CONFIG.sections():
-            if section == "qBit" or section.startswith("qBit-"):
-                if bool(CONFIG.get(f"{section}.MatchSubcategories", fallback=False)):
-                    self.subcategory_match_enabled = True
-                    break
+        for section in qbit_sections(CONFIG):
+            if bool(CONFIG.get(f"{section}.MatchSubcategories", fallback=False)):
+                self.subcategory_match_enabled = True
+                break
         if not self.subcategory_match_enabled:
             self.subcategory_match_enabled = self.any_arr_match_subcategories_explicit_true()
 
@@ -9713,51 +9654,28 @@ class ArrManager:
         self.qbit_managed_categories.clear()
         self.qbit_managed_category_sections.clear()
         self.subcategory_prefix_owners.clear()
-        for section in CONFIG.sections():
-            # Check default qBit section
-            if section == "qBit":
-                raw_cats = CONFIG.get("qBit.ManagedCategories", fallback=[])
-                managed_cats = self._normalise_managed_categories(raw_cats, source=section)
-                if managed_cats:
-                    self.qbit_managed_categories.update(managed_cats)
-                    for category in managed_cats:
-                        owner = self.qbit_managed_category_sections.setdefault(category, section)
-                        if owner != section:
-                            self.logger.warning(
-                                "Category '%s' is managed by both '%s' and '%s'; "
-                                "PlaceHolderArr will use '%s' seeding config",
-                                category,
-                                owner,
-                                section,
-                                owner,
-                            )
-                    self.logger.debug(
-                        "qBit instance 'default' manages categories: %s",
-                        ", ".join(managed_cats),
-                    )
-            # Check additional qBit-XXX sections
-            elif section.startswith("qBit-"):
-                instance_name = section.replace("qBit-", "", 1)
-                raw_cats = CONFIG.get(f"{section}.ManagedCategories", fallback=[])
-                managed_cats = self._normalise_managed_categories(raw_cats, source=section)
-                if managed_cats:
-                    self.qbit_managed_categories.update(managed_cats)
-                    for category in managed_cats:
-                        owner = self.qbit_managed_category_sections.setdefault(category, section)
-                        if owner != section:
-                            self.logger.warning(
-                                "Category '%s' is managed by both '%s' and '%s'; "
-                                "PlaceHolderArr will use '%s' seeding config",
-                                category,
-                                owner,
-                                section,
-                                owner,
-                            )
-                    self.logger.debug(
-                        "qBit instance '%s' manages categories: %s",
-                        instance_name,
-                        ", ".join(managed_cats),
-                    )
+        for section in qbit_sections(CONFIG):
+            instance_label = "default" if section == "qBit" else section.replace("qBit-", "", 1)
+            raw_cats = CONFIG.get(f"{section}.ManagedCategories", fallback=[])
+            managed_cats = self._normalise_managed_categories(raw_cats, source=section)
+            if managed_cats:
+                self.qbit_managed_categories.update(managed_cats)
+                for category in managed_cats:
+                    owner = self.qbit_managed_category_sections.setdefault(category, section)
+                    if owner != section:
+                        self.logger.warning(
+                            "Category '%s' is managed by both '%s' and '%s'; "
+                            "PlaceHolderArr will use '%s' seeding config",
+                            category,
+                            owner,
+                            section,
+                            owner,
+                        )
+                self.logger.debug(
+                    "qBit instance '%s' manages categories: %s",
+                    instance_label,
+                    ", ".join(managed_cats),
+                )
 
         # Check for conflicts between Arr and qBit categories
         conflicts = self.arr_categories & self.qbit_managed_categories
@@ -9867,11 +9785,7 @@ class ArrManager:
 
         # Global torrent policy worker monitors both Arr-managed and qBit-managed categories
         all_monitored_categories = self.arr_categories | self.qbit_managed_categories
-        configured_qbit_sections = [
-            section
-            for section in CONFIG.sections()
-            if section == "qBit" or section.startswith("qBit-")
-        ]
+        configured_qbit_sections = qbit_sections(CONFIG)
         has_configured_qbit_instance = len(configured_qbit_sections) > 0
         _fs_guard, _ = get_free_space_guard_settings()
         fs_enabled = (

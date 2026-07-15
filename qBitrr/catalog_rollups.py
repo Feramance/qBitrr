@@ -261,25 +261,6 @@ def ensure_arr_webui_rollups(arr: Arr) -> None:
         _rollup_cache[cache_key] = (now, snapshot)
 
 
-def invalidate_arr_webui_rollups_cache(arr: Arr | None = None) -> None:
-    """Drop the in-process TTL rollup cache for one Arr (or all when ``None``).
-
-    Only affects the **current** Python process. Arr workers run in separate processes from
-    the WebUI, so calling this after a worker writes to SQLite does **not** invalidate the
-    WebUI's cache. Freshness across processes relies on SQLite reads plus
-    ``_ROLLUP_CACHE_TTL_SECONDS`` in :func:`ensure_arr_webui_rollups`.
-
-    Intended for same-process callers (e.g. tests or WebUI code that needs an immediate
-    re-aggregation without waiting for TTL expiry).
-    """
-    with _rollup_cache_lock:
-        if arr is None:
-            _rollup_cache.clear()
-            return
-        cache_key = (id(arr), getattr(arr, "_name", ""))
-        _rollup_cache.pop(cache_key, None)
-
-
 def get_radarr_counts_total(arr: Arr) -> tuple[dict[str, int], int]:
     ensure_arr_webui_rollups(arr)
     r = getattr(arr, "_webui_catalog_rollups", None) or {}
@@ -292,13 +273,6 @@ def get_sonarr_episode_instance_counts_total(arr: Arr) -> tuple[dict[str, int], 
     r = getattr(arr, "_webui_catalog_rollups", None) or {}
     s = r.get("sonarr_episodes") or {}
     return (dict(s.get("counts") or _ZERO_COUNTS_EP3), int(s.get("total_series") or 0))
-
-
-def get_lidarr_album_counts_total(arr: Arr) -> tuple[dict[str, int], int]:
-    ensure_arr_webui_rollups(arr)
-    r = getattr(arr, "_webui_catalog_rollups", None) or {}
-    a = r.get("lidarr_albums") or {}
-    return (dict(a.get("counts") or _ZERO_COUNTS_RAD), int(a.get("total") or 0))
 
 
 def get_lidarr_track_counts_total(arr: Arr) -> tuple[dict[str, int], int]:
