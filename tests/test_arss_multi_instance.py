@@ -606,7 +606,7 @@ class TestLegacyResumeRetry(unittest.TestCase):
         with (
             patch(arss_auto_pause_resume_target(), True),
             patch(
-                "qBitrr.arss.torrent_batch_mixin.with_retry", side_effect=lambda fn, **_: fn()
+                torrent_batch_with_retry_target(), side_effect=lambda fn, **_: fn()
             ) as with_retry_mock,
             patch.object(arr, "_get_legacy_default_qbit_client", return_value=legacy_client),
         ):

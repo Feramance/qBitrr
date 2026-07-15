@@ -8,8 +8,10 @@ from unittest import mock
 from tests.support.branch_compat import (
     HAS_ARR_SECTION_HELPERS,
     HAS_AUTO_UPDATE_PLATFORM_FIX,
+    HAS_COERCE_BOOL,
     HAS_PARSE_DURATION,
     HAS_QBIT_SEEDING_CONFIG,
+    HAS_URL_BASE_HELPERS,
 )
 
 from qBitrr.duration_config import (
@@ -29,11 +31,15 @@ if HAS_ARR_SECTION_HELPERS:
     from qBitrr.gen_config import ARR_SECTION_PREFIXES, iter_arr_sections
 if HAS_QBIT_SEEDING_CONFIG:
     from qBitrr.qbit_seeding_config import load_qbit_seeding_config
+if HAS_COERCE_BOOL:
+    from qBitrr.utils import coerce_bool
+if HAS_URL_BASE_HELPERS:
+    from qBitrr.utils import normalize_url_base, qbit_sections
 
 from qBitrr.tables import AlbumFilesModel, EpisodeFilesModel, MoviesFilesModel
-from qBitrr.utils import coerce_bool, normalize_url_base, qbit_sections
 
 
+@unittest.skipUnless(HAS_COERCE_BOOL, "coerce_bool is refactor-only")
 class TestCoerceBoolGoldenMaster(unittest.TestCase):
     def test_falsy_strings(self) -> None:
         for value in ("0", "false", "none", "False", "NONE"):
@@ -56,6 +62,7 @@ class TestCoerceBoolGoldenMaster(unittest.TestCase):
         self.assertTrue(coerce_bool([1]))
 
 
+@unittest.skipUnless(HAS_URL_BASE_HELPERS, "normalize_url_base is refactor-only")
 class TestNormalizeUrlBaseGoldenMaster(unittest.TestCase):
     def test_empty_and_none(self) -> None:
         self.assertEqual(normalize_url_base(None), "")
@@ -68,6 +75,7 @@ class TestNormalizeUrlBaseGoldenMaster(unittest.TestCase):
         self.assertEqual(normalize_url_base("/ui/v2/"), "/ui/v2")
 
 
+@unittest.skipUnless(HAS_URL_BASE_HELPERS, "qbit_sections is refactor-only")
 class TestQbitSections(unittest.TestCase):
     def test_returns_qbit_sections_only(self) -> None:
         config = mock.MagicMock()

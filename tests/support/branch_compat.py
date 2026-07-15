@@ -129,6 +129,30 @@ def _has_parse_duration() -> bool:
 HAS_PARSE_DURATION = _has_parse_duration()
 
 
+def _has_coerce_bool() -> bool:
+    try:
+        from qBitrr import utils
+
+        return hasattr(utils, "coerce_bool")
+    except Exception:
+        return False
+
+
+HAS_COERCE_BOOL = _has_coerce_bool()
+
+
+def _has_url_base_helpers() -> bool:
+    try:
+        from qBitrr import utils
+
+        return hasattr(utils, "normalize_url_base") and hasattr(utils, "qbit_sections")
+    except Exception:
+        return False
+
+
+HAS_URL_BASE_HELPERS = _has_url_base_helpers()
+
+
 def _has_arr_section_helpers() -> bool:
     try:
         from qBitrr import gen_config as gc
