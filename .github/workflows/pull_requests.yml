@@ -38,6 +38,27 @@ jobs:
       run: |
         TMPDIR=$(mktemp -d)
         QBITRR_OVERRIDES_DATA_PATH="$TMPDIR" python -m unittest discover -s tests -p 'test_*.py' -v
+  frontend-test:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.PAT || github.token }}
+        ref: ${{ github.event.pull_request.head.ref }}
+    - name: Set up Node.js
+      uses: actions/setup-node@v6
+      with:
+        node-version: '22'
+        cache: npm
+        cache-dependency-path: webui/package-lock.json
+    - name: Run frontend tests
+      run: |
+        cd webui
+        npm ci
+        npm run test
   package:
     if: github.event.pull_request.draft == false
     runs-on: ${{ matrix.os }}
