@@ -71,7 +71,6 @@ export interface UseAggregateCatalogLoaderResult<TAggRow extends Hashable> {
   readonly isAggFiltered: boolean;
   readonly setPage: (page: number) => void;
   readonly refresh: () => void;
-  readonly hasActiveLoad: () => boolean;
 }
 
 export function useAggregateCatalogLoader<
@@ -365,8 +364,6 @@ export function useAggregateCatalogLoader<
     return total < rows.length;
   }, [debouncedSearch, adapter.filterRows, total, rows.length]);
 
-  const hasActiveLoad = useCallback(() => aggActiveLoadsRef.current > 0, []);
-
   return {
     rows,
     visibleRows,
@@ -383,6 +380,5 @@ export function useAggregateCatalogLoader<
     isAggFiltered,
     setPage,
     refresh,
-    hasActiveLoad,
   };
 }

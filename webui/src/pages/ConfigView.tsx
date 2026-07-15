@@ -25,10 +25,10 @@ import {
   parseDurationToSeconds,
   type DurationUnit,
 } from "../config/durationUtils";
+import { getSelectStyles } from "../config/reactSelectTheme";
 import { IconImage } from "../components/IconImage";
 import { TagInput } from "../components/TagInput";
 import Select from "react-select";
-import type { CSSObjectWithLabel } from "react-select";
 import ConfigureIcon from "../icons/gear.svg";
 
 import RefreshIcon from "../icons/refresh-arrow.svg";
@@ -78,54 +78,6 @@ const SERVARR_SECTION_REGEX = /^(radarr|sonarr|lidarr|animarr)(-|$)/i;
 const QBIT_SECTION_REGEX = /^qBit(-.*)?$/i;
 /** Matches backend REDACTED_PLACEHOLDER; when API key equals this, test uses instanceKey. */
 const REDACTED_PLACEHOLDER = "[redacted]";
-
-const getSelectStyles = (isDark: boolean) => {
-  return {
-    control: (base: CSSObjectWithLabel) => ({
-      ...base,
-      background: isDark ? '#0f131a' : '#ffffff',
-      color: isDark ? '#eaeef2' : '#1d1d1f',
-      borderColor: isDark ? '#2a2f36' : '#d2d2d7',
-      minHeight: '38px',
-      boxShadow: 'none',
-      '&:hover': {
-        borderColor: isDark ? '#3a4149' : '#b8b8bd',
-      }
-    }),
-    menu: (base: CSSObjectWithLabel) => ({
-      ...base,
-      background: isDark ? '#0f131a' : '#ffffff',
-      borderColor: isDark ? '#2a2f36' : '#d2d2d7',
-      border: `1px solid ${isDark ? '#2a2f36' : '#d2d2d7'}`,
-    }),
-    option: (base: CSSObjectWithLabel, state: { isFocused: boolean }) => ({
-      ...base,
-      background: state.isFocused
-        ? (isDark ? 'rgba(59, 130, 246, 0.15)' : 'rgba(37, 99, 235, 0.1)')
-        : (isDark ? '#0f131a' : '#ffffff'),
-      color: isDark ? '#eaeef2' : '#1d1d1f',
-      '&:active': {
-        background: isDark ? 'rgba(59, 130, 246, 0.25)' : 'rgba(37, 99, 235, 0.2)',
-      }
-    }),
-    singleValue: (base: CSSObjectWithLabel) => ({
-      ...base,
-      color: isDark ? '#eaeef2' : '#1d1d1f',
-    }),
-    input: (base: CSSObjectWithLabel) => ({
-      ...base,
-      color: isDark ? '#eaeef2' : '#1d1d1f',
-    }),
-    placeholder: (base: CSSObjectWithLabel) => ({
-      ...base,
-      color: isDark ? '#9aa3ac' : '#6e6e73',
-    }),
-    menuList: (base: CSSObjectWithLabel) => ({
-      ...base,
-      padding: '4px',
-    }),
-  };
-};
 
 const IMPORT_MODE_OPTIONS = ["Move", "Copy", "Auto"];
 

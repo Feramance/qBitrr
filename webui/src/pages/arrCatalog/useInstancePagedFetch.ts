@@ -77,12 +77,6 @@ export interface UseInstancePagedFetchAdapter<
   readonly errorMessage: (category: string) => string;
 }
 
-export interface UseInstancePagedFetchResult<TInstRow extends Hashable>
-  extends ArrCatalogInstancePipelineState<TInstRow> {
-  /** Diagnostic: latest server response (used by Lidarr's empty-state copy). */
-  readonly latestResponse: unknown;
-}
-
 export function useInstancePagedFetch<
   TInstRow extends Hashable,
   TResp,
@@ -90,7 +84,7 @@ export function useInstancePagedFetch<
 >(
   shellParams: ArrCatalogInstancePipelineParams<TFilters>,
   adapter: UseInstancePagedFetchAdapter<TInstRow, TResp, TFilters>,
-): UseInstancePagedFetchResult<TInstRow> {
+): ArrCatalogInstancePipelineState<TInstRow> {
   const {
     active,
     selection,
@@ -428,6 +422,5 @@ export function useInstancePagedFetch<
     showCatalogEmptyHint,
     setPage: setPagePublic,
     refresh,
-    latestResponse,
   };
 }

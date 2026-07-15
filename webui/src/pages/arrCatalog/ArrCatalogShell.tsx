@@ -107,8 +107,6 @@ export function ArrCatalogShell<
   selectionRef.current = selection;
   const globalSearchRef = useRef(globalSearch);
   globalSearchRef.current = globalSearch;
-  const filtersRef = useRef(filters);
-  filtersRef.current = filters;
   const backendReadyWarnedRef = useRef(false);
 
   const { mode: browseMode, setMode: setBrowseMode } = useArrBrowseMode(

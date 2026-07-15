@@ -31,7 +31,7 @@ function resetPointerSession(): void {
 }
 
 /** Install document-level pointer tracking for safe click detection. Idempotent. */
-export function installSafeClickTracking(): void {
+function installSafeClickTracking(): void {
   if (trackingInstalled || typeof document === "undefined") {
     return;
   }
@@ -77,7 +77,7 @@ export function installSafeClickTracking(): void {
 }
 
 /** Ignore clicks that follow text selection or pointer drag. */
-export function shouldIgnoreClick(event: MouseEvent | PointerEvent): boolean {
+function shouldIgnoreClick(event: MouseEvent | PointerEvent): boolean {
   if (hasActiveTextSelection()) {
     return true;
   }
@@ -108,7 +108,7 @@ export function shouldIgnoreClick(event: MouseEvent | PointerEvent): boolean {
 }
 
 /** Wrap a click handler so selection/drag-induced clicks are ignored. */
-export function createSafeClickHandler(
+function createSafeClickHandler(
   handler: (event: MouseEvent<HTMLElement>) => void
 ): (event: MouseEvent<HTMLElement>) => void {
   installSafeClickTracking();

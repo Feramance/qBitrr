@@ -6,61 +6,8 @@ import { useWebUI } from "../context/WebUIContext";
 import { useInterval } from "../hooks/useInterval";
 import { IconImage } from "../components/IconImage";
 import { CopyButton } from "../components/CopyButton";
-import Select, { type CSSObjectWithLabel, type OptionProps, type StylesConfig } from "react-select";
-
-interface LogOption {
-  value: string;
-  label: string;
-}
-
-const getSelectStyles = (isDark: boolean): StylesConfig<LogOption, false> => {
-  return {
-    control: (base: CSSObjectWithLabel) => ({
-      ...base,
-      background: isDark ? '#0f131a' : '#ffffff',
-      color: isDark ? '#eaeef2' : '#1d1d1f',
-      borderColor: isDark ? '#2a2f36' : '#d2d2d7',
-      minHeight: '38px',
-      boxShadow: 'none',
-      '&:hover': {
-        borderColor: isDark ? '#3a4149' : '#b8b8bd',
-      }
-    }),
-    menu: (base: CSSObjectWithLabel) => ({
-      ...base,
-      background: isDark ? '#0f131a' : '#ffffff',
-      borderColor: isDark ? '#2a2f36' : '#d2d2d7',
-      border: `1px solid ${isDark ? '#2a2f36' : '#d2d2d7'}`,
-    }),
-    option: (base: CSSObjectWithLabel, state: OptionProps<LogOption, false>) => ({
-      ...base,
-      background: state.isFocused
-        ? (isDark ? 'rgba(59, 130, 246, 0.15)' : 'rgba(37, 99, 235, 0.1)')
-        : (isDark ? '#0f131a' : '#ffffff'),
-      color: isDark ? '#eaeef2' : '#1d1d1f',
-      '&:active': {
-        background: isDark ? 'rgba(59, 130, 246, 0.25)' : 'rgba(37, 99, 235, 0.2)',
-      }
-    }),
-    singleValue: (base: CSSObjectWithLabel) => ({
-      ...base,
-      color: isDark ? '#eaeef2' : '#1d1d1f',
-    }),
-    input: (base: CSSObjectWithLabel) => ({
-      ...base,
-      color: isDark ? '#eaeef2' : '#1d1d1f',
-    }),
-    placeholder: (base: CSSObjectWithLabel) => ({
-      ...base,
-      color: isDark ? '#9aa3ac' : '#6e6e73',
-    }),
-    menuList: (base: CSSObjectWithLabel) => ({
-      ...base,
-      padding: '4px',
-    }),
-  };
-};
-
+import Select from "react-select";
+import { getSelectStyles } from "../config/reactSelectTheme";
 import RefreshIcon from "../icons/refresh-arrow.svg";
 import DownloadIcon from "../icons/download.svg";
 import LiveIcon from "../icons/live-streaming.svg";

@@ -1,4 +1,3 @@
-import type { ColumnDef } from "@tanstack/react-table";
 import type { ReactNode, RefCallback } from "react";
 import type { ArrInfo, ArrType } from "../../api/types";
 import type { Hashable } from "../../utils/dataSync";
@@ -18,26 +17,6 @@ export interface ArrCatalogSummary {
   readonly total: number;
   /** Lidarr-only album-row catalog hint surfaced under the artist summary. */
   readonly rollupTotalAlbumsHint?: number;
-}
-
-/**
- * Per-instance fetch options the shell passes through to {@link ArrCatalogDefinition}.
- *
- * Definitions may extend this in their own narrowed types but the shell only knows
- * about the union below — preloads, show-loading, plus opaque per-Arr filter state.
- */
-export interface ArrCatalogInstanceFetchOptions {
-  readonly preloadAll?: boolean;
-  readonly showLoading?: boolean;
-}
-
-/**
- * Aggregate per-instance first-page metadata callback shape. Returns true when the
- * loader should mark `aggLoading=false` immediately (matches Radarr/Sonarr empty-set
- * "first paint" behaviour).
- */
-export interface AggregateFirstPageMeta {
-  readonly total: number | undefined;
 }
 
 /**
@@ -357,12 +336,6 @@ export interface ArrCatalogDefinition<
   readonly renderInstanceBody: (
     props: ArrCatalogInstanceRenderProps<TInstRow, TFilters>,
   ) => ReactNode;
-
-  /** Optional shared columns helper exported for renderers. Not used by the shell. */
-  readonly buildAggregateColumns?: (
-    instanceCount: number,
-  ) => ColumnDef<TAggRow>[];
-  readonly buildInstanceColumns?: () => ColumnDef<TInstRow>[];
 }
 
 /** Convenience alias for the most-erased form of a definition (used by registry). */

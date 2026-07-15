@@ -24,7 +24,6 @@ interface WebUIContextValue {
   setGroupLidarr: (value: boolean) => void;
   setViewDensity: (value: ViewDensity) => void;
   setTheme: (value: Theme) => void;
-  loading: boolean;
 }
 
 const WebUIContext = createContext<WebUIContextValue | null>(null);
@@ -37,7 +36,6 @@ export function WebUIProvider({ children }: { children: ReactNode }): JSX.Elemen
     viewDensity: "comfortable",
     theme: "dark",
   });
-  const [loading, setLoading] = useState(true);
   const { push } = useToast();
 
   // Load initial settings
@@ -79,8 +77,6 @@ export function WebUIProvider({ children }: { children: ReactNode }): JSX.Elemen
         document.documentElement.setAttribute('data-theme', theme);
       } catch {
         // settings load failed, defaults will be used
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -142,8 +138,7 @@ export function WebUIProvider({ children }: { children: ReactNode }): JSX.Elemen
     setGroupLidarr,
     setViewDensity,
     setTheme,
-    loading,
-  }), [settings, setLiveArr, setGroupSonarr, setGroupLidarr, setViewDensity, setTheme, loading]);
+  }), [settings, setLiveArr, setGroupSonarr, setGroupLidarr, setViewDensity, setTheme]);
 
   return <WebUIContext.Provider value={value}>{children}</WebUIContext.Provider>;
 }

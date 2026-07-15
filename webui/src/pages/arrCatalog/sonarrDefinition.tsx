@@ -27,6 +27,7 @@ import { ARR_CATALOG_SYNC_HINT } from "../../constants/arrCatalogMessages";
 import { useInterval } from "../../hooks/useInterval";
 import { useRowsStore } from "../../hooks/useRowsStore";
 import { arraysEqual } from "../../utils/dataSync";
+import { normalizeNumericId } from "../../utils/normalizeNumericId";
 import { sonarrSeriesThumbnailUrl } from "../../utils/arrThumbnailUrl";
 import type { RowsStore } from "../../utils/rowsStore";
 import { ArrCatalogIconTile } from "./ArrCatalogIconTile";
@@ -34,6 +35,7 @@ import {
   ArrCatalogBodyChrome,
   ArrCatalogPagination,
 } from "./ArrCatalogBodyChrome";
+import { createStandardArrFilters } from "./createStandardArrFilters";
 import type {
   ArrCatalogDefinition,
   ArrCatalogInstancePipelineParams,
@@ -69,16 +71,7 @@ const SONARR_INSTANCE_PAGE_HASH_FIELDS: (keyof SonarrSeriesComparable)[] = [
 ];
 
 function normalizeSonarrSeriesId(value: unknown): number | undefined {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === "string" && value.trim() !== "") {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-  }
-  return undefined;
+  return normalizeNumericId(value);
 }
 
 function getSonarrSeriesEntryKey(entry: SonarrSeriesComparable): string {
@@ -132,7 +125,7 @@ function filterSeriesEntryByReason(
   return { ...entry, seasons: next };
 }
 
-export function seriesEntryToGroup(
+function seriesEntryToGroup(
   entry: SonarrSeriesEntry,
   instanceLabel: string,
 ): SonarrSeriesGroup {
@@ -608,34 +601,7 @@ export const SONARR_DEFINITION: ArrCatalogDefinition<
   allInstancesLabel: "All Sonarr",
   searchPlaceholder: "Filter series or episodes",
   initialFilters: { onlyMissing: false, reasonFilter: "all" },
-  filterControls: [
-    {
-      id: "status",
-      label: "Status",
-      mode: "always",
-      options: [
-        { value: "all", label: "All Episodes" },
-        { value: "missing", label: "Missing Only" },
-      ],
-      getValue: (f) => (f.onlyMissing ? "missing" : "all"),
-      setValue: (prev, next) => ({ ...prev, onlyMissing: next === "missing" }),
-    },
-    {
-      id: "reason",
-      label: "Search Reason",
-      mode: "always",
-      options: [
-        { value: "all", label: "All Reasons" },
-        { value: "Not being searched", label: "Not Being Searched" },
-        { value: "Missing", label: "Missing" },
-        { value: "Quality", label: "Quality" },
-        { value: "CustomFormat", label: "Custom Format" },
-        { value: "Upgrade", label: "Upgrade" },
-      ],
-      getValue: (f) => f.reasonFilter,
-      setValue: (prev, next) => ({ ...prev, reasonFilter: next }),
-    },
-  ],
+  filterControls: createStandardArrFilters<SonarrFilters>("All Episodes"),
   aggregate: {
     basePageSize: SONARR_PAGE_SIZE,
     initialRollup: null,
@@ -742,8 +708,6 @@ export const SONARR_DEFINITION: ArrCatalogDefinition<
       category={String(extras.category ?? "")}
     />
   ),
-  buildAggregateColumns: buildSonarrAggColumns,
-  buildInstanceColumns: buildSonarrInstanceColumns,
   renderAggregateBody: (props) => <SonarrAggregateBody {...props} />,
   renderInstanceBody: (props) => <SonarrInstanceBody {...props} />,
 };
@@ -909,7 +873,6 @@ interface SonarrInstanceBodyProps {
   readonly browseMode: "list" | "icon";
   readonly iconGridRef: RefCallback<HTMLElement | null>;
   readonly category: string;
-  readonly instanceLabel: string;
   readonly showCatalogEmptyHint: boolean;
   readonly onRowSelect: (row: SonarrSeriesGroupRow) => void;
   readonly setPage: (page: number) => void;

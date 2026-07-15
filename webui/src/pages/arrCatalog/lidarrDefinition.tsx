@@ -16,6 +16,7 @@ import {
   ArrCatalogBodyChrome,
   ArrCatalogPagination,
 } from "./ArrCatalogBodyChrome";
+import { createStandardArrFilters } from "./createStandardArrFilters";
 import type { ArrCatalogDefinition, ArrCatalogSummary } from "./definition";
 import { ARR_CATALOG_REGISTRY } from "./registry";
 import { useInstancePagedFetch } from "./useInstancePagedFetch";
@@ -233,34 +234,7 @@ export const LIDARR_DEFINITION: ArrCatalogDefinition<
   allInstancesLabel: "All Lidarr",
   searchPlaceholder: "Filter artists",
   initialFilters: { onlyMissing: false, reasonFilter: "all" },
-  filterControls: [
-    {
-      id: "status",
-      label: "Status",
-      mode: "always",
-      options: [
-        { value: "all", label: "All Artists" },
-        { value: "missing", label: "Missing Only" },
-      ],
-      getValue: (f) => (f.onlyMissing ? "missing" : "all"),
-      setValue: (prev, next) => ({ ...prev, onlyMissing: next === "missing" }),
-    },
-    {
-      id: "reason",
-      label: "Search Reason",
-      mode: "always",
-      options: [
-        { value: "all", label: "All Reasons" },
-        { value: "Not being searched", label: "Not Being Searched" },
-        { value: "Missing", label: "Missing" },
-        { value: "Quality", label: "Quality" },
-        { value: "CustomFormat", label: "Custom Format" },
-        { value: "Upgrade", label: "Upgrade" },
-      ],
-      getValue: (f) => f.reasonFilter,
-      setValue: (prev, next) => ({ ...prev, reasonFilter: next }),
-    },
-  ],
+  filterControls: createStandardArrFilters<LidarrFilters>("All Artists"),
   aggregate: {
     basePageSize: LIDARR_PAGE_SIZE,
     initialRollup: LIDARR_INITIAL_ROLLUP,
@@ -473,8 +447,6 @@ export const LIDARR_DEFINITION: ArrCatalogDefinition<
       />
     );
   },
-  buildAggregateColumns: buildLidarrAggColumns,
-  buildInstanceColumns: buildLidarrInstanceColumns,
   renderAggregateBody: (props) => <LidarrAggregateBody {...props} />,
   renderInstanceBody: (props) => <LidarrInstanceBody {...props} />,
 };

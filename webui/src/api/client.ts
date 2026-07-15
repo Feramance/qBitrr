@@ -13,10 +13,8 @@ import type {
   RestartResponse,
   SetPasswordRequest,
   SonarrSeriesResponse,
-  LidarrAlbumsResponse,
   LidarrArtistDetailResponse,
   LidarrArtistsResponse,
-  LidarrTracksResponse,
   StatusResponse,
 } from "./types";
 import { setUrlBaseFromMeta, webPath } from "./urlBase";
@@ -310,25 +308,6 @@ export async function getSonarrSeries(
   );
 }
 
-export async function getLidarrAlbums(
-  category: string,
-  page: number,
-  pageSize: number,
-  query?: string
-): Promise<LidarrAlbumsResponse> {
-  const params = new URLSearchParams();
-  params.set("page", page.toString());
-  params.set("page_size", pageSize.toString());
-  if (query) {
-    params.set("q", query);
-  }
-  // Always include tracks
-  params.set("include_tracks", "true");
-  return fetchJson<LidarrAlbumsResponse>(
-    `/web/lidarr/${encodeURIComponent(category)}/albums?${params}`
-  );
-}
-
 export async function getLidarrArtists(
   category: string,
   page: number,
@@ -368,23 +347,6 @@ export async function getLidarrArtistDetail(
 ): Promise<LidarrArtistDetailResponse> {
   return fetchJson<LidarrArtistDetailResponse>(
     `/web/lidarr/${encodeURIComponent(category)}/artist/${artistId}`
-  );
-}
-
-export async function getLidarrTracks(
-  category: string,
-  page: number,
-  pageSize: number,
-  query?: string
-): Promise<LidarrTracksResponse> {
-  const params = new URLSearchParams();
-  params.set("page", page.toString());
-  params.set("page_size", pageSize.toString());
-  if (query) {
-    params.set("q", query);
-  }
-  return fetchJson<LidarrTracksResponse>(
-    `/web/lidarr/${encodeURIComponent(category)}/tracks?${params}`
   );
 }
 
