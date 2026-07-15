@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import re
 import unittest
+from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -14,18 +16,31 @@ from qBitrr.webui import (
     resolve_arr_handler,
 )
 
+# 25 identical /api + /web pairs registered via @_dual_route (3 divergent pairs tested separately).
 IDENTICAL_ROUTE_PAIRS: list[tuple[str, str, str]] = [
     ("get", "/openapi.json", ""),
     ("get", "/docs", ""),
     ("get", "/processes", ""),
+    ("post", "/processes/movies/search/restart", ""),
     ("post", "/processes/restart_all", ""),
     ("post", "/loglevel", '{"level":"INFO"}'),
     ("post", "/arr/rebuild", ""),
     ("get", "/logs", ""),
+    ("get", "/logs/test.log", ""),
+    ("get", "/logs/test.log/download", ""),
+    ("get", "/radarr/movies/movies", ""),
+    ("get", "/radarr/movies/movie/1/thumbnail", ""),
+    ("get", "/sonarr/tv/series", ""),
+    ("get", "/sonarr/tv/series/1/thumbnail", ""),
+    ("get", "/lidarr/music/albums", ""),
+    ("get", "/lidarr/music/artists", ""),
+    ("get", "/lidarr/music/artist/1", ""),
+    ("get", "/lidarr/music/artist/1/thumbnail", ""),
     ("get", "/arr", ""),
     ("post", "/update", ""),
     ("get", "/download-update", ""),
     ("get", "/status", ""),
+    ("post", "/arr/movies/restart", ""),
     ("post", "/config", '{"changes":{}}'),
     ("post", "/arr/test-connection", '{"type":"radarr","uri":"http://x","apiKey":"k"}'),
 ]
@@ -34,6 +49,13 @@ DIVERGENT_PAIRS = (
     ("/meta",),
     ("/config",),
     ("/token",),
+)
+
+_DUAL_ROUTE_RE = re.compile(
+    r"^\s*@_dual_route\(\s*"
+    r"(?P<quote>[\"'])(?P<path>[^\"']+)(?P=quote)"
+    r"(?:\s*,\s*methods\s*=\s*\((?P<methods>[^\)]+)\))?",
+    re.MULTILINE,
 )
 
 
@@ -100,8 +122,22 @@ class TestEmptyCatalogPayload(unittest.TestCase):
         self.assertEqual(payload["albums"], [])
 
 
+class TestDualRouteRegistration(unittest.TestCase):
+    def test_webui_declares_twenty_five_dual_route_pairs(self) -> None:
+        source = (
+            Path(__file__)
+            .resolve()
+            .parents[1]
+            .joinpath("qBitrr", "webui.py")
+            .read_text(encoding="utf-8")
+        )
+        paths = [match.group("path") for match in _DUAL_ROUTE_RE.finditer(source)]
+        self.assertEqual(len(paths), 25, msg=f"dual_route paths: {paths}")
+
+
 class TestIdenticalRoutePairs(_WebUIClientTestCase):
-    def test_all_declared_pairs_match(self) -> None:
+    def test_all_twenty_five_pairs_match(self) -> None:
+        self.assertEqual(len(IDENTICAL_ROUTE_PAIRS), 25)
         for method, path, body in IDENTICAL_ROUTE_PAIRS:
             with self.subTest(method=method, path=path):
                 api_resp = getattr(self.client, method)(
@@ -112,19 +148,6 @@ class TestIdenticalRoutePairs(_WebUIClientTestCase):
                 )
                 self.assertEqual(api_resp.status_code, web_resp.status_code)
                 self.assertEqual(api_resp.get_json(), web_resp.get_json())
-
-    def test_dual_route_registered_pairs_still_match(self) -> None:
-        extra_pairs = [
-            ("get", "/logs/test.log"),
-            ("get", "/logs/test.log/download"),
-            ("post", "/processes/movies/search/restart"),
-            ("post", "/arr/movies/restart"),
-        ]
-        for method, path in extra_pairs:
-            with self.subTest(method=method, path=path):
-                api_resp = getattr(self.client, method)(f"/api{path}")
-                web_resp = getattr(self.client, method)(f"/web{path}")
-                self.assertEqual(api_resp.status_code, web_resp.status_code)
 
 
 class TestDivergentRoutePairs(_WebUIClientTestCase):

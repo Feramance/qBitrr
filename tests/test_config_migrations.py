@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from tomlkit import parse
 
@@ -16,6 +17,7 @@ from qBitrr.gen_config import (
     _migrate_qbit_subcategory_match,
     _migrate_quality_profile_mappings,
     _migrate_webui_config,
+    apply_config_migrations,
 )
 
 
@@ -139,6 +141,37 @@ class TestMigrateHnrSingleKey(unittest.TestCase):
         self.assertEqual(cfg.get("qBit.CategorySeeding.HitAndRunMode"), "or")
         section = cfg.config["qBit"]["CategorySeeding"]
         self.assertNotIn("HitAndRunClearMode", section)
+
+
+class TestApplyConfigMigrationsIntegration(unittest.TestCase):
+    def test_legacy_config_runs_full_migration_chain(self) -> None:
+        cfg = _config_from_toml(
+            """
+            [Settings]
+            Host = "127.0.0.1"
+            Port = 6969
+            Token = "secret"
+            ConfigVersion = "0.0.1"
+
+            [Radarr]
+            [Radarr.EntrySearch]
+            MainQualityProfile = ["HD"]
+            TempQualityProfile = ["SD"]
+
+            [qBit]
+            """
+        )
+        with (
+            patch("qBitrr.gen_config._write_config_file"),
+            patch("qBitrr.config_version.validate_config_version", return_value=(True, "")),
+            patch("qBitrr.config_version.backup_config", return_value="/tmp/config.bak"),
+            patch("builtins.print"),
+        ):
+            apply_config_migrations(cfg)
+        self.assertEqual(cfg.get("WebUI.Host"), "127.0.0.1")
+        self.assertEqual(dict(cfg.get("Radarr.EntrySearch.QualityProfileMappings")), {"HD": "SD"})
+        self.assertTrue(cfg.get("Settings.AutoRestartProcesses"))
+        self.assertEqual(cfg.get("qBit.ManagedCategories"), [])
 
 
 class TestCurrentConfigShape(unittest.TestCase):
