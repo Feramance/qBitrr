@@ -130,6 +130,25 @@ describe("filterSonarrFlatEpisodes", () => {
     expect(out).toHaveLength(1);
     expect(out[0]?.title).toBe("Two");
   });
+
+  it("filters by each reason value", () => {
+    const withReasons: SonarrEpisodeFlatRow[] = [
+      { ...sample[0]!, reason: "Missing" },
+      { ...sample[1]!, reason: "Quality" },
+      {
+        ...sample[0]!,
+        episode: "3",
+        title: "Three",
+        reason: "Upgrade",
+      },
+    ];
+    expect(
+      filterSonarrFlatEpisodes(withReasons, { onlyMissing: false, reasonFilter: "Quality" }, ""),
+    ).toHaveLength(1);
+    expect(
+      filterSonarrFlatEpisodes(withReasons, { onlyMissing: false, reasonFilter: "Upgrade" }, ""),
+    ).toHaveLength(1);
+  });
 });
 
 describe("summarizeFlatEpisodes", () => {
@@ -222,5 +241,42 @@ describe("filterLidarrAlbumRows", () => {
     expect(summary.total).toBe(2);
     expect(summary.monitored).toBe(2);
     expect(summary.available).toBe(1);
+  });
+
+  it("filters by reason including Not being searched", () => {
+    const withReasons: LidarrAlbumFlatRow[] = [
+      {
+        ...rows[0]!,
+        album: { ...rows[0]!.album, reason: "Quality" },
+      },
+      {
+        ...rows[1]!,
+        album: { ...rows[1]!.album, reason: null },
+      },
+    ];
+    expect(
+      filterLidarrAlbumRows(withReasons, { onlyMissing: false, reasonFilter: "Quality" }, ""),
+    ).toHaveLength(1);
+    expect(
+      filterLidarrAlbumRows(withReasons, { onlyMissing: false, reasonFilter: "Not being searched" }, ""),
+    ).toHaveLength(1);
+  });
+
+  it("combines onlyMissing, reason, and search", () => {
+    const out = filterLidarrAlbumRows(
+      rows,
+      { onlyMissing: true, reasonFilter: "Missing" },
+      "album a",
+    );
+    expect(out).toHaveLength(1);
+    expect((out[0]?.album as Record<string, unknown>)["title"]).toBe("Album A");
+  });
+
+  it("uses numeric id in row key when present", () => {
+    const withId: LidarrAlbumFlatRow = {
+      ...rows[0]!,
+      album: { ...rows[0]!.album, id: 99 },
+    };
+    expect(lidarrAlbumFlatRowKey(withId)).toContain("id:99");
   });
 });

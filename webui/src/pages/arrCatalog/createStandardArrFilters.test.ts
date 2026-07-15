@@ -6,6 +6,15 @@ interface TestFilters extends StandardArrFilterState {
   reasonFilter: string;
 }
 
+const REASON_VALUES = [
+  "all",
+  "Not being searched",
+  "Missing",
+  "Quality",
+  "CustomFormat",
+  "Upgrade",
+] as const;
+
 describe("createStandardArrFilters", () => {
   const filters = createStandardArrFilters<TestFilters>("All Movies");
 
@@ -19,6 +28,8 @@ describe("createStandardArrFilters", () => {
     expect(filters[0]?.options[0]?.label).toBe("All Movies");
     expect(createStandardArrFilters<TestFilters>("All Episodes")[0]?.options[0]
       ?.label).toBe("All Episodes");
+    expect(createStandardArrFilters<TestFilters>("All Albums")[0]?.options[0]
+      ?.label).toBe("All Albums");
   });
 
   it("maps onlyMissing to status select value", () => {
@@ -35,6 +46,12 @@ describe("createStandardArrFilters", () => {
         "missing",
       ),
     ).toEqual({ onlyMissing: true, reasonFilter: "all" });
+    expect(
+      status?.setValue(
+        { onlyMissing: true, reasonFilter: "Quality" },
+        "all",
+      ),
+    ).toEqual({ onlyMissing: false, reasonFilter: "Quality" });
   });
 
   it("maps reasonFilter to reason select value", () => {
@@ -48,5 +65,33 @@ describe("createStandardArrFilters", () => {
         "Upgrade",
       ),
     ).toEqual({ onlyMissing: false, reasonFilter: "Upgrade" });
+  });
+
+  it.each(REASON_VALUES)("round-trips reason option %s", (value) => {
+    const reason = filters[1];
+    const state: TestFilters = { onlyMissing: false, reasonFilter: "all" };
+    const next = reason?.setValue(state, value);
+    expect(reason?.getValue(next!)).toBe(value);
+  });
+
+  it("preserves onlyMissing when changing reason", () => {
+    const reason = filters[1];
+    const prev: TestFilters = { onlyMissing: true, reasonFilter: "all" };
+    expect(reason?.setValue(prev, "Missing")).toEqual({
+      onlyMissing: true,
+      reasonFilter: "Missing",
+    });
+  });
+
+  it("exposes all standard reason labels", () => {
+    const labels = filters[1]?.options.map((o) => o.label) ?? [];
+    expect(labels).toEqual([
+      "All Reasons",
+      "Not Being Searched",
+      "Missing",
+      "Quality",
+      "Custom Format",
+      "Upgrade",
+    ]);
   });
 });
