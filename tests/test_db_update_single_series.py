@@ -320,6 +320,52 @@ class TestJsonDecodeErrorMessagingPreserved(unittest.TestCase):
         )
         arr.logger.warning.assert_called_with("Error getting episode info: [%s][%s]", 1, "Ep")
 
+    def test_lidarr_artist_json_error_has_no_type_specific_message(self) -> None:
+        """Lidarr has no Sonarr/Radarr-style JSONDecodeError warning branch."""
+        arr = _search_enabled_arr(type="lidarr")
+        arr.artists_file_model.get_or_none.return_value = None
+        from ujson import JSONDecodeError
+
+        arr.client.artist.get.side_effect = JSONDecodeError("bad")
+        db_update_single_series(
+            arr,
+            db_entry={"id": 1, "monitored": True, "artistName": "Artist"},
+            artist=True,
+        )
+        arr.logger.warning.assert_not_called()
+        arr.logger.error.assert_not_called()
+
+
+class TestQualityUnmetNestedKeyGuardPreserved(unittest.TestCase):
+    """Inconsistency #6: episodeFile presence check without nested-key guard."""
+
+    def test_sonarr_episode_swallows_malformed_episode_file(self) -> None:
+        """Malformed episodeFile is handled by the generic exception handler (not re-raised)."""
+        arr = _search_enabled_arr(type="sonarr", quality_unmet_search=True)
+        arr.model_file.get_or_none.return_value = SimpleNamespace(
+            MinCustomFormatScore=0, CustomFormatScore=0, EpisodeFileId=99
+        )
+        arr.client.episode.get.return_value = {
+            "id": 10,
+            "seriesId": 1,
+            "seasonNumber": 1,
+            "episodeNumber": 1,
+            "title": "Pilot",
+            "airDateUtc": "2020-01-01T00:00:00Z",
+            "episodeFileId": 99,
+            "monitored": True,
+            "hasFile": True,
+            "series": {"title": "Show", "qualityProfileId": 1},
+            "episodeFile": None,
+        }
+        arr.client.quality_profile.get.return_value = {"minFormatScore": 0}
+        db_update_single_series(
+            arr,
+            db_entry={"id": 10, "title": "Pilot", "hasFile": True},
+            series=False,
+        )
+        arr.logger.error.assert_called_once()
+
 
 class TestDbUpdateEpisodeRetry(unittest.TestCase):
     """Inconsistency #11: with_retry on Sonarr episode list fetch."""
