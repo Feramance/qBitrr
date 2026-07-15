@@ -5,6 +5,8 @@ const ArrView = lazy(() => import("./pages/ArrView").then(module => ({ default: 
 const QbitCategoriesView = lazy(() => import("./pages/QbitCategoriesView").then(module => ({ default: module.QbitCategoriesView })));
 const ConfigView = lazy(() => import("./pages/ConfigView").then(module => ({ default: module.ConfigView })));
 import { ChangelogModal } from "./components/ChangelogModal";
+import { formatVersionLabel } from "./utils/formatVersionLabel";
+import { ToastProvider, ToastViewport, useToast } from "./context/ToastContext";
 import { SearchProvider, useSearch } from "./context/SearchContext";
 import { WebUIProvider, useWebUI } from "./context/WebUIContext";
 import { useNetworkStatus } from "./hooks/useNetworkStatus";
@@ -13,7 +15,6 @@ import { webPath } from "./api/urlBase";
 import { LoginPage } from "./pages/LoginPage";
 import type { ArrInfo, MetaResponse } from "./api/types";
 import { IconImage } from "./components/IconImage";
-import CloseIcon from "./icons/close.svg";
 import ExternalIcon from "./icons/github.svg";
 import RefreshIcon from "./icons/refresh-arrow.svg";
 import UpdateIcon from "./icons/up-arrow.svg";
@@ -67,361 +68,6 @@ interface NavTab {
   icon: string;
 }
 
-function formatVersionLabel(value: string | null | undefined): string {
-  if (!value) {
-    return "unknown";
-  }
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return "unknown";
-  }
-  return trimmed[0] === "v" || trimmed[0] === "V" ? trimmed : `v${trimmed}`;
-}
-
-interface WelcomeModalProps {
-  currentVersion: string;
-  changelog: string | null;
-  changelogUrl: string | null;
-  repositoryUrl: string;
-  onClose: () => void;
-}
-
-function WelcomeModal({
-  currentVersion,
-  changelog,
-  changelogUrl,
-  repositoryUrl,
-  onClose,
-}: WelcomeModalProps): JSX.Element {
-  return (
-    <div className="modal-backdrop" role="presentation">
-      <div
-        className="modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="welcome-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="modal-header">
-          <h2 id="welcome-title">
-            🎉 Welcome to qBitrr {formatVersionLabel(currentVersion)}!
-          </h2>
-        </div>
-        <div className="modal-body changelog-modal__body">
-          <div className="changelog-meta">
-            <p style={{ marginBottom: '1rem', color: 'var(--text-secondary)' }}>
-              You've been updated to version <strong>{formatVersionLabel(currentVersion)}</strong>.
-              Here's what's new in this release:
-            </p>
-          </div>
-          <div className="changelog-section">
-            <h3>Release Notes</h3>
-            <div className="changelog-body markdown-content">
-              <ReactMarkdown>
-                {changelog?.trim() ? changelog.trim() : "No changelog available for this version."}
-              </ReactMarkdown>
-            </div>
-          </div>
-        </div>
-        <div className="modal-footer">
-          <div className="changelog-links">
-            {(changelogUrl || repositoryUrl) && (
-              <a
-                className="btn ghost small"
-                href={changelogUrl ?? repositoryUrl}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <IconImage src={ExternalIcon} />
-                View Full Release on GitHub
-              </a>
-            )}
-          </div>
-          <div className="changelog-buttons">
-            <button className="btn primary" type="button" onClick={onClose}>
-              Got it!
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-interface AlreadyUpToDateModalProps {
-  currentVersion: string;
-  changelog: string | null;
-  changelogUrl: string | null;
-  repositoryUrl: string;
-  onClose: () => void;
-}
-
-function AlreadyUpToDateModal({
-  currentVersion,
-  changelog,
-  changelogUrl,
-  repositoryUrl,
-  onClose,
-}: AlreadyUpToDateModalProps): JSX.Element {
-  return (
-    <div className="modal-backdrop" role="presentation">
-      <div
-        className="modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="already-up-to-date-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="modal-header">
-          <h2 id="already-up-to-date-title">✓ You're on the latest version</h2>
-          <button className="btn ghost" type="button" onClick={onClose}>
-            <IconImage src={CloseIcon} />
-            Close
-          </button>
-        </div>
-        <div className="modal-body changelog-modal__body">
-          <div className="changelog-meta">
-            <p style={{ marginBottom: "1rem", color: "var(--text-secondary)" }}>
-              Current version: <strong>{formatVersionLabel(currentVersion)}</strong>
-            </p>
-          </div>
-          {changelog?.trim() ? (
-            <div className="changelog-section">
-              <h3>Release Notes</h3>
-              <div className="changelog-body markdown-content">
-                <ReactMarkdown>{changelog.trim()}</ReactMarkdown>
-              </div>
-            </div>
-          ) : null}
-        </div>
-        <div className="modal-footer">
-          <div className="changelog-links">
-            {(changelogUrl || repositoryUrl) && (
-              <a
-                className="btn ghost small"
-                href={changelogUrl ?? repositoryUrl}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <IconImage src={ExternalIcon} />
-                View on GitHub
-              </a>
-            )}
-          </div>
-          <div className="changelog-buttons">
-            <button className="btn primary" type="button" onClick={onClose}>
-              Got it
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-interface ChangelogModalProps {
-  currentVersion: string;
-  latestVersion: string | null;
-  changelog: string | null;
-  changelogUrl: string | null;
-  repositoryUrl: string;
-  updateState: MetaResponse["update_state"] | null | undefined;
-  updating: boolean;
-  installationType: MetaResponse["installation_type"];
-  binaryDownloadUrl: string | null;
-  binaryDownloadName: string | null;
-  binaryDownloadSize: number | null;
-  binaryDownloadError: string | null;
-  onClose: () => void;
-  onUpdate: () => void;
-}
-
-function ChangelogModal({
-  currentVersion,
-  latestVersion,
-  changelog,
-  changelogUrl,
-  repositoryUrl,
-  updateState,
-  updating,
-  installationType,
-  binaryDownloadUrl,
-  binaryDownloadName,
-  binaryDownloadSize,
-  binaryDownloadError,
-  onClose,
-  onUpdate,
-}: ChangelogModalProps): JSX.Element {
-  const [countdown, setCountdown] = useState<number | null>(null);
-  const updateDisabled = updating || Boolean(updateState?.in_progress);
-  const completedLabel = updateState?.completed_at
-    ? new Date(updateState.completed_at).toLocaleString()
-    : null;
-  const isBinaryInstall = installationType === "binary";
-
-  // Start countdown when update completes successfully
-  useEffect(() => {
-    const isSuccess = updateState?.last_result === "success" && updateState?.completed_at;
-
-    if (!isSuccess) {
-      // Reset countdown asynchronously
-      const timeout = setTimeout(() => setCountdown(null), 0);
-      return () => clearTimeout(timeout);
-    }
-
-    // Start countdown
-    const countdownRef = { current: 11 };
-    const timer = setInterval(() => {
-      countdownRef.current -= 1;
-      if (countdownRef.current <= 0) {
-        clearInterval(timer);
-        window.location.reload();
-      } else {
-        setCountdown(countdownRef.current);
-      }
-    }, 1000);
-
-    // Initialize countdown display
-    const initTimeout = setTimeout(() => setCountdown(10), 0);
-
-    return () => {
-      clearInterval(timer);
-      clearTimeout(initTimeout);
-    };
-  }, [updateState?.last_result, updateState?.completed_at]);
-
-  let statusClass = "";
-  let statusMessage: string | null = null;
-  if (updateState?.in_progress) {
-    statusClass = "text-info";
-    statusMessage = "⏳ Update in progress...";
-  } else if (updateState?.last_result === "success") {
-    statusClass = "text-success";
-    if (countdown !== null) {
-      statusMessage = `✓ Update completed! Reloading in ${countdown}s...`;
-    } else {
-      statusMessage = "✓ Update completed successfully";
-      if (completedLabel) {
-        statusMessage = `${statusMessage} (${completedLabel})`;
-      }
-    }
-  } else if (updateState?.last_result === "error") {
-    statusClass = "text-danger";
-    const detail = updateState.last_error ? updateState.last_error.trim() : "";
-    statusMessage = detail ? `✗ Update failed: ${detail}` : "✗ Update failed";
-  }
-
-  return (
-    <div className="modal-backdrop" role="presentation">
-      <div
-        className="modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="changelog-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="modal-header">
-          <h2 id="changelog-title">
-            {updateState?.in_progress ? "⚙️ Updating..." : "🚀 Update Available"}
-          </h2>
-          <button className="btn ghost" type="button" onClick={onClose} disabled={updateState?.in_progress}>
-            <IconImage src={CloseIcon} />
-            Close
-          </button>
-        </div>
-        <div className="modal-body changelog-modal__body">
-          <div className="changelog-meta">
-            <div className="version-comparison">
-              <span className="version-item">
-                <strong>Current:</strong>{" "}
-                <span className="version-badge version-current">{formatVersionLabel(currentVersion)}</span>
-              </span>
-              <span className="version-arrow">→</span>
-              <span className="version-item">
-                <strong>Latest:</strong>{" "}
-                <span className="version-badge version-latest">
-                  {latestVersion ? formatVersionLabel(latestVersion) : "Unknown"}
-                </span>
-              </span>
-            </div>
-            {statusMessage ? (
-              <div className={`update-status ${statusClass}`}>
-                {statusMessage}
-              </div>
-            ) : null}
-          </div>
-          <div className="changelog-section">
-            <h3>What's New</h3>
-            <div className="changelog-body markdown-content">
-              <ReactMarkdown>
-                {changelog?.trim() ? changelog.trim() : "No changelog provided."}
-              </ReactMarkdown>
-            </div>
-          </div>
-        </div>
-        <div className="modal-footer">
-          <div className="changelog-links">
-            {(changelogUrl || repositoryUrl) && (
-              <a
-                className="btn ghost small"
-                href={changelogUrl ?? repositoryUrl}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <IconImage src={ExternalIcon} />
-                View on GitHub
-              </a>
-            )}
-          </div>
-          <div className="changelog-buttons">
-            {isBinaryInstall ? (
-              binaryDownloadError ? (
-                <div className="update-status text-danger" style={{ marginBottom: '0.5rem' }}>
-                  {binaryDownloadError}
-                </div>
-              ) : binaryDownloadUrl ? (
-                <>
-                  <a
-                    className="btn primary"
-                    href={webPath("/web/download-update")}
-                    download={binaryDownloadName ?? undefined}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <IconImage src={DownloadIcon} />
-                    Download Update
-                    {binaryDownloadSize && binaryDownloadSize > 0 ? (
-                      <span style={{ marginLeft: '0.5rem', opacity: 0.8, fontSize: '0.875rem' }}>
-                        ({(binaryDownloadSize / (1024 * 1024)).toFixed(1)} MB)
-                      </span>
-                    ) : null}
-                  </a>
-                  <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
-                    Binary installation detected. Download and manually replace the executable.
-                  </div>
-                </>
-              ) : (
-                <div className="update-status text-danger">
-                  Unable to fetch binary download URL. Please update manually.
-                </div>
-              )
-            ) : (
-              <button
-                className="btn primary"
-                type="button"
-                onClick={onUpdate}
-                disabled={updateDisabled}
-              >
-                <IconImage src={UpdateIcon} />
-                {updateDisabled ? "Updating..." : "Update Now"}
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 type AuthState = "loading" | "authenticated" | "unauthenticated" | "error";
 
@@ -1134,6 +780,7 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
       </main>
       {showChangelog && meta ? (
         <ChangelogModal
+          variant="updateAvailable"
           currentVersion={meta.current_version}
           latestVersion={latestVersion}
           changelog={meta.changelog}
@@ -1151,7 +798,8 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
         />
       ) : null}
       {showWelcomeChangelog && meta ? (
-        <WelcomeModal
+        <ChangelogModal
+          variant="welcome"
           currentVersion={meta.current_version}
           changelog={meta.current_version_changelog || meta.changelog}
           changelogUrl={changelogUrl}
@@ -1160,7 +808,8 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
         />
       ) : null}
       {showAlreadyUpToDateModal && meta ? (
-        <AlreadyUpToDateModal
+        <ChangelogModal
+          variant="upToDate"
           currentVersion={meta.current_version}
           changelog={meta.current_version_changelog || meta.changelog}
           changelogUrl={changelogUrl}

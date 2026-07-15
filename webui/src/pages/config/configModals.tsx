@@ -28,7 +28,6 @@ import {
   ArrTorrentSummary,
   CategoryOverlapAlert,
   FieldGroup,
-  SectionNameField,
 } from "./configFieldComponents";
 import { REDACTED_PLACEHOLDER } from "./configTypes";
 import type { FieldDefinition } from "./configTypes";

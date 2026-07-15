@@ -38,11 +38,8 @@ import { normalizeNumericId } from "../../utils/normalizeNumericId";
 import { sonarrSeriesThumbnailUrl } from "../../utils/arrThumbnailUrl";
 import type { RowsStore } from "../../utils/rowsStore";
 import { ArrCatalogIconTile } from "./ArrCatalogIconTile";
-import {
-  ArrCatalogBodyChrome,
-  ArrCatalogPagination,
-} from "./ArrCatalogBodyChrome";
 import { createStandardArrFilters } from "./createStandardArrFilters";
+import { INSTANCE_VIEW_POLL_INTERVAL_MS } from "../../constants/arrAggregateFetch";
 import type {
   ArrCatalogDefinition,
   ArrCatalogInstancePipelineParams,
@@ -338,7 +335,7 @@ function useSonarrInstancePipeline(
         const next = { ...prev, [resolvedPage]: series };
         pagesRef.current = next;
         if (pageChanged) {
-          setPages(next);
+          setPages({ ...next } as Record<number, SonarrSeriesEntry[]>);
           setLastUpdated(new Date().toLocaleTimeString());
         }
 

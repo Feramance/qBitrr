@@ -1,5 +1,3 @@
-import type { ConfigDocument } from "../../api/types";
-import { getTooltip } from "../../config/tooltips";
 import {
   parseDurationToMinutes,
   parseDurationToSeconds,

@@ -94,17 +94,35 @@ export function WebUIProvider({ children }: { children: ReactNode }): JSX.Elemen
   }, []);
 
   const setLiveArr = useMemo(
-    () => createPersistedBooleanSetter(setSettings, saveSettings, "liveArr", "LiveArr"),
+    () =>
+      createPersistedBooleanSetter<WebUISettings, "liveArr">(
+        setSettings,
+        saveSettings,
+        "liveArr",
+        "LiveArr",
+      ),
     [saveSettings],
   );
 
   const setGroupSonarr = useMemo(
-    () => createPersistedBooleanSetter(setSettings, saveSettings, "groupSonarr", "GroupSonarr"),
+    () =>
+      createPersistedBooleanSetter<WebUISettings, "groupSonarr">(
+        setSettings,
+        saveSettings,
+        "groupSonarr",
+        "GroupSonarr",
+      ),
     [saveSettings],
   );
 
   const setGroupLidarr = useMemo(
-    () => createPersistedBooleanSetter(setSettings, saveSettings, "groupLidarr", "GroupLidarr"),
+    () =>
+      createPersistedBooleanSetter<WebUISettings, "groupLidarr">(
+        setSettings,
+        saveSettings,
+        "groupLidarr",
+        "GroupLidarr",
+      ),
     [saveSettings],
   );
 
