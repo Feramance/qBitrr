@@ -8,6 +8,7 @@ import socket
 import threading
 import time
 from collections.abc import Iterator
+from typing import Any
 
 import ping3
 import qbittorrentapi
@@ -20,6 +21,32 @@ logger = logging.getLogger("qBitrr.Utils")
 CACHE = TTLCache(maxsize=50, ttl=60)
 
 UNITS = {"k": 1024, "m": 1048576, "g": 1073741824, "t": 1099511627776}
+
+
+def coerce_bool(value: Any) -> bool:
+    """Parse request/config values as boolean.
+
+    Treats ``"0"``, ``"false"``, and ``"none"`` (case-insensitive) as falsy in addition
+    to standard Python falsy values.
+    """
+    return bool(value) and str(value).lower() not in {"0", "false", "none"}
+
+
+def normalize_url_base(value: str | None) -> str:
+    """Normalize WebUI.UrlBase to '' or a leading-slash path without trailing slash."""
+    if not value:
+        return ""
+    raw = str(value).strip()
+    if not raw:
+        return ""
+    if not raw.startswith("/"):
+        raw = f"/{raw}"
+    return raw.rstrip("/")
+
+
+def qbit_sections(config: Any) -> list[str]:
+    """Return all qBit / qBit-* config section names."""
+    return [s for s in config.sections() if s == "qBit" or s.startswith("qBit-")]
 
 
 def with_retry(
@@ -165,35 +192,6 @@ def parse_size(size):
     if unit:
         val *= UNITS[unit.lower()]
     return val
-
-
-def format_bytes(bytes_value: int | float) -> str:
-    """Format bytes into human-readable format (e.g., '1.5 GB', '256 MB').
-
-    Args:
-        bytes_value: Number of bytes to format
-
-    Returns:
-        Human-readable string representation of the byte value
-    """
-    if bytes_value < 0:
-        return f"-{format_bytes(-bytes_value)}"
-
-    if bytes_value == 0:
-        return "0 B"
-
-    units = [("B", 1), ("KB", 1024), ("MB", 1048576), ("GB", 1073741824), ("TB", 1099511627776)]
-
-    for unit_name, unit_value in reversed(units):
-        if bytes_value >= unit_value:
-            value = bytes_value / unit_value
-            # Show 2 decimal places for values < 10, 1 decimal place for values >= 10
-            if value < 10:
-                return f"{value:.2f} {unit_name}"
-            else:
-                return f"{value:.1f} {unit_name}"
-
-    return f"{bytes_value} B"
 
 
 class ExpiringSet:

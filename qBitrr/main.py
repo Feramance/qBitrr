@@ -37,7 +37,8 @@ from qBitrr.ffprobe import FFprobeDownloader
 from qBitrr.home_path import APPDATA_FOLDER
 from qBitrr.logger import run_logs
 from qBitrr.qbit_category_manager import qBitCategoryManager
-from qBitrr.utils import ExpiringSet, mask_secret
+from qBitrr.qbit_seeding_config import load_qbit_seeding_config
+from qBitrr.utils import ExpiringSet, mask_secret, qbit_sections
 from qBitrr.versioning import fetch_latest_release
 from qBitrr.webui import WebUI
 
@@ -471,14 +472,13 @@ class qBitManager:
             self.logger.debug("qBit disabled or search-only mode; skipping instance init")
             return
 
-        for section in CONFIG.sections():
-            if section == "qBit" or section.startswith("qBit-"):
-                try:
-                    self._init_instance(section, section)
-                    self.logger.info("Initialized qBit instance: %s", section)
-                except Exception as e:
-                    self.logger.error("Failed to initialize qBit instance '%s': %s", section, e)
-                    self.instance_health[section] = False
+        for section in qbit_sections(CONFIG):
+            try:
+                self._init_instance(section, section)
+                self.logger.info("Initialized qBit instance: %s", section)
+            except Exception as e:
+                self.logger.error("Failed to initialize qBit instance '%s': %s", section, e)
+                self.instance_health[section] = False
 
         # Set current_qbit_version from the first initialized instance (for legacy compatibility)
         if self.qbit_versions:
@@ -551,82 +551,17 @@ class qBitManager:
         # Load qBit category management config for this instance
         managed_categories = CONFIG.get(f"{section_name}.ManagedCategories", fallback=[])
         if managed_categories:
-            # Load default seeding settings
-            default_seeding = {}
-            seeding_keys = [
-                "DownloadRateLimitPerTorrent",
-                "UploadRateLimitPerTorrent",
-                "MaxUploadRatio",
-                "MaxSeedingTime",
-                "RemoveTorrent",
-            ]
-            for key in seeding_keys:
-                if key == "MaxSeedingTime":
-                    value = CONFIG.get_duration(
-                        f"{section_name}.CategorySeeding.{key}", fallback=-1
-                    )
-                else:
-                    value = CONFIG.get(f"{section_name}.CategorySeeding.{key}", fallback=-1)
-                default_seeding[key] = value
-
-            # Load HnR protection settings
-            hnr_keys = {
-                "HitAndRunMode": "disabled",
-                "MinSeedRatio": 1.0,
-                "MinSeedingTimeDays": 0,
-                "HitAndRunPartialSeedRatio": 1.0,
-                "TrackerUpdateBuffer": 0,
-            }
-            for key, fallback in hnr_keys.items():
-                if key == "TrackerUpdateBuffer":
-                    default_seeding[key] = CONFIG.get_duration(
-                        f"{section_name}.CategorySeeding.{key}", fallback=fallback
-                    )
-                else:
-                    default_seeding[key] = CONFIG.get(
-                        f"{section_name}.CategorySeeding.{key}", fallback=fallback
-                    )
-
-            # Load per-category overrides
-            category_overrides = {}
-            categories_list = CONFIG.get(f"{section_name}.CategorySeeding.Categories", fallback=[])
-            for cat_config in categories_list:
-                if isinstance(cat_config, dict) and "Name" in cat_config:
-                    cat_name = cat_config["Name"]
-                    category_overrides[cat_name] = cat_config
-
-            # Load qBit-level shared trackers
-            instance_trackers = CONFIG.get(f"{section_name}.Trackers", fallback=[])
-
-            # Stalled handling for qBit-managed categories (same semantics as Arr)
-            stalled_delay = CONFIG.get_duration(
-                f"{section_name}.CategorySeeding.StalledDelay", fallback=-1, unit="minutes"
-            )
-            ignore_younger = CONFIG.get_duration(
-                f"{section_name}.CategorySeeding.IgnoreTorrentsYoungerThan",
-                fallback=CONFIG.get_duration("Settings.IgnoreTorrentsYoungerThan", fallback=180),
-            )
-
-            match_subcategories = bool(
-                CONFIG.get(f"{section_name}.MatchSubcategories", fallback=False)
-            )
-
-            # Store config for later initialization
+            seeding = load_qbit_seeding_config(section_name)
             self.qbit_category_configs[instance_name] = {
                 "managed_categories": managed_categories,
-                "default_seeding": default_seeding,
-                "category_overrides": category_overrides,
-                "trackers": instance_trackers,
-                "stalled_delay": stalled_delay,
-                "ignore_torrents_younger_than": ignore_younger,
-                "match_subcategories": match_subcategories,
+                **seeding,
             }
             self.logger.debug(
                 "Loaded qBit category config for '%s': %d managed categories "
                 "(MatchSubcategories=%s)",
                 instance_name,
                 len(managed_categories),
-                match_subcategories,
+                seeding["match_subcategories"],
             )
 
     def create_client_for_instance(self, instance_name: str) -> qbittorrentapi.Client:
@@ -731,74 +666,15 @@ class qBitManager:
         if QBIT_DISABLED or SEARCH_ONLY:
             return
 
-        seeding_keys = [
-            "DownloadRateLimitPerTorrent",
-            "UploadRateLimitPerTorrent",
-            "MaxUploadRatio",
-            "MaxSeedingTime",
-            "RemoveTorrent",
-        ]
-        hnr_keys = {
-            "HitAndRunMode": "disabled",
-            "MinSeedRatio": 1.0,
-            "MinSeedingTimeDays": 0,
-            "HitAndRunPartialSeedRatio": 1.0,
-            "TrackerUpdateBuffer": 0,
-        }
-
-        def _load_category_config(section_name: str, instance_name: str):
-            managed_categories = CONFIG.get(f"{section_name}.ManagedCategories", fallback=[])
+        for section in qbit_sections(CONFIG):
+            managed_categories = CONFIG.get(f"{section}.ManagedCategories", fallback=[])
             if not managed_categories:
-                return
-            default_seeding = {}
-            for key in seeding_keys:
-                if key == "MaxSeedingTime":
-                    default_seeding[key] = CONFIG.get_duration(
-                        f"{section_name}.CategorySeeding.{key}", fallback=-1
-                    )
-                else:
-                    default_seeding[key] = CONFIG.get(
-                        f"{section_name}.CategorySeeding.{key}", fallback=-1
-                    )
-            for key, fallback in hnr_keys.items():
-                if key == "TrackerUpdateBuffer":
-                    default_seeding[key] = CONFIG.get_duration(
-                        f"{section_name}.CategorySeeding.{key}", fallback=fallback
-                    )
-                else:
-                    default_seeding[key] = CONFIG.get(
-                        f"{section_name}.CategorySeeding.{key}", fallback=fallback
-                    )
-            category_overrides = {}
-            for cat_config in CONFIG.get(
-                f"{section_name}.CategorySeeding.Categories", fallback=[]
-            ):
-                if isinstance(cat_config, dict) and "Name" in cat_config:
-                    category_overrides[cat_config["Name"]] = cat_config
-            trackers = CONFIG.get(f"{section_name}.Trackers", fallback=[])
-            stalled_delay = CONFIG.get_duration(
-                f"{section_name}.CategorySeeding.StalledDelay", fallback=-1, unit="minutes"
-            )
-            ignore_younger = CONFIG.get_duration(
-                f"{section_name}.CategorySeeding.IgnoreTorrentsYoungerThan",
-                fallback=CONFIG.get_duration("Settings.IgnoreTorrentsYoungerThan", fallback=180),
-            )
-            match_subcategories = bool(
-                CONFIG.get(f"{section_name}.MatchSubcategories", fallback=False)
-            )
-            self.qbit_category_configs[instance_name] = {
+                continue
+            seeding = load_qbit_seeding_config(section)
+            self.qbit_category_configs[section] = {
                 "managed_categories": managed_categories,
-                "default_seeding": default_seeding,
-                "category_overrides": category_overrides,
-                "trackers": trackers,
-                "stalled_delay": stalled_delay,
-                "ignore_torrents_younger_than": ignore_younger,
-                "match_subcategories": match_subcategories,
+                **seeding,
             }
-
-        for section in CONFIG.sections():
-            if section == "qBit" or section.startswith("qBit-"):
-                _load_category_config(section, section)
 
         self.logger.info(
             "Reloaded qBit category configs: %d instances", len(self.qbit_category_configs)

@@ -33,6 +33,22 @@ SUFFIX_TO_MINUTES = {
 _DURATION_PATTERN = re.compile(r"^\s*(-?\d+)\s*([sSmMhHdDwWM]?)\s*$")
 
 
+def parse_duration(
+    value: Any,
+    *,
+    unit: str = "seconds",
+    fallback: int = -1,
+) -> int:
+    """Parse a config duration value into seconds or minutes.
+
+    ``unit="seconds"`` treats unsuffixed numbers as seconds; ``unit="minutes"`` treats
+    them as minutes and applies the sub-minute rounding rule (values in (0, 1) → 1).
+    """
+    if unit == "minutes":
+        return parse_duration_to_minutes(value, fallback=fallback)
+    return parse_duration_to_seconds(value, fallback=fallback)
+
+
 def parse_duration_to_seconds(value: Any, fallback: int = -1) -> int:
     """
     Parse a config value to seconds. Accepts int (return as-is) or str with optional suffix.

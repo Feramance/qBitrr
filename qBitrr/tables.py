@@ -9,20 +9,12 @@ from peewee import (
 )
 
 
-class FilesQueued(Model):
-    EntryId = IntegerField(primary_key=True, null=False, unique=True)
-    ArrInstance = CharField(null=True, default="")
+class ArrFileRowFieldsBase(Model):
+    """Fifteen byte-identical Arr catalog file-row fields shared across movie/episode/album models."""
 
-
-class MoviesFilesModel(Model):
-    Title = CharField()
-    Monitored = BooleanField()
-    TmdbId = IntegerField()
-    Year = IntegerField()
-    ArrInstance = CharField(default="")
     EntryId = IntegerField()
+    ArrInstance = CharField(default="")
     Searched = BooleanField(default=False)
-    MovieFileId = IntegerField()
     IsRequest = BooleanField(default=False)
     QualityMet = BooleanField(default=False)
     Upgrade = BooleanField(default=False)
@@ -30,13 +22,27 @@ class MoviesFilesModel(Model):
     MinCustomFormatScore = IntegerField(null=True)
     CustomFormatMet = BooleanField(default=False)
     Reason = TextField(null=True)
-    # Quality profile from Arr API
     QualityProfileId = IntegerField(null=True)
     QualityProfileName = TextField(null=True)
-    # Profile switching state tracking
     LastProfileSwitchTime = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"], null=True)
     CurrentProfileId = IntegerField(null=True)
     OriginalProfileId = IntegerField(null=True)
+
+    class Meta:
+        abstract = True
+
+
+class FilesQueued(Model):
+    EntryId = IntegerField(primary_key=True, null=False, unique=True)
+    ArrInstance = CharField(null=True, default="")
+
+
+class MoviesFilesModel(ArrFileRowFieldsBase):
+    Title = CharField()
+    Monitored = BooleanField()
+    TmdbId = IntegerField()
+    Year = IntegerField()
+    MovieFileId = IntegerField()
 
     class Meta:
         primary_key = CompositeKey("EntryId", "ArrInstance")
@@ -47,12 +53,10 @@ class MoviesFilesModel(Model):
         )
 
 
-class EpisodeFilesModel(Model):
-    EntryId = IntegerField()
+class EpisodeFilesModel(ArrFileRowFieldsBase):
     SeriesTitle = TextField(null=True)
     Title = TextField(null=True)
     SeriesId = IntegerField(null=False)
-    ArrInstance = CharField(default="")
     EpisodeFileId = IntegerField(null=True)
     EpisodeNumber = IntegerField(null=False)
     SeasonNumber = IntegerField(null=False)
@@ -60,21 +64,6 @@ class EpisodeFilesModel(Model):
     SceneAbsoluteEpisodeNumber = IntegerField(null=True)
     AirDateUtc = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"], null=True)
     Monitored = BooleanField(null=True)
-    Searched = BooleanField(default=False)
-    IsRequest = BooleanField(default=False)
-    QualityMet = BooleanField(default=False)
-    Upgrade = BooleanField(default=False)
-    CustomFormatScore = IntegerField(null=True)
-    MinCustomFormatScore = IntegerField(null=True)
-    CustomFormatMet = BooleanField(default=False)
-    Reason = TextField(null=True)
-    # Quality profile from Arr API (inherited from series)
-    QualityProfileId = IntegerField(null=True)
-    QualityProfileName = TextField(null=True)
-    # Profile switching state tracking
-    LastProfileSwitchTime = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"], null=True)
-    CurrentProfileId = IntegerField(null=True)
-    OriginalProfileId = IntegerField(null=True)
 
     class Meta:
         primary_key = CompositeKey("EntryId", "ArrInstance")
@@ -121,31 +110,14 @@ class EpisodeQueueModel(Model):
     ArrInstance = CharField(null=True, default="")
 
 
-class AlbumFilesModel(Model):
+class AlbumFilesModel(ArrFileRowFieldsBase):
     Title = CharField()
     Monitored = BooleanField()
     ForeignAlbumId = CharField()
     ReleaseDate = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"], null=True)
-    EntryId = IntegerField()
-    ArrInstance = CharField(default="")
-    Searched = BooleanField(default=False)
     AlbumFileId = IntegerField()
-    IsRequest = BooleanField(default=False)
-    QualityMet = BooleanField(default=False)
-    Upgrade = BooleanField(default=False)
-    CustomFormatScore = IntegerField(null=True)
-    MinCustomFormatScore = IntegerField(null=True)
-    CustomFormatMet = BooleanField(default=False)
-    Reason = TextField(null=True)
     ArtistId = IntegerField(null=False)
     ArtistTitle = TextField(null=True)
-    # Quality profile from Arr API
-    QualityProfileId = IntegerField(null=True)
-    QualityProfileName = TextField(null=True)
-    # Profile switching state tracking
-    LastProfileSwitchTime = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"], null=True)
-    CurrentProfileId = IntegerField(null=True)
-    OriginalProfileId = IntegerField(null=True)
     # Denormalized: tracks in this album (catalog_rollups)
     TotalTracks = IntegerField(default=0)
 

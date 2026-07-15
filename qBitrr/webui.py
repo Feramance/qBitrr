@@ -37,6 +37,7 @@ from qBitrr.search_activity_store import (
     clear_search_activity,
     fetch_search_activities,
 )
+from qBitrr.utils import coerce_bool, normalize_url_base
 from qBitrr.versioning import fetch_latest_release, fetch_release_by_tag
 from qBitrr.webui_thumbnails import (
     get_or_fetch_thumbnail_bytes,
@@ -92,18 +93,6 @@ def _arr_catalog_db_safe(handler):
             return jsonify({"error": message}), 503
 
     return wrapper
-
-
-def normalize_url_base(value: str | None) -> str:
-    """Normalize WebUI.UrlBase to '' or a leading-slash path without trailing slash."""
-    if not value:
-        return ""
-    raw = str(value).strip()
-    if not raw:
-        return ""
-    if not raw.startswith("/"):
-        raw = f"/{raw}"
-    return raw.rstrip("/")
 
 
 def configured_url_base() -> str:
@@ -740,32 +729,6 @@ class WebUI:
             return False
         return True
 
-    @staticmethod
-    def _query_truthy(value: Any) -> bool:
-        """Parse a request query parameter as a boolean.
-
-        Treats the string forms ``"0"``, ``"false"``, ``"none"`` (case-insensitive) as
-        falsy in addition to standard Python falsy values. Used for ``request.args.get(...)``
-        flags such as ``monitored``, ``has_file``, ``quality_met``.
-        """
-        return bool(value) and str(value).lower() not in {"0", "false", "none"}
-
-    @staticmethod
-    def _field_truthy(value: Any) -> bool:
-        """Coerce a Peewee model attribute to a boolean for response payloads.
-
-        Unlike :meth:`_query_truthy` this does NOT treat the literal string ``"0"`` as falsy
-        because catalog fields can legitimately store the string ``"0"`` (e.g. external IDs).
-        Standard Python truthiness applies: ``None``, ``0``, ``False``, ``""`` are falsy;
-        everything else is truthy.
-        """
-        return bool(value)
-
-    # Backward-compatible alias used by older call sites; prefer the explicit helpers above.
-    @staticmethod
-    def _safe_bool(value: Any) -> bool:
-        return bool(value) and str(value).lower() not in {"0", "false", "none"}
-
     def _radarr_movies_from_db(
         self,
         arr,
@@ -869,14 +832,14 @@ class WebUI:
                     "id": movie.EntryId,
                     "title": movie.Title or "",
                     "year": movie.Year,
-                    "monitored": self._safe_bool(movie.Monitored),
-                    "hasFile": self._safe_bool(movie.MovieFileId),
-                    "qualityMet": self._safe_bool(movie.QualityMet),
-                    "isRequest": self._safe_bool(movie.IsRequest),
-                    "upgrade": self._safe_bool(movie.Upgrade),
+                    "monitored": coerce_bool(movie.Monitored),
+                    "hasFile": coerce_bool(movie.MovieFileId),
+                    "qualityMet": coerce_bool(movie.QualityMet),
+                    "isRequest": coerce_bool(movie.IsRequest),
+                    "upgrade": coerce_bool(movie.Upgrade),
                     "customFormatScore": movie.CustomFormatScore,
                     "minCustomFormatScore": movie.MinCustomFormatScore,
-                    "customFormatMet": self._safe_bool(movie.CustomFormatMet),
+                    "customFormatMet": coerce_bool(movie.CustomFormatMet),
                     "reason": movie.Reason,
                     "qualityProfileId": quality_profile_id,
                     "qualityProfileName": quality_profile_name,
@@ -946,8 +909,8 @@ class WebUI:
         album_reason_raw = getattr(album, "Reason", None)
 
         for track in track_iterable:
-            is_monitored = self._safe_bool(getattr(track, "Monitored", False))
-            has_file = self._safe_bool(getattr(track, "HasFile", False))
+            is_monitored = coerce_bool(getattr(track, "Monitored", False))
+            has_file = coerce_bool(getattr(track, "HasFile", False))
 
             if is_monitored:
                 track_monitored_count += 1
@@ -984,7 +947,7 @@ class WebUI:
                 "title": album.Title,
                 "artistId": album.ArtistId,
                 "artistName": album.ArtistTitle,
-                "monitored": self._safe_bool(album.Monitored),
+                "monitored": coerce_bool(album.Monitored),
                 "hasFile": bool(album.AlbumFileId and album.AlbumFileId != 0),
                 "foreignAlbumId": album.ForeignAlbumId,
                 "releaseDate": (
@@ -992,12 +955,12 @@ class WebUI:
                     if album.ReleaseDate and hasattr(album.ReleaseDate, "isoformat")
                     else (album.ReleaseDate if isinstance(album.ReleaseDate, str) else None)
                 ),
-                "qualityMet": self._safe_bool(album.QualityMet),
-                "isRequest": self._safe_bool(album.IsRequest),
-                "upgrade": self._safe_bool(album.Upgrade),
+                "qualityMet": coerce_bool(album.QualityMet),
+                "isRequest": coerce_bool(album.IsRequest),
+                "upgrade": coerce_bool(album.Upgrade),
                 "customFormatScore": album.CustomFormatScore,
                 "minCustomFormatScore": album.MinCustomFormatScore,
-                "customFormatMet": self._safe_bool(album.CustomFormatMet),
+                "customFormatMet": coerce_bool(album.CustomFormatMet),
                 "reason": album.Reason,
                 "qualityProfileId": quality_profile_id,
                 "qualityProfileName": quality_profile_name,
@@ -1250,11 +1213,11 @@ class WebUI:
                     "artist": {
                         "id": ar.EntryId,
                         "name": ar.Title or "",
-                        "monitored": self._safe_bool(ar.Monitored),
+                        "monitored": coerce_bool(ar.Monitored),
                         "albumCount": int(getattr(ar, "AlbumCount", None) or 0),
                         "trackTotalCount": int(getattr(ar, "TrackTotalCount", None) or 0),
                         "qualityProfileName": getattr(ar, "QualityProfileName", None),
-                        "searched": self._safe_bool(ar.Searched),
+                        "searched": coerce_bool(ar.Searched),
                         "albumsMonitored": am,
                         "albumsAvailable": aa,
                         "albumsMissing": miss_a,
@@ -1350,11 +1313,11 @@ class WebUI:
         artist_payload = {
             "id": artist_row.EntryId,
             "name": artist_row.Title or "",
-            "monitored": self._safe_bool(artist_row.Monitored),
+            "monitored": coerce_bool(artist_row.Monitored),
             "albumCount": int(getattr(artist_row, "AlbumCount", None) or 0),
             "trackTotalCount": int(getattr(artist_row, "TrackTotalCount", None) or 0),
             "qualityProfileName": getattr(artist_row, "QualityProfileName", None),
-            "searched": self._safe_bool(artist_row.Searched),
+            "searched": coerce_bool(artist_row.Searched),
         }
 
         return {
@@ -1792,8 +1755,8 @@ class WebUI:
                     season_key,
                     {"monitored": 0, "available": 0, "episodes": []},
                 )
-                is_monitored = self._safe_bool(getattr(ep, "Monitored", None))
-                has_file = self._safe_bool(getattr(ep, "EpisodeFileId", None))
+                is_monitored = coerce_bool(getattr(ep, "Monitored", None))
+                has_file = coerce_bool(getattr(ep, "EpisodeFileId", None))
                 if is_monitored:
                     season_bucket["monitored"] += 1
                     series_monitored += 1
@@ -1973,8 +1936,8 @@ class WebUI:
                         season_key,
                         {"monitored": 0, "available": 0, "episodes": []},
                     )
-                    is_monitored = self._safe_bool(getattr(ep, "Monitored", None))
-                    has_file = self._safe_bool(getattr(ep, "EpisodeFileId", None))
+                    is_monitored = coerce_bool(getattr(ep, "Monitored", None))
+                    has_file = coerce_bool(getattr(ep, "EpisodeFileId", None))
                     if is_monitored:
                         season_bucket["monitored"] += 1
                         series_monitored += 1
@@ -2982,22 +2945,18 @@ class WebUI:
             year_min = request.args.get("year_min", default=None, type=int)
             year_max = request.args.get("year_max", default=None, type=int)
             monitored = (
-                self._query_truthy(request.args.get("monitored"))
-                if "monitored" in request.args
-                else None
+                coerce_bool(request.args.get("monitored")) if "monitored" in request.args else None
             )
             has_file = (
-                self._query_truthy(request.args.get("has_file"))
-                if "has_file" in request.args
-                else None
+                coerce_bool(request.args.get("has_file")) if "has_file" in request.args else None
             )
             quality_met = (
-                self._query_truthy(request.args.get("quality_met"))
+                coerce_bool(request.args.get("quality_met"))
                 if "quality_met" in request.args
                 else None
             )
             is_request = (
-                self._query_truthy(request.args.get("is_request"))
+                coerce_bool(request.args.get("is_request"))
                 if "is_request" in request.args
                 else None
             )
@@ -3092,7 +3051,7 @@ class WebUI:
             q = request.args.get("q", default=None, type=str)
             page = request.args.get("page", default=0, type=int)
             page_size = min(request.args.get("page_size", default=25, type=int), 1000)
-            missing_only = self._query_truthy(
+            missing_only = coerce_bool(
                 request.args.get("missing") or request.args.get("only_missing")
             )
             payload = self._sonarr_series_from_db(
@@ -3138,26 +3097,22 @@ class WebUI:
             page = request.args.get("page", default=0, type=int)
             page_size = _lidarr_page_size_from_request(50)
             monitored = (
-                self._query_truthy(request.args.get("monitored"))
-                if "monitored" in request.args
-                else None
+                coerce_bool(request.args.get("monitored")) if "monitored" in request.args else None
             )
             has_file = (
-                self._query_truthy(request.args.get("has_file"))
-                if "has_file" in request.args
-                else None
+                coerce_bool(request.args.get("has_file")) if "has_file" in request.args else None
             )
             quality_met = (
-                self._query_truthy(request.args.get("quality_met"))
+                coerce_bool(request.args.get("quality_met"))
                 if "quality_met" in request.args
                 else None
             )
             is_request = (
-                self._query_truthy(request.args.get("is_request"))
+                coerce_bool(request.args.get("is_request"))
                 if "is_request" in request.args
                 else None
             )
-            flat_mode = self._query_truthy(request.args.get("flat_mode", False))
+            flat_mode = coerce_bool(request.args.get("flat_mode", False))
 
             if flat_mode:
                 # Flat mode: return tracks directly
@@ -3210,11 +3165,9 @@ class WebUI:
             page = request.args.get("page", default=0, type=int)
             page_size = _lidarr_page_size_from_request(50)
             monitored = (
-                self._query_truthy(request.args.get("monitored"))
-                if "monitored" in request.args
-                else None
+                coerce_bool(request.args.get("monitored")) if "monitored" in request.args else None
             )
-            missing_only = self._query_truthy(
+            missing_only = coerce_bool(
                 request.args.get("missing") or request.args.get("only_missing")
             )
             reason = request.args.get("reason", default=None, type=str)
@@ -3434,12 +3387,12 @@ class WebUI:
         def api_meta():
             if (resp := require_token()) is not None:
                 return resp
-            force = self._query_truthy(request.args.get("force"))
+            force = coerce_bool(request.args.get("force"))
             return jsonify(self._ensure_version_info(force=force))
 
         @app.get("/web/meta")
         def web_meta():
-            force = self._query_truthy(request.args.get("force"))
+            force = coerce_bool(request.args.get("force"))
             result = dict(self._ensure_version_info(force=force))
             auth_required = not _auth_disabled()
             local_auth_enabled = _local_auth_enabled()

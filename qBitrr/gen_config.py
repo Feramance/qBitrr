@@ -8,11 +8,23 @@ from tomlkit import comment, document, inline_table, nl, parse, table
 from tomlkit.items import Table
 from tomlkit.toml_document import TOMLDocument
 
-from qBitrr.duration_config import parse_duration_to_minutes, parse_duration_to_seconds
+from qBitrr.duration_config import parse_duration
 from qBitrr.env_config import ENVIRO_CONFIG
 from qBitrr.home_path import APPDATA_FOLDER, HOME_PATH
+from qBitrr.utils import normalize_url_base
 
 T = TypeVar("T")
+
+ARR_SECTION_PREFIXES = ("Radarr", "Sonarr", "Lidarr", "Animarr")
+
+
+def iter_arr_sections(config: Any):
+    """Yield config section names for Radarr/Sonarr/Lidarr/Animarr instances."""
+    keys = config.sections() if hasattr(config, "sections") else config.config.keys()
+    for section in keys:
+        name = str(section)
+        if name.startswith(ARR_SECTION_PREFIXES):
+            yield name
 
 
 def _default(value, fallback):
@@ -1156,8 +1168,8 @@ class MyConfig:
         if raw is ... or raw is None:
             return fallback
         if unit == "minutes":
-            return parse_duration_to_minutes(raw, fallback)
-        return parse_duration_to_seconds(raw, fallback)
+            return parse_duration(raw, unit="minutes", fallback=fallback)
+        return parse_duration(raw, unit="seconds", fallback=fallback)
 
     def get_or_raise(self, section: str) -> T:
         if (r := self._deep_get(section, default=KeyError)) is KeyError:
@@ -1308,54 +1320,48 @@ def _migrate_quality_profile_mappings(config: MyConfig) -> bool:
         return False  # Already migrated
 
     changes_made = False
-    arr_types = ["Radarr", "Sonarr", "Lidarr", "Animarr"]
 
-    for arr_type in arr_types:
-        # Find all Arr instances (e.g., "Radarr-Movies", "Sonarr-TV")
-        for key in list(config.config.keys()):
-            if not str(key).startswith(arr_type):
-                continue
+    for key in iter_arr_sections(config):
+        entry_search_key = f"{key}.EntrySearch"
+        entry_search_section = config.get(entry_search_key, fallback=None)
+        if not entry_search_section:
+            continue
 
-            entry_search_key = f"{key}.EntrySearch"
-            entry_search_section = config.get(entry_search_key, fallback=None)
-            if not entry_search_section:
-                continue
+        # Check for old format
+        main_profiles = config.get(f"{entry_search_key}.MainQualityProfile", fallback=None)
+        temp_profiles = config.get(f"{entry_search_key}.TempQualityProfile", fallback=None)
 
-            # Check for old format
-            main_profiles = config.get(f"{entry_search_key}.MainQualityProfile", fallback=None)
-            temp_profiles = config.get(f"{entry_search_key}.TempQualityProfile", fallback=None)
+        # Skip if no old format found
+        if not main_profiles or not temp_profiles:
+            continue
 
-            # Skip if no old format found
-            if not main_profiles or not temp_profiles:
-                continue
+        # Validate list lengths match
+        if len(main_profiles) != len(temp_profiles):
+            logger.error(
+                f"Cannot migrate {key}: MainQualityProfile ({len(main_profiles)}) "
+                f"and TempQualityProfile ({len(temp_profiles)}) have different lengths"
+            )
+            continue
 
-            # Validate list lengths match
-            if len(main_profiles) != len(temp_profiles):
-                logger.error(
-                    f"Cannot migrate {key}: MainQualityProfile ({len(main_profiles)}) "
-                    f"and TempQualityProfile ({len(temp_profiles)}) have different lengths"
-                )
-                continue
+        # Create mappings dict, filtering out empty/None values
+        mappings = {
+            str(main).strip(): str(temp).strip()
+            for main, temp in zip(main_profiles, temp_profiles)
+            if main and temp and str(main).strip() and str(temp).strip()
+        }
 
-            # Create mappings dict, filtering out empty/None values
-            mappings = {
-                str(main).strip(): str(temp).strip()
-                for main, temp in zip(main_profiles, temp_profiles)
-                if main and temp and str(main).strip() and str(temp).strip()
-            }
+        if mappings:
+            # Set new format - use tomlkit's inline_table to ensure it's rendered as inline dict
+            inline_mappings = inline_table()
+            inline_mappings.update(mappings)
+            config.config[str(key)]["EntrySearch"]["QualityProfileMappings"] = inline_mappings
+            changes_made = True
+            logger.info("Migrated %s to QualityProfileMappings: %s", key, mappings)
 
-            if mappings:
-                # Set new format - use tomlkit's inline_table to ensure it's rendered as inline dict
-                inline_mappings = inline_table()
-                inline_mappings.update(mappings)
-                config.config[str(key)]["EntrySearch"]["QualityProfileMappings"] = inline_mappings
-                changes_made = True
-                logger.info("Migrated %s to QualityProfileMappings: %s", key, mappings)
-
-                # Remove old format
-                del config.config[str(key)]["EntrySearch"]["MainQualityProfile"]
-                del config.config[str(key)]["EntrySearch"]["TempQualityProfile"]
-                logger.debug("Removed legacy profile lists from %s", key)
+            # Remove old format
+            del config.config[str(key)]["EntrySearch"]["MainQualityProfile"]
+            del config.config[str(key)]["EntrySearch"]["TempQualityProfile"]
+            logger.debug("Removed legacy profile lists from %s", key)
 
     return changes_made
 
@@ -1495,7 +1501,6 @@ def _migrate_hnr_settings(config: MyConfig) -> bool:
         return False  # Already migrated
 
     changes_made = False
-    arr_types = ["Radarr", "Sonarr", "Lidarr", "Animarr"]
     hnr_seeding_defaults = {
         "HitAndRunMode": "disabled",
         "MinSeedRatio": 1.0,
@@ -1506,30 +1511,26 @@ def _migrate_hnr_settings(config: MyConfig) -> bool:
     }
 
     # Remove HnR fields from Arr SeedingMode sections (moved to tracker-only)
-    for arr_type in arr_types:
-        for key in list(config.config.keys()):
-            if not str(key).startswith(arr_type):
-                continue
+    for key in iter_arr_sections(config):
+        if "Torrent" in config.config.get(str(key), {}):
+            torrent_section = config.config[str(key)]["Torrent"]
 
-            if "Torrent" in config.config.get(str(key), {}):
-                torrent_section = config.config[str(key)]["Torrent"]
+            if "SeedingMode" in torrent_section:
+                seeding = torrent_section["SeedingMode"]
+                for field in hnr_seeding_defaults:
+                    if field in seeding:
+                        del seeding[field]
+                        changes_made = True
 
-                if "SeedingMode" in torrent_section:
-                    seeding = torrent_section["SeedingMode"]
-                    for field in hnr_seeding_defaults:
-                        if field in seeding:
-                            del seeding[field]
-                            changes_made = True
-
-                # Add HnR fields to each tracker
-                if "Trackers" in torrent_section:
-                    trackers = torrent_section["Trackers"]
-                    if isinstance(trackers, list):
-                        for tracker in trackers:
-                            for field, default in hnr_seeding_defaults.items():
-                                if field not in tracker:
-                                    tracker[field] = default
-                                    changes_made = True
+            # Add HnR fields to each tracker
+            if "Trackers" in torrent_section:
+                trackers = torrent_section["Trackers"]
+                if isinstance(trackers, list):
+                    for tracker in trackers:
+                        for field, default in hnr_seeding_defaults.items():
+                            if field not in tracker:
+                                tracker[field] = default
+                                changes_made = True
 
     # Add HnR fields to qBit CategorySeeding sections
     for key in list(config.config.keys()):
@@ -1550,14 +1551,8 @@ def _migrate_hnr_settings(config: MyConfig) -> bool:
             if "Trackers" not in qbit_section:
                 # Collect trackers from all Arr instances
                 promoted: dict[str, dict] = {}  # URI -> tracker config
-                for arr_key in list(config.config.keys()):
+                for arr_key in iter_arr_sections(config):
                     arr_key_str = str(arr_key)
-                    is_arr = any(
-                        arr_key_str.startswith(prefix)
-                        for prefix in ["Radarr", "Sonarr", "Lidarr", "Animarr"]
-                    )
-                    if not is_arr:
-                        continue
                     arr_section = config.config.get(arr_key_str, {})
                     torrent_section = (
                         arr_section.get("Torrent", {}) if isinstance(arr_section, dict) else {}
@@ -1586,10 +1581,7 @@ def _migrate_hnr_settings(config: MyConfig) -> bool:
                     # Remove Arr-level trackers that are identical to promoted ones
                     for arr_key in list(config.config.keys()):
                         arr_key_str = str(arr_key)
-                        is_arr = any(
-                            arr_key_str.startswith(prefix)
-                            for prefix in ["Radarr", "Sonarr", "Lidarr", "Animarr"]
-                        )
+                        is_arr = arr_key_str.startswith(ARR_SECTION_PREFIXES)
                         if not is_arr:
                             continue
                         arr_section = config.config.get(arr_key_str, {})
@@ -1729,48 +1721,29 @@ def _migrate_hnr_single_key(config: MyConfig) -> bool:
     return changes_made
 
 
-def _normalize_theme_value(value: Any) -> str:
-    """
-    Normalize theme value to always be 'Light' or 'Dark' (case insensitive input).
-    """
+def _normalize_enum(value: Any, allowed: dict[str, str], default: str) -> str:
+    """Normalize a config enum to one of the allowed canonical values."""
     if value is None:
-        return "Dark"
+        return default
     value_str = str(value).strip().lower()
-    if value_str == "light":
-        return "Light"
-    elif value_str == "dark":
-        return "Dark"
-    else:
-        # Default to Dark if invalid value
-        return "Dark"
+    return allowed.get(value_str, default)
+
+
+def _normalize_theme_value(value: Any) -> str:
+    """Normalize theme value to always be 'Light' or 'Dark' (case insensitive input)."""
+    return _normalize_enum(value, {"light": "Light", "dark": "Dark"}, "Dark")
+
+
+def _normalize_view_density_value(value: Any) -> str:
+    """Normalize view density to 'Comfortable' or 'Compact' (case insensitive input)."""
+    return _normalize_enum(
+        value, {"comfortable": "Comfortable", "compact": "Compact"}, "Comfortable"
+    )
 
 
 def _normalize_url_base_value(value: Any) -> str:
     """Normalize WebUI.UrlBase to '' or a leading-slash path without trailing slash."""
-    if value is None:
-        return ""
-    raw = str(value).strip()
-    if not raw:
-        return ""
-    if not raw.startswith("/"):
-        raw = f"/{raw}"
-    return raw.rstrip("/")
-
-
-def _normalize_view_density_value(value: Any) -> str:
-    """
-    Normalize view density value to always be 'Comfortable' or 'Compact' (case insensitive input).
-    """
-    if value is None:
-        return "Comfortable"
-    value_str = str(value).strip().lower()
-    if value_str == "comfortable":
-        return "Comfortable"
-    elif value_str == "compact":
-        return "Compact"
-    else:
-        # Default to Comfortable if invalid value
-        return "Comfortable"
+    return normalize_url_base(str(value) if value is not None else None)
 
 
 def _validate_and_fill_config(config: MyConfig) -> bool:
@@ -1891,7 +1864,6 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
             changed = True
 
     # Validate EntrySearch sections for all Arr instances
-    arr_types = ["Radarr", "Sonarr", "Lidarr", "Animarr"]
     entry_search_defaults = {
         "QualityProfileMappings": inline_table(),
         "ForceResetTempProfiles": False,
@@ -1899,25 +1871,21 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
         "ProfileSwitchRetryAttempts": 3,
     }
 
-    for arr_type in arr_types:
-        for key in list(config.config.keys()):
-            if not str(key).startswith(arr_type):
-                continue
+    for key in iter_arr_sections(config):
+        # Check if this Arr instance has an EntrySearch section
+        if "EntrySearch" in config.config[str(key)]:
+            entry_search = config.config[str(key)]["EntrySearch"]
 
-            # Check if this Arr instance has an EntrySearch section
-            if "EntrySearch" in config.config[str(key)]:
-                entry_search = config.config[str(key)]["EntrySearch"]
-
-                # Add missing fields directly to the existing section
-                for field, default in entry_search_defaults.items():
-                    if field not in entry_search:
-                        if field == "QualityProfileMappings":
-                            # Create as inline table (inline dict) not a section
-                            entry_search[field] = inline_table()
-                        else:
-                            # Add as a simple value
-                            entry_search[field] = default
-                        changed = True
+            # Add missing fields directly to the existing section
+            for field, default in entry_search_defaults.items():
+                if field not in entry_search:
+                    if field == "QualityProfileMappings":
+                        # Create as inline table (inline dict) not a section
+                        entry_search[field] = inline_table()
+                    else:
+                        # Add as a simple value
+                        entry_search[field] = default
+                    changed = True
 
     # Validate HnR fields on CategorySeeding and Tracker sections
     hnr_category_defaults = {
