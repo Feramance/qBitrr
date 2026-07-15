@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type JSX, type ReactNode } from "react";
 import { getConfig, updateConfig } from "../api/client";
 import { useToast } from "./ToastContext";
+import { createPersistedBooleanSetter } from "./webUISettingSetters";
 
 type ViewDensity = "comfortable" | "compact";
 type Theme = "light" | "dark";
@@ -92,20 +93,20 @@ export function WebUIProvider({ children }: { children: ReactNode }): JSX.Elemen
     }
   }, []);
 
-  const setLiveArr = useCallback((value: boolean) => {
-    setSettings(prev => ({ ...prev, liveArr: value }));
-    void saveSettings("LiveArr", value);
-  }, [saveSettings]);
+  const setLiveArr = useMemo(
+    () => createPersistedBooleanSetter(setSettings, saveSettings, "liveArr", "LiveArr"),
+    [saveSettings],
+  );
 
-  const setGroupSonarr = useCallback((value: boolean) => {
-    setSettings(prev => ({ ...prev, groupSonarr: value }));
-    void saveSettings("GroupSonarr", value);
-  }, [saveSettings]);
+  const setGroupSonarr = useMemo(
+    () => createPersistedBooleanSetter(setSettings, saveSettings, "groupSonarr", "GroupSonarr"),
+    [saveSettings],
+  );
 
-  const setGroupLidarr = useCallback((value: boolean) => {
-    setSettings(prev => ({ ...prev, groupLidarr: value }));
-    void saveSettings("GroupLidarr", value);
-  }, [saveSettings]);
+  const setGroupLidarr = useMemo(
+    () => createPersistedBooleanSetter(setSettings, saveSettings, "groupLidarr", "GroupLidarr"),
+    [saveSettings],
+  );
 
   const setViewDensity = useCallback((value: ViewDensity) => {
     setSettings(prev => ({ ...prev, viewDensity: value }));

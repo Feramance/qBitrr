@@ -15,6 +15,13 @@ import type {
   ArrCatalogInstancePipelineParams,
   ArrCatalogInstancePipelineState,
 } from "./definition";
+import {
+  isEmptyStateReady,
+  useCatalogEmptyStateTracker,
+  useCatalogIconGridRefetch,
+  useCatalogPageCache,
+  useCatalogSearchRegistration,
+} from "./useCatalogFetchPrimitives";
 
 /**
  * Flat-strategy instance pipeline used by Radarr + Lidarr.
@@ -110,16 +117,14 @@ export function useInstancePagedFetch<
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
 
-  const pagesRef = useRef<Record<number, ReadonlyArray<TInstRow>>>({});
-  const keyRef = useRef<string>("");
+  const { pagesRef, keyRef, wipePages } = useCatalogPageCache<TInstRow>();
+  const emptyTracker = useCatalogEmptyStateTracker();
   const fetchGenRef = useRef(0);
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
   const selectionRef = useRef(selection);
   selectionRef.current = selection;
   const prevSelectionRef = useRef<string | null>(selection);
-  const sawNonEmptyRef = useRef(false);
-  const stableEmptyStreakRef = useRef(0);
 
   const dataSyncOpts = useMemo(
     () => ({
@@ -159,14 +164,12 @@ export function useInstancePagedFetch<
         const keyChanged = keyRef.current !== key;
         if (keyChanged) {
           keyRef.current = key;
-          pagesRef.current = {};
-          setPages({});
+          setPages(wipePages());
           setTotalItems(0);
           setTotalPages(1);
           setPage(0);
           dataSync.reset();
-          sawNonEmptyRef.current = false;
-          stableEmptyStreakRef.current = 0;
+          emptyTracker.resetEmptyState();
           setEmptyStateReady(false);
         }
         // After a filter/query key change, always request page 0 — the caller may still
@@ -207,12 +210,11 @@ export function useInstancePagedFetch<
         const hasCatalogData = rows.length > 0 || total > 0;
 
         if (hasCatalogData) {
-          sawNonEmptyRef.current = true;
-          stableEmptyStreakRef.current = 0;
+          emptyTracker.noteCatalogData(true);
           setEmptyStateReady((prev) => (prev ? prev : true));
         } else {
-          stableEmptyStreakRef.current += 1;
-          const ready = sawNonEmptyRef.current || stableEmptyStreakRef.current >= 2;
+          emptyTracker.noteCatalogData(false);
+          const ready = isEmptyStateReady(emptyTracker, false);
           setEmptyStateReady((prev) => (prev === ready ? prev : ready));
         }
 
@@ -280,13 +282,11 @@ export function useInstancePagedFetch<
 
     const selectionChanged = prevSelectionRef.current !== selection;
     if (selectionChanged) {
-      pagesRef.current = {};
-      setPages({});
+      setPages(wipePages());
       setTotalPages(1);
       setPage(0);
       setEmptyStateReady(false);
-      sawNonEmptyRef.current = false;
-      stableEmptyStreakRef.current = 0;
+      emptyTracker.resetEmptyState();
       prevSelectionRef.current = selection;
     }
 
@@ -306,16 +306,10 @@ export function useInstancePagedFetch<
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selection]);
 
-  // Search handler — registered once per shell mount with a ref-based closure.
-  useEffect(() => {
-    if (!active) return;
-    const handler = (term: string) => {
-      if (!selection) return;
-      setPage(0);
-      void fetchInstanceRef.current(selection, 0, term, { showLoading: true });
-    };
-    return registerSearchHandler(handler);
-  }, [active, selection, registerSearchHandler]);
+  useCatalogSearchRegistration(active, selection, registerSearchHandler, (term) => {
+    setPage(0);
+    void fetchInstanceRef.current(selection!, 0, term, { showLoading: true });
+  });
 
   // Background polling.
   useInterval(
@@ -331,16 +325,15 @@ export function useInstancePagedFetch<
     active && polling && selection ? INSTANCE_VIEW_POLL_INTERVAL_MS : null,
   );
 
-  // Re-fetch on icon-grid resize so the page-size matches the grid columns.
-  useEffect(() => {
-    if (!active) return;
-    if (!selection) return;
-    if (shellParams.browseMode !== "icon") return;
-    void fetchInstanceRef.current(selection, page, query, {
-      showLoading: false,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, selection, shellParams.browseMode, iconInstancePageSize]);
+  useCatalogIconGridRefetch(
+    active,
+    selection,
+    shellParams.browseMode,
+    iconInstancePageSize,
+    () => {
+      void fetchInstanceRef.current(selection!, page, query, { showLoading: false });
+    },
+  );
 
   // Build "all cached rows" view used by Radarr's filter-then-paginate pattern.  When
   // `keepAllPages` is false, this is just the current page (Lidarr).

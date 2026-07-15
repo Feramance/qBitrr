@@ -1,5 +1,6 @@
 import { useMemo, type JSX } from "react";
 import { getSonarrOpenSeriesUrl } from "../../api/client";
+import { ArrExternalLink, ArrInstanceHint } from "./ArrExternalLink";
 
 export type SonarrEpisodeRow = {
   __instance: string;
@@ -58,22 +59,11 @@ export function SonarrSeriesGroupDetailBody({
 
   return (
     <div className="stack" style={{ gap: "8px" }}>
-      {openUrl ? (
-        <div className="arr-detail-actions">
-          <a className="btn small outline" href={openUrl} target="_blank" rel="noreferrer">
-            Open in Sonarr
-          </a>
-        </div>
-      ) : null}
-      <p className="hint" style={{ margin: 0 }}>
-        <strong>Instance:</strong> {group.instance}
-        {group.qualityProfileName ? (
-          <>
-            {" "}
-            • <strong>Profile:</strong> {group.qualityProfileName}
-          </>
-        ) : null}
-      </p>
+      <ArrExternalLink href={openUrl} arrName="Sonarr" />
+      <ArrInstanceHint
+        instanceLabel={group.instance}
+        qualityProfileName={group.qualityProfileName}
+      />
       {bySeason.map(([season, eps]) => (
         <details
           key={season}

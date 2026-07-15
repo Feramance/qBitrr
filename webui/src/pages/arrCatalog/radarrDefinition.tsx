@@ -7,9 +7,7 @@ import type {
   RadarrMoviesResponse,
 } from "../../api/types";
 import { RadarrMovieDetailBody } from "../../components/arr/RadarrMovieDetailBody";
-import { StableTable } from "../../components/StableTable";
 import { summarizeAggregateMonitoredRows } from "../../constants/arrAggregateFetch";
-import { ARR_CATALOG_SYNC_HINT } from "../../constants/arrCatalogMessages";
 import { normalizeNumericId } from "../../utils/normalizeNumericId";
 import { radarrMovieThumbnailUrl } from "../../utils/arrThumbnailUrl";
 import { ArrCatalogIconTile } from "./ArrCatalogIconTile";
@@ -17,6 +15,10 @@ import {
   ArrCatalogBodyChrome,
   ArrCatalogPagination,
 } from "./ArrCatalogBodyChrome";
+import {
+  ArrCatalogEmptyBranch,
+  ArrCatalogListOrGrid,
+} from "./ArrCatalogListOrGrid";
 import { createStandardArrFilters } from "./createStandardArrFilters";
 import type { ArrCatalogDefinition } from "./definition";
 import { ARR_CATALOG_REGISTRY } from "./registry";
@@ -393,47 +395,42 @@ function RadarrAggregateBody({
         ) : null
       }
     >
-      {showCatalogEmptyHint ? (
-        <div className="hint">
-          <p>No movies found in the local catalog.</p>
-          <p>{ARR_CATALOG_SYNC_HINT}</p>
-        </div>
-      ) : total ? (
-        browseMode === "list" ? (
-          <StableTable<RadarrAggRow>
-            rowsStore={rowsStore}
-            rowOrder={rowOrder}
-            columns={columns}
-            getRowKey={radarrAggRowKey}
-            onRowClick={onRowSelect}
-          />
-        ) : (
-          <div className="arr-icon-grid" ref={iconGridRef}>
-            {rows.map((row) => {
-              const thumb = radarrAggThumbnail(row, instances);
-              return (
-                <ArrCatalogIconTile
-                  key={radarrAggRowKey(row)}
-                  posterSrc={thumb}
-                  onClick={() => onRowSelect(row)}
-                >
-                  {instanceCount > 1 ? (
-                    <div className="arr-movie-tile__instance">
-                      {row.__instance}
-                    </div>
-                  ) : null}
-                  <div className="arr-movie-tile__title">{row.title}</div>
-                  <div className="arr-movie-tile__sub">
-                    {row.year != null ? String(row.year) : ""}
-                  </div>
-                </ArrCatalogIconTile>
-              );
-            })}
-          </div>
-        )
-      ) : (
-        <div className="hint">No movies found.</div>
-      )}
+      <ArrCatalogEmptyBranch
+        order="syncFirst"
+        showCatalogEmptyHint={showCatalogEmptyHint}
+        hasRows={total > 0}
+        catalogEmptyMessage="No movies found in the local catalog."
+        noMatchMessage="No movies found."
+      >
+        <ArrCatalogListOrGrid
+          browseMode={browseMode}
+          rows={rows}
+          rowOrder={rowOrder}
+          rowsStore={rowsStore}
+          columns={columns}
+          getRowKey={radarrAggRowKey}
+          onRowSelect={onRowSelect}
+          iconGridRef={iconGridRef}
+          renderIconTile={(row) => {
+            const thumb = radarrAggThumbnail(row, instances);
+            return (
+              <ArrCatalogIconTile
+                key={radarrAggRowKey(row)}
+                posterSrc={thumb}
+                onClick={() => onRowSelect(row)}
+              >
+                {instanceCount > 1 ? (
+                  <div className="arr-movie-tile__instance">{row.__instance}</div>
+                ) : null}
+                <div className="arr-movie-tile__title">{row.title}</div>
+                <div className="arr-movie-tile__sub">
+                  {row.year != null ? String(row.year) : ""}
+                </div>
+              </ArrCatalogIconTile>
+            );
+          }}
+        />
+      </ArrCatalogEmptyBranch>
     </ArrCatalogBodyChrome>
   );
 }
@@ -509,45 +506,42 @@ function RadarrInstanceBody({
         ) : null
       }
     >
-      {visibleRows.length ? (
-        browseMode === "list" ? (
-          <StableTable<RadarrInstanceRow>
-            rowsStore={rowsStore}
-            rowOrder={rowOrder}
-            columns={columns}
-            getRowKey={radarrInstanceRowKey}
-            onRowClick={onRowSelect}
-          />
-        ) : (
-          <div className="arr-icon-grid" ref={iconGridRef}>
-            {visibleRows.map((row) => {
-              const thumb =
-                row.id != null && category
-                  ? radarrMovieThumbnailUrl(category, row.id)
-                  : "";
-              return (
-                <ArrCatalogIconTile
-                  key={radarrInstanceRowKey(row)}
-                  posterSrc={thumb}
-                  onClick={() => onRowSelect(row)}
-                >
-                  <div className="arr-movie-tile__title">{row.title}</div>
-                  <div className="arr-movie-tile__sub">
-                    {row.year != null ? String(row.year) : ""}
-                  </div>
-                </ArrCatalogIconTile>
-              );
-            })}
-          </div>
-        )
-      ) : showCatalogEmptyHint ? (
-        <div className="hint">
-          <p>No movies in the local catalog.</p>
-          <p>{ARR_CATALOG_SYNC_HINT}</p>
-        </div>
-      ) : (
-        <div className="hint">No movies match the current filters.</div>
-      )}
+      <ArrCatalogEmptyBranch
+        order="syncFirst"
+        showCatalogEmptyHint={showCatalogEmptyHint}
+        hasRows={visibleRows.length > 0}
+        catalogEmptyMessage="No movies in the local catalog."
+        noMatchMessage="No movies match the current filters."
+      >
+        <ArrCatalogListOrGrid
+          browseMode={browseMode}
+          rows={visibleRows}
+          rowOrder={rowOrder}
+          rowsStore={rowsStore}
+          columns={columns}
+          getRowKey={radarrInstanceRowKey}
+          onRowSelect={onRowSelect}
+          iconGridRef={iconGridRef}
+          renderIconTile={(row) => {
+            const thumb =
+              row.id != null && category
+                ? radarrMovieThumbnailUrl(category, row.id)
+                : "";
+            return (
+              <ArrCatalogIconTile
+                key={radarrInstanceRowKey(row)}
+                posterSrc={thumb}
+                onClick={() => onRowSelect(row)}
+              >
+                <div className="arr-movie-tile__title">{row.title}</div>
+                <div className="arr-movie-tile__sub">
+                  {row.year != null ? String(row.year) : ""}
+                </div>
+              </ArrCatalogIconTile>
+            );
+          }}
+        />
+      </ArrCatalogEmptyBranch>
     </ArrCatalogBodyChrome>
   );
 }

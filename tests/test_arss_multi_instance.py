@@ -306,10 +306,10 @@ class TestProcessImportsScanFailure(unittest.TestCase):
             torrent.content_path = str(content_path)
             arr.import_torrents = [(torrent, "default")]
 
-            arr.client.post_command.side_effect = ConnectionError("arr offline")
-            with patch.object(arr, "add_tags") as add_tags:
-                with patch("qBitrr.arss.with_retry", side_effect=lambda fn, **_: fn()):
-                    arr._process_imports()
+            with patch("qBitrr.arss.execute_command", side_effect=ConnectionError("arr offline")):
+                with patch.object(arr, "add_tags") as add_tags:
+                    with patch("qBitrr.arss.with_retry", side_effect=lambda fn, **_: fn()):
+                        arr._process_imports()
 
             add_tags.assert_not_called()
             self.assertNotIn("abc123", arr.sent_to_scan_hashes)
@@ -327,11 +327,12 @@ class TestProcessImportsScanFailure(unittest.TestCase):
             torrent.content_path = str(content_path)
             arr.import_torrents = [(torrent, "vpn")]
 
-            with patch.object(arr, "add_tags") as add_tags:
-                with patch("qBitrr.arss.with_retry", side_effect=lambda fn, **_: fn()):
-                    arr._process_imports()
+            with patch("qBitrr.arss.execute_command") as execute_command:
+                with patch.object(arr, "add_tags") as add_tags:
+                    with patch("qBitrr.arss.with_retry", side_effect=lambda fn, **_: fn()):
+                        arr._process_imports()
 
-            arr.client.post_command.assert_called_once()
+            execute_command.assert_called_once()
             add_tags.assert_called_once_with(torrent, ["qBitrr-imported"], "vpn")
             self.assertIn("abc123", arr.sent_to_scan_hashes)
             self.assertIn(content_path.parent, arr.sent_to_scan)
@@ -346,12 +347,12 @@ class TestRunPeriodicCommand(unittest.TestCase):
         arr.type = "sonarr"
         arr.logger = MagicMock()
         arr.client = MagicMock()
-        arr.client.post_command.side_effect = ValueError(
-            "Expected a dictionary response from the 'command' endpoint"
-        )
-
-        with patch("qBitrr.arss.with_retry", side_effect=lambda fn, **_: fn()):
-            result = arr._run_periodic_command("RssSync")
+        with patch(
+            "qBitrr.arss.execute_command",
+            side_effect=ValueError("Expected a dictionary response from the 'command' endpoint"),
+        ):
+            with patch("qBitrr.arss.with_retry", side_effect=lambda fn, **_: fn()):
+                result = arr._run_periodic_command("RssSync")
 
         self.assertFalse(result)
         arr.logger.warning.assert_called()

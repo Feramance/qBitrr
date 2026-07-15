@@ -4,8 +4,7 @@ const LogsView = lazy(() => import("./pages/LogsView").then(module => ({ default
 const ArrView = lazy(() => import("./pages/ArrView").then(module => ({ default: module.ArrView })));
 const QbitCategoriesView = lazy(() => import("./pages/QbitCategoriesView").then(module => ({ default: module.QbitCategoriesView })));
 const ConfigView = lazy(() => import("./pages/ConfigView").then(module => ({ default: module.ConfigView })));
-import ReactMarkdown from "react-markdown";
-import { ToastProvider, ToastViewport, useToast } from "./context/ToastContext";
+import { ChangelogModal } from "./components/ChangelogModal";
 import { SearchProvider, useSearch } from "./context/SearchContext";
 import { WebUIProvider, useWebUI } from "./context/WebUIContext";
 import { useNetworkStatus } from "./hooks/useNetworkStatus";
@@ -18,7 +17,6 @@ import CloseIcon from "./icons/close.svg";
 import ExternalIcon from "./icons/github.svg";
 import RefreshIcon from "./icons/refresh-arrow.svg";
 import UpdateIcon from "./icons/up-arrow.svg";
-import DownloadIcon from "./icons/download.svg";
 import ProcessesIcon from "./icons/process.svg";
 import LogsIcon from "./icons/log.svg";
 import RadarrIcon from "./icons/radarr.svg";

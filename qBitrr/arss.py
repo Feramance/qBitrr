@@ -25,6 +25,19 @@ from peewee import DatabaseError, Model, OperationalError, SqliteDatabase
 from qbittorrentapi import TorrentDictionary, TorrentStates
 from ujson import JSONDecodeError
 
+from qBitrr.arr_client import (
+    JsonObject,
+    Lidarr,
+    PyarrConnectionError,
+    PyarrResourceNotFound,
+    PyarrServerError,
+    Radarr,
+    Sonarr,
+    build_lidarr_client,
+    build_radarr_client,
+    build_sonarr_client,
+    execute_command,
+)
 from qBitrr.arr_tracker_index import (
     TrackerIndex,
     build_tracker_index,
@@ -67,15 +80,6 @@ from qBitrr.errors import (
     UnhandledError,
 )
 from qBitrr.logger import run_logs
-from qBitrr.pyarr_compat import (
-    JsonObject,
-    LidarrAPI,
-    PyarrConnectionError,
-    PyarrResourceNotFound,
-    PyarrServerError,
-    RadarrAPI,
-    SonarrAPI,
-)
 from qBitrr.qbit_seeding_config import load_qbit_seeding_config
 from qBitrr.search_activity_store import (
     clear_search_activity,
@@ -224,7 +228,7 @@ class Arr:
         self,
         name: str,
         manager: ArrManager,
-        client_cls: type[Callable | RadarrAPI | SonarrAPI | LidarrAPI],
+        client_builder: Callable[..., Radarr | Sonarr | Lidarr],
     ):
         if name in manager.groups:
             raise OSError(f"Group '{name}' has already been registered.")
@@ -517,16 +521,16 @@ class Arr:
                 if self.file_extension_allowlist
                 else None
             )
-        self.client = client_cls(
-            host_url=self.uri,
-            api_key=self.apikey,
+        self.client = client_builder(
+            self.uri,
+            self.apikey,
             verify_ssl=not self.skip_tls_verify_servarr,
         )
-        if isinstance(self.client, SonarrAPI):
+        if isinstance(self.client, Sonarr):
             self.type = "sonarr"
-        elif isinstance(self.client, RadarrAPI):
+        elif isinstance(self.client, Radarr):
             self.type = "radarr"
-        elif isinstance(self.client, LidarrAPI):
+        elif isinstance(self.client, Lidarr):
             self.type = "lidarr"
 
         # Disable unsupported features for Lidarr
@@ -540,7 +544,7 @@ class Arr:
             self.overseerr_api_key = None
 
         try:
-            version_info = self.client.get_update()
+            version_info = self.client.update.get()
             self.version = version_parser.parse(version_info[0].get("version"))
             self.logger.debug("%s version: %s", self._name, self.version.__str__())
         except Exception:
@@ -1845,7 +1849,8 @@ class Arr:
                         _hash = torrent.hash.upper()
                         _mode = self.import_mode
                         with_retry(
-                            lambda: self.client.post_command(
+                            lambda: execute_command(
+                                self.client,
                                 scan_cmd,
                                 path=_path,
                                 downloadClientId=_hash,
@@ -1899,7 +1904,7 @@ class Arr:
                     series_id = None
                     try:
                         data = with_retry(
-                            lambda: self.client.get_series(object_ids[0]),
+                            lambda: self.client.series.get(item_id=object_ids[0]),
                             retries=5,
                             backoff=0.5,
                             max_backoff=5,
@@ -1931,8 +1936,8 @@ class Arr:
                     if series_id:
                         self.logger.trace("Research series id: %s", series_id)
                         with_retry(
-                            lambda sid=series_id: self.client.post_command(
-                                self.search_api_command, seriesId=sid
+                            lambda sid=series_id: execute_command(
+                                self.client, self.search_api_command, seriesId=sid
                             ),
                             retries=5,
                             backoff=0.5,
@@ -1948,7 +1953,7 @@ class Arr:
                         episode_found = False
                         try:
                             data = with_retry(
-                                lambda oid=object_id: self.client.get_episode(oid),
+                                lambda oid=object_id: self.client.episode.get(item_id=oid),
                                 retries=5,
                                 backoff=0.5,
                                 max_backoff=5,
@@ -1998,8 +2003,8 @@ class Arr:
                             self.queue_file_ids.remove(object_id)
                         if episode_found:
                             with_retry(
-                                lambda oid=object_id: self.client.post_command(
-                                    "EpisodeSearch", episodeIds=[oid]
+                                lambda oid=object_id: execute_command(
+                                    self.client, "EpisodeSearch", episodeIds=[oid]
                                 ),
                                 retries=5,
                                 backoff=0.5,
@@ -2015,7 +2020,7 @@ class Arr:
                 movie_found = False
                 try:
                     data = with_retry(
-                        lambda: self.client.get_movie(object_id),
+                        lambda: self.client.movie.get(item_id=object_id),
                         retries=5,
                         backoff=0.5,
                         max_backoff=5,
@@ -2049,7 +2054,7 @@ class Arr:
                     self.queue_file_ids.remove(object_id)
                 if movie_found:
                     with_retry(
-                        lambda: self.client.post_command("MoviesSearch", movieIds=[object_id]),
+                        lambda: execute_command(self.client, "MoviesSearch", movieIds=[object_id]),
                         retries=5,
                         backoff=0.5,
                         max_backoff=5,
@@ -2064,7 +2069,7 @@ class Arr:
                 album_found = False
                 try:
                     data = with_retry(
-                        lambda: self.client.get_album(object_id),
+                        lambda: self.client.album.get(item_id=object_id),
                         retries=5,
                         backoff=0.5,
                         max_backoff=5,
@@ -2098,7 +2103,7 @@ class Arr:
                     self.queue_file_ids.remove(object_id)
                 if album_found:
                     with_retry(
-                        lambda: self.client.post_command("AlbumSearch", albumIds=[object_id]),
+                        lambda: execute_command(self.client, "AlbumSearch", albumIds=[object_id]),
                         retries=5,
                         backoff=0.5,
                         max_backoff=5,
@@ -2510,7 +2515,7 @@ class Arr:
             return True
         try:
             with_retry(
-                lambda: self.client.post_command(command),
+                lambda: execute_command(self.client, command),
                 retries=3,
                 backoff=0.5,
                 max_backoff=3,
@@ -2552,7 +2557,7 @@ class Arr:
         if not (self.search_missing or self.do_upgrade_search):
             return 0
         commands = with_retry(
-            lambda: self.client.get_command(),
+            lambda: self.client.command.get(),
             retries=5,
             backoff=0.5,
             max_backoff=5,
@@ -2687,7 +2692,7 @@ class Arr:
                     & (self.series_file_model.ArrInstance == self._name)
                 ).execute()
             series = with_retry(
-                lambda: self.client.get_series(),
+                lambda: self.client.series.get(),
                 retries=5,
                 backoff=0.5,
                 max_backoff=5,
@@ -2721,7 +2726,7 @@ class Arr:
                     & (self.model_file.ArrInstance == self._name)
                 ).execute()
             series = with_retry(
-                lambda: self.client.get_series(),
+                lambda: self.client.series.get(),
                 retries=5,
                 backoff=0.5,
                 max_backoff=5,
@@ -2729,7 +2734,7 @@ class Arr:
             )
             for s in series:
                 episodes = with_retry(
-                    lambda s=s: self.client.get_episode(s["id"], True),
+                    lambda s=s: self.client.episode.get(series_id=s["id"]),
                     retries=5,
                     backoff=0.5,
                     max_backoff=5,
@@ -2763,7 +2768,7 @@ class Arr:
                     & (self.model_file.ArrInstance == self._name)
                 ).execute()
             movies = with_retry(
-                lambda: self.client.get_movie(),
+                lambda: self.client.movie.get(),
                 retries=5,
                 backoff=0.5,
                 max_backoff=5,
@@ -2797,7 +2802,7 @@ class Arr:
                     & (self.model_file.ArrInstance == self._name)
                 ).execute()
             artists = with_retry(
-                lambda: self.client.get_artist(),
+                lambda: self.client.artist.get(),
                 retries=5,
                 backoff=0.5,
                 max_backoff=5,
@@ -2805,7 +2810,7 @@ class Arr:
             )
             for artist in artists:
                 albums = with_retry(
-                    lambda a=artist: self.client.get_album(artistId=a["id"]),
+                    lambda a=artist: self.client.album.get(artist_id=a["id"]),
                     retries=5,
                     backoff=0.5,
                     max_backoff=5,
@@ -3170,7 +3175,7 @@ class Arr:
             TvdbIds = request_ids.get("TvdbId")
             ImdbIds = request_ids.get("ImdbId")
             series = with_retry(
-                lambda: self.client.get_series(),
+                lambda: self.client.series.get(),
                 retries=5,
                 backoff=0.5,
                 max_backoff=5,
@@ -3178,7 +3183,7 @@ class Arr:
             )
             for s in series:
                 episodes = with_retry(
-                    lambda s=s: self.client.get_episode(s["id"], True),
+                    lambda s=s: self.client.episode.get(series_id=s["id"]),
                     retries=5,
                     backoff=0.5,
                     max_backoff=5,
@@ -3210,7 +3215,7 @@ class Arr:
             ImdbIds = request_ids.get("ImdbId")
             TmdbIds = request_ids.get("TmdbId")
             movies = with_retry(
-                lambda: self.client.get_movie(),
+                lambda: self.client.movie.get(),
                 retries=5,
                 backoff=0.5,
                 max_backoff=5,
@@ -3264,14 +3269,14 @@ class Arr:
         if self.type == "sonarr":
             try:
                 series = with_retry(
-                    lambda: self.client.get_series(),
+                    lambda: self.client.series.get(),
                     retries=5,
                     backoff=0.5,
                     max_backoff=5,
                     exceptions=_ARR_RETRY_EXCEPTIONS,
                 )
                 for s in series:
-                    episodes = self.client.get_episode(s["id"], True)
+                    episodes = self.client.episode.get(series_id=s["id"])
                     for e in episodes:
                         if "airDateUtc" in e:
                             if (
@@ -3320,7 +3325,7 @@ class Arr:
             if self.type == "sonarr":
                 # Always fetch series list for both episode and series-level tracking
                 series = with_retry(
-                    lambda: self.client.get_series(),
+                    lambda: self.client.series.get(),
                     retries=5,
                     backoff=0.5,
                     max_backoff=5,
@@ -3331,7 +3336,7 @@ class Arr:
                 for s in series:
                     if isinstance(s, str):
                         continue
-                    episodes = self.client.get_episode(s["id"], True)
+                    episodes = self.client.episode.get(series_id=s["id"])
                     for e in episodes:
                         if isinstance(e, str):
                             continue
@@ -3353,7 +3358,7 @@ class Arr:
                 self.db_update_processed = True
             elif self.type == "radarr":
                 movies = with_retry(
-                    lambda: self.client.get_movie(),
+                    lambda: self.client.movie.get(),
                     retries=5,
                     backoff=0.5,
                     max_backoff=5,
@@ -3367,7 +3372,7 @@ class Arr:
                 self.db_update_processed = True
             elif self.type == "lidarr":
                 artists = with_retry(
-                    lambda: self.client.get_artist(),
+                    lambda: self.client.artist.get(),
                     retries=5,
                     backoff=0.5,
                     max_backoff=5,
@@ -3377,8 +3382,8 @@ class Arr:
                     if isinstance(artist, str):
                         continue
                     albums = with_retry(
-                        lambda a=artist: self.client.get_album(
-                            artistId=a["id"], all_artist_albums=True
+                        lambda a=artist: self.client.album.get(
+                            artist_id=a["id"], all_artist_albums=True
                         ),
                         retries=5,
                         backoff=0.5,
@@ -3673,7 +3678,7 @@ class Arr:
                         & (self.model_file.ArrInstance == self._name)
                     )
                     episode = with_retry(
-                        lambda: self.client.get_episode(db_entry["id"]),
+                        lambda: self.client.episode.get(item_id=db_entry["id"]),
                         retries=5,
                         backoff=0.5,
                         max_backoff=5,
@@ -3723,8 +3728,8 @@ class Arr:
                             if quality_profile_id:
                                 profile = (
                                     with_retry(
-                                        lambda qpid=quality_profile_id: self.client.get_quality_profile(
-                                            qpid
+                                        lambda qpid=quality_profile_id: self.client.quality_profile.get(
+                                            item_id=qpid
                                         ),
                                         retries=5,
                                         backoff=0.5,
@@ -3755,8 +3760,8 @@ class Arr:
                             else:
                                 file_info = (
                                     with_retry(
-                                        lambda efid=episode_file_id: self.client.get_episode_file(
-                                            efid
+                                        lambda efid=episode_file_id: self.client.episode_file.get(
+                                            item_id=efid
                                         ),
                                         retries=5,
                                         backoff=0.5,
@@ -3858,7 +3863,9 @@ class Arr:
                                 )
                             if data:
                                 profile_update_success = self._retry_profile_switch_update(
-                                    lambda: self.client.upd_episode(episode["id"], data),
+                                    lambda: self.client.episode.update(
+                                        item_id=episode["id"], data=data
+                                    ),
                                     "episode",
                                 )
 
@@ -3989,7 +3996,7 @@ class Arr:
                     if db_entry["monitored"] or self.search_unmonitored:
                         seriesMetadata = (
                             with_retry(
-                                lambda eid=EntryId: self.client.get_series(id_=eid),
+                                lambda eid=EntryId: self.client.series.get(item_id=eid),
                                 retries=5,
                                 backoff=0.5,
                                 max_backoff=5,
@@ -4006,8 +4013,8 @@ class Arr:
                             if quality_profile_id:
                                 profile = (
                                     with_retry(
-                                        lambda qpid=quality_profile_id: self.client.get_quality_profile(
-                                            qpid
+                                        lambda qpid=quality_profile_id: self.client.quality_profile.get(
+                                            item_id=qpid
                                         ),
                                         retries=5,
                                         backoff=0.5,
@@ -4094,7 +4101,7 @@ class Arr:
                                     "Check quality profile settings for %s", db_entry["title"]
                                 )
                             self._retry_profile_switch_update(
-                                lambda: self.client.upd_series(db_entry),
+                                lambda: self.client.series.update(data=db_entry),
                                 "series",
                             )
 
@@ -4106,7 +4113,9 @@ class Arr:
                         if quality_profile_id:
                             try:
                                 if quality_profile_id not in self._quality_profile_cache:
-                                    profile = self.client.get_quality_profile(quality_profile_id)
+                                    profile = self.client.quality_profile.get(
+                                        item_id=quality_profile_id
+                                    )
                                     self._quality_profile_cache[quality_profile_id] = profile
                                 qualityProfileName = self._quality_profile_cache[
                                     quality_profile_id
@@ -4179,8 +4188,8 @@ class Arr:
                         if not movieData.MinCustomFormatScore:
                             profile = (
                                 with_retry(
-                                    lambda: self.client.get_quality_profile(
-                                        db_entry["qualityProfileId"]
+                                    lambda: self.client.quality_profile.get(
+                                        item_id=db_entry["qualityProfileId"]
                                     ),
                                     retries=5,
                                     backoff=0.5,
@@ -4195,8 +4204,8 @@ class Arr:
                         if db_entry["hasFile"]:
                             if db_entry["movieFile"]["id"] != movieData.MovieFileId:
                                 customFormat = with_retry(
-                                    lambda: self.client.get_movie_file(
-                                        db_entry["movieFile"]["id"]
+                                    lambda: self.client.movie_file.get(
+                                        item_id=db_entry["movieFile"]["id"]
                                     ),
                                     retries=5,
                                     backoff=0.5,
@@ -4210,8 +4219,8 @@ class Arr:
                     else:
                         profile = (
                             with_retry(
-                                lambda: self.client.get_quality_profile(
-                                    db_entry["qualityProfileId"]
+                                lambda: self.client.quality_profile.get(
+                                    item_id=db_entry["qualityProfileId"]
                                 ),
                                 retries=5,
                                 backoff=0.5,
@@ -4223,7 +4232,9 @@ class Arr:
                         minCustomFormat = profile.get("minFormatScore", 0)
                         if db_entry["hasFile"]:
                             customFormat = with_retry(
-                                lambda: self.client.get_movie_file(db_entry["movieFile"]["id"]),
+                                lambda: self.client.movie_file.get(
+                                    item_id=db_entry["movieFile"]["id"]
+                                ),
                                 retries=5,
                                 backoff=0.5,
                                 max_backoff=5,
@@ -4292,7 +4303,7 @@ class Arr:
                             current_profile_for_db = new_temp_id
 
                         profile_update_success = self._retry_profile_switch_update(
-                            lambda: self.client.upd_movie(db_entry),
+                            lambda: self.client.movie.update(data=db_entry),
                             "movie",
                         )
 
@@ -4317,7 +4328,7 @@ class Arr:
                     if qualityProfileId:
                         try:
                             if qualityProfileId not in self._quality_profile_cache:
-                                profile = self.client.get_quality_profile(qualityProfileId)
+                                profile = self.client.quality_profile.get(item_id=qualityProfileId)
                                 self._quality_profile_cache[qualityProfileId] = profile
                             qualityProfileName = self._quality_profile_cache[qualityProfileId].get(
                                 "name"
@@ -4430,8 +4441,8 @@ class Arr:
                                     else:
                                         try:
                                             profile = with_retry(
-                                                lambda pid=profile_id: self.client.get_quality_profile(
-                                                    pid
+                                                lambda pid=profile_id: self.client.quality_profile.get(
+                                                    item_id=pid
                                                 ),
                                                 retries=5,
                                                 backoff=0.5,
@@ -4472,8 +4483,8 @@ class Arr:
                                 else:
                                     try:
                                         profile = with_retry(
-                                            lambda pid=profile_id: self.client.get_quality_profile(
-                                                pid
+                                            lambda pid=profile_id: self.client.quality_profile.get(
+                                                item_id=pid
                                             ),
                                             retries=5,
                                             backoff=0.5,
@@ -4510,7 +4521,7 @@ class Arr:
                             try:
                                 # Get the artist's quality profile to find the cutoff
                                 artist_id = db_entry.get("artistId")
-                                artist_data = self.client.get_artist(artist_id)
+                                artist_data = self.client.artist.get(item_id=artist_id)
                                 profile_id = artist_data.get("qualityProfileId")
 
                                 if profile_id:
@@ -4518,7 +4529,9 @@ class Arr:
                                     if profile_id in self._quality_profile_cache:
                                         profile = self._quality_profile_cache[profile_id]
                                     else:
-                                        profile = self.client.get_quality_profile(profile_id)
+                                        profile = self.client.quality_profile.get(
+                                            item_id=profile_id
+                                        )
                                         self._quality_profile_cache[profile_id] = profile
 
                                     cutoff_quality_id = profile.get("cutoff")
@@ -4529,7 +4542,7 @@ class Arr:
                                         album_id = db_entry.get("id")
                                         track_files = []
                                         if album_id:
-                                            tracks = self.client.get_tracks(albumId=album_id) or []
+                                            tracks = self.client.track.get(album_id=album_id) or []
                                             track_file_ids = sorted(
                                                 {
                                                     int(track_file_id)
@@ -4540,7 +4553,7 @@ class Arr:
                                             )
                                             if track_file_ids:
                                                 track_files = (
-                                                    self.client.get_track_file(
+                                                    self.client.track_file.get(
                                                         track_file_ids=track_file_ids
                                                     )
                                                     or []
@@ -4620,12 +4633,14 @@ class Arr:
                             artist_id = db_entry.get("artistId")
                             if artist_id:
                                 # Try to get from already-fetched artist data if available
-                                artist_data = self.client.get_artist(artist_id)
+                                artist_data = self.client.artist.get(item_id=artist_id)
                                 qualityProfileId = artist_data.get("qualityProfileId")
                                 if qualityProfileId:
                                     # Fetch quality profile from cache or API
                                     if qualityProfileId not in self._quality_profile_cache:
-                                        profile = self.client.get_quality_profile(qualityProfileId)
+                                        profile = self.client.quality_profile.get(
+                                            item_id=qualityProfileId
+                                        )
                                         self._quality_profile_cache[qualityProfileId] = profile
                                     qualityProfileName = self._quality_profile_cache[
                                         qualityProfileId
@@ -4710,7 +4725,7 @@ class Arr:
                             try:
                                 # Fetch tracks for this album via the track API
                                 # Tracks are NOT in the media field, they're a separate endpoint
-                                tracks = self.client.get_tracks(albumId=entryId)
+                                tracks = self.client.track.get(album_id=entryId)
                                 self.logger.debug(
                                     f"Fetched {len(tracks) if isinstance(tracks, list) else 0} tracks for album {entryId}"
                                 )
@@ -4786,7 +4801,7 @@ class Arr:
                         )
                         artistMetadata = (
                             with_retry(
-                                lambda eid=EntryId: self.client.get_artist(id_=eid),
+                                lambda eid=EntryId: self.client.artist.get(item_id=eid),
                                 retries=5,
                                 backoff=0.5,
                                 max_backoff=5,
@@ -4803,8 +4818,8 @@ class Arr:
                             if quality_profile_id:
                                 profile = (
                                     with_retry(
-                                        lambda qpid=quality_profile_id: self.client.get_quality_profile(
-                                            qpid
+                                        lambda qpid=quality_profile_id: self.client.quality_profile.get(
+                                            item_id=qpid
                                         ),
                                         retries=5,
                                         backoff=0.5,
@@ -4847,7 +4862,7 @@ class Arr:
                                 # Artist has files, switch from temp back to main profile
                                 main_profile_id = self.main_quality_profile_ids[quality_profile_id]
                                 artistMetadata["qualityProfileId"] = main_profile_id
-                                self.client.upd_artist(artistMetadata)
+                                self.client.artist.update(data=artistMetadata)
                                 quality_profile_id = main_profile_id
                                 self.logger.debug(
                                     "Upgrading artist '%s' from temp profile (ID:%s) to main profile (ID:%s) [Has files]",
@@ -4863,7 +4878,7 @@ class Arr:
                                 # Artist has no files yet, apply temp profile
                                 temp_profile_id = self.temp_quality_profile_ids[quality_profile_id]
                                 artistMetadata["qualityProfileId"] = temp_profile_id
-                                self.client.upd_artist(artistMetadata)
+                                self.client.artist.update(data=artistMetadata)
                                 quality_profile_id = temp_profile_id
                                 self.logger.debug(
                                     "Downgrading artist '%s' from main profile (ID:%s) to temp profile (ID:%s) [No files yet]",
@@ -4949,7 +4964,9 @@ class Arr:
     def delete_from_queue(self, id_, remove_from_client=True, blacklist=True):
         try:
             res = with_retry(
-                lambda: self.client.del_queue(id_, remove_from_client, blacklist),
+                lambda: self.client.queue.delete(
+                    item_id=id_, remove_from_client=remove_from_client, blocklist=blacklist
+                ),
                 retries=5,
                 backoff=0.5,
                 max_backoff=5,
@@ -5209,8 +5226,8 @@ class Arr:
                 ).on_conflict_replace().execute()
                 if file_model.EntryId not in self.queue_file_ids:
                     with_retry(
-                        lambda: self.client.post_command(
-                            "EpisodeSearch", episodeIds=[file_model.EntryId]
+                        lambda: execute_command(
+                            self.client, "EpisodeSearch", episodeIds=[file_model.EntryId]
                         ),
                         retries=5,
                         backoff=0.5,
@@ -5277,8 +5294,8 @@ class Arr:
                     Completed=False, EntryId=file_model.EntryId, ArrInstance=self._name
                 ).on_conflict_replace().execute()
                 with_retry(
-                    lambda: self.client.post_command(
-                        self.search_api_command, seriesId=file_model.EntryId
+                    lambda: execute_command(
+                        self.client, self.search_api_command, seriesId=file_model.EntryId
                     ),
                     retries=5,
                     backoff=0.5,
@@ -5349,8 +5366,8 @@ class Arr:
             ).on_conflict_replace().execute()
             if file_model.EntryId:
                 with_retry(
-                    lambda: self.client.post_command(
-                        "MoviesSearch", movieIds=[file_model.EntryId]
+                    lambda: execute_command(
+                        self.client, "MoviesSearch", movieIds=[file_model.EntryId]
                     ),
                     retries=5,
                     backoff=0.5,
@@ -5435,7 +5452,9 @@ class Arr:
             ).on_conflict_replace().execute()
             if file_model.EntryId:
                 with_retry(
-                    lambda: self.client.post_command("AlbumSearch", albumIds=[file_model.EntryId]),
+                    lambda: execute_command(
+                        self.client, "AlbumSearch", albumIds=[file_model.EntryId]
+                    ),
                     retries=5,
                     backoff=0.5,
                     max_backoff=5,
@@ -7491,7 +7510,7 @@ class Arr:
     def custom_format_unmet_check(self, torrent: qbittorrentapi.TorrentDictionary) -> bool:
         try:
             queue = with_retry(
-                lambda: self.client.get_queue(),
+                lambda: self.client.queue.get(),
                 retries=5,
                 backoff=0.5,
                 max_backoff=5,
@@ -7807,7 +7826,7 @@ class Arr:
 
     def get_queue(self, page=1, page_size=1000, sort_direction="ascending", sort_key="timeLeft"):
         res = with_retry(
-            lambda: self.client.get_queue(
+            lambda: self.client.queue.get(
                 page=page, page_size=page_size, sort_key=sort_key, sort_dir=sort_direction
             ),
             retries=3,
@@ -7869,7 +7888,7 @@ class Arr:
 
         try:
             profiles = with_retry(
-                lambda: self.client.get_quality_profile(),
+                lambda: self.client.quality_profile.get(),
                 retries=5,
                 backoff=0.5,
                 max_backoff=5,
@@ -7938,15 +7957,15 @@ class Arr:
         try:
             # Get all items from Arr instance
             if self._name.lower().startswith("radarr"):
-                items = self.client.get_movie()
+                items = self.client.movie.get()
                 item_type = "movie"
             elif self._name.lower().startswith("sonarr") or self._name.lower().startswith(
                 "animarr"
             ):
-                items = self.client.get_series()
+                items = self.client.series.get()
                 item_type = "series"
             elif self._name.lower().startswith("lidarr"):
-                items = self.client.get_artist()
+                items = self.client.artist.get()
                 item_type = "artist"
             else:
                 self.logger.warning("Unknown Arr type for temp profile reset: %s", self._name)
@@ -7967,11 +7986,11 @@ class Arr:
                     to_profile_id = original_id
 
                     if item_type == "movie":
-                        update_fn = lambda item=item: self.client.upd_movie(item)
+                        update_fn = lambda item=item: self.client.movie.update(data=item)
                     elif item_type == "series":
-                        update_fn = lambda item=item: self.client.upd_series(item)
+                        update_fn = lambda item=item: self.client.series.update(data=item)
                     else:
-                        update_fn = lambda item=item: self.client.upd_artist(item)
+                        update_fn = lambda item=item: self.client.artist.update(data=item)
                     if self._retry_profile_switch_update(update_fn, item_type):
                         reset_count += 1
                         self.logger.info(
@@ -8045,19 +8064,19 @@ class Arr:
                 # Reset to original profile via Arr API
                 try:
                     if item_type == "movie":
-                        item = self.client.get_movie(entry_id)
+                        item = self.client.movie.get(item_id=entry_id)
                         item["qualityProfileId"] = original_profile
-                        self.client.upd_movie(item)
+                        self.client.movie.update(data=item)
                     elif item_type == "episode":
                         # For episodes, we need to update the series
                         series_id = db_item.SeriesId
-                        series = self.client.get_series(series_id)
+                        series = self.client.series.get(item_id=series_id)
                         series["qualityProfileId"] = original_profile
-                        self.client.upd_series(series)
+                        self.client.series.update(data=series)
                     elif item_type == "artist":
-                        artist = self.client.get_artist(entry_id)
+                        artist = self.client.artist.get(item_id=entry_id)
                         artist["qualityProfileId"] = original_profile
-                        self.client.upd_artist(artist)
+                        self.client.artist.update(data=artist)
 
                     # Clear tracking fields in database
                     model.update(
@@ -8226,7 +8245,7 @@ class Arr:
         years = []
         if self.type == "radarr":
             movies = with_retry(
-                lambda: self.client.get_movie(),
+                lambda: self.client.movie.get(),
                 retries=3,
                 backoff=0.5,
                 max_backoff=3,
@@ -8241,7 +8260,7 @@ class Arr:
 
         elif self.type == "sonarr":
             series = with_retry(
-                lambda: self.client.get_series(),
+                lambda: self.client.series.get(),
                 retries=3,
                 backoff=0.5,
                 max_backoff=3,
@@ -8250,7 +8269,7 @@ class Arr:
 
             for s in series:
                 episodes = with_retry(
-                    lambda s=s: self.client.get_episode(s["id"], True),
+                    lambda s=s: self.client.episode.get(series_id=s["id"]),
                     retries=3,
                     backoff=0.5,
                     max_backoff=3,
@@ -9782,17 +9801,17 @@ class ArrManager:
                 name = search.group(0)
                 match = search.group(1)
                 if match.lower() == "son":
-                    call_cls = SonarrAPI
+                    call_builder = build_sonarr_client
                 elif match.lower() == "anim":
-                    call_cls = SonarrAPI
+                    call_builder = build_sonarr_client
                 elif match.lower() == "rad":
-                    call_cls = RadarrAPI
+                    call_builder = build_radarr_client
                 elif match.lower() == "lid":
-                    call_cls = LidarrAPI
+                    call_builder = build_lidarr_client
                 else:
-                    call_cls = None
+                    call_builder = None
                 try:
-                    managed_object = Arr(name, self, client_cls=call_cls)
+                    managed_object = Arr(name, self, client_builder=call_builder)
                     self.groups.add(name)
                     self.uris.add(managed_object.uri)
                     self.managed_objects[managed_object.category] = managed_object

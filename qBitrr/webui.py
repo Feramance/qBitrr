@@ -3968,17 +3968,17 @@ class WebUI:
                         skip_tls_servarr = bool(data.get("skipTlsVerify", False))
                     verify_ssl = not skip_tls_servarr
                     if arr_type == "radarr":
-                        from qBitrr.pyarr_compat import RadarrAPI
+                        from qBitrr.arr_client import build_radarr_client
 
-                        client = RadarrAPI(uri, api_key, verify_ssl=verify_ssl)
+                        client = build_radarr_client(uri, api_key, verify_ssl=verify_ssl)
                     elif arr_type == "sonarr":
-                        from qBitrr.pyarr_compat import SonarrAPI
+                        from qBitrr.arr_client import build_sonarr_client
 
-                        client = SonarrAPI(uri, api_key, verify_ssl=verify_ssl)
+                        client = build_sonarr_client(uri, api_key, verify_ssl=verify_ssl)
                     elif arr_type == "lidarr":
-                        from qBitrr.pyarr_compat import LidarrAPI
+                        from qBitrr.arr_client import build_lidarr_client
 
-                        client = LidarrAPI(uri, api_key, verify_ssl=verify_ssl)
+                        client = build_lidarr_client(uri, api_key, verify_ssl=verify_ssl)
                     else:
                         return (
                             jsonify({"success": False, "message": f"Invalid arrType: {arr_type}"}),
@@ -3990,7 +3990,7 @@ class WebUI:
                     self.logger.info("Testing connection to %s at %s", arr_type, uri)
 
                     # Get system info to verify connection
-                    system_info = client.get_system_status()
+                    system_info = client.system.get_status()
                     self.logger.info(
                         "System status retrieved: %s", system_info.get("version", "unknown")
                     )
@@ -4000,7 +4000,7 @@ class WebUI:
 
                     import requests
 
-                    from qBitrr.pyarr_compat import PyarrServerError
+                    from qBitrr.arr_client import PyarrServerError
 
                     max_retries = 3
                     retry_count = 0
@@ -4008,7 +4008,7 @@ class WebUI:
 
                     while retry_count < max_retries:
                         try:
-                            quality_profiles = client.get_quality_profile()
+                            quality_profiles = client.quality_profile.get()
                             self.logger.info(
                                 "Quality profiles retrieved: %d profiles", len(quality_profiles)
                             )
@@ -4298,20 +4298,20 @@ class WebUI:
             self.logger.info("Instance %s is not managed, skipping", instance_name)
             return
 
-        # Determine client class based on name
-        client_cls = None
+        # Determine client builder based on name
+        client_builder = None
         if re.match(r"^(Rad|rad)arr", instance_name):
-            from qBitrr.pyarr_compat import RadarrAPI
+            from qBitrr.arr_client import build_radarr_client
 
-            client_cls = RadarrAPI
+            client_builder = build_radarr_client
         elif re.match(r"^(Son|son|Anim|anim)arr", instance_name):
-            from qBitrr.pyarr_compat import SonarrAPI
+            from qBitrr.arr_client import build_sonarr_client
 
-            client_cls = SonarrAPI
+            client_builder = build_sonarr_client
         elif re.match(r"^(Lid|lid)arr", instance_name):
-            from qBitrr.pyarr_compat import LidarrAPI
+            from qBitrr.arr_client import build_lidarr_client
 
-            client_cls = LidarrAPI
+            client_builder = build_lidarr_client
         else:
             self.logger.error("Unknown Arr type for instance: %s", instance_name)
             return
@@ -4321,7 +4321,7 @@ class WebUI:
             from qBitrr.arss import Arr
             from qBitrr.errors import SkipException
 
-            new_arr = Arr(instance_name, self.manager.arr_manager, client_cls=client_cls)
+            new_arr = Arr(instance_name, self.manager.arr_manager, client_builder=client_builder)
 
             # Register in manager
             self.manager.arr_manager.groups.add(instance_name)

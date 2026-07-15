@@ -8,14 +8,16 @@ import type {
 } from "../../api/types";
 import { ArrMiniProgress } from "../../components/arr/ArrMiniProgress";
 import { LidarrArtistDetailBody } from "../../components/arr/LidarrArtistDetailBody";
-import { StableTable } from "../../components/StableTable";
-import { ARR_CATALOG_SYNC_HINT } from "../../constants/arrCatalogMessages";
 import { lidarrArtistThumbnailUrl } from "../../utils/arrThumbnailUrl";
 import { ArrCatalogIconTile } from "./ArrCatalogIconTile";
 import {
   ArrCatalogBodyChrome,
   ArrCatalogPagination,
 } from "./ArrCatalogBodyChrome";
+import {
+  ArrCatalogEmptyBranch,
+  ArrCatalogListOrGrid,
+} from "./ArrCatalogListOrGrid";
 import { createStandardArrFilters } from "./createStandardArrFilters";
 import type { ArrCatalogDefinition, ArrCatalogSummary } from "./definition";
 import { ARR_CATALOG_REGISTRY } from "./registry";
@@ -561,53 +563,45 @@ function LidarrAggregateBody({
         ) : null
       }
     >
-      {showCatalogEmptyHint ? (
-        <div className="hint">
-          <p>No artists found in the local catalog.</p>
-          <p>{ARR_CATALOG_SYNC_HINT}</p>
-        </div>
-      ) : total ? (
-        browseMode === "list" ? (
-          <StableTable<LidarrAggRow>
-            rowsStore={rowsStore}
-            rowOrder={rowOrder}
-            columns={columns}
-            getRowKey={lidarrAggRowKey}
-            onRowClick={onRowSelect}
-          />
-        ) : (
-          <div className="arr-icon-grid" ref={iconGridRef}>
-            {rows.map((row) => {
-              const artist = row.artist as Record<string, unknown>;
-              const id = artist?.["id"];
-              const name = (artist?.["name"] as string | undefined) || "—";
-              const cat = categoryForInstanceLabel(
-                [...instances],
-                row.__instance,
-              );
-              const thumb =
-                typeof id === "number" ? lidarrArtistThumbnailUrl(cat, id) : "";
-              return (
-                <ArrCatalogIconTile
-                  key={lidarrAggRowKey(row)}
-                  posterSrc={thumb}
-                  onClick={() => onRowSelect(row)}
-                >
-                  {instanceCount > 1 ? (
-                    <div className="arr-movie-tile__instance">
-                      {row.__instance}
-                    </div>
-                  ) : null}
-                  <div className="arr-movie-tile__title">{name}</div>
-                  {lidarrArtistTileStats(artist)}
-                </ArrCatalogIconTile>
-              );
-            })}
-          </div>
-        )
-      ) : (
-        <div className="hint">No artists match the current filters.</div>
-      )}
+      <ArrCatalogEmptyBranch
+        order="syncFirst"
+        showCatalogEmptyHint={showCatalogEmptyHint}
+        hasRows={total > 0}
+        catalogEmptyMessage="No artists found in the local catalog."
+        noMatchMessage="No artists match the current filters."
+      >
+        <ArrCatalogListOrGrid
+          browseMode={browseMode}
+          rows={rows}
+          rowOrder={rowOrder}
+          rowsStore={rowsStore}
+          columns={columns}
+          getRowKey={lidarrAggRowKey}
+          onRowSelect={onRowSelect}
+          iconGridRef={iconGridRef}
+          renderIconTile={(row) => {
+            const artist = row.artist as Record<string, unknown>;
+            const id = artist?.["id"];
+            const name = (artist?.["name"] as string | undefined) || "—";
+            const cat = categoryForInstanceLabel([...instances], row.__instance);
+            const thumb =
+              typeof id === "number" ? lidarrArtistThumbnailUrl(cat, id) : "";
+            return (
+              <ArrCatalogIconTile
+                key={lidarrAggRowKey(row)}
+                posterSrc={thumb}
+                onClick={() => onRowSelect(row)}
+              >
+                {instanceCount > 1 ? (
+                  <div className="arr-movie-tile__instance">{row.__instance}</div>
+                ) : null}
+                <div className="arr-movie-tile__title">{name}</div>
+                {lidarrArtistTileStats(artist)}
+              </ArrCatalogIconTile>
+            );
+          }}
+        />
+      </ArrCatalogEmptyBranch>
     </ArrCatalogBodyChrome>
   );
 }
@@ -683,46 +677,41 @@ function LidarrInstanceBody({
         ) : null
       }
     >
-      {visibleRows.length ? (
-        browseMode === "list" ? (
-          <StableTable<LidarrInstanceRow>
-            rowsStore={rowsStore}
-            rowOrder={rowOrder}
-            columns={columns}
-            getRowKey={lidarrInstanceRowKey}
-            onRowClick={onRowSelect}
-          />
-        ) : (
-          <div className="arr-icon-grid" ref={iconGridRef}>
-            {visibleRows.map((row) => {
-              const artist = row.artist as Record<string, unknown>;
-              const id = artist?.["id"];
-              const name = String(artist?.["name"] ?? "—");
-              const thumb =
-                typeof id === "number"
-                  ? lidarrArtistThumbnailUrl(category, id)
-                  : "";
-              return (
-                <ArrCatalogIconTile
-                  key={lidarrInstanceRowKey(row)}
-                  posterSrc={thumb}
-                  onClick={() => onRowSelect(row)}
-                >
-                  <div className="arr-movie-tile__title">{name}</div>
-                  {lidarrArtistTileStats(artist)}
-                </ArrCatalogIconTile>
-              );
-            })}
-          </div>
-        )
-      ) : showCatalogEmptyHint ? (
-        <div className="hint">
-          <p>No artists in the local catalog.</p>
-          <p>{ARR_CATALOG_SYNC_HINT}</p>
-        </div>
-      ) : (
-        <div className="hint">No artists match the current filters.</div>
-      )}
+      <ArrCatalogEmptyBranch
+        order="syncFirst"
+        showCatalogEmptyHint={showCatalogEmptyHint}
+        hasRows={visibleRows.length > 0}
+        catalogEmptyMessage="No artists in the local catalog."
+        noMatchMessage="No artists match the current filters."
+      >
+        <ArrCatalogListOrGrid
+          browseMode={browseMode}
+          rows={visibleRows}
+          rowOrder={rowOrder}
+          rowsStore={rowsStore}
+          columns={columns}
+          getRowKey={lidarrInstanceRowKey}
+          onRowSelect={onRowSelect}
+          iconGridRef={iconGridRef}
+          renderIconTile={(row) => {
+            const artist = row.artist as Record<string, unknown>;
+            const id = artist?.["id"];
+            const name = String(artist?.["name"] ?? "—");
+            const thumb =
+              typeof id === "number" ? lidarrArtistThumbnailUrl(category, id) : "";
+            return (
+              <ArrCatalogIconTile
+                key={lidarrInstanceRowKey(row)}
+                posterSrc={thumb}
+                onClick={() => onRowSelect(row)}
+              >
+                <div className="arr-movie-tile__title">{name}</div>
+                {lidarrArtistTileStats(artist)}
+              </ArrCatalogIconTile>
+            );
+          }}
+        />
+      </ArrCatalogEmptyBranch>
     </ArrCatalogBodyChrome>
   );
 }

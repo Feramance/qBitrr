@@ -4,6 +4,7 @@ import { getLidarrOpenArtistUrl } from "../../api/client";
 import { getLidarrArtistDetail } from "../../api/client";
 import type { LidarrArtistDetailResponse } from "../../api/types";
 import { lidarrArtistThumbnailUrl } from "../../utils/arrThumbnailUrl";
+import { ArrExternalLink, ArrInstanceHint } from "./ArrExternalLink";
 import { ArrPosterImage } from "./ArrPosterImage";
 import { LidarrAlbumDetailBody } from "./LidarrAlbumDetailBody";
 
@@ -66,33 +67,8 @@ export function LidarrArtistDetailBody({
 
   return (
     <div className="arr-detail-radarr">
-      {openUrl ? (
-        <div className="arr-detail-actions">
-          <a className="btn small outline" href={openUrl} target="_blank" rel="noreferrer">
-            Open in Lidarr
-          </a>
-        </div>
-      ) : null}
-      {(hintLabel != null || profileName) ? (
-        <p className="hint" style={{ margin: "0 0 8px" }}>
-          {hintLabel != null ? (
-            <>
-              <strong>Instance:</strong> {hintLabel}
-            </>
-          ) : null}
-          {hintLabel != null && profileName ? (
-            <>
-              {" "}
-              •{" "}
-            </>
-          ) : null}
-          {profileName ? (
-            <>
-              <strong>Profile:</strong> {profileName}
-            </>
-          ) : null}
-        </p>
-      ) : null}
+      <ArrExternalLink href={openUrl} arrName="Lidarr" />
+      <ArrInstanceHint instanceLabel={hintLabel} qualityProfileName={profileName} />
 
       <div
         className="arr-detail-radarr__poster-row"

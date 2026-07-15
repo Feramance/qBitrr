@@ -21,9 +21,16 @@ import {
   type SonarrSeriesGroup,
   SonarrSeriesGroupDetailBody,
 } from "../../components/arr/SonarrSeriesGroupDetailBody";
-import { StableTable } from "../../components/StableTable";
-import { INSTANCE_VIEW_POLL_INTERVAL_MS } from "../../constants/arrAggregateFetch";
-import { ARR_CATALOG_SYNC_HINT } from "../../constants/arrCatalogMessages";
+import {
+  ArrCatalogBodyChrome,
+  ArrCatalogPagination,
+} from "./ArrCatalogBodyChrome";
+import {
+  ArrCatalogEmptyBranch,
+  ArrCatalogListOrGrid,
+  ArrCatalogNoMatchHint,
+  ArrCatalogSyncEmptyHint,
+} from "./ArrCatalogListOrGrid";
 import { useInterval } from "../../hooks/useInterval";
 import { useRowsStore } from "../../hooks/useRowsStore";
 import { arraysEqual } from "../../utils/dataSync";
@@ -42,6 +49,13 @@ import type {
   ArrCatalogInstancePipelineState,
   ArrCatalogSummary,
 } from "./definition";
+import {
+  isEmptyStateReady,
+  useCatalogEmptyStateTracker,
+  useCatalogIconGridRefetch,
+  useCatalogPageCache,
+  useCatalogSearchRegistration,
+} from "./useCatalogFetchPrimitives";
 import { ARR_CATALOG_REGISTRY } from "./registry";
 import { categoryForInstanceLabel } from "./utils";
 
@@ -232,14 +246,12 @@ function useSonarrInstancePipeline(
   const [emptyStateReady, setEmptyStateReady] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
-  const pagesRef = useRef<Record<number, SonarrSeriesEntry[]>>({});
-  const keyRef = useRef<string>("");
+  const { pagesRef, keyRef, wipePages } = useCatalogPageCache<SonarrSeriesEntry>();
+  const emptyTracker = useCatalogEmptyStateTracker();
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
   const prevSelectionRef = useRef<string | null>(selection);
   const prevOnlyMissingRef = useRef(filters.onlyMissing);
-  const sawNonEmptyRef = useRef(false);
-  const stableEmptyStreakRef = useRef(0);
 
   const rowsStoreOpts = useMemo(
     () => ({
@@ -272,14 +284,14 @@ function useSonarrInstancePipeline(
         const keyChanged = keyRef.current !== key;
         if (keyChanged) {
           keyRef.current = key;
-          pagesRef.current = {};
+          const wiped = wipePages();
+          pagesRef.current = wiped;
           setPages({});
           setTotalItems(0);
           setTotalPages(1);
           setPage(0);
           setEmptyStateReady(false);
-          sawNonEmptyRef.current = false;
-          stableEmptyStreakRef.current = 0;
+          emptyTracker.resetEmptyState();
         }
         const effectivePageIdx = keyChanged ? 0 : pageIdx;
         const ps = roundPageSize(SONARR_PAGE_SIZE);
@@ -303,12 +315,11 @@ function useSonarrInstancePipeline(
         const hasCatalogData = series.length > 0 || total > 0;
 
         if (hasCatalogData) {
-          sawNonEmptyRef.current = true;
-          stableEmptyStreakRef.current = 0;
+          emptyTracker.noteCatalogData(true);
           setEmptyStateReady((prev) => (prev ? prev : true));
         } else {
-          stableEmptyStreakRef.current += 1;
-          const ready = sawNonEmptyRef.current || stableEmptyStreakRef.current >= 2;
+          emptyTracker.noteCatalogData(false);
+          const ready = isEmptyStateReady(emptyTracker, false);
           setEmptyStateReady((prev) => (prev === ready ? prev : ready));
         }
 
@@ -382,13 +393,13 @@ function useSonarrInstancePipeline(
     const onlyMissingChanged =
       prevOnlyMissingRef.current !== filters.onlyMissing;
     if (selectionChanged) {
-      pagesRef.current = {};
+      const wiped = wipePages();
+      pagesRef.current = wiped;
       setPages({});
       setPage(0);
       setTotalPages(1);
       setEmptyStateReady(false);
-      sawNonEmptyRef.current = false;
-      stableEmptyStreakRef.current = 0;
+      emptyTracker.resetEmptyState();
       prevSelectionRef.current = selection;
     }
     if (onlyMissingChanged) {
@@ -414,19 +425,13 @@ function useSonarrInstancePipeline(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selection]);
 
-  // Search handler.
-  useEffect(() => {
-    if (!active) return;
-    const handler = (term: string) => {
-      if (!selection) return;
-      setPage(0);
-      void fetchInstanceRef.current(selection, 0, term, {
-        showLoading: true,
-        missingOnly: filtersRef.current.onlyMissing,
-      });
-    };
-    return registerSearchHandler(handler);
-  }, [active, selection, registerSearchHandler]);
+  useCatalogSearchRegistration(active, selection, registerSearchHandler, (term) => {
+    setPage(0);
+    void fetchInstanceRef.current(selection!, 0, term, {
+      showLoading: true,
+      missingOnly: filtersRef.current.onlyMissing,
+    });
+  });
 
   // Background polling.
   useInterval(
@@ -443,17 +448,18 @@ function useSonarrInstancePipeline(
     active && polling && selection ? INSTANCE_VIEW_POLL_INTERVAL_MS : null,
   );
 
-  // Re-fetch on icon-grid resize so per-page rows match the visible grid.
-  useEffect(() => {
-    if (!active) return;
-    if (!selection) return;
-    if (browseMode !== "icon") return;
-    void fetchInstanceRef.current(selection, page, query, {
-      showLoading: false,
-      missingOnly: filtersRef.current.onlyMissing,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, selection, browseMode, iconInstancePageSize]);
+  useCatalogIconGridRefetch(
+    active,
+    selection,
+    browseMode,
+    iconInstancePageSize,
+    () => {
+      void fetchInstanceRef.current(selection!, page, query, {
+        showLoading: false,
+        missingOnly: filtersRef.current.onlyMissing,
+      });
+    },
+  );
 
   const allSeries = useMemo<SonarrSeriesEntry[]>(() => {
     const sortedKeys = Object.keys(pages)
@@ -812,24 +818,23 @@ function SonarrAggregateBody({
         ) : null
       }
     >
-      {showCatalogEmptyHint ? (
-        <div className="hint">
-          <p>No episodes found in the database.</p>
-          <p>{ARR_CATALOG_SYNC_HINT}</p>
-        </div>
-      ) : !total ? (
-        <div className="hint">No series found.</div>
-      ) : browseMode === "list" ? (
-        <StableTable<SonarrSeriesGroupRow>
-          rowsStore={rowsStore}
+      <ArrCatalogEmptyBranch
+        order="noItemsFirst"
+        showCatalogEmptyHint={showCatalogEmptyHint}
+        hasRows={total > 0}
+        catalogEmptyMessage="No episodes found in the database."
+        noMatchMessage="No series found."
+      >
+        <ArrCatalogListOrGrid
+          browseMode={browseMode}
+          rows={rows}
           rowOrder={rowOrder}
+          rowsStore={rowsStore}
           columns={columns}
           getRowKey={sonarrGroupRowKey}
-          onRowClick={onRowSelect}
-        />
-      ) : (
-        <div className="arr-icon-grid" ref={iconGridRef}>
-          {rows.map((g) => {
+          onRowSelect={onRowSelect}
+          iconGridRef={iconGridRef}
+          renderIconTile={(g) => {
             const cat = categoryForInstanceLabel([...instances], g.instance);
             const sid = g.seriesId;
             const thumb =
@@ -852,9 +857,9 @@ function SonarrAggregateBody({
                 </div>
               </ArrCatalogIconTile>
             );
-          })}
-        </div>
-      )}
+          }}
+        />
+      </ArrCatalogEmptyBranch>
     </ArrCatalogBodyChrome>
   );
 }
@@ -945,49 +950,42 @@ function SonarrInstanceBody({
       }
     >
       {showCatalogEmptyHint ? (
-        <div className="hint">
-          <p>No series rows in the local catalog yet.</p>
-          <p>{ARR_CATALOG_SYNC_HINT}</p>
-        </div>
+        <ArrCatalogSyncEmptyHint message="No series rows in the local catalog yet." />
       ) : visibleRows.length === 0 && isFiltered ? (
-        <div className="hint">No episodes match the current filter.</div>
+        <ArrCatalogNoMatchHint message="No episodes match the current filter." />
       ) : visibleRows.length ? (
-        browseMode === "list" ? (
-          <StableTable<SonarrSeriesGroupRow>
-            rowsStore={rowsStore}
-            rowOrder={rowOrder}
-            columns={columns}
-            getRowKey={sonarrGroupRowKey}
-            onRowClick={onRowSelect}
-          />
-        ) : (
-          <div className="arr-icon-grid" ref={iconGridRef}>
-            {visibleRows.map((g) => {
-              const sid = g.seriesId;
-              const thumb =
-                sid != null && category
-                  ? sonarrSeriesThumbnailUrl(category, sid)
-                  : "";
-              return (
-                <ArrCatalogIconTile
-                  key={`${g.instance}-${String(g.seriesId ?? "")}-${g.series}`}
-                  posterSrc={thumb}
-                  onClick={() => onRowSelect(g)}
-                >
-                  <div className="arr-movie-tile__title">{g.series}</div>
-                  <div className="arr-movie-tile__stats arr-movie-tile__stats--sonarr-episodes">
-                    {sonarrMonitoredEpisodeProgress(g)}
-                  </div>
-                  <div className="arr-movie-tile__quality">
-                    {g.qualityProfileName ?? "—"}
-                  </div>
-                </ArrCatalogIconTile>
-              );
-            })}
-          </div>
-        )
+        <ArrCatalogListOrGrid
+          browseMode={browseMode}
+          rows={visibleRows}
+          rowOrder={rowOrder}
+          rowsStore={rowsStore}
+          columns={columns}
+          getRowKey={sonarrGroupRowKey}
+          onRowSelect={onRowSelect}
+          iconGridRef={iconGridRef}
+          renderIconTile={(g) => {
+            const sid = g.seriesId;
+            const thumb =
+              sid != null && category ? sonarrSeriesThumbnailUrl(category, sid) : "";
+            return (
+              <ArrCatalogIconTile
+                key={`${g.instance}-${String(g.seriesId ?? "")}-${g.series}`}
+                posterSrc={thumb}
+                onClick={() => onRowSelect(g)}
+              >
+                <div className="arr-movie-tile__title">{g.series}</div>
+                <div className="arr-movie-tile__stats arr-movie-tile__stats--sonarr-episodes">
+                  {sonarrMonitoredEpisodeProgress(g)}
+                </div>
+                <div className="arr-movie-tile__quality">
+                  {g.qualityProfileName ?? "—"}
+                </div>
+              </ArrCatalogIconTile>
+            );
+          }}
+        />
       ) : (
-        <div className="hint">No series found.</div>
+        <ArrCatalogNoMatchHint message="No series found." />
       )}
     </ArrCatalogBodyChrome>
   );

@@ -2,6 +2,7 @@ import type { JSX } from "react";
 import { getRadarrOpenMovieUrl } from "../../api/client";
 import type { RadarrMovie } from "../../api/types";
 import { radarrMovieThumbnailUrl } from "../../utils/arrThumbnailUrl";
+import { ArrExternalLink } from "./ArrExternalLink";
 import { ArrPosterImage } from "./ArrPosterImage";
 
 interface RadarrMovieDetailBodyProps {
@@ -23,13 +24,7 @@ export function RadarrMovieDetailBody({
   const reason = movie.reason as string | null | undefined;
   return (
     <div className="arr-detail-radarr">
-      {openUrl ? (
-        <div className="arr-detail-actions">
-          <a className="btn small outline" href={openUrl} target="_blank" rel="noreferrer">
-            Open in Radarr
-          </a>
-        </div>
-      ) : null}
+      <ArrExternalLink href={openUrl} arrName="Radarr" />
       {poster ? (
         <div className="arr-detail-radarr__poster">
           <ArrPosterImage src={poster} alt={String(movie.title ?? "")} />
