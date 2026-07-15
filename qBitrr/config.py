@@ -258,3 +258,72 @@ def get_free_space_guard_settings() -> tuple[str, str]:
         "Settings.FreeSpaceFolder"
     )
     return free_space, folder
+
+
+def get_ffprobe_auto_update_effective() -> bool:
+    """Return FFprobeAutoUpdate from env override or current CONFIG (for live reload)."""
+    if ENVIRO_CONFIG.settings.ffprobe_auto_update is not None:
+        return ENVIRO_CONFIG.settings.ffprobe_auto_update
+    return CONFIG.get("Settings.FFprobeAutoUpdate", fallback=True)
+
+
+def get_failed_category_effective() -> str:
+    """Return FailedCategory from env override or current CONFIG (for live reload)."""
+    return _normalize_special_category(
+        ENVIRO_CONFIG.settings.failed_category
+        or CONFIG.get("Settings.FailedCategory", fallback="failed"),
+        settings_key="Settings.FailedCategory",
+        default="failed",
+    )
+
+
+def get_recheck_category_effective() -> str:
+    """Return RecheckCategory from env override or current CONFIG (for live reload)."""
+    return _normalize_special_category(
+        ENVIRO_CONFIG.settings.recheck_category
+        or CONFIG.get("Settings.RecheckCategory", fallback="recheck"),
+        settings_key="Settings.RecheckCategory",
+        default="recheck",
+    )
+
+
+def get_completed_download_folder_effective() -> str:
+    """Return CompletedDownloadFolder from env override or current CONFIG (for live reload)."""
+    return ENVIRO_CONFIG.settings.completed_download_folder or CONFIG.get_or_raise(
+        "Settings.CompletedDownloadFolder"
+    )
+
+
+def get_no_internet_sleep_timer_effective() -> int:
+    """Return NoInternetSleepTimer from env override or current CONFIG (for live reload)."""
+    return ENVIRO_CONFIG.settings.no_internet_sleep_timer or CONFIG.get_duration(
+        "Settings.NoInternetSleepTimer", fallback=15
+    )
+
+
+def get_loop_sleep_timer_effective() -> int:
+    """Return LoopSleepTimer from env override or current CONFIG (for live reload)."""
+    return ENVIRO_CONFIG.settings.loop_sleep_timer or CONFIG.get_duration(
+        "Settings.LoopSleepTimer", fallback=5
+    )
+
+
+def get_search_loop_delay_effective() -> int:
+    """Return SearchLoopDelay from env override or current CONFIG (for live reload)."""
+    return ENVIRO_CONFIG.settings.search_loop_delay or CONFIG.get_duration(
+        "Settings.SearchLoopDelay", fallback=-1
+    )
+
+
+def get_ping_urls_effective() -> list[str]:
+    """Return PingURLS from env override or current CONFIG (for live reload)."""
+    return ENVIRO_CONFIG.settings.ping_urls or CONFIG.get(
+        "Settings.PingURLS", fallback=["one.one.one.one", "dns.google.com"]
+    )
+
+
+def get_ignore_torrents_younger_than_effective() -> int:
+    """Return global Settings.IgnoreTorrentsYoungerThan (for PlaceHolderArr live reload)."""
+    return ENVIRO_CONFIG.settings.ignore_torrents_younger_than or CONFIG.get_duration(
+        "Settings.IgnoreTorrentsYoungerThan", fallback=180
+    )

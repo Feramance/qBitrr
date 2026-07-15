@@ -8,7 +8,7 @@ import zipfile
 
 import requests
 
-from qBitrr.config import FF_PROBE, FF_VERSION, FFPROBE_AUTO_UPDATE
+from qBitrr.config import FF_PROBE, FF_VERSION, get_ffprobe_auto_update_effective
 from qBitrr.logger import run_logs
 
 
@@ -42,7 +42,7 @@ class FFprobeDownloader:
             return ""
 
     def update(self):
-        if not FFPROBE_AUTO_UPDATE:
+        if not get_ffprobe_auto_update_effective():
             return
         current_version = self.get_current_version()
         upstream_data = self.get_upstream_version()

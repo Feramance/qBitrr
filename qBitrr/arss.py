@@ -43,15 +43,20 @@ from qBitrr.config import (
     AUTO_PAUSE_RESUME,
     COMPLETED_DOWNLOAD_FOLDER,
     CONFIG,
-    LOOP_SLEEP_TIMER,
-    NO_INTERNET_SLEEP_TIMER,
     PROCESS_ONLY,
     QBIT_DISABLED,
     SEARCH_ONLY,
     TAGLESS,
     get_auto_pause_resume_effective,
+    get_completed_download_folder_effective,
     get_effective_qbit_disabled,
+    get_failed_category_effective,
     get_free_space_guard_settings,
+    get_ignore_torrents_younger_than_effective,
+    get_loop_sleep_timer_effective,
+    get_no_internet_sleep_timer_effective,
+    get_recheck_category_effective,
+    get_search_loop_delay_effective,
 )
 from qBitrr.db_lock import database_lock, with_database_retry
 from qBitrr.errors import (
@@ -1131,7 +1136,7 @@ class Arr:
 
         leaf_category = self.category
         prefix_paths = category_parents(leaf_category)
-        completed_root = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER)
+        completed_root = pathlib.Path(get_completed_download_folder_effective())
 
         for instance_name in all_instances:
             try:
@@ -1272,7 +1277,7 @@ class Arr:
 
     def _init_worker_expiring_timeouts(self) -> None:
         """Initialize expiring caches used by lightweight worker classes."""
-        ignore_seconds = CONFIG.get_duration("Settings.IgnoreTorrentsYoungerThan", fallback=180)
+        ignore_seconds = get_ignore_torrents_younger_than_effective()
         self.ignore_torrents_younger_than = ignore_seconds
         self.timed_ignore_cache = ExpiringSet(max_age_seconds=ignore_seconds)
         self.timed_ignore_cache_2 = ExpiringSet(max_age_seconds=ignore_seconds * 2)
@@ -5776,14 +5781,20 @@ class Arr:
                 self.category_torrent_count = len(torrents_with_instances)
                 self._torrent_important_trackers_cache.clear()
                 if not len(torrents_with_instances):
-                    raise DelayLoopException(length=LOOP_SLEEP_TIMER, error_type="no_downloads")
+                    raise DelayLoopException(
+                        length=get_loop_sleep_timer_effective(), error_type="no_downloads"
+                    )
 
                 # Internet check: use the first available qBit client
                 if not has_internet(self._get_primary_qbit_client()):
                     self.manager.qbit_manager.should_delay_torrent_scan = True
-                    raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, error_type="internet")
+                    raise DelayLoopException(
+                        length=get_no_internet_sleep_timer_effective(), error_type="internet"
+                    )
                 if self.manager.qbit_manager.should_delay_torrent_scan:
-                    raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, error_type="delay")
+                    raise DelayLoopException(
+                        length=get_no_internet_sleep_timer_effective(), error_type="delay"
+                    )
 
                 # Periodic database health check (every 10th iteration)
                 if not hasattr(self, "_health_check_counter"):
@@ -7249,7 +7260,7 @@ class Arr:
         instance_name: str = "default",
         managed_tag_pool: frozenset[str] | None = None,
     ):
-        if torrent.category != RECHECK_CATEGORY:
+        if torrent.category != get_recheck_category_effective():
             self.manager.qbit_manager.cache[torrent.hash] = torrent.category
         category = getattr(torrent, "category", None)
         tracker_sync_owned_by_policy_manager = bool(
@@ -7317,10 +7328,10 @@ class Arr:
                 limit_meta=(_data_settings, _data_torrent),
                 instance_name=instance_name,
             )
-        elif torrent.category == FAILED_CATEGORY:
+        elif torrent.category == get_failed_category_effective():
             # Bypass everything if manually marked as failed
             self._process_single_torrent_failed_cat(torrent, instance_name)
-        elif torrent.category == RECHECK_CATEGORY:
+        elif torrent.category == get_recheck_category_effective():
             # Bypass everything else if manually marked for rechecking
             self._process_single_torrent_recheck_cat(torrent, instance_name)
         elif self._is_missing_files_torrent(torrent):
@@ -8160,10 +8171,10 @@ class Arr:
         ):
             return None
         totcommands = -1
-        if SEARCH_LOOP_DELAY == -1:
+        if get_search_loop_delay_effective() == -1:
             loop_delay = 30
         else:
-            loop_delay = SEARCH_LOOP_DELAY
+            loop_delay = get_search_loop_delay_effective()
         try:
             event = self.manager.qbit_manager.shutdown_event
             self.db_request_update()
@@ -8174,10 +8185,10 @@ class Arr:
                         self.logger.info("Starting request search for %s items", totcommands)
                     else:
                         totcommands -= 1
-                    if SEARCH_LOOP_DELAY == -1:
+                    if get_search_loop_delay_effective() == -1:
                         loop_delay = 30
                     else:
-                        loop_delay = SEARCH_LOOP_DELAY
+                        loop_delay = get_search_loop_delay_effective()
                     while (not event.is_set()) and (
                         not self.maybe_do_search(
                             entry,
@@ -8369,10 +8380,10 @@ class Arr:
                             if totcommands == -1:
                                 totcommands = commands
                                 self.logger.info("Starting search for %s items", totcommands)
-                            if SEARCH_LOOP_DELAY == -1:
+                            if get_search_loop_delay_effective() == -1:
                                 loop_delay = 30
                             else:
-                                loop_delay = SEARCH_LOOP_DELAY
+                                loop_delay = get_search_loop_delay_effective()
                             while (not event.is_set()) and (
                                 not self.maybe_do_search(
                                     entry,
@@ -8431,7 +8442,7 @@ class Arr:
                         raise DelayLoopException(length=300, error_type="arr") from e
                     except Exception as e:
                         self.logger.exception(e, exc_info=sys.exc_info())
-                    event.wait(LOOP_SLEEP_TIMER)
+                    event.wait(get_loop_sleep_timer_effective())
                 except DelayLoopException as delay_exc:
                     self._handle_delay_loop_exception(
                         delay_exc,
@@ -8491,7 +8502,7 @@ class Arr:
                         sys.exit(0)
                     except Exception as e:
                         self.logger.error(e, exc_info=sys.exc_info())
-                    event.wait(LOOP_SLEEP_TIMER)
+                    event.wait(get_loop_sleep_timer_effective())
                 except DelayLoopException as e:
                     self._handle_delay_loop_exception(
                         e,
@@ -8553,9 +8564,7 @@ class PlaceHolderArr(Arr):
         self.resume = set()
         self.resume_by_instance: dict[str, set[str]] = defaultdict(set)
         self.expiring_bool = ExpiringSet(max_age_seconds=10)
-        self.ignore_torrents_younger_than = CONFIG.get_duration(
-            "Settings.IgnoreTorrentsYoungerThan", fallback=180
-        )
+        self.ignore_torrents_younger_than = get_ignore_torrents_younger_than_effective()
         self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
         self.timed_ignore_cache_2 = ExpiringSet(
             max_age_seconds=self.ignore_torrents_younger_than * 2
@@ -8882,13 +8891,19 @@ class PlaceHolderArr(Arr):
                 self.category_torrent_count = len(torrents_with_instances)
                 self._torrent_important_trackers_cache.clear()
                 if not torrents_with_instances:
-                    raise DelayLoopException(length=LOOP_SLEEP_TIMER, error_type="no_downloads")
+                    raise DelayLoopException(
+                        length=get_loop_sleep_timer_effective(), error_type="no_downloads"
+                    )
 
                 if not has_internet(self._get_primary_qbit_client()):
                     self.manager.qbit_manager.should_delay_torrent_scan = True
-                    raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, error_type="internet")
+                    raise DelayLoopException(
+                        length=get_no_internet_sleep_timer_effective(), error_type="internet"
+                    )
                 if self.manager.qbit_manager.should_delay_torrent_scan:
-                    raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, error_type="delay")
+                    raise DelayLoopException(
+                        length=get_no_internet_sleep_timer_effective(), error_type="delay"
+                    )
 
                 managed_tag_pool = Arr.merge_global_tracker_configured_add_tags()
                 for instance_name, torrent in torrents_with_instances:
@@ -9343,12 +9358,18 @@ class TorrentPolicyManager(Arr):
 
     def _validate_qbit_preflight(self) -> None:
         if not self._is_any_qbit_instance_reachable():
-            raise DelayLoopException(length=LOOP_SLEEP_TIMER, error_type="no_downloads")
+            raise DelayLoopException(
+                length=get_loop_sleep_timer_effective(), error_type="no_downloads"
+            )
         if not has_internet(self._get_primary_qbit_client()):
             self.manager.qbit_manager.should_delay_torrent_scan = True
-            raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, error_type="internet")
+            raise DelayLoopException(
+                length=get_no_internet_sleep_timer_effective(), error_type="internet"
+            )
         if self.manager.qbit_manager.should_delay_torrent_scan:
-            raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, error_type="delay")
+            raise DelayLoopException(
+                length=get_no_internet_sleep_timer_effective(), error_type="delay"
+            )
 
     def process_torrents(self):
         try:
@@ -9436,7 +9457,10 @@ class ArrManager:
     def __init__(self, qbitmanager: qBitManager):
         self.groups: set[str] = set()
         self.uris: set[str] = set()
-        self.special_categories: set[str] = {FAILED_CATEGORY, RECHECK_CATEGORY}
+        self.special_categories: set[str] = {
+            get_failed_category_effective(),
+            get_recheck_category_effective(),
+        }
         self.arr_categories: set[str] = set()
         self.qbit_managed_categories: set[str] = set()
         self.qbit_managed_category_sections: dict[str, str] = {}

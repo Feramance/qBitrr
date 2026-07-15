@@ -119,7 +119,7 @@ def validate_and_return_torrent_file(file: str) -> pathlib.Path:
 
 
 def has_internet(client: qbittorrentapi.Client):
-    from qBitrr.config import PING_URLS
+    from qBitrr.config import get_ping_urls_effective
 
     if client is None:
         return False
@@ -132,7 +132,7 @@ def has_internet(client: qbittorrentapi.Client):
     except Exception as e:
         logger.debug("transfer_info unavailable: %s", e)
     # Fallback to a single ping
-    url = random.choice(PING_URLS)
+    url = random.choice(get_ping_urls_effective())
     try:
         if is_connected(url):
             logger.debug("Successfully connected to %s", url)
