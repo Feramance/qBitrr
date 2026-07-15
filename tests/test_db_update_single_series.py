@@ -392,5 +392,55 @@ class TestDbUpdateEpisodeRetry(unittest.TestCase):
         arr.client.episode.get.assert_called()
 
 
+@unittest.skipUnless(
+    __import__(
+        "tests.support.branch_compat", fromlist=["HAS_DB_UPDATE_HANDLERS"]
+    ).HAS_DB_UPDATE_HANDLERS,
+    "db_update_handlers is refactor-only",
+)
+class TestDbUpdateRadarrMovieProfileSwitch(unittest.TestCase):
+    """Radarr movie temp-profile downgrade when missing."""
+
+    def test_movie_temp_switch_when_missing(self) -> None:
+        arr = _search_enabled_arr(type="radarr", use_temp_for_missing=True)
+        arr.model_file.get_or_none.return_value = None
+        arr._retry_profile_switch_update = MagicMock(side_effect=lambda fn, kind: fn())
+        arr.client.quality_profile.get.return_value = {"minFormatScore": 0}
+        arr.model_file.insert.return_value.on_conflict.return_value.execute = MagicMock()
+        db_entry = {
+            "id": 1,
+            "title": "Movie",
+            "monitored": True,
+            "hasFile": False,
+            "qualityProfileId": 1,
+            "tmdbId": 1,
+            "year": 2020,
+            "movieFileId": 0,
+        }
+        db_update_single_series(arr, db_entry=db_entry)
+        arr._retry_profile_switch_update.assert_called_once()
+        self.assertEqual(
+            arr.client.movie.update.call_args.kwargs["data"]["qualityProfileId"],
+            2,
+        )
+
+
+@unittest.skipUnless(
+    __import__(
+        "tests.support.branch_compat", fromlist=["HAS_DB_UPDATE_HANDLERS"]
+    ).HAS_DB_UPDATE_HANDLERS,
+    "db_update_handlers is refactor-only",
+)
+class TestDbUpdateUnmonitoredSkip(unittest.TestCase):
+    def test_skips_unmonitored_sonarr_series(self) -> None:
+        arr = _search_enabled_arr(type="sonarr")
+        db_update_single_series(
+            arr,
+            db_entry={"id": 1, "title": "Show", "monitored": False},
+            series=True,
+        )
+        arr.client.series.get.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

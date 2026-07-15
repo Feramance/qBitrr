@@ -5,6 +5,8 @@ from __future__ import annotations
 import unittest
 from unittest import mock
 
+from tests.support.branch_compat import HAS_AUTO_UPDATE_PLATFORM_FIX
+
 from qBitrr.duration_config import (
     parse_duration,
     parse_duration_to_minutes,
@@ -33,6 +35,14 @@ class TestCoerceBoolGoldenMaster(unittest.TestCase):
         self.assertTrue(coerce_bool(True))
         self.assertFalse(coerce_bool(None))
         self.assertFalse(coerce_bool(""))
+
+    def test_numeric_and_whitespace_edge_cases(self) -> None:
+        self.assertTrue(coerce_bool(1))
+        self.assertFalse(coerce_bool(0))
+        self.assertTrue(coerce_bool(" yes "))
+        self.assertTrue(coerce_bool("off"))
+        self.assertFalse(coerce_bool([]))
+        self.assertTrue(coerce_bool([1]))
 
 
 class TestNormalizeUrlBaseGoldenMaster(unittest.TestCase):
@@ -161,7 +171,11 @@ class TestLoadQbitSeedingConfig(unittest.TestCase):
         self.assertNotIn("ignore_torrents_younger_than", result_ph)
 
 
-class TestAutoUpdateUnsupportedPlatformMessage(unittest.TestCase):
+@unittest.skipUnless(
+    HAS_AUTO_UPDATE_PLATFORM_FIX,
+    "unsupported-platform error message fixed on refactor (9de1e0b1)",
+)
+class TestAutoUpdateUnsupportedPlatformMessageFixedOnRefactor(unittest.TestCase):
     @mock.patch("qBitrr.auto_update.requests.get")
     @mock.patch("qBitrr.auto_update.get_binary_asset_patterns")
     @mock.patch("qBitrr.auto_update.platform.system", return_value="Windows")

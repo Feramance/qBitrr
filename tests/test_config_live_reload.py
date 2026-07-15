@@ -5,6 +5,8 @@ from __future__ import annotations
 import unittest
 from unittest import mock
 
+from tests.support.branch_compat import HAS_EXTENDED_CONFIG_GETTERS
+
 import qBitrr.config as config_module
 
 
@@ -89,6 +91,68 @@ class TestConfigLiveReloadGoldenMaster(unittest.TestCase):
         self.assertEqual(
             config_module.get_completed_download_folder_effective(), "/downloads/live"
         )
+
+
+@unittest.skipUnless(
+    HAS_EXTENDED_CONFIG_GETTERS,
+    "extended live-reload getters are refactor-only",
+)
+class TestConfigLiveReloadExtendedGetters(unittest.TestCase):
+    def setUp(self) -> None:
+        self.config_mock = mock.MagicMock()
+        self.env_patch = mock.patch.object(config_module, "ENVIRO_CONFIG")
+        self.config_patch = mock.patch.object(config_module, "CONFIG", self.config_mock)
+        self.env_mock = self.env_patch.start()
+        self.config_patch.start()
+        self.addCleanup(self.env_patch.stop)
+        self.addCleanup(self.config_patch.stop)
+
+    def test_get_auto_update_settings_env_overrides_toml(self) -> None:
+        self.env_mock.settings.auto_update_enabled = True
+        self.env_mock.settings.auto_update_cron = "0 4 * * *"
+        self.config_mock.get.side_effect = lambda key, fallback=None: {
+            "Settings.AutoUpdateEnabled": False,
+            "Settings.AutoUpdateCron": "0 3 * * 0",
+        }.get(key, fallback)
+        enabled, cron = config_module.get_auto_update_settings()
+        self.assertTrue(enabled)
+        self.assertEqual(cron, "0 4 * * *")
+
+    def test_get_auto_pause_resume_effective_env_wins(self) -> None:
+        self.env_mock.settings.auto_pause_resume = False
+        self.config_mock.get.return_value = True
+        self.assertFalse(config_module.get_auto_pause_resume_effective())
+
+    def test_get_effective_qbit_disabled_search_only_forces_disabled(self) -> None:
+        self.env_mock.qbit.disabled = False
+        with mock.patch.object(config_module, "SEARCH_ONLY", True):
+            with mock.patch.object(config_module, "_has_any_qbit_section", return_value=True):
+                self.config_mock.get.return_value = False
+                self.assertTrue(config_module.get_effective_qbit_disabled())
+
+    def test_get_free_space_guard_disabled_when_minus_one(self) -> None:
+        self.env_mock.settings.free_space = None
+        self.env_mock.settings.free_space_folder = None
+        self.config_mock.get.return_value = "-1"
+        free_space, folder = config_module.get_free_space_guard_settings()
+        self.assertEqual(free_space, "-1")
+        self.assertEqual(folder, "")
+
+    def test_get_free_space_guard_reads_folder_when_enabled(self) -> None:
+        self.env_mock.settings.free_space = "10GB"
+        self.env_mock.settings.free_space_folder = None
+        self.config_mock.get_or_raise.return_value = "/data"
+        free_space, folder = config_module.get_free_space_guard_settings()
+        self.assertEqual(free_space, "10GB")
+        self.assertEqual(folder, "/data")
+
+    def test_failed_category_normalizes_backslashes(self) -> None:
+        self.env_mock.settings.failed_category = None
+        self.config_mock.get.return_value = "parent\\child"
+        with mock.patch.object(config_module, "_CFG_LOGGER") as log:
+            result = config_module.get_failed_category_effective()
+        self.assertEqual(result, "parent\\child")
+        log.warning.assert_called_once()
 
 
 class TestEnviroConfigHarness(unittest.TestCase):

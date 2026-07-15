@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from qBitrr.main import qBitManager
 
@@ -99,3 +99,32 @@ class TestDbRecoveryFailureCleanup(unittest.TestCase):
         self.assertIs(pending_arr, arr)
         self.assertEqual(pending_meta["role"], "torrent")
         self.assertEqual(pending_meta["category"], "radarr")
+
+
+class TestExpectedSpawnRoles(unittest.TestCase):
+    """Characterize which worker roles spawn_child_processes creates per Arr config."""
+
+    def _arr(self, *, search_missing: bool = False) -> MagicMock:
+        arr = MagicMock()
+        arr.search_missing = search_missing
+        return arr
+
+    def test_search_only_role_when_search_enabled(self) -> None:
+        with patch("qBitrr.main.QBIT_DISABLED", False), patch("qBitrr.main.SEARCH_ONLY", False):
+            roles = qBitManager._expected_spawn_roles(self._arr(search_missing=True))
+        self.assertEqual(roles, ["search", "torrent"])
+
+    def test_torrent_only_when_search_disabled(self) -> None:
+        with patch("qBitrr.main.QBIT_DISABLED", False), patch("qBitrr.main.SEARCH_ONLY", False):
+            roles = qBitManager._expected_spawn_roles(self._arr(search_missing=False))
+        self.assertEqual(roles, ["torrent"])
+
+    def test_qbit_disabled_omits_torrent_role(self) -> None:
+        with patch("qBitrr.main.QBIT_DISABLED", True), patch("qBitrr.main.SEARCH_ONLY", False):
+            roles = qBitManager._expected_spawn_roles(self._arr(search_missing=True))
+        self.assertEqual(roles, ["search"])
+
+    def test_search_only_mode_omits_torrent_role(self) -> None:
+        with patch("qBitrr.main.QBIT_DISABLED", False), patch("qBitrr.main.SEARCH_ONLY", True):
+            roles = qBitManager._expected_spawn_roles(self._arr(search_missing=False))
+        self.assertEqual(roles, [])

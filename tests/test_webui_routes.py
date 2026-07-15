@@ -193,6 +193,14 @@ class TestDivergentRoutePairs(_WebUIClientTestCase):
         self.assertEqual(api.status_code, 401)
         self.assertEqual(web.status_code, 401)
 
+    def test_token_accepts_valid_api_header(self) -> None:
+        api = self.client.get("/api/token", headers={"X-API-Token": "test-token"})
+        web = self.client.get("/web/token", headers={"X-API-Token": "test-token"})
+        self.assertEqual(api.status_code, 200)
+        self.assertEqual(web.status_code, 200)
+        self.assertEqual(api.get_json(), {"token": "test-token"})
+        self.assertEqual(web.get_json(), {"token": "test-token"})
+
 
 class TestParseCatalogFilters(unittest.TestCase):
     def test_parses_page_and_missing_only(self) -> None:
@@ -206,6 +214,22 @@ class TestParseCatalogFilters(unittest.TestCase):
         filters = parse_catalog_filters(req, default_page_size=50, include_missing_only=True)
         self.assertEqual(filters["page"], 2)
         self.assertTrue(filters["missing_only"])
+
+    def test_defaults_page_size_and_missing_only_false(self) -> None:
+        req = MagicMock()
+        req.args.get.side_effect = lambda key, default=None, type=str: default
+        filters = parse_catalog_filters(req, default_page_size=50, include_missing_only=True)
+        self.assertEqual(filters["page"], 0)
+        self.assertEqual(filters["page_size"], 50)
+        self.assertFalse(filters["missing_only"])
+
+    def test_omits_missing_only_when_disabled(self) -> None:
+        req = MagicMock()
+        req.args.get.side_effect = lambda key, default=None, type=str: {"missing": "1"}.get(
+            key, default
+        )
+        filters = parse_catalog_filters(req, include_missing_only=False)
+        self.assertNotIn("missing_only", filters)
 
 
 class TestResolveArrHandler(unittest.TestCase):
@@ -223,6 +247,36 @@ class TestResolveArrHandler(unittest.TestCase):
         self.assertIsNone(arr)
         self.assertIsNotNone(err)
         self.assertEqual(err[1], 503)
+
+    def test_returns_404_when_category_missing(self) -> None:
+        from flask import Flask
+
+        app = Flask(__name__)
+        with app.app_context():
+            arr, err = resolve_arr_handler(
+                "missing",
+                "radarr",
+                {"movies": MagicMock(type="radarr")},
+                arr_manager_ready=True,
+            )
+        self.assertIsNone(arr)
+        self.assertIsNotNone(err)
+        self.assertEqual(err[1], 404)
+
+    def test_returns_404_when_arr_type_mismatch(self) -> None:
+        from flask import Flask
+
+        app = Flask(__name__)
+        with app.app_context():
+            managed = {"tv": MagicMock(type="sonarr")}
+            arr, err = resolve_arr_handler(
+                "tv",
+                "radarr",
+                managed,
+                arr_manager_ready=True,
+            )
+        self.assertIsNone(arr)
+        self.assertEqual(err[1], 404)
 
     def test_returns_arr_when_category_matches(self) -> None:
         managed = {"movies": MagicMock(type="radarr")}

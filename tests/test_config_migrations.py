@@ -192,5 +192,55 @@ class TestCurrentConfigShape(unittest.TestCase):
         self.assertFalse(_migrate_hnr_settings(cfg))
 
 
+class TestMigrateQualityProfileMappingsEdgeCases(unittest.TestCase):
+    def test_noop_when_mappings_already_inline(self) -> None:
+        cfg = _config_from_toml(
+            """
+            [Settings]
+            ConfigVersion = "0.0.1"
+            [Radarr.EntrySearch]
+            QualityProfileMappings = { HD = "SD" }
+            """
+        )
+        self.assertFalse(_migrate_quality_profile_mappings(cfg))
+
+    def test_skips_when_only_one_profile_list(self) -> None:
+        cfg = _config_from_toml(
+            """
+            [Settings]
+            ConfigVersion = "0.0.1"
+            [Sonarr.EntrySearch]
+            MainQualityProfile = ["HD"]
+            """
+        )
+        self.assertFalse(_migrate_quality_profile_mappings(cfg))
+
+
+class TestMigrateWebuiConfigEdgeCases(unittest.TestCase):
+    def test_noop_when_webui_section_already_present(self) -> None:
+        cfg = _config_from_toml(
+            """
+            [Settings]
+            Host = "127.0.0.1"
+            [WebUI]
+            Host = "0.0.0.0"
+            """
+        )
+        self.assertFalse(_migrate_webui_config(cfg))
+
+
+class TestMigrateHnrSingleKeyEdgeCases(unittest.TestCase):
+    def test_noop_when_mode_already_string(self) -> None:
+        cfg = _config_from_toml(
+            """
+            [Settings]
+            ConfigVersion = "5.9.2"
+            [qBit.CategorySeeding]
+            HitAndRunMode = "and"
+            """
+        )
+        self.assertFalse(_migrate_hnr_single_key(cfg))
+
+
 if __name__ == "__main__":
     unittest.main()
