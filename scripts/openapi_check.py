@@ -68,6 +68,12 @@ _DECORATOR_RE = re.compile(
     r"(?:\s*,\s*methods\s*=\s*\[(?P<methods>[^\]]+)\])?",
     re.MULTILINE,
 )
+_DUAL_ROUTE_RE = re.compile(
+    r"^\s*@_dual_route\(\s*"
+    r"(?P<quote>[\"'])(?P<path>[^\"']+)(?P=quote)"
+    r"(?:\s*,\s*methods\s*=\s*\((?P<methods>[^\)]+)\))?",
+    re.MULTILINE,
+)
 _FLASK_PARAM_RE = re.compile(r"<(?:[a-zA-Z_]+:)?([a-zA-Z_][a-zA-Z0-9_]*)>")
 _OPENAPI_PARAM_RE = re.compile(r"\{[a-zA-Z_][a-zA-Z0-9_]*\}")
 
@@ -100,6 +106,14 @@ def _parse_flask_routes(source: str) -> set[tuple[str, str]]:
                 out.add((path, m.lower()))
         else:
             out.add((path, method))
+    for match in _DUAL_ROUTE_RE.finditer(source):
+        suffix = match.group("path")
+        methods_raw = match.group("methods") or ""
+        extracted = re.findall(r"['\"]([A-Za-z]+)['\"]", methods_raw) or ["GET"]
+        for m in extracted:
+            method = m.lower()
+            out.add((_normalise_flask_path(f"/api{suffix}"), method))
+            out.add((_normalise_flask_path(f"/web{suffix}"), method))
     for path, method in _DYNAMIC_ROUTES:
         out.add((_normalise_flask_path(path), method))
     return out

@@ -98,6 +98,56 @@ def resolve_arr_handler(
     return arr, None
 
 
+def empty_catalog_payload(
+    kind: str,
+    *,
+    page: int = 0,
+    page_size: int = 50,
+) -> dict[str, Any]:
+    """Return the empty-state catalog payload shape for *kind* (mirrors successful responses)."""
+    page = max(page, 0)
+    page_size = max(page_size, 1)
+    if kind == "radarr":
+        return {
+            "counts": {
+                "available": 0,
+                "monitored": 0,
+                "missing": 0,
+                "quality_met": 0,
+                "requests": 0,
+            },
+            "total": 0,
+            "page": page,
+            "page_size": page_size,
+            "movies": [],
+        }
+    if kind == "sonarr":
+        return {
+            "counts": {"available": 0, "monitored": 0, "missing": 0},
+            "total": 0,
+            "page": page,
+            "page_size": page_size,
+            "series": [],
+        }
+    if kind == "lidarr_albums":
+        return {
+            "counts": {
+                "available": 0,
+                "monitored": 0,
+                "missing": 0,
+                "quality_met": 0,
+                "requests": 0,
+            },
+            "counts_tracks": {"available": 0, "monitored": 0, "missing": 0},
+            "album_total": 0,
+            "total": 0,
+            "page": page,
+            "page_size": page_size,
+            "albums": [],
+        }
+    raise ValueError(f"unknown catalog kind: {kind}")
+
+
 def dual_route(app: Flask, path: str, *, methods: tuple[str, ...] = ("GET",)) -> Any:
     """Register identical ``/api`` and ``/web`` handlers (escape hatch: register divergent pairs manually)."""
 
@@ -817,35 +867,11 @@ class WebUI:
         is_request: bool | None = None,
     ) -> dict[str, Any]:
         if not self._ensure_arr_db(arr):
-            return {
-                "counts": {
-                    "available": 0,
-                    "monitored": 0,
-                    "missing": 0,
-                    "quality_met": 0,
-                    "requests": 0,
-                },
-                "total": 0,
-                "page": max(page, 0),
-                "page_size": max(page_size, 1),
-                "movies": [],
-            }
+            return empty_catalog_payload("radarr", page=page, page_size=page_size)
         model = getattr(arr, "model_file", None)
         db = getattr(arr, "db", None)
         if model is None or db is None:
-            return {
-                "counts": {
-                    "available": 0,
-                    "monitored": 0,
-                    "missing": 0,
-                    "quality_met": 0,
-                    "requests": 0,
-                },
-                "total": 0,
-                "page": max(page, 0),
-                "page_size": max(page_size, 1),
-                "movies": [],
-            }
+            return empty_catalog_payload("radarr", page=page, page_size=page_size)
         page = max(page, 0)
         page_size = max(page_size, 1)
         arr_instance = getattr(arr, "_name", "")
@@ -1413,24 +1439,9 @@ class WebUI:
         is_request: bool | None = None,
         group_by_artist: bool = True,
     ) -> dict[str, Any]:
-        # Empty/fallback payload shape mirrors a successful response so callers (frontend)
-        # never branch on missing keys. ``counts`` matches ``_ZERO_COUNTS_RAD`` and
-        # ``counts_tracks`` matches ``_ZERO_COUNTS_EP3`` from ``catalog_rollups``.
-        empty_albums_payload = {
-            "counts": {
-                "available": 0,
-                "monitored": 0,
-                "missing": 0,
-                "quality_met": 0,
-                "requests": 0,
-            },
-            "counts_tracks": {"available": 0, "monitored": 0, "missing": 0},
-            "album_total": 0,
-            "total": 0,
-            "page": max(page, 0),
-            "page_size": max(page_size, 1),
-            "albums": [],
-        }
+        empty_albums_payload = empty_catalog_payload(
+            "lidarr_albums", page=page, page_size=page_size
+        )
         if not self._ensure_arr_db(arr):
             return dict(empty_albums_payload)
         model = getattr(arr, "model_file", None)
@@ -1706,24 +1717,12 @@ class WebUI:
         missing_only: bool = False,
     ) -> dict[str, Any]:
         if not self._ensure_arr_db(arr):
-            return {
-                "counts": {"available": 0, "monitored": 0, "missing": 0},
-                "total": 0,
-                "page": max(page, 0),
-                "page_size": max(page_size, 1),
-                "series": [],
-            }
+            return empty_catalog_payload("sonarr", page=page, page_size=page_size)
         episodes_model = getattr(arr, "model_file", None)
         series_model = getattr(arr, "series_file_model", None)
         db = getattr(arr, "db", None)
         if episodes_model is None or db is None:
-            return {
-                "counts": {"available": 0, "monitored": 0, "missing": 0},
-                "total": 0,
-                "page": max(page, 0),
-                "page_size": max(page_size, 1),
-                "series": [],
-            }
+            return empty_catalog_payload("sonarr", page=page, page_size=page_size)
         page = max(page, 0)
         page_size = max(page_size, 1)
         resolved_page = page
@@ -2248,29 +2247,21 @@ class WebUI:
             response.headers["Cache-Control"] = "no-store"
             return response
 
-        @app.get("/api/openapi.json")
-        def api_openapi_json():
-            if (resp := require_token()) is not None:
-                return resp
+        @_dual_route("/openapi.json")
+        def openapi_json():
             return _openapi_json_response()
 
-        @app.get("/web/openapi.json")
-        def web_openapi_json():
-            if (resp := require_token()) is not None:
-                return resp
-            return _openapi_json_response()
+        def _swagger_docs_response():
+            spec_path = (
+                _public_url("/api/openapi.json")
+                if request.path.startswith("/api")
+                else _public_url("/web/openapi.json")
+            )
+            return _swagger_ui_response(spec_path)
 
-        @app.get("/api/docs")
-        def api_swagger_docs():
-            if (resp := require_token()) is not None:
-                return resp
-            return _swagger_ui_response(_public_url("/api/openapi.json"))
-
-        @app.get("/web/docs")
-        def web_swagger_docs():
-            if (resp := require_token()) is not None:
-                return resp
-            return _swagger_ui_response(_public_url("/web/openapi.json"))
+        @_dual_route("/docs")
+        def swagger_docs():
+            return _swagger_docs_response()
 
         @app.get("/ui")
         def ui_index():
@@ -2703,17 +2694,8 @@ class WebUI:
                 )
             return {"processes": procs}
 
-        @app.get("/api/processes")
-        def api_processes():
-            if (resp := require_token()) is not None:
-                return resp
-            return jsonify(_processes_payload())
-
-        # UI endpoints (mirror of /api/* for first-party WebUI clients)
-        @app.get("/web/processes")
-        def web_processes():
-            if (resp := require_token()) is not None:
-                return resp
+        @_dual_route("/processes")
+        def processes():
             return jsonify(_processes_payload())
 
         def _restart_process(category: str, kind: str):
@@ -2835,29 +2817,12 @@ class WebUI:
         # ``<path:category>`` (rather than the default ``<string:>``) so subcategory
         # paths like ``seed/tleech`` survive routing — see
         # ``docs/configuration/qbittorrent.md`` for the user-facing rules.
-        @app.post("/api/processes/<path:category>/<kind>/restart")
-        def api_restart_process(category: str, kind: str):
-            if (resp := require_token()) is not None:
-                return resp
+        @_dual_route("/processes/<path:category>/<kind>/restart", methods=("POST",))
+        def restart_process(category: str, kind: str):
             return _restart_process(category, kind)
 
-        @app.post("/web/processes/<path:category>/<kind>/restart")
-        def web_restart_process(category: str, kind: str):
-            if (resp := require_token()) is not None:
-                return resp
-            return _restart_process(category, kind)
-
-        @app.post("/api/processes/restart_all")
-        def api_restart_all():
-            if (resp := require_token()) is not None:
-                return resp
-            self._reload_all()
-            return jsonify({"status": "ok"})
-
-        @app.post("/web/processes/restart_all")
-        def web_restart_all():
-            if (resp := require_token()) is not None:
-                return resp
+        @_dual_route("/processes/restart_all", methods=("POST",))
+        def restart_all():
             self._reload_all()
             return jsonify({"status": "ok"})
 
@@ -2879,29 +2844,12 @@ class WebUI:
                 self.logger.debug("Failed to persist log level to config", exc_info=True)
             return jsonify({"status": "ok", "level": level})
 
-        @app.post("/api/loglevel")
-        def api_loglevel():
-            if (resp := require_token()) is not None:
-                return resp
+        @_dual_route("/loglevel", methods=("POST",))
+        def loglevel():
             return _handle_loglevel()
 
-        @app.post("/web/loglevel")
-        def web_loglevel():
-            if (resp := require_token()) is not None:
-                return resp
-            return _handle_loglevel()
-
-        @app.post("/api/arr/rebuild")
-        def api_arr_rebuild():
-            if (resp := require_token()) is not None:
-                return resp
-            self._reload_all()
-            return jsonify({"status": "ok"})
-
-        @app.post("/web/arr/rebuild")
-        def web_arr_rebuild():
-            if (resp := require_token()) is not None:
-                return resp
+        @_dual_route("/arr/rebuild", methods=("POST",))
+        def arr_rebuild():
             self._reload_all()
             return jsonify({"status": "ok"})
 
@@ -2911,16 +2859,8 @@ class WebUI:
             log_files = sorted(f.name for f in logs_root.glob("*.log*"))
             return log_files
 
-        @app.get("/api/logs")
-        def api_logs():
-            if (resp := require_token()) is not None:
-                return resp
-            return jsonify({"files": _list_logs()})
-
-        @app.get("/web/logs")
-        def web_logs():
-            if (resp := require_token()) is not None:
-                return resp
+        @_dual_route("/logs")
+        def logs():
             return jsonify({"files": _list_logs()})
 
         def _read_tail(path: Path, n: int, offset: int = 0) -> str:
@@ -2989,48 +2929,32 @@ class WebUI:
             response.headers["Cache-Control"] = "no-cache"
             return response
 
-        @app.get("/api/logs/<name>")
-        def api_log(name: str):
-            if (resp := require_token()) is not None:
-                return resp
+        @_dual_route("/logs/<name>")
+        def log(name: str):
             return _serve_log_content(name)
 
-        @app.get("/web/logs/<name>")
-        def web_log(name: str):
-            if (resp := require_token()) is not None:
-                return resp
-            return _serve_log_content(name)
-
-        @app.get("/api/logs/<name>/download")
-        def api_log_download(name: str):
-            if (resp := require_token()) is not None:
-                return resp
+        def _log_download(name: str):
             file = _resolve_log_file(name)
             if file is None or not file.exists():
                 return jsonify({"error": "not found"}), 404
             return send_file(file, as_attachment=True)
 
-        @app.get("/web/logs/<name>/download")
-        def web_log_download(name: str):
-            if (resp := require_token()) is not None:
-                return resp
-            file = _resolve_log_file(name)
-            if file is None or not file.exists():
-                return jsonify({"error": "not found"}), 404
-            return send_file(file, as_attachment=True)
+        @_dual_route("/logs/<name>/download")
+        def log_download(name: str):
+            return _log_download(name)
 
         @_arr_catalog_db_safe
         def _handle_radarr_movies(category: str):
             managed = _managed_objects()
-            if not managed:
-                if not _ensure_arr_manager_ready():
-                    return jsonify({"error": "Arr manager is still initialising"}), 503
-            arr = managed.get(category)
-            if arr is None or getattr(arr, "type", None) != "radarr":
-                return jsonify({"error": f"Unknown radarr category {category}"}), 404
-            q = request.args.get("q", default=None, type=str)
-            page = request.args.get("page", default=0, type=int)
-            page_size = min(request.args.get("page_size", default=50, type=int), 1000)
+            arr, err = resolve_arr_handler(
+                category,
+                "radarr",
+                managed,
+                arr_manager_ready=_ensure_arr_manager_ready(),
+            )
+            if err is not None:
+                return err
+            filters = parse_catalog_filters(request, default_page_size=50)
             year_min = request.args.get("year_min", default=None, type=int)
             year_max = request.args.get("year_max", default=None, type=int)
             monitored = (
@@ -3051,9 +2975,9 @@ class WebUI:
             )
             payload = self._radarr_movies_from_db(
                 arr,
-                q,
-                page,
-                page_size,
+                filters["q"],
+                filters["page"],
+                filters["page_size"],
                 year_min=year_min,
                 year_max=year_max,
                 monitored=monitored,
@@ -3064,16 +2988,8 @@ class WebUI:
             payload["category"] = category
             return jsonify(payload)
 
-        @app.get("/api/radarr/<path:category>/movies")
-        def api_radarr_movies(category: str):
-            if (resp := require_token()) is not None:
-                return resp
-            return _handle_radarr_movies(category)
-
-        @app.get("/web/radarr/<path:category>/movies")
-        def web_radarr_movies(category: str):
-            if (resp := require_token()) is not None:
-                return resp
+        @_dual_route("/radarr/<path:category>/movies")
+        def radarr_movies(category: str):
             return _handle_radarr_movies(category)
 
         def _arr_thumbnail(category: str, kind: str, entry_id: int) -> Response | tuple[Any, int]:
@@ -3116,75 +3032,58 @@ class WebUI:
                 return Response(status=304, headers=cache_headers)
             return Response(data, mimetype=mime, headers=cache_headers)
 
-        @app.get("/api/radarr/<path:category>/movie/<int:entry_id>/thumbnail")
-        def api_radarr_thumb(category: str, entry_id: int):
-            if (resp := require_token()) is not None:
-                return resp
-            return _arr_thumbnail(category, "radarr", entry_id)
-
-        @app.get("/web/radarr/<path:category>/movie/<int:entry_id>/thumbnail")
-        def web_radarr_thumb(category: str, entry_id: int):
-            if (resp := require_token()) is not None:
-                return resp
+        @_dual_route("/radarr/<path:category>/movie/<int:entry_id>/thumbnail")
+        def radarr_thumb(category: str, entry_id: int):
             return _arr_thumbnail(category, "radarr", entry_id)
 
         @_arr_catalog_db_safe
         def _handle_sonarr_series(category: str):
             managed = _managed_objects()
-            if not managed:
-                if not _ensure_arr_manager_ready():
-                    return jsonify({"error": "Arr manager is still initialising"}), 503
-            arr = managed.get(category)
-            if arr is None or getattr(arr, "type", None) != "sonarr":
-                return jsonify({"error": f"Unknown sonarr category {category}"}), 404
-            q = request.args.get("q", default=None, type=str)
-            page = request.args.get("page", default=0, type=int)
-            page_size = min(request.args.get("page_size", default=25, type=int), 1000)
-            missing_only = coerce_bool(
-                request.args.get("missing") or request.args.get("only_missing")
+            arr, err = resolve_arr_handler(
+                category,
+                "sonarr",
+                managed,
+                arr_manager_ready=_ensure_arr_manager_ready(),
+            )
+            if err is not None:
+                return err
+            filters = parse_catalog_filters(
+                request,
+                default_page_size=25,
+                include_missing_only=True,
             )
             payload = self._sonarr_series_from_db(
-                arr, q, page, page_size, missing_only=missing_only
+                arr,
+                filters["q"],
+                filters["page"],
+                filters["page_size"],
+                missing_only=filters["missing_only"],
             )
             payload["category"] = category
             return jsonify(payload)
 
-        @app.get("/api/sonarr/<path:category>/series")
-        def api_sonarr_series(category: str):
-            if (resp := require_token()) is not None:
-                return resp
+        @_dual_route("/sonarr/<path:category>/series")
+        def sonarr_series(category: str):
             return _handle_sonarr_series(category)
 
-        @app.get("/web/sonarr/<path:category>/series")
-        def web_sonarr_series(category: str):
-            if (resp := require_token()) is not None:
-                return resp
-            return _handle_sonarr_series(category)
-
-        @app.get("/api/sonarr/<path:category>/series/<int:entry_id>/thumbnail")
-        def api_sonarr_thumb(category: str, entry_id: int):
-            if (resp := require_token()) is not None:
-                return resp
-            return _arr_thumbnail(category, "sonarr", entry_id)
-
-        @app.get("/web/sonarr/<path:category>/series/<int:entry_id>/thumbnail")
-        def web_sonarr_thumb(category: str, entry_id: int):
-            if (resp := require_token()) is not None:
-                return resp
+        @_dual_route("/sonarr/<path:category>/series/<int:entry_id>/thumbnail")
+        def sonarr_thumb(category: str, entry_id: int):
             return _arr_thumbnail(category, "sonarr", entry_id)
 
         @_arr_catalog_db_safe
         def _handle_lidarr_albums(category: str):
             managed = _managed_objects()
-            if not managed:
-                if not _ensure_arr_manager_ready():
-                    return jsonify({"error": "Arr manager is still initialising"}), 503
-            arr = _resolve_managed_lidarr(category)
-            if arr is None:
-                return jsonify({"error": f"Unknown lidarr category {category}"}), 404
-            q = request.args.get("q", default=None, type=str)
-            page = request.args.get("page", default=0, type=int)
-            page_size = _lidarr_page_size_from_request(50)
+            arr, err = resolve_arr_handler(
+                category,
+                "lidarr",
+                managed,
+                arr_manager_ready=_ensure_arr_manager_ready(),
+                slug_resolver=_resolve_managed_lidarr,
+            )
+            if err is not None:
+                return err
+            filters = parse_catalog_filters(request, default_page_size=50)
+            page_size = _lidarr_page_size_from_request(filters["page_size"])
             monitored = (
                 coerce_bool(request.args.get("monitored")) if "monitored" in request.args else None
             )
@@ -3204,21 +3103,19 @@ class WebUI:
             flat_mode = coerce_bool(request.args.get("flat_mode", False))
 
             if flat_mode:
-                # Flat mode: return tracks directly
                 payload = self._lidarr_tracks_from_db(
                     arr,
-                    q,
-                    page,
+                    filters["q"],
+                    filters["page"],
                     page_size,
                     monitored=monitored,
                     has_file=has_file,
                 )
             else:
-                # Grouped mode: return albums with tracks, paginated by artist
                 payload = self._lidarr_albums_from_db(
                     arr,
-                    q,
-                    page,
+                    filters["q"],
+                    filters["page"],
                     page_size,
                     monitored=monitored,
                     has_file=has_file,
@@ -3229,46 +3126,42 @@ class WebUI:
             payload["category"] = str(arr.category)
             return jsonify(payload)
 
-        @app.get("/api/lidarr/<path:category>/albums")
-        def api_lidarr_albums(category: str):
-            if (resp := require_token()) is not None:
-                return resp
-            return _handle_lidarr_albums(category)
-
-        @app.get("/web/lidarr/<path:category>/albums")
-        def web_lidarr_albums(category: str):
-            if (resp := require_token()) is not None:
-                return resp
+        @_dual_route("/lidarr/<path:category>/albums")
+        def lidarr_albums(category: str):
             return _handle_lidarr_albums(category)
 
         @_arr_catalog_db_safe
         def _handle_lidarr_artists(category: str):
             managed = _managed_objects()
-            if not managed:
-                if not _ensure_arr_manager_ready():
-                    return jsonify({"error": "Arr manager is still initialising"}), 503
-            arr = _resolve_managed_lidarr(category)
-            if arr is None:
-                return jsonify({"error": f"Unknown lidarr category {category}"}), 404
-            q = request.args.get("q", default=None, type=str)
-            page = request.args.get("page", default=0, type=int)
-            page_size = _lidarr_page_size_from_request(50)
+            arr, err = resolve_arr_handler(
+                category,
+                "lidarr",
+                managed,
+                arr_manager_ready=_ensure_arr_manager_ready(),
+                slug_resolver=_resolve_managed_lidarr,
+            )
+            if err is not None:
+                return err
+            filters = parse_catalog_filters(
+                request,
+                default_page_size=50,
+                include_missing_only=True,
+                include_reason=True,
+            )
+            page_size = _lidarr_page_size_from_request(filters["page_size"])
             monitored = (
                 coerce_bool(request.args.get("monitored")) if "monitored" in request.args else None
             )
-            missing_only = coerce_bool(
-                request.args.get("missing") or request.args.get("only_missing")
-            )
-            reason = request.args.get("reason", default=None, type=str)
+            reason = filters.get("reason")
             if reason and reason.strip().lower() == "all":
                 reason = None
             payload = self._lidarr_artists_from_db(
                 arr,
-                q,
-                page,
+                filters["q"],
+                filters["page"],
                 page_size,
                 monitored=monitored,
-                missing_only=missing_only,
+                missing_only=filters["missing_only"],
                 reason_filter=reason,
             )
             payload["category"] = str(arr.category)
@@ -3277,52 +3170,31 @@ class WebUI:
         @_arr_catalog_db_safe
         def _handle_lidarr_artist_detail(category: str, artist_id: int):
             managed = _managed_objects()
-            if not managed:
-                if not _ensure_arr_manager_ready():
-                    return jsonify({"error": "Arr manager is still initialising"}), 503
-            arr = _resolve_managed_lidarr(category)
-            if arr is None:
-                return jsonify({"error": f"Unknown lidarr category {category}"}), 404
+            arr, err = resolve_arr_handler(
+                category,
+                "lidarr",
+                managed,
+                arr_manager_ready=_ensure_arr_manager_ready(),
+                slug_resolver=_resolve_managed_lidarr,
+            )
+            if err is not None:
+                return err
             detail = self._lidarr_artist_detail_from_db(arr, artist_id)
             if detail is None:
                 return jsonify({"error": "Artist not found"}), 404
             detail["category"] = str(arr.category)
             return jsonify(detail)
 
-        @app.get("/api/lidarr/<path:category>/artists")
-        def api_lidarr_artists(category: str):
-            if (resp := require_token()) is not None:
-                return resp
+        @_dual_route("/lidarr/<path:category>/artists")
+        def lidarr_artists(category: str):
             return _handle_lidarr_artists(category)
 
-        @app.get("/web/lidarr/<path:category>/artists")
-        def web_lidarr_artists(category: str):
-            if (resp := require_token()) is not None:
-                return resp
-            return _handle_lidarr_artists(category)
-
-        @app.get("/api/lidarr/<path:category>/artist/<int:artist_id>")
-        def api_lidarr_artist_detail(category: str, artist_id: int):
-            if (resp := require_token()) is not None:
-                return resp
+        @_dual_route("/lidarr/<path:category>/artist/<int:artist_id>")
+        def lidarr_artist_detail(category: str, artist_id: int):
             return _handle_lidarr_artist_detail(category, artist_id)
 
-        @app.get("/web/lidarr/<path:category>/artist/<int:artist_id>")
-        def web_lidarr_artist_detail(category: str, artist_id: int):
-            if (resp := require_token()) is not None:
-                return resp
-            return _handle_lidarr_artist_detail(category, artist_id)
-
-        @app.get("/api/lidarr/<path:category>/artist/<int:artist_id>/thumbnail")
-        def api_lidarr_artist_thumb(category: str, artist_id: int):
-            if (resp := require_token()) is not None:
-                return resp
-            return _arr_thumbnail(category, "lidarr_artist", artist_id)
-
-        @app.get("/web/lidarr/<path:category>/artist/<int:artist_id>/thumbnail")
-        def web_lidarr_artist_thumb(category: str, artist_id: int):
-            if (resp := require_token()) is not None:
-                return resp
+        @_dual_route("/lidarr/<path:category>/artist/<int:artist_id>/thumbnail")
+        def lidarr_artist_thumb(category: str, artist_id: int):
             return _arr_thumbnail(category, "lidarr_artist", artist_id)
 
         def _arr_list_payload() -> dict[str, Any]:
@@ -3335,16 +3207,8 @@ class WebUI:
                     items.append({"category": category, "name": name, "type": t})
             return {"arr": items, "ready": _ensure_arr_manager_ready()}
 
-        @app.get("/api/arr")
-        def api_arr_list():
-            if (resp := require_token()) is not None:
-                return resp
-            return jsonify(_arr_list_payload())
-
-        @app.get("/web/arr")
-        def web_arr_list():
-            if (resp := require_token()) is not None:
-                return resp
+        @_dual_route("/arr")
+        def arr_list():
             return jsonify(_arr_list_payload())
 
         @app.get("/web/qbit/categories")
@@ -3502,16 +3366,8 @@ class WebUI:
                 return jsonify({"error": message}), 409
             return jsonify({"status": "started"})
 
-        @app.post("/api/update")
-        def api_update():
-            if (resp := require_token()) is not None:
-                return resp
-            return _handle_update()
-
-        @app.post("/web/update")
-        def web_update():
-            if (resp := require_token()) is not None:
-                return resp
+        @_dual_route("/update", methods=("POST",))
+        def update():
             return _handle_update()
 
         def _handle_download_update():
@@ -3538,16 +3394,8 @@ class WebUI:
 
             return redirect(download_url)
 
-        @app.get("/api/download-update")
-        def api_download_update():
-            if (resp := require_token()) is not None:
-                return resp
-            return _handle_download_update()
-
-        @app.get("/web/download-update")
-        def web_download_update():
-            if (resp := require_token()) is not None:
-                return resp
+        @_dual_route("/download-update")
+        def download_update():
             return _handle_download_update()
 
         def _status_payload() -> dict[str, Any]:
@@ -3611,16 +3459,8 @@ class WebUI:
                 "webui": webui_settings,
             }
 
-        @app.get("/api/status")
-        def api_status():
-            if (resp := require_token()) is not None:
-                return resp
-            return jsonify(_status_payload())
-
-        @app.get("/web/status")
-        def web_status():
-            if (resp := require_token()) is not None:
-                return resp
+        @_dual_route("/status")
+        def status():
             return jsonify(_status_payload())
 
         @app.get("/api/torrents/distribution")
@@ -3717,24 +3557,8 @@ class WebUI:
                 restarted.append(k)
             return jsonify({"status": "ok", "restarted": restarted})
 
-        @app.post("/api/arr/<section>/restart")
-        def api_arr_restart(section: str):
-            if (resp := require_token()) is not None:
-                return resp
-            # Section is the category key in managed_objects
-            managed = _managed_objects()
-            if not managed:
-                if not _ensure_arr_manager_ready():
-                    return jsonify({"error": "Arr manager is still initialising"}), 503
-            if section not in managed:
-                return jsonify({"error": f"Unknown section {section}"}), 404
-            arr = managed[section]
-            return _restart_arr_instance(arr)
-
-        @app.post("/web/arr/<section>/restart")
-        def web_arr_restart(section: str):
-            if (resp := require_token()) is not None:
-                return resp
+        @_dual_route("/arr/<section>/restart", methods=("POST",))
+        def arr_restart(section: str):
             managed = _managed_objects()
             if not managed:
                 if not _ensure_arr_manager_ready():
@@ -3953,16 +3777,8 @@ class WebUI:
 
             return response
 
-        @app.post("/api/config")
-        def api_update_config():
-            if (resp := require_token()) is not None:
-                return resp
-            return _handle_config_update()
-
-        @app.post("/web/config")
-        def web_update_config():
-            if (resp := require_token()) is not None:
-                return resp
+        @_dual_route("/config", methods=("POST",))
+        def update_config():
             return _handle_config_update()
 
         def _handle_test_connection():
@@ -4177,16 +3993,8 @@ class WebUI:
                 self.logger.error("Test connection error: %s", e)
                 return jsonify({"success": False, "message": "Connection test failed"}), 500
 
-        @app.post("/api/arr/test-connection")
-        def api_arr_test_connection():
-            if (resp := require_token()) is not None:
-                return resp
-            return _handle_test_connection()
-
-        @app.post("/web/arr/test-connection")
-        def web_arr_test_connection():
-            if (resp := require_token()) is not None:
-                return resp
+        @_dual_route("/arr/test-connection", methods=("POST",))
+        def arr_test_connection():
             return _handle_test_connection()
 
     def _reload_all(self):
