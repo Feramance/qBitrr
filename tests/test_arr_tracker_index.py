@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import unittest
 
-from qBitrr.arr_tracker_index import (
-    build_tracker_index,
-    extract_tracker_host,
-    merge_tracker_configs,
-)
+from tests.support.branch_compat import HAS_MERGE_TRACKER_CONFIGS
+
+from qBitrr.arr_tracker_index import build_tracker_index, extract_tracker_host
+
+if HAS_MERGE_TRACKER_CONFIGS:
+    from qBitrr.arr_tracker_index import merge_tracker_configs
 
 
 class TestExtractTrackerHostCombinations(unittest.TestCase):
@@ -25,6 +26,7 @@ class TestExtractTrackerHostCombinations(unittest.TestCase):
                 self.assertEqual(extract_tracker_host(uri), expected)
 
 
+@unittest.skipUnless(HAS_MERGE_TRACKER_CONFIGS, "merge_tracker_configs is refactor-only")
 class TestMergeTrackerConfigsCombinations(unittest.TestCase):
     def test_arr_overwrites_qbit_for_same_uri(self) -> None:
         qbit = [{"URI": "https://a/announce", "AddTrackerIfMissing": False}]

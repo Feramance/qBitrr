@@ -5,20 +5,31 @@ from __future__ import annotations
 import unittest
 from unittest import mock
 
-from tests.support.branch_compat import HAS_AUTO_UPDATE_PLATFORM_FIX
+from tests.support.branch_compat import (
+    HAS_ARR_SECTION_HELPERS,
+    HAS_AUTO_UPDATE_PLATFORM_FIX,
+    HAS_PARSE_DURATION,
+    HAS_QBIT_SEEDING_CONFIG,
+)
 
 from qBitrr.duration_config import (
-    parse_duration,
     parse_duration_to_minutes,
     parse_duration_to_seconds,
 )
+
+if HAS_PARSE_DURATION:
+    from qBitrr.duration_config import parse_duration
+
 from qBitrr.gen_config import (
-    ARR_SECTION_PREFIXES,
     _normalize_theme_value,
     _normalize_view_density_value,
-    iter_arr_sections,
 )
-from qBitrr.qbit_seeding_config import load_qbit_seeding_config
+
+if HAS_ARR_SECTION_HELPERS:
+    from qBitrr.gen_config import ARR_SECTION_PREFIXES, iter_arr_sections
+if HAS_QBIT_SEEDING_CONFIG:
+    from qBitrr.qbit_seeding_config import load_qbit_seeding_config
+
 from qBitrr.tables import AlbumFilesModel, EpisodeFilesModel, MoviesFilesModel
 from qBitrr.utils import coerce_bool, normalize_url_base, qbit_sections
 
@@ -64,6 +75,7 @@ class TestQbitSections(unittest.TestCase):
         self.assertEqual(qbit_sections(config), ["qBit", "qBit-Seedbox"])
 
 
+@unittest.skipUnless(HAS_PARSE_DURATION, "parse_duration unified helper is refactor-only")
 class TestParseDurationGoldenMaster(unittest.TestCase):
     def test_seconds_default_suffix(self) -> None:
         self.assertEqual(parse_duration_to_seconds("60"), 60)
@@ -91,6 +103,7 @@ class TestNormalizeEnumGoldenMaster(unittest.TestCase):
         self.assertEqual(_normalize_view_density_value(None), "Comfortable")
 
 
+@unittest.skipUnless(HAS_ARR_SECTION_HELPERS, "iter_arr_sections is refactor-only")
 class TestIterArrSections(unittest.TestCase):
     def test_yields_arr_instance_sections(self) -> None:
         config = mock.MagicMock()
@@ -139,6 +152,7 @@ class TestTablesFieldGoldenMaster(unittest.TestCase):
                     self.assertEqual(movie_snap[name], episode_snap[name])
 
 
+@unittest.skipUnless(HAS_QBIT_SEEDING_CONFIG, "qbit_seeding_config is refactor-only")
 class TestLoadQbitSeedingConfig(unittest.TestCase):
     @mock.patch("qBitrr.qbit_seeding_config.CONFIG")
     def test_loads_section_keys_and_category_overrides(self, mock_config: mock.MagicMock) -> None:
