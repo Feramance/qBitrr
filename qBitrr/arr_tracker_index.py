@@ -40,6 +40,22 @@ class TrackerIndex:
     normalized_bad_tracker_msgs: frozenset[str]
 
 
+def merge_tracker_configs(qbit_trackers: list, arr_trackers: list) -> list[dict]:
+    """URI-keyed merge: *arr_trackers* overwrite *qbit_trackers* for the same URI."""
+    merged: dict[str, dict] = {}
+    for tracker in qbit_trackers:
+        if isinstance(tracker, dict):
+            uri = (tracker.get("URI") or "").strip().rstrip("/")
+            if uri:
+                merged[uri] = dict(tracker)
+    for tracker in arr_trackers:
+        if isinstance(tracker, dict):
+            uri = (tracker.get("URI") or "").strip().rstrip("/")
+            if uri:
+                merged[uri] = dict(tracker)
+    return list(merged.values())
+
+
 def build_tracker_index(
     monitored_trackers: list,
     *,

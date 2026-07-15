@@ -77,23 +77,17 @@ class qBitCategoryManager:
         Arr-level tracker configs override qBit-level entries with the same URI,
         matching the merge logic used by ArrManager.
         """
+        from qBitrr.arr_tracker_index import merge_tracker_configs
         from qBitrr.config import CONFIG
 
-        merged: dict[str, dict] = {}
-        for tracker in qbit_trackers:
-            if isinstance(tracker, dict):
-                uri = (tracker.get("URI") or "").strip().rstrip("/")
-                if uri:
-                    merged[uri] = dict(tracker)
+        arr_trackers: list[dict] = []
         for section in CONFIG.sections():
             if section == "qBit" or section.startswith("qBit-"):
                 continue
             for tracker in CONFIG.get(f"{section}.Torrent.Trackers", fallback=[]):
                 if isinstance(tracker, dict):
-                    uri = (tracker.get("URI") or "").strip().rstrip("/")
-                    if uri:
-                        merged[uri] = dict(tracker)
-        return list(merged.values())
+                    arr_trackers.append(tracker)
+        return merge_tracker_configs(qbit_trackers, arr_trackers)
 
     def get_client(self):
         """Get the qBit client for this instance.

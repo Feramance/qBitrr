@@ -779,18 +779,9 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
     @staticmethod
     def _merge_trackers(qbit_trackers: list, arr_trackers: list) -> list:
         """Merge qBit-level and Arr-level trackers. Arr overrides qBit by URI."""
-        merged: dict[str, dict] = {}
-        for tracker in qbit_trackers:
-            if isinstance(tracker, dict):
-                uri = (tracker.get("URI") or "").strip().rstrip("/")
-                if uri:
-                    merged[uri] = dict(tracker)
-        for tracker in arr_trackers:
-            if isinstance(tracker, dict):
-                uri = (tracker.get("URI") or "").strip().rstrip("/")
-                if uri:
-                    merged[uri] = dict(tracker)
-        return list(merged.values())
+        from qBitrr.arr_tracker_index import merge_tracker_configs
+
+        return merge_tracker_configs(qbit_trackers, arr_trackers)
 
     @staticmethod
     def merge_global_tracker_blocks() -> list[dict]:
@@ -800,21 +791,21 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
         URI-keyed merge: qBit entries are loaded first; each Arr section in config file
         order overwrites earlier entries for the same URI (including qBit).
         """
-        merged: dict[str, dict] = {}
-        for tracker in CONFIG.get("qBit.Trackers", fallback=[]):
-            if isinstance(tracker, dict):
-                uri = (tracker.get("URI") or "").strip().rstrip("/")
-                if uri:
-                    merged[uri] = dict(tracker)
+        from qBitrr.arr_tracker_index import merge_tracker_configs
+
+        qbit_trackers = [
+            tracker
+            for tracker in CONFIG.get("qBit.Trackers", fallback=[])
+            if isinstance(tracker, dict)
+        ]
+        arr_trackers: list[dict] = []
         for section in CONFIG.sections():
             if not re.match(r"(rad|son|anim|lid)arr.*", section, re.IGNORECASE):
                 continue
             for tracker in CONFIG.get(f"{section}.Torrent.Trackers", fallback=[]):
                 if isinstance(tracker, dict):
-                    uri = (tracker.get("URI") or "").strip().rstrip("/")
-                    if uri:
-                        merged[uri] = dict(tracker)
-        return list(merged.values())
+                    arr_trackers.append(tracker)
+        return merge_tracker_configs(qbit_trackers, arr_trackers)
 
     @staticmethod
     def merge_global_tracker_configured_add_tags() -> frozenset[str]:

@@ -80,6 +80,37 @@ def getLogger(name: str | None = None):
 logging.getLogger = getLogger
 
 
+_COLORED_LEVEL_STYLES = {
+    "trace": {"color": "black", "bold": True},
+    "debug": {"color": "magenta", "bold": True},
+    "verbose": {"color": "blue", "bold": True},
+    "info": {"color": "white"},
+    "notice": {"color": "cyan"},
+    "hnotice": {"color": "cyan", "bold": True},
+    "warning": {"color": "yellow", "bold": True},
+    "success": {"color": "green", "bold": True},
+    "error": {"color": "red"},
+    "critical": {"color": "red", "bold": True},
+}
+
+_COLORED_FIELD_STYLES = {
+    "asctime": {"color": "green"},
+    "process": {"color": "magenta"},
+    "levelname": {"color": "red", "bold": True},
+    "name": {"color": "blue", "bold": True},
+    "thread": {"color": "cyan"},
+}
+
+
+def _colored_formatter(fmt: str) -> coloredlogs.ColoredFormatter:
+    """Build a ColoredFormatter with the shared qBitrr style map."""
+    return coloredlogs.ColoredFormatter(
+        fmt=fmt,
+        level_styles=_COLORED_LEVEL_STYLES,
+        field_styles=_COLORED_FIELD_STYLES,
+    )
+
+
 logger = logging.getLogger("qBitrr.Misc")
 
 
@@ -99,25 +130,8 @@ def run_logs(logger: Logger, _name: str = None) -> None:
         level=logging._nameToLevel.get(CONSOLE_LOGGING_LEVEL_STRING),
         fmt="[%(asctime)-15s] [pid:%(process)8d][tid:%(thread)8d] "
         f"%(levelname)-8s: %(name)-{key_length}s: %(message)s",
-        level_styles={
-            "trace": {"color": "black", "bold": True},
-            "debug": {"color": "magenta", "bold": True},
-            "verbose": {"color": "blue", "bold": True},
-            "info": {"color": "white"},
-            "notice": {"color": "cyan"},
-            "hnotice": {"color": "cyan", "bold": True},
-            "warning": {"color": "yellow", "bold": True},
-            "success": {"color": "green", "bold": True},
-            "error": {"color": "red"},
-            "critical": {"color": "red", "bold": True},
-        },
-        field_styles={
-            "asctime": {"color": "green"},
-            "process": {"color": "magenta"},
-            "levelname": {"color": "red", "bold": True},
-            "name": {"color": "blue", "bold": True},
-            "thread": {"color": "cyan"},
-        },
+        level_styles=_COLORED_LEVEL_STYLES,
+        field_styles=_COLORED_FIELD_STYLES,
         reconfigure=True,
     )
     logger.propagate = False
@@ -140,27 +154,8 @@ def run_logs(logger: Logger, _name: str = None) -> None:
             # Create handler for All.log that all loggers will use
             ALL_LOGS_HANDLER = logging.FileHandler(all_logfile)
             ALL_LOGS_HANDLER.setFormatter(
-                coloredlogs.ColoredFormatter(
-                    fmt="[%(asctime)-15s] " f"%(levelname)-8s: %(name)-{key_length}s: %(message)s",
-                    level_styles={
-                        "trace": {"color": "black", "bold": True},
-                        "debug": {"color": "magenta", "bold": True},
-                        "verbose": {"color": "blue", "bold": True},
-                        "info": {"color": "white"},
-                        "notice": {"color": "cyan"},
-                        "hnotice": {"color": "cyan", "bold": True},
-                        "warning": {"color": "yellow", "bold": True},
-                        "success": {"color": "green", "bold": True},
-                        "error": {"color": "red"},
-                        "critical": {"color": "red", "bold": True},
-                    },
-                    field_styles={
-                        "asctime": {"color": "green"},
-                        "process": {"color": "magenta"},
-                        "levelname": {"color": "red", "bold": True},
-                        "name": {"color": "blue", "bold": True},
-                        "thread": {"color": "cyan"},
-                    },
+                _colored_formatter(
+                    f"[%(asctime)-15s] %(levelname)-8s: %(name)-{key_length}s: %(message)s"
                 )
             )
 
@@ -184,27 +179,8 @@ def run_logs(logger: Logger, _name: str = None) -> None:
             fh = logging.FileHandler(logfile)
             # Use ColoredFormatter for file output to include ANSI colors in log files
             fh.setFormatter(
-                coloredlogs.ColoredFormatter(
-                    fmt="[%(asctime)-15s] " f"%(levelname)-8s: %(name)-{key_length}s: %(message)s",
-                    level_styles={
-                        "trace": {"color": "black", "bold": True},
-                        "debug": {"color": "magenta", "bold": True},
-                        "verbose": {"color": "blue", "bold": True},
-                        "info": {"color": "white"},
-                        "notice": {"color": "cyan"},
-                        "hnotice": {"color": "cyan", "bold": True},
-                        "warning": {"color": "yellow", "bold": True},
-                        "success": {"color": "green", "bold": True},
-                        "error": {"color": "red"},
-                        "critical": {"color": "red", "bold": True},
-                    },
-                    field_styles={
-                        "asctime": {"color": "green"},
-                        "process": {"color": "magenta"},
-                        "levelname": {"color": "red", "bold": True},
-                        "name": {"color": "blue", "bold": True},
-                        "thread": {"color": "cyan"},
-                    },
+                _colored_formatter(
+                    f"[%(asctime)-15s] %(levelname)-8s: %(name)-{key_length}s: %(message)s"
                 )
             )
             logger.addHandler(fh)
