@@ -162,6 +162,9 @@ class ArtistFilesModel(Model):
     # Quality profile from Arr API
     QualityProfileId = IntegerField(null=True)
     QualityProfileName = TextField(null=True)
+    LastProfileSwitchTime = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"], null=True)
+    CurrentProfileId = IntegerField(null=True)
+    OriginalProfileId = IntegerField(null=True)
     # Denormalized: album and track totals for this artist (catalog_rollups)
     AlbumCount = IntegerField(default=0)
     TrackTotalCount = IntegerField(default=0)
