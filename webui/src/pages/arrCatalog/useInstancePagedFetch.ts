@@ -258,8 +258,14 @@ export function useInstancePagedFetch<
           error instanceof Error ? error.message : adapter.errorMessage(category),
           "error",
         );
+        // Allow the empty/error UI to render — otherwise `waitingForStableEmpty`
+        // keeps the spinner forever when no successful response arrived.
+        setEmptyStateReady(true);
       } finally {
-        if (showLoading && gen === fetchGenRef.current) {
+        // Always clear when this is the latest generation. A background poll
+        // (`showLoading: false`) that supersedes an in-flight visible fetch must
+        // still clear the spinner — otherwise loading sticks forever.
+        if (gen === fetchGenRef.current) {
           setLoading(false);
         }
       }

@@ -1463,6 +1463,7 @@ class WebUI:
         album_results: list[Any] = []
         track_m = getattr(arr, "track_file_model", None)
         tracks_by_album: dict[int, list[Any]] = {}
+        total = int(album_total_inst or 0)
 
         with database_lock():
             with db.connection_context():
@@ -1488,6 +1489,10 @@ class WebUI:
                 if is_request is not None:
                     query = query.where(model.IsRequest == is_request)
 
+                # ``total`` for pagination must match the unit we paginate by. Grouped
+                # mode pages by distinct artists; flat mode pages by albums. Using the
+                # album rollup count while grouping by artist made clients plan hundreds
+                # of mostly-empty pages (spinner hung for minutes on large libraries).
                 if group_by_artist:
                     # Paginate by artists: Two-pass approach with Peewee
                     # First, get all distinct artist names from the filtered query
@@ -1497,6 +1502,7 @@ class WebUI:
                     )
 
                     all_artists = [row.ArtistTitle for row in artists_subquery]
+                    total = len(all_artists)
 
                     start_idx = page * page_size
                     end_idx = start_idx + page_size
@@ -1510,6 +1516,7 @@ class WebUI:
                         )
                 else:
                     # Flat mode: paginate by albums.
+                    total = int(query.count() or 0)
                     album_results = list(query.order_by(model.Title).paginate(page + 1, page_size))
 
                 # Single JOIN of tracks for the page rather than N+1 per-album lookups (H-2).
@@ -1528,7 +1535,6 @@ class WebUI:
                         bucket.append(trow)
 
         # Lock released — build payloads outside (B-3).
-        total = album_total_inst
         albums = [
             self._lidarr_album_row_payload(
                 arr, album, prefetched_tracks=tracks_by_album.get(int(album.EntryId or 0))
@@ -3101,6 +3107,14 @@ class WebUI:
                 else None
             )
             flat_mode = coerce_bool(request.args.get("flat_mode", False))
+            # Flat album browse (GroupLidarr=false) pages by album rows via
+            # ``group_by_artist=0``. Default remains artist-grouped payloads; that mode
+            # reports artist-count ``total`` so aggregate clients stop after the last
+            # artist page instead of looping on the album rollup count.
+            if "group_by_artist" in request.args:
+                group_by_artist = coerce_bool(request.args.get("group_by_artist"))
+            else:
+                group_by_artist = True
 
             if flat_mode:
                 payload = self._lidarr_tracks_from_db(
@@ -3121,7 +3135,7 @@ class WebUI:
                     has_file=has_file,
                     quality_met=quality_met,
                     is_request=is_request,
-                    group_by_artist=True,
+                    group_by_artist=group_by_artist,
                 )
             payload["category"] = str(arr.category)
             return jsonify(payload)

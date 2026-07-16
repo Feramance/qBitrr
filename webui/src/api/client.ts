@@ -328,6 +328,8 @@ export async function getLidarrAlbums(
   const params = new URLSearchParams();
   params.set("page", page.toString());
   params.set("page_size", pageSize.toString());
+  // Flat album browse: page by album rows (not artist-grouped mega-pages).
+  params.set("group_by_artist", "0");
   if (query) {
     params.set("q", query);
   }

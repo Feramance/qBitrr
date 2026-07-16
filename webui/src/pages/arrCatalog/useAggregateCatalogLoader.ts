@@ -299,6 +299,7 @@ export function useAggregateCatalogLoader<
         }
         setRows([]);
         setSummary(adapter.initialSummary);
+        setEmptyStateReady(true);
         pushToast(
           error instanceof Error
             ? error.message
