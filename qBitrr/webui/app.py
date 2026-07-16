@@ -20,6 +20,9 @@ from qBitrr.webui.config_toml import _toml_set
 from qBitrr.webui.lifecycle import LifecycleMixin
 from qBitrr.webui.urlbase import _install_url_base_middleware, configured_url_base
 
+# Waitress worker threads for concurrent API + poster thumbnail traffic.
+_WAITRESS_THREADS = 16
+
 
 def _config():
     import qBitrr.webui as webui_mod
@@ -382,7 +385,9 @@ class WebUI(CatalogMixin, LifecycleMixin):
                 self.app.run(host=self.host, port=self.port, debug=False, use_reloader=False)
                 return
 
-            self.logger.info("Using Waitress WSGI server for WebUI")
+            self.logger.info(
+                "Using Waitress WSGI server for WebUI (threads=%s)", _WAITRESS_THREADS
+            )
 
             # For graceful restart capability, we need to use waitress_serve with channels
             # However, for now we'll use the simpler approach and just run the server
@@ -393,6 +398,7 @@ class WebUI(CatalogMixin, LifecycleMixin):
                 host=self.host,
                 port=self.port,
                 ident="qBitrr-WebUI",
+                threads=_WAITRESS_THREADS,
                 asyncore_use_poll=True,
             )
 

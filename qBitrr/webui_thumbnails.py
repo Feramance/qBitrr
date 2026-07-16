@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import logging
 import re
 import shutil
 import threading
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin, urlparse
@@ -24,11 +26,17 @@ _REQUEST_TIMEOUT = 20
 _MAX_THUMB_REDIRECTS = 10
 # Wall-clock budget across all redirect hops (per single thumbnail fetch).
 _THUMB_TOTAL_TIMEOUT = 30.0
+# Cached tile longest edge (px) and format after Pillow ingest.
+_POSTER_MAX_EDGE = 250
+_CACHE_KEY_VERSION = "v3"
 
 # Cache directory resolution is idempotent; memoise to skip the per-request ``mkdir`` syscall.
 _CACHE_DIR_PATH: Path | None = None
 _LEGACY_CACHE_DIR = HOME_PATH / "cache" / "thumbnails"
 _MIGRATE_LOCK = threading.Lock()
+# Per-cache-path locks so parallel <img> requests share one Arr fetch + encode.
+_FLIGHT_GUARD = threading.Lock()
+_FLIGHT_LOCKS: dict[str, threading.Lock] = {}
 
 
 def _migrate_legacy_thumbnail_cache(new_dir: Path) -> None:
@@ -98,9 +106,19 @@ def _cache_dir() -> Path:
 
 def _cache_file_path(*, kind: str, instance_name: str, entry_id: int) -> Path:
     h = hashlib.sha256(
-        f"{kind}\0{instance_name}\0{entry_id}".encode("utf-8", "replace")
+        f"{kind}\0{instance_name}\0{entry_id}\0{_CACHE_KEY_VERSION}".encode("utf-8", "replace")
     ).hexdigest()[:40]
     return _cache_dir() / f"{h}.bin"
+
+
+def _flight_lock_for(path: Path) -> threading.Lock:
+    key = str(path)
+    with _FLIGHT_GUARD:
+        lock = _FLIGHT_LOCKS.get(key)
+        if lock is None:
+            lock = threading.Lock()
+            _FLIGHT_LOCKS[key] = lock
+        return lock
 
 
 def _cache_etag_path(bin_path: Path) -> Path:
@@ -135,11 +153,25 @@ def _write_etag_sidecar(bin_path: Path, digest_hex: str) -> None:
     )
 
 
+def _read_etag_digest(bin_path: Path) -> str | None:
+    ep = _cache_etag_path(bin_path)
+    if not ep.is_file():
+        return None
+    try:
+        txt = ep.read_text(encoding="ascii")
+    except OSError:
+        return None
+    stripped = txt.strip()
+    if not _DIGEST_HEX64_RE.match(stripped):
+        return None
+    return stripped.lower()
+
+
 def thumbnail_quoted_etag(kind: str, instance_name: str, entry_id: int) -> str | None:
     """
     Strong ETag for a cached thumbnail when a ``.etag`` sidecar exists (64 hex chars).
     Does not read the large ``.bin`` file. Legacy caches without a sidecar return
-    ``None`` until :func:`get_or_fetch_thumbnail_bytes` migrates the etag on read.
+    ``None`` until :func:`get_or_fetch_thumbnail` migrates the etag on read.
 
     Returned value matches strong ETags: quoted lowercase hex SHA256 digest of image bytes.
     """
@@ -152,17 +184,10 @@ def thumbnail_quoted_etag(kind: str, instance_name: str, entry_id: int) -> str |
             return None
     except OSError:
         return None
-    ep = _cache_etag_path(bin_path)
-    if not ep.is_file():
+    digest = _read_etag_digest(bin_path)
+    if digest is None:
         return None
-    try:
-        txt = ep.read_text(encoding="ascii")
-    except OSError:
-        return None
-    stripped = txt.strip()
-    if not _DIGEST_HEX64_RE.match(stripped):
-        return None
-    return f'"{stripped.lower()}"'
+    return f'"{digest}"'
 
 
 def _netloc_key(base_uri: str) -> str:
@@ -306,6 +331,48 @@ def _sniff_mime(data: bytes) -> str:
     return "image/jpeg"
 
 
+def _sniff_mime_path(path: Path) -> str:
+    """MIME from file magic without reading the whole body."""
+    try:
+        with open(path, "rb") as fh:
+            head = fh.read(16)
+    except OSError:
+        return "image/jpeg"
+    return _sniff_mime(head)
+
+
+def _normalize_thumbnail_bytes(raw: bytes) -> tuple[bytes, str]:
+    """Resize to ``_POSTER_MAX_EDGE`` and encode WebP (JPEG fallback)."""
+    from PIL import Image
+
+    try:
+        with Image.open(io.BytesIO(raw)) as img:
+            img.load()
+            w, h = img.size
+            longest = max(w, h)
+            if longest > _POSTER_MAX_EDGE > 0:
+                scale = _POSTER_MAX_EDGE / float(longest)
+                img = img.resize(
+                    (max(1, int(w * scale)), max(1, int(h * scale))),
+                    Image.Resampling.LANCZOS,
+                )
+            buf = io.BytesIO()
+            try:
+                if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
+                    save_img = img.convert("RGBA")
+                else:
+                    save_img = img.convert("RGB")
+                save_img.save(buf, format="WEBP", quality=80, method=4)
+                return buf.getvalue(), "image/webp"
+            except Exception:
+                buf = io.BytesIO()
+                img.convert("RGB").save(buf, format="JPEG", quality=82, optimize=True)
+                return buf.getvalue(), "image/jpeg"
+    except Exception:
+        logger.debug("Pillow thumbnail normalize failed; serving original bytes", exc_info=True)
+        return raw, _sniff_mime(raw)
+
+
 def _url_has_apikey_query(url: str) -> bool:
     try:
         q = urlparse(url).query.lower()
@@ -395,6 +462,20 @@ def _http_get_bytes(
                     current = next_url
                     continue
                 r.raise_for_status()
+                # Authentik/SSO login HTML sometimes returns 200 after a followed redirect;
+                # never treat that as a poster.
+                ctype = (r.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+                if (
+                    ctype
+                    and not ctype.startswith("image/")
+                    and ctype
+                    not in (
+                        "application/octet-stream",
+                        "binary/octet-stream",
+                    )
+                ):
+                    logger.debug("Thumbnail non-image Content-Type rejected: %s", ctype)
+                    return None
                 return _read_limited_response_body(r)
         except Exception as e:
             logger.debug("Thumbnail fetch failed: %s", e, exc_info=True)
@@ -448,13 +529,13 @@ def _resolve_image_url(*, kind: str, arr: Any, entry_id: int) -> str | None:
 
 
 def _lidarr_artist_mediacovers_candidates(base_uri: str, artist_id: int) -> list[str]:
-    """Deterministic same-host URLs under Lidarr's MediaCover API (fallback when JSON has no usable URL)."""
+    """Deterministic same-host URLs under Lidarr's MediaCover API (small sizes first)."""
 
     base = base_uri.rstrip("/")
     rels = (
-        f"/api/v1/MediaCover/Artist/{artist_id}/poster.jpg",
         f"/api/v1/MediaCover/Artist/{artist_id}/poster-250.jpg",
         f"/api/v1/MediaCover/Artist/{artist_id}/poster-500.jpg",
+        f"/api/v1/MediaCover/Artist/{artist_id}/poster.jpg",
         f"/api/v1/MediaCover/Artist/{artist_id}/fanart.jpg",
         f"/api/v1/MediaCover/Artist/{artist_id}/clearlogo.png",
         f"/api/v1/MediaCover/{artist_id}/poster.jpg",
@@ -462,16 +543,63 @@ def _lidarr_artist_mediacovers_candidates(base_uri: str, artist_id: int) -> list
     return [base + r for r in rels]
 
 
-def _fetch_first_lidarr_artist_mediacovers(arr: Any, artist_id: int) -> bytes | None:
-    raw_uri = getattr(arr, "uri", None)
-    if not isinstance(raw_uri, str) or not raw_uri.strip():
-        return None
-    api_key = getattr(arr, "apikey", None)
-    base_uri = raw_uri.strip()
-    for url in _lidarr_artist_mediacovers_candidates(base_uri, artist_id):
+def _radarr_sonarr_mediacovers_candidates(base_uri: str, entry_id: int) -> list[str]:
+    """Deterministic MediaCover poster URLs for Radarr/Sonarr (API path; SSO-safe).
+
+    Public ``/MediaCover/...`` is often fronted by Authentik and returns 302 to a login
+    flow. The Arr API path accepts ``X-Api-Key`` and serves the same files.
+    """
+
+    base = base_uri.rstrip("/")
+    rels = (
+        f"/api/v3/mediacover/{entry_id}/poster-250.jpg",
+        f"/api/v3/mediacover/{entry_id}/poster-500.jpg",
+        f"/api/v3/mediacover/{entry_id}/poster.jpg",
+    )
+    return [base + r for r in rels]
+
+
+def _rewrite_mediacover_for_api(url: str, kind: str) -> str:
+    """Rewrite SSO-gated ``/MediaCover/...`` URLs to the Arr API MediaCover path."""
+
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return url
+    path = parsed.path or ""
+    low = path.lower()
+    if kind in ("radarr", "sonarr") and "/mediacover/" in low and "/api/" not in low:
+        idx = low.index("/mediacover/")
+        suffix = path[idx + len("/mediacover/") :]
+        new_path = f"/api/v3/mediacover/{suffix}"
+        return parsed._replace(path=new_path, params="", fragment="").geturl()
+    if kind == "lidarr_artist" and "/mediacover/" in low and "/api/" not in low:
+        idx = low.index("/mediacover/")
+        suffix = path[idx + len("/mediacover/") :]
+        new_path = f"/api/v1/MediaCover/{suffix}"
+        return parsed._replace(path=new_path, params="", fragment="").geturl()
+    return url
+
+
+def _mediacovers_candidates(*, kind: str, base_uri: str, entry_id: int) -> list[str]:
+    if kind == "lidarr_artist":
+        return _lidarr_artist_mediacovers_candidates(base_uri, entry_id)
+    if kind in ("radarr", "sonarr"):
+        return _radarr_sonarr_mediacovers_candidates(base_uri, entry_id)
+    return []
+
+
+def _fetch_first_bytes(
+    urls: list[str],
+    *,
+    kind: str,
+    arr_uri: str | None,
+    api_key: str | None,
+) -> bytes | None:
+    for url in urls:
         raw = _http_get_bytes(
-            url,
-            arr_uri=base_uri,
+            _rewrite_mediacover_for_api(url, kind),
+            arr_uri=arr_uri,
             api_key=api_key if isinstance(api_key, str) else None,
         )
         if raw:
@@ -479,42 +607,113 @@ def _fetch_first_lidarr_artist_mediacovers(arr: Any, artist_id: int) -> bytes | 
     return None
 
 
-def get_or_fetch_thumbnail_bytes(
-    *, kind: str, instance_name: str, arr: Any, entry_id: int
-) -> tuple[bytes, str] | None:
-    path = _cache_file_path(kind=kind, instance_name=instance_name, entry_id=entry_id)
-    if path.is_file() and path.stat().st_size > 0:
-        ep = _cache_etag_path(path)
-        if not ep.is_file():
-            try:
-                digest_hex = sha256_digest_file(path)
-                _write_etag_sidecar(path, digest_hex)
-            except OSError as e:
-                logger.debug("Could not write thumbnail etag (cache hit): %s", e)
-        b = path.read_bytes()
-        return b, _sniff_mime(b)
+@dataclass(frozen=True)
+class ThumbnailPayload:
+    """Cached or freshly fetched thumbnail ready to serve."""
 
+    mime: str
+    data: bytes | None = None
+    path: Path | None = None
+    digest_hex: str | None = None
+
+
+def _cache_hit_payload(path: Path) -> ThumbnailPayload | None:
+    if not path.is_file():
+        return None
+    try:
+        if path.stat().st_size <= 0:
+            return None
+    except OSError:
+        return None
+    digest = _read_etag_digest(path)
+    if digest is None:
+        try:
+            digest = sha256_digest_file(path)
+            _write_etag_sidecar(path, digest)
+        except OSError as e:
+            logger.debug("Could not write thumbnail etag (cache hit): %s", e)
+            digest = None
+    return ThumbnailPayload(
+        mime=_sniff_mime_path(path),
+        path=path,
+        digest_hex=digest,
+    )
+
+
+def _fetch_and_store_thumbnail(
+    *,
+    kind: str,
+    arr: Any,
+    entry_id: int,
+    path: Path,
+) -> ThumbnailPayload | None:
     arr_uri = getattr(arr, "uri", None)
     api_key = getattr(arr, "apikey", None)
     arr_uri_s = arr_uri if isinstance(arr_uri, str) else None
+    if not arr_uri_s or not arr_uri_s.strip():
+        return None
+    base_uri = arr_uri_s.strip()
 
-    url = _resolve_image_url(kind=kind, arr=arr, entry_id=entry_id)
-    raw: bytes | None = None
-    if url:
-        raw = _http_get_bytes(
-            url.strip(),
-            arr_uri=arr_uri_s,
-            api_key=api_key,
-        )
-    if not raw and kind == "lidarr_artist":
-        raw = _fetch_first_lidarr_artist_mediacovers(arr, entry_id)
+    raw = _fetch_first_bytes(
+        _mediacovers_candidates(kind=kind, base_uri=base_uri, entry_id=entry_id),
+        kind=kind,
+        arr_uri=base_uri,
+        api_key=api_key,
+    )
+    if not raw:
+        url = _resolve_image_url(kind=kind, arr=arr, entry_id=entry_id)
+        if url:
+            raw = _http_get_bytes(
+                _rewrite_mediacover_for_api(url.strip(), kind),
+                arr_uri=base_uri,
+                api_key=api_key,
+            )
     if not raw:
         return None
-    mime = _sniff_mime(raw)
+
+    data, mime = _normalize_thumbnail_bytes(raw)
+    digest = sha256_digest_bytes(data)
     try:
-        path.write_bytes(raw)
-        dh = sha256_digest_bytes(raw)
-        _write_etag_sidecar(path, dh)
+        path.write_bytes(data)
+        _write_etag_sidecar(path, digest)
     except OSError as e:
         logger.debug("Could not write thumbnail cache: %s", e)
-    return raw, mime
+    return ThumbnailPayload(mime=mime, data=data, path=path, digest_hex=digest)
+
+
+def get_or_fetch_thumbnail(
+    *, kind: str, instance_name: str, arr: Any, entry_id: int
+) -> ThumbnailPayload | None:
+    """Return cached tile path or freshly fetched/normalized image bytes."""
+
+    path = _cache_file_path(kind=kind, instance_name=instance_name, entry_id=entry_id)
+    hit = _cache_hit_payload(path)
+    if hit is not None:
+        return hit
+
+    lock = _flight_lock_for(path)
+    with lock:
+        hit = _cache_hit_payload(path)
+        if hit is not None:
+            return hit
+        return _fetch_and_store_thumbnail(kind=kind, arr=arr, entry_id=entry_id, path=path)
+
+
+def get_or_fetch_thumbnail_bytes(
+    *, kind: str, instance_name: str, arr: Any, entry_id: int
+) -> tuple[bytes, str] | None:
+    """Compatibility wrapper returning ``(bytes, mime)``."""
+
+    out = get_or_fetch_thumbnail(
+        kind=kind, instance_name=instance_name, arr=arr, entry_id=entry_id
+    )
+    if out is None:
+        return None
+    if out.data is not None:
+        return out.data, out.mime
+    if out.path is not None:
+        try:
+            return out.path.read_bytes(), out.mime
+        except OSError:
+            return None
+    return None

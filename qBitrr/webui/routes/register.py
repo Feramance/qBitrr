@@ -1,45 +1,16 @@
 from __future__ import annotations
 
 import io
-import json
 import logging
 import os
+import re
 import secrets
 import threading
-import time
 from collections.abc import Mapping
 from datetime import datetime, timezone
 from functools import wraps
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
-
-
-# region agent log
-def _agent_dbg(hypothesis_id: str, location: str, message: str, data: dict | None = None) -> None:
-    """Append one NDJSON debug line for session 2417aa (host + docker-friendly paths)."""
-    payload = {
-        "sessionId": "2417aa",
-        "hypothesisId": hypothesis_id,
-        "location": location,
-        "message": message,
-        "data": data or {},
-        "timestamp": int(time.time() * 1000),
-    }
-    line = json.dumps(payload, default=str) + "\n"
-    for path in (
-        "/home/feramance/qBitrr/.cursor/debug-2417aa.log",
-        "/config/debug-2417aa.log",
-        "/config/logs/debug-2417aa.log",
-    ):
-        try:
-            Path(path).parent.mkdir(parents=True, exist_ok=True)
-            with open(path, "a", encoding="utf-8") as fh:
-                fh.write(line)
-        except Exception:
-            pass
-
-
-# endregion
 
 from flask import Response, jsonify, redirect, request, send_file, session
 
@@ -78,8 +49,7 @@ from qBitrr.webui.openapi_ui import (
 from qBitrr.webui.routing import dual_route
 from qBitrr.webui.urlbase import configured_url_base
 from qBitrr.webui_thumbnails import (
-    get_or_fetch_thumbnail_bytes,
-    sha256_digest_bytes,
+    get_or_fetch_thumbnail,
     thumbnail_quoted_etag,
 )
 
@@ -395,17 +365,6 @@ def register_routes(webui: WebUI) -> None:
         return redirect(_public_url("/ui"))
 
     def _processes_payload() -> dict[str, Any]:
-        # region agent log
-        _agent_dbg(
-            "A",
-            "register.py:_processes_payload:entry",
-            "processes payload start",
-            {
-                "Mapping_in_globals": "Mapping" in globals(),
-                "Mapping_type": str(globals().get("Mapping", None)),
-            },
-        )
-        # endregion
         procs = []
         search_activity_map = _webui_mod().fetch_search_activities()
 
@@ -557,23 +516,7 @@ def register_routes(webui: WebUI) -> None:
             category_key = getattr(arr_obj, "category", None)
             if category_key:
                 entry = search_activity_map.get(str(category_key))
-                # region agent log
-                try:
-                    _is_map = isinstance(entry, Mapping)  # noqa: F821 — intentional probe
-                except NameError as exc:
-                    _agent_dbg(
-                        "A",
-                        "register.py:_collect_metrics:Mapping",
-                        "Mapping NameError in isinstance",
-                        {
-                            "error": str(exc),
-                            "category_key": str(category_key),
-                            "entry_type": type(entry).__name__,
-                        },
-                    )
-                    raise
-                # endregion
-                if _is_map:
+                if isinstance(entry, Mapping):
                     summary = entry.get("summary")
                     timestamp = entry.get("timestamp")
                     if summary:
@@ -704,26 +647,7 @@ def register_routes(webui: WebUI) -> None:
 
     @_dual_route("/processes")
     def processes():
-        # region agent log
-        _agent_dbg("C", "register.py:processes", "processes route hit", {"path": request.path})
-        try:
-            payload = _processes_payload()
-            _agent_dbg(
-                "C",
-                "register.py:processes:ok",
-                "processes payload ok",
-                {"count": len(payload.get("processes", []))},
-            )
-            return jsonify(payload)
-        except Exception as exc:
-            _agent_dbg(
-                "A",
-                "register.py:processes:error",
-                "processes route failed",
-                {"error_type": type(exc).__name__, "error": str(exc)},
-            )
-            raise
-        # endregion
+        return jsonify(_processes_payload())
 
     def _restart_process(category: str, kind: str):
         kind_normalized = kind.lower()
@@ -1012,19 +936,6 @@ def register_routes(webui: WebUI) -> None:
         return _handle_radarr_movies(category)
 
     def _arr_thumbnail(category: str, kind: str, entry_id: int) -> Response | tuple[Any, int]:
-        # region agent log
-        _agent_dbg(
-            "P1",
-            "register.py:_arr_thumbnail:entry",
-            "thumbnail request",
-            {
-                "kind": kind,
-                "category": category,
-                "entry_id": entry_id,
-                "helper_imported": callable(globals().get("_if_none_match_includes_etag")),
-            },
-        )
-        # endregion
         managed = _managed_objects()
         if not managed:
             if not _ensure_arr_manager_ready():
@@ -1036,18 +947,10 @@ def register_routes(webui: WebUI) -> None:
             arr = managed.get(category)
         arr_type = getattr(arr, "type", None) if arr is not None else None
         if arr is None or arr_type != expected_type:
-            # region agent log
-            _agent_dbg(
-                "P4",
-                "register.py:_arr_thumbnail:unknown",
-                "unknown category/type",
-                {"kind": kind, "category": category, "arr_type": arr_type},
-            )
-            # endregion
             return jsonify({"error": f"Unknown {kind} category {category}"}), 404
         name = getattr(arr, "_name", category)
-        # ``private`` rather than ``public``: thumbnail responses are token-bearing
-        # (Bearer header or ``?token=`` query) and must not be cached by shared proxies.
+        # ``private`` rather than ``public``: session/token-bearing responses must not be
+        # cached by shared proxies.
         cache_headers = {
             "Cache-Control": "private, max-age=86400",
         }
@@ -1055,56 +958,30 @@ def register_routes(webui: WebUI) -> None:
         etag = thumbnail_quoted_etag(kind=kind, instance_name=name, entry_id=entry_id)
         if etag:
             cache_headers["ETag"] = etag
-            # region agent log
-            try:
-                matched = _if_none_match_includes_etag(inm, etag)
-            except NameError as exc:
-                _agent_dbg(
-                    "P1",
-                    "register.py:_arr_thumbnail:etag",
-                    "NameError on etag helper",
-                    {"error": str(exc)},
-                )
-                raise
-            # endregion
-            if matched:
+            if _if_none_match_includes_etag(inm, etag):
                 return Response(status=304, headers=cache_headers)
-        out = get_or_fetch_thumbnail_bytes(
-            kind=kind, instance_name=name, arr=arr, entry_id=entry_id
-        )
+        out = get_or_fetch_thumbnail(kind=kind, instance_name=name, arr=arr, entry_id=entry_id)
         if not out:
-            # region agent log
-            _agent_dbg(
-                "P4",
-                "register.py:_arr_thumbnail:missing",
-                "no thumbnail bytes",
-                {"kind": kind, "category": category, "entry_id": entry_id},
-            )
-            # endregion
             return "", 404
-        data, mime = out
-        # Derive the ETag straight from the bytes we just produced (avoids re-streaming the
-        # cache file). Honour ``If-None-Match`` against the post-fetch hash too — a fresh
-        # cache write whose bytes match a client-known ETag should still 304.
-        etag_after = f'"{sha256_digest_bytes(data)}"'
-        cache_headers["ETag"] = etag_after
-        if _if_none_match_includes_etag(inm, etag_after):
-            return Response(status=304, headers=cache_headers)
-        # region agent log
-        _agent_dbg(
-            "P1",
-            "register.py:_arr_thumbnail:ok",
-            "thumbnail served",
-            {
-                "kind": kind,
-                "category": category,
-                "entry_id": entry_id,
-                "bytes": len(data),
-                "mime": mime,
-            },
-        )
-        # endregion
-        return Response(data, mimetype=mime, headers=cache_headers)
+        if out.digest_hex:
+            etag_after = f'"{out.digest_hex}"'
+            cache_headers["ETag"] = etag_after
+            if _if_none_match_includes_etag(inm, etag_after):
+                return Response(status=304, headers=cache_headers)
+        if out.path is not None:
+            resp = send_file(
+                out.path,
+                mimetype=out.mime,
+                conditional=False,
+                etag=False,
+                max_age=86400,
+            )
+            for key, value in cache_headers.items():
+                resp.headers[key] = value
+            return resp
+        if out.data is None:
+            return "", 404
+        return Response(out.data, mimetype=out.mime, headers=cache_headers)
 
     @_dual_route("/radarr/<path:category>/movie/<int:entry_id>/thumbnail")
     def radarr_thumb(category: str, entry_id: int):
