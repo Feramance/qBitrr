@@ -936,7 +936,18 @@ class Arr:
         qbit_manager = self.manager.qbit_manager
         instances = qbit_manager.get_all_instances()
         if not instances:
-            return False
+            # No instances registered means initialisation failed at startup -- for
+            # example when qBitrr and qBittorrent are restarted together and the
+            # WebUI is not accepting connections yet. `_initialize_qbit_instances()`
+            # only ever runs from `_complete_startup()`, and nothing else populates
+            # `clients`, so without this retry the worker keeps reporting "Could not
+            # connect to qBit client" for the entire lifetime of the process even
+            # after qBittorrent becomes reachable again. Retry here so the loop can
+            # recover on its own; the caller already backs off 5 minutes on failure.
+            qbit_manager._initialize_qbit_instances()
+            instances = qbit_manager.get_all_instances()
+            if not instances:
+                return False
         return any(self._is_qbit_instance_reachable(name) for name in instances)
 
     def _retry_profile_switch_update(self, update_fn: Callable, kind: str) -> bool:
