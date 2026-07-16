@@ -11,7 +11,6 @@ import qbittorrentapi
 from qBitrr.arss._shared import (
     _QBIT_READ_RETRY_EXCEPTIONS,
     _QBIT_TORRENT_DELETE_EXCEPTIONS,
-    _QBIT_WRITE_RETRY_EXCEPTIONS,
     CONFIG,
     TAGLESS,
     DelayLoopException,
@@ -207,34 +206,15 @@ class PlaceHolderArr(Arr):
         for inst_name, hashes in self.delete_by_instance.items():
             if hashes:
                 per_instance_batches.setdefault(inst_name, set()).update(hashes)
-        per_instance_deleted: set[str] = set()
-        # Delete per-instance so we use the correct qBit client.
-        for instance_name, hashes in per_instance_batches.items():
-            client = self._get_qbit_client(instance_name)
-            if client is None:
-                self.logger.warning(
-                    "Cannot delete %d torrent(s) from qBit instance '%s': no client",
-                    len(hashes),
-                    instance_name,
-                )
-                continue
-            try:
-                with_retry(
-                    lambda c=client, h=hashes: c.torrents_delete(hashes=h, delete_files=True),
-                    retries=3,
-                    backoff=0.5,
-                    max_backoff=3,
-                    exceptions=_QBIT_TORRENT_DELETE_EXCEPTIONS,
-                )
-                per_instance_deleted.update(hashes)
-                deleted_hashes.update(hashes)
-            except _QBIT_TORRENT_DELETE_EXCEPTIONS as e:
-                self.logger.error(
-                    "Failed to delete %d torrent(s) from qBit instance '%s': %s",
-                    len(hashes),
-                    instance_name,
-                    e,
-                )
+        from qBitrr.arss.qbit_side_effects import (
+            delete_hashes_on_primary,
+            delete_hashes_per_instance,
+        )
+
+        per_instance_deleted = delete_hashes_per_instance(
+            self, per_instance_batches, use_qbit_retry=False
+        )
+        deleted_hashes.update(per_instance_deleted)
         _prune_instance_hash_map(self.remove_from_qbit_by_instance, per_instance_deleted)
         _prune_instance_hash_map(self.delete_by_instance, per_instance_deleted)
         pending_per_instance = _collect_instance_hash_map_hashes(
@@ -246,53 +226,24 @@ class PlaceHolderArr(Arr):
         # Remaining remove_from_qbit/skip_blacklist and to_delete_default via default client.
         if self.remove_from_qbit or self.skip_blacklist or to_delete_default:
             if to_delete_default:
-                legacy_client = self._get_legacy_default_qbit_client()
-                if legacy_client is not None:
-                    try:
-                        with_retry(
-                            lambda c=legacy_client: c.torrents_delete(
-                                hashes=to_delete_default, delete_files=True
-                            ),
-                            retries=3,
-                            backoff=0.5,
-                            max_backoff=3,
-                            exceptions=_QBIT_WRITE_RETRY_EXCEPTIONS,
-                        )
-                        temp_to_delete.update(to_delete_default)
-                    except _QBIT_TORRENT_DELETE_EXCEPTIONS as e:
-                        self.logger.error(
-                            "Failed to delete %d torrent(s) from qBit (to_delete_all): %s",
-                            len(to_delete_default),
-                            e,
-                        )
-                else:
-                    self.logger.warning("Cannot delete to_delete_all: no qBit client available")
+                deleted = delete_hashes_on_primary(
+                    self,
+                    to_delete_default,
+                    use_qbit_retry=False,
+                    warn_if_missing=True,
+                    error_label="from qBit (to_delete_all)",
+                )
+                temp_to_delete.update(deleted)
             if self.remove_from_qbit or self.skip_blacklist:
                 rest = (self.remove_from_qbit.union(self.skip_blacklist)) - deleted_hashes
-                legacy_client = self._get_legacy_default_qbit_client()
-                if rest and legacy_client is not None:
-                    try:
-                        with_retry(
-                            lambda c=legacy_client, h=rest: c.torrents_delete(
-                                hashes=h, delete_files=True
-                            ),
-                            retries=3,
-                            backoff=0.5,
-                            max_backoff=3,
-                            exceptions=_QBIT_WRITE_RETRY_EXCEPTIONS,
-                        )
-                        temp_to_delete.update(rest)
-                    except _QBIT_TORRENT_DELETE_EXCEPTIONS as e:
-                        self.logger.error(
-                            "Failed to delete %d torrent(s) from qBit (remove/blacklist): %s",
-                            len(rest),
-                            e,
-                        )
-                elif rest:
-                    self.logger.warning(
-                        "Cannot delete %d torrent(s): no qBit client available",
-                        len(rest),
-                    )
+                deleted = delete_hashes_on_primary(
+                    self,
+                    rest,
+                    use_qbit_retry=False,
+                    warn_if_missing=True,
+                    error_label="from qBit (remove/blacklist)",
+                )
+                temp_to_delete.update(deleted)
             cleaned_hashes = deleted_hashes.union(temp_to_delete)
             self._evict_hashes_from_qbit_side_caches(cleaned_hashes)
         confirmed_deleted = deleted_hashes | temp_to_delete

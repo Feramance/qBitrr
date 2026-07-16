@@ -14,10 +14,21 @@ class TestPackageLayout(unittest.TestCase):
     def test_find_namespace_packages_includes_arss(self) -> None:
         packages = find_namespace_packages(
             where=str(__file__).rsplit("/tests/", 1)[0],
-            include=["qBitrr", "qBitrr.arss"],
+            include=[
+                "qBitrr",
+                "qBitrr.arss",
+                "qBitrr.gen_config",
+                "qBitrr.webui",
+                "qBitrr.webui.catalog",
+                "qBitrr.webui.routes",
+            ],
         )
         self.assertIn("qBitrr", packages)
         self.assertIn("qBitrr.arss", packages)
+        self.assertIn("qBitrr.gen_config", packages)
+        self.assertIn("qBitrr.webui", packages)
+        self.assertIn("qBitrr.webui.catalog", packages)
+        self.assertIn("qBitrr.webui.routes", packages)
 
     def test_arss_module_is_importable_from_source_tree(self) -> None:
         spec = importlib.util.find_spec("qBitrr.arss")

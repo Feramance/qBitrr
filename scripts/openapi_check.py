@@ -56,8 +56,19 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-WEBUI_PY = REPO_ROOT / "qBitrr" / "webui.py"
+WEBUI_PACKAGE = REPO_ROOT / "qBitrr" / "webui"
 OPENAPI_JSON = REPO_ROOT / "qBitrr" / "openapi.json"
+
+
+def _webui_python_sources() -> str:
+    """Concatenate all ``.py`` sources under the WebUI package for static route scans."""
+    if not WEBUI_PACKAGE.is_dir():
+        return ""
+    parts: list[str] = []
+    for path in sorted(WEBUI_PACKAGE.rglob("*.py")):
+        parts.append(path.read_text(encoding="utf-8"))
+    return "\n".join(parts)
+
 
 # Methods we care about.  ``route`` is the generic flask decorator; the others
 # are the per-method shortcuts used throughout webui.py.
@@ -133,14 +144,14 @@ def _parse_openapi(spec: dict) -> set[tuple[str, str]]:
 
 
 def main() -> int:
-    if not WEBUI_PY.is_file():
-        print(f"openapi-check: cannot find {WEBUI_PY}", file=sys.stderr)
+    if not WEBUI_PACKAGE.is_dir():
+        print(f"openapi-check: cannot find {WEBUI_PACKAGE}", file=sys.stderr)
         return 2
     if not OPENAPI_JSON.is_file():
         print(f"openapi-check: cannot find {OPENAPI_JSON}", file=sys.stderr)
         return 2
 
-    flask_routes = _parse_flask_routes(WEBUI_PY.read_text(encoding="utf-8"))
+    flask_routes = _parse_flask_routes(_webui_python_sources())
     try:
         spec = json.loads(OPENAPI_JSON.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:

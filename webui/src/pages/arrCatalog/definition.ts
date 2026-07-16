@@ -100,7 +100,7 @@ export interface ArrCatalogAggregateAdapter<
   ) => ArrCatalogSummary;
   /** Stable id for the row store + diff pipeline. */
   readonly getRowKey: (row: TAggRow) => string;
-  /** Hash fields for the row store / `useDataSync`. */
+  /** Hash fields for the row store / full-list change detection. */
   readonly hashFields: ReadonlyArray<keyof TAggRow & string>;
   /** Optional client-side filter applied after merging (e.g. monitored / reason). */
   readonly filterRows?: (

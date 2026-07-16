@@ -10,12 +10,16 @@ import {
   AGGREGATE_FETCH_CHUNK_SIZE,
   AGGREGATE_POLL_INTERVAL_MS,
 } from "../../constants/arrAggregateFetch";
-import { useDataSync } from "../../hooks/useDataSync";
 import { useDebounce } from "../../hooks/useDebounce";
 import { useInterval } from "../../hooks/useInterval";
 import { useRowsStore } from "../../hooks/useRowsStore";
 import type { Hashable } from "../../utils/dataSync";
-import type { RowsStore } from "../../utils/rowsStore";
+import {
+  createEmptyRowsSnapshot,
+  syncRowsSnapshot,
+  type RowsStore,
+  type RowsStoreSnapshot,
+} from "../../utils/rowsStore";
 import type {
   ArrCatalogAggregateAdapter,
   ArrCatalogSummary,
@@ -117,14 +121,25 @@ export function useAggregateCatalogLoader<
   const aggFilterRef = useRef(aggFilter);
   aggFilterRef.current = aggFilter;
 
-  const dataSyncOpts = useMemo(
+  const fullListSyncOpts = useMemo(
     () => ({
       getKey: adapter.getRowKey,
       hashFields: adapter.hashFields as ReadonlyArray<keyof TAggRow & string>,
     }),
     [adapter.getRowKey, adapter.hashFields],
   );
-  const dataSync = useDataSync<TAggRow>(dataSyncOpts as never);
+  const fullListSyncRef = useRef<RowsStoreSnapshot<TAggRow>>(createEmptyRowsSnapshot());
+  const syncFullList = useCallback(
+    (incoming: TAggRow[]) => {
+      const result = syncRowsSnapshot(fullListSyncRef.current, incoming, fullListSyncOpts as never);
+      fullListSyncRef.current = result.snapshot;
+      return {
+        hasChanges: result.changeKind !== "noop",
+        data: incoming,
+      };
+    },
+    [fullListSyncOpts],
+  );
 
   const rowsStoreOpts = useMemo(
     () => ({
@@ -246,7 +261,7 @@ export function useAggregateCatalogLoader<
           return;
         }
 
-        const syncResult = dataSync.syncData(aggregated);
+        const syncResult = syncFullList(aggregated);
         const rowsChanged = syncResult.hasChanges;
 
         if (rowsChanged) {
@@ -316,11 +331,10 @@ export function useAggregateCatalogLoader<
     },
     // `aggFilter` is read via `aggFilterRef` so typing in global search does not
     // change this callback identity (which would retrigger the aggregate load effect).
-    // Use `dataSync.syncData` only: `useDataSync` returns a fresh object each render,
-    // so depending on `dataSync` would recreate this callback every render and re-fire
-    // the aggregate `useEffect` in a tight loop (loading / empty flicker).
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable syncData; whole `dataSync` object is unstable
-    [adapter, instances, dataSync.syncData, pushToast],
+    // Use `syncFullList` only: avoid depending on unstable object identities that would
+    // recreate this callback every render and re-fire the aggregate `useEffect`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable syncFullList; avoid retrigger loops
+    [adapter, instances, syncFullList, pushToast],
   );
 
   // Trigger load when entering aggregate view or when server-side filter params change.

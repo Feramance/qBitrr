@@ -14,9 +14,7 @@ from qbittorrentapi import TorrentDictionary, TorrentStates
 
 from qBitrr.arss._shared import (
     _QBIT_READ_RETRY_EXCEPTIONS,
-    _QBIT_WRITE_RETRY_EXCEPTIONS,
     APPDATA_FOLDER,
-    AUTO_PAUSE_RESUME,
     TAGLESS,
     DelayLoopException,
     NoConnectionrException,
@@ -259,69 +257,19 @@ class TorrentPolicyManager(Arr):
             self.remove_tags(torrent, ["qBitrr-free_space_paused"], instance_name)
 
     def _process_resume(self) -> None:
-        if self.resume_by_instance and AUTO_PAUSE_RESUME:
-            self.needs_cleanup = True
-            still_pending: defaultdict[str, set[str]] = defaultdict(set)
-            for instance_name, hashes in self.resume_by_instance.items():
-                if not hashes:
-                    continue
-                client = self._get_qbit_client(instance_name)
-                if client is None:
-                    still_pending[instance_name].update(hashes)
-                    continue
-                try:
-                    with_retry(
-                        lambda c=client, hs=hashes: c.torrents_resume(torrent_hashes=list(hs)),
-                        retries=3,
-                        backoff=0.5,
-                        max_backoff=3,
-                        exceptions=_QBIT_WRITE_RETRY_EXCEPTIONS,
-                    )
-                except Exception:
-                    still_pending[instance_name].update(hashes)
-                    continue
-                with contextlib.suppress(Exception):
-                    self._clear_free_space_paused_flags_for_hashes(client, instance_name, hashes)
-                for h in hashes:
-                    self.timed_ignore_cache.add(h)
-            self.resume_by_instance = still_pending
+        from qBitrr.arss.qbit_side_effects import resume_hashes_by_instance
+
+        resume_hashes_by_instance(
+            self,
+            warn_missing_client=False,
+            after_success=self._clear_free_space_paused_flags_for_hashes,
+        )
 
     def _process_paused(self) -> None:
-        if self.pause_by_instance and AUTO_PAUSE_RESUME:
-            self.needs_cleanup = True
-            still_pending: defaultdict[str, set[str]] = defaultdict(set)
-            for instance_name, hashes in self.pause_by_instance.items():
-                if not hashes:
-                    continue
-                client = self._get_qbit_client(instance_name)
-                if client is None:
-                    still_pending[instance_name].update(hashes)
-                    continue
-                try:
-                    with_retry(
-                        lambda c=client, hs=hashes: c.torrents_pause(torrent_hashes=list(hs)),
-                        retries=3,
-                        backoff=0.5,
-                        max_backoff=3,
-                        exceptions=_QBIT_WRITE_RETRY_EXCEPTIONS,
-                    )
-                except Exception:
-                    still_pending[instance_name].update(hashes)
-                    continue
-            self.pause_by_instance = still_pending
-        # Keep compatibility if any hash was queued in the legacy set path.
-        if self.pause and AUTO_PAUSE_RESUME:
-            legacy_client = self._get_legacy_default_qbit_client()
-            if legacy_client is not None:
-                with contextlib.suppress(Exception):
-                    with_retry(
-                        lambda c=legacy_client: c.torrents_pause(torrent_hashes=list(self.pause)),
-                        retries=3,
-                        backoff=0.5,
-                        max_backoff=3,
-                        exceptions=_QBIT_WRITE_RETRY_EXCEPTIONS,
-                    )
-            self.pause.clear()
+        from qBitrr.arss.qbit_side_effects import pause_hashes_by_instance, pause_legacy_hash_set
+
+        pause_hashes_by_instance(self, warn_missing_client=False, log_names=False)
+        pause_legacy_hash_set(self, log_names=False)
 
     def process(self):
         self._process_resume()

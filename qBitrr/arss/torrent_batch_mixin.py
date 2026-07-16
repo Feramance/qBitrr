@@ -8,7 +8,6 @@ Call graph (per loop):
 
 from __future__ import annotations
 
-import contextlib
 from collections import defaultdict
 from collections.abc import Iterable
 
@@ -21,7 +20,6 @@ from qBitrr.arss._shared import (
     _ARR_RETRY_EXCEPTIONS_EXTENDED,
     _QBIT_TORRENT_DELETE_EXCEPTIONS,
     _QBIT_WRITE_RETRY_EXCEPTIONS,
-    AUTO_PAUSE_RESUME,
     PyarrResourceNotFound,
     _collect_instance_hash_map_hashes,
     _prune_instance_hash_map,
@@ -34,53 +32,10 @@ from qBitrr.arss._shared import (
 class TorrentBatchMixin:
     def _process_paused(self) -> None:
         # Pause torrents on their owning qBittorrent instance.
-        if not AUTO_PAUSE_RESUME:
-            return
-        qbit_manager = self.manager.qbit_manager
-        still_pending: defaultdict[str, set[str]] = defaultdict(set)
-        if self.pause_by_instance:
-            self.needs_cleanup = True
-            for instance_name, hashes in self.pause_by_instance.items():
-                if not hashes:
-                    continue
-                client = self._get_qbit_client(instance_name)
-                if client is None:
-                    self.logger.warning(
-                        "Cannot pause %d torrent(s) on qBit instance '%s': no client",
-                        len(hashes),
-                        instance_name,
-                    )
-                    still_pending[instance_name] = set(hashes)
-                    continue
-                for i in hashes:
-                    self.logger.debug("Pausing %s (%s)", i, qbit_manager.name_cache.get(i))
-                try:
-                    with_retry(
-                        lambda c=client, hs=hashes: c.torrents_pause(torrent_hashes=list(hs)),
-                        retries=3,
-                        backoff=0.5,
-                        max_backoff=3,
-                        exceptions=_QBIT_WRITE_RETRY_EXCEPTIONS,
-                    )
-                except Exception:
-                    still_pending[instance_name] = set(hashes)
-                    continue
-            self.pause_by_instance = still_pending
-        if self.pause:
-            self.needs_cleanup = True
-            for i in self.pause:
-                self.logger.debug("Pausing %s (%s)", i, qbit_manager.name_cache.get(i))
-            legacy_client = self._get_legacy_default_qbit_client()
-            if legacy_client is not None:
-                with contextlib.suppress(Exception):
-                    with_retry(
-                        lambda c=legacy_client: c.torrents_pause(torrent_hashes=list(self.pause)),
-                        retries=3,
-                        backoff=0.5,
-                        max_backoff=3,
-                        exceptions=_QBIT_WRITE_RETRY_EXCEPTIONS,
-                    )
-            self.pause.clear()
+        from qBitrr.arss.qbit_side_effects import pause_hashes_by_instance, pause_legacy_hash_set
+
+        pause_hashes_by_instance(self, warn_missing_client=True, log_names=True)
+        pause_legacy_hash_set(self, log_names=True)
 
     def _process_imports(self) -> None:
         if self.import_torrents:
@@ -501,6 +456,11 @@ class TorrentBatchMixin:
             self._log_deletion_summary_line()
             self._log_deletion_sample_debug(to_delete_all)
         # Delete torrents from the correct qBit instance (multi-instance).
+        from qBitrr.arss.qbit_side_effects import (
+            delete_hashes_on_primary,
+            delete_hashes_per_instance,
+        )
+
         per_instance_batches: dict[str, set[str]] = {}
         for inst_name, hashes in self.remove_from_qbit_by_instance.items():
             if hashes:
@@ -508,29 +468,12 @@ class TorrentBatchMixin:
         for inst_name, hashes in self.delete_by_instance.items():
             if hashes:
                 per_instance_batches.setdefault(inst_name, set()).update(hashes)
-        per_instance_deleted: set[str] = set()
-        for inst_name, hashes in per_instance_batches.items():
-            client = self._get_qbit_client(inst_name)
-            if client is None:
-                self.logger.warning(
-                    "Cannot delete %d torrent(s) from qBit instance '%s': no client",
-                    len(hashes),
-                    inst_name,
-                )
-                continue
-            try:
-                self._qbit_retry(
-                    lambda c=client, h=list(hashes): c.torrents_delete(hashes=h, delete_files=True)
-                )
-                per_instance_deleted.update(hashes)
-                self._evict_hashes_from_qbit_side_caches(hashes)
-            except _QBIT_TORRENT_DELETE_EXCEPTIONS as e:
-                self.logger.error(
-                    "Failed to delete %d torrent(s) from qBit instance '%s': %s",
-                    len(hashes),
-                    inst_name,
-                    e,
-                )
+        per_instance_deleted = delete_hashes_per_instance(
+            self,
+            per_instance_batches,
+            use_qbit_retry=True,
+            after_success=self._evict_hashes_from_qbit_side_caches,
+        )
         _prune_instance_hash_map(self.remove_from_qbit_by_instance, per_instance_deleted)
         _prune_instance_hash_map(self.delete_by_instance, per_instance_deleted)
         pending_per_instance = _collect_instance_hash_map_hashes(
@@ -542,40 +485,24 @@ class TorrentBatchMixin:
         if self.remove_from_qbit or self.skip_blacklist or to_delete_default:
             # Remove remaining torrents via the default client.
             if to_delete_default:
-                legacy_client = self._get_legacy_default_qbit_client()
-                if legacy_client is not None:
-                    try:
-                        self._qbit_retry(
-                            lambda c=legacy_client: c.torrents_delete(
-                                hashes=to_delete_default, delete_files=True
-                            )
-                        )
-                    except _QBIT_TORRENT_DELETE_EXCEPTIONS as e:
-                        self.logger.error(
-                            "Failed to delete %d torrent(s) from qBit: %s",
-                            len(to_delete_default),
-                            e,
-                        )
-                    else:
-                        deleted_hashes.update(to_delete_default)
+                deleted_hashes.update(
+                    delete_hashes_on_primary(
+                        self,
+                        to_delete_default,
+                        use_qbit_retry=True,
+                        error_label="from qBit",
+                    )
+                )
             if self.remove_from_qbit or self.skip_blacklist:
                 temp_to_delete = self.remove_from_qbit.union(self.skip_blacklist)
-                legacy_client = self._get_legacy_default_qbit_client()
-                if legacy_client is not None:
-                    try:
-                        self._qbit_retry(
-                            lambda c=legacy_client: c.torrents_delete(
-                                hashes=temp_to_delete, delete_files=True
-                            )
-                        )
-                    except _QBIT_TORRENT_DELETE_EXCEPTIONS as e:
-                        self.logger.error(
-                            "Failed to delete %d torrent(s) from qBit: %s",
-                            len(temp_to_delete),
-                            e,
-                        )
-                    else:
-                        deleted_hashes.update(temp_to_delete)
+                deleted_hashes.update(
+                    delete_hashes_on_primary(
+                        self,
+                        temp_to_delete,
+                        use_qbit_retry=True,
+                        error_label="from qBit",
+                    )
+                )
             self._evict_hashes_from_qbit_side_caches(deleted_hashes)
         confirmed_deleted = per_instance_deleted | deleted_hashes
         dispatch_targets = confirmed_deleted & queue_delete_targets
@@ -621,9 +548,9 @@ class TorrentBatchMixin:
             self.needs_cleanup = True
         if self.change_priority:
             still_pending_legacy: dict[str, list] = {}
-            legacy_client = self._get_legacy_default_qbit_client()
+            primary_client = self._get_primary_qbit_client()
             for hash_, files in list(self.change_priority.items()):
-                if legacy_client is None:
+                if primary_client is None:
                     name = self.manager.qbit_manager.name_cache.get(hash_, hash_)
                     self.logger.warning(
                         "Cannot update file priority for %s (%s): no qBit client",
@@ -633,7 +560,7 @@ class TorrentBatchMixin:
                     still_pending_legacy[hash_] = files
                     continue
                 try:
-                    self._apply_file_priority_update(legacy_client, hash_, files)
+                    self._apply_file_priority_update(primary_client, hash_, files)
                 except Exception:
                     still_pending_legacy[hash_] = files
             self.change_priority = still_pending_legacy
@@ -658,51 +585,7 @@ class TorrentBatchMixin:
         self.change_priority_by_instance = still_pending_by_instance
 
     def _process_resume(self) -> None:
-        if not AUTO_PAUSE_RESUME:
-            return
-        still_pending: defaultdict[str, set[str]] = defaultdict(set)
-        if self.resume_by_instance:
-            self.needs_cleanup = True
-            for instance_name, hashes in self.resume_by_instance.items():
-                if not hashes:
-                    continue
-                client = self._get_qbit_client(instance_name)
-                if client is None:
-                    self.logger.warning(
-                        "Cannot resume %d torrent(s) on qBit instance '%s': no client",
-                        len(hashes),
-                        instance_name,
-                    )
-                    still_pending[instance_name] = set(hashes)
-                    continue
-                try:
-                    with_retry(
-                        lambda c=client, hs=hashes: c.torrents_resume(torrent_hashes=list(hs)),
-                        retries=3,
-                        backoff=0.5,
-                        max_backoff=3,
-                        exceptions=_QBIT_WRITE_RETRY_EXCEPTIONS,
-                    )
-                except Exception:
-                    still_pending[instance_name] = set(hashes)
-                    continue
-                for k in hashes:
-                    self.timed_ignore_cache.add(k)
-            self.resume_by_instance = still_pending
-        if self.resume:
-            self.needs_cleanup = True
-            legacy_client = self._get_legacy_default_qbit_client()
-            if legacy_client is not None:
-                with contextlib.suppress(Exception):
-                    with_retry(
-                        lambda c=legacy_client, hs=self.resume: c.torrents_resume(
-                            torrent_hashes=list(hs)
-                        ),
-                        retries=3,
-                        backoff=0.5,
-                        max_backoff=3,
-                        exceptions=_QBIT_WRITE_RETRY_EXCEPTIONS,
-                    )
-            for k in self.resume:
-                self.timed_ignore_cache.add(k)
-            self.resume.clear()
+        from qBitrr.arss.qbit_side_effects import resume_hashes_by_instance, resume_legacy_hash_set
+
+        resume_hashes_by_instance(self, warn_missing_client=True)
+        resume_legacy_hash_set(self)

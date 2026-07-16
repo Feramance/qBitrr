@@ -7,10 +7,14 @@ import {
   useState,
 } from "react";
 import { INSTANCE_VIEW_POLL_INTERVAL_MS } from "../../constants/arrAggregateFetch";
-import { useDataSync } from "../../hooks/useDataSync";
 import { useInterval } from "../../hooks/useInterval";
 import { useRowsStore } from "../../hooks/useRowsStore";
 import type { Hashable } from "../../utils/dataSync";
+import {
+  createEmptyRowsSnapshot,
+  syncRowsSnapshot,
+  type RowsStoreSnapshot,
+} from "../../utils/rowsStore";
 import type {
   ArrCatalogInstancePipelineParams,
   ArrCatalogInstancePipelineState,
@@ -38,7 +42,7 @@ export interface UseInstancePagedFetchAdapter<
   readonly basePageSize: number;
   /** Stable id used by the row store + diff pipeline. */
   readonly getRowKey: (row: TInstRow) => string;
-  /** Hash fields fed into `useDataSync` and the row store. */
+  /** Hash fields fed into full-list change detection and the visible row store. */
   readonly hashFields: ReadonlyArray<keyof TInstRow & string>;
   /** Build the request key — when this string changes, the page cache is wiped. */
   readonly buildKey: (params: {
@@ -126,14 +130,28 @@ export function useInstancePagedFetch<
   selectionRef.current = selection;
   const prevSelectionRef = useRef<string | null>(selection);
 
-  const dataSyncOpts = useMemo(
+  const pageSyncOpts = useMemo(
     () => ({
       getKey: adapter.getRowKey,
       hashFields: adapter.hashFields as ReadonlyArray<keyof TInstRow & string>,
     }),
     [adapter.getRowKey, adapter.hashFields],
   );
-  const dataSync = useDataSync<TInstRow>(dataSyncOpts as never);
+  const pageSyncRef = useRef<RowsStoreSnapshot<TInstRow>>(createEmptyRowsSnapshot());
+  const syncPageRows = useCallback(
+    (incoming: TInstRow[]) => {
+      const result = syncRowsSnapshot(pageSyncRef.current, incoming, pageSyncOpts as never);
+      pageSyncRef.current = result.snapshot;
+      return {
+        hasChanges: result.changeKind !== "noop",
+        data: incoming,
+      };
+    },
+    [pageSyncOpts],
+  );
+  const resetPageSync = useCallback(() => {
+    pageSyncRef.current = createEmptyRowsSnapshot();
+  }, []);
 
   const rowsStoreOpts = useMemo(
     () => ({
@@ -168,7 +186,7 @@ export function useInstancePagedFetch<
           setTotalItems(0);
           setTotalPages(1);
           setPage(0);
-          dataSync.reset();
+          resetPageSync();
           emptyTracker.resetEmptyState();
           setEmptyStateReady(false);
         }
@@ -218,7 +236,7 @@ export function useInstancePagedFetch<
           setEmptyStateReady((prev) => (prev === ready ? prev : ready));
         }
 
-        const syncResult = dataSync.syncData([...rows]);
+        const syncResult = syncPageRows([...rows]);
         const rowsChanged = syncResult.hasChanges;
 
         // Always persist `pages` when the cache key changed — even if `rowsChanged` is
@@ -271,8 +289,8 @@ export function useInstancePagedFetch<
       }
     },
     // `useDataSync` returns a new object each render; depend on stable callbacks only.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable syncData/reset; whole `dataSync` object is unstable
-    [adapter, dataSync.syncData, dataSync.reset, pushToast, roundPageSize],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable sync helpers; avoid retrigger loops
+    [adapter, syncPageRows, resetPageSync, pushToast, roundPageSize],
   );
 
   const fetchInstanceRef = useRef(fetchInstance);

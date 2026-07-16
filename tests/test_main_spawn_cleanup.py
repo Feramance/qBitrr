@@ -128,3 +128,33 @@ class TestExpectedSpawnRoles(unittest.TestCase):
         with patch("qBitrr.main.QBIT_DISABLED", False), patch("qBitrr.main.SEARCH_ONLY", True):
             roles = qBitManager._expected_spawn_roles(self._arr(search_missing=False))
         self.assertEqual(roles, [])
+
+
+class TestShouldRestartProcess(unittest.TestCase):
+    """Characterization tests for restart-window gating."""
+
+    def _mgr(self, *, max_restarts: int = 3, window: int = 600) -> qBitManager:
+        mgr = _bare_qbit_manager()
+        mgr._process_restart_counts = {}
+        mgr.max_process_restarts = max_restarts
+        mgr.process_restart_window = window
+        return mgr
+
+    def test_allows_restart_when_under_limit(self) -> None:
+        mgr = self._mgr()
+        self.assertTrue(mgr._should_restart_process("radarr", "torrent"))
+
+    def test_blocks_restart_when_window_saturated(self) -> None:
+        mgr = self._mgr(max_restarts=2, window=600)
+        now = 1_000_000.0
+        mgr._process_restart_counts[("radarr", "torrent")] = [now - 10, now - 5]
+        with patch("qBitrr.process_lifecycle.time.time", return_value=now):
+            self.assertFalse(mgr._should_restart_process("radarr", "torrent"))
+
+    def test_prunes_old_restart_timestamps(self) -> None:
+        mgr = self._mgr(max_restarts=2, window=60)
+        now = 1_000_000.0
+        mgr._process_restart_counts[("radarr", "torrent")] = [now - 120, now - 90]
+        with patch("qBitrr.process_lifecycle.time.time", return_value=now):
+            self.assertTrue(mgr._should_restart_process("radarr", "torrent"))
+        self.assertEqual(mgr._process_restart_counts[("radarr", "torrent")], [])

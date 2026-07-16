@@ -10,7 +10,6 @@ import sys
 import time
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Iterator
-from copy import copy
 from datetime import datetime, timedelta, timezone
 from multiprocessing import current_process
 from typing import TYPE_CHECKING, Any, NoReturn
@@ -62,9 +61,6 @@ from qBitrr.arss._shared import (
     TrackFilesModel,
     UnhandledError,
     _extract_tracker_host,
-    _is_media_available,
-    _is_media_processing,
-    _normalize_media_status,
     _parse_qbittorrent_tag_list,
     _TrackerDataUnavailable,
     absolute_file_paths,
@@ -757,40 +753,6 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin, Torr
         self._remove_tracker_hosts = set(idx.remove_tracker_hosts)
         self._normalized_bad_tracker_msgs = set(idx.normalized_bad_tracker_msgs)
 
-    def _arr_retry(
-        self,
-        fn: Callable,
-        *,
-        retries: int = 5,
-        backoff: float = 0.5,
-        max_backoff: float = 5,
-    ):
-        """Execute an Arr API call with the standard retry policy."""
-        return with_retry(
-            fn,
-            retries=retries,
-            backoff=backoff,
-            max_backoff=max_backoff,
-            exceptions=_ARR_RETRY_EXCEPTIONS,
-        )
-
-    def _arr_retry_extended(
-        self,
-        fn: Callable,
-        *,
-        retries: int = 5,
-        backoff: float = 0.5,
-        max_backoff: float = 5,
-    ):
-        """Execute an Arr API call with extended retry exceptions."""
-        return with_retry(
-            fn,
-            retries=retries,
-            backoff=backoff,
-            max_backoff=max_backoff,
-            exceptions=_ARR_RETRY_EXCEPTIONS_EXTENDED,
-        )
-
     def _qbit_retry(
         self,
         fn: Callable,
@@ -836,10 +798,6 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin, Torr
             if client is not None:
                 return client
         return None
-
-    def _get_legacy_default_qbit_client(self) -> qbittorrentapi.Client | None:
-        """Return the primary qBit client for legacy non-instance-scoped operations."""
-        return self._get_primary_qbit_client()
 
     def _is_qbit_instance_reachable(self, instance_name: str) -> bool:
         """Probe qBit reachability using this worker's dedicated or shared client."""
@@ -1413,225 +1371,35 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin, Torr
                 self.logger.warning("Failed to add tags %s to %s: %s", tags, torrent.name, e)
 
     def _get_oversee_requests_all(self) -> dict[str, set]:
-        try:
-            data = defaultdict(set)
-            key = "approved" if self.overseerr_approved_only else "unavailable"
-            take = 100
-            skip = 0
-            type_ = None
-            if self.type == "radarr":
-                type_ = "movie"
-            elif self.type == "sonarr":
-                type_ = "tv"
-            _now = datetime.now(timezone.utc)
-            while True:
-                response = self.session.get(
-                    url=f"{self.overseerr_uri}/api/v1/request",
-                    headers={"X-Api-Key": self.overseerr_api_key},
-                    params={"take": take, "skip": skip, "sort": "added", "filter": key},
-                    timeout=5,
-                    verify=not self.skip_tls_verify_overseerr,
-                )
-                response.raise_for_status()
-                payload = response.json()
-                results = []
-                if isinstance(payload, list):
-                    results = payload
-                elif isinstance(payload, dict):
-                    if isinstance(payload.get("results"), list):
-                        results = payload["results"]
-                    elif isinstance(payload.get("data"), list):
-                        results = payload["data"]
-                if not results:
-                    break
-                for entry in results:
-                    # NOTE: 'type' field is not documented in official Overseerr API spec
-                    # but exists in practice. May break if Overseerr changes API.
-                    type__ = entry.get("type")
-                    if not type__:
-                        self.logger.debug(
-                            "Overseerr request missing 'type' field (entry ID: %s). "
-                            "This may indicate an API change.",
-                            entry.get("id", "unknown"),
-                        )
-                        continue
-                    if type__ == "movie":
-                        id__ = entry.get("media", {}).get("tmdbId")
-                    elif type__ == "tv":
-                        id__ = entry.get("media", {}).get("tvdbId")
-                    else:
-                        id__ = None
-                    if not id__ or type_ != type__:
-                        continue
-                    media = entry.get("media") or {}
-                    # NOTE: 'status4k' field is not documented in official Overseerr API spec
-                    # but exists for 4K request tracking. Falls back to 'status' for non-4K.
-                    status_key = "status4k" if entry.get("is4k") else "status"
-                    status_value = _normalize_media_status(media.get(status_key))
-                    if entry.get("is4k"):
-                        if not self.overseerr_is_4k:
-                            continue
-                    elif self.overseerr_is_4k:
-                        continue
-                    if self.overseerr_approved_only:
-                        if not _is_media_processing(status_value):
-                            continue
-                    else:
-                        if _is_media_available(status_value):
-                            continue
-                    if id__ in self.overseerr_requests_release_cache:
-                        date = self.overseerr_requests_release_cache[id__]
-                    else:
-                        date = datetime(day=1, month=1, year=1970)
-                        date_string_backup = f"{_now.year}-{_now.month:02}-{_now.day:02}"
-                        date_string = None
-                        try:
-                            if type_ == "movie":
-                                _entry = self.session.get(
-                                    url=f"{self.overseerr_uri}/api/v1/movie/{id__}",
-                                    headers={"X-Api-Key": self.overseerr_api_key},
-                                    timeout=5,
-                                    verify=not self.skip_tls_verify_overseerr,
-                                )
-                                _entry.raise_for_status()
-                                date_string = _entry.json().get("releaseDate")
-                            elif type__ == "tv":
-                                _entry = self.session.get(
-                                    url=f"{self.overseerr_uri}/api/v1/tv/{id__}",
-                                    headers={"X-Api-Key": self.overseerr_api_key},
-                                    timeout=5,
-                                    verify=not self.skip_tls_verify_overseerr,
-                                )
-                                _entry.raise_for_status()
-                                # We don't do granular (episode/season) searched here so no need to
-                                # suppose them
-                                date_string = _entry.json().get("firstAirDate")
-                            if not date_string:
-                                date_string = date_string_backup
-                            date = datetime.strptime(date_string[:10], "%Y-%m-%d").replace(
-                                tzinfo=timezone.utc
-                            )
-                            if date > _now:
-                                continue
-                            self.overseerr_requests_release_cache[id__] = date
-                        except Exception as e:
-                            self.logger.warning(
-                                "Failed to query release date from Overseerr: %s", e
-                            )
-                    if media:
-                        if imdbId := media.get("imdbId"):
-                            data["ImdbId"].add(imdbId)
-                        if self.type == "sonarr" and (tvdbId := media.get("tvdbId")):
-                            data["TvdbId"].add(tvdbId)
-                        elif self.type == "radarr" and (tmdbId := media.get("tmdbId")):
-                            data["TmdbId"].add(tmdbId)
-                if len(results) < take:
-                    break
-                skip += take
-            self._temp_overseer_request_cache = data
-        except requests.exceptions.ConnectionError:
-            self.logger.warning("Couldn't connect to Overseerr")
-            self._temp_overseer_request_cache = defaultdict(set)
-            return self._temp_overseer_request_cache
-        except requests.exceptions.ReadTimeout:
-            self.logger.warning("Connection to Overseerr timed out")
-            self._temp_overseer_request_cache = defaultdict(set)
-            return self._temp_overseer_request_cache
-        except Exception as e:
-            self.logger.exception(e, exc_info=sys.exc_info())
-            self._temp_overseer_request_cache = defaultdict(set)
-            return self._temp_overseer_request_cache
-        else:
-            return self._temp_overseer_request_cache
+        from qBitrr.arss.request_providers import (
+            _get_oversee_requests_all as __get_oversee_requests_all,
+        )
+
+        return __get_oversee_requests_all(self)
 
     def _get_overseerr_requests_count(self) -> int:
-        self._get_oversee_requests_all()
-        if self.type == "sonarr":
-            return len(
-                self._temp_overseer_request_cache.get("TvdbId", [])
-                or self._temp_overseer_request_cache.get("ImdbId", [])
-            )
-        elif self.type == "radarr":
-            return len(
-                self._temp_overseer_request_cache.get("ImdbId", [])
-                or self._temp_overseer_request_cache.get("TmdbId", [])
-            )
-        return 0
+        from qBitrr.arss.request_providers import (
+            _get_overseerr_requests_count as __get_overseerr_requests_count,
+        )
+
+        return __get_overseerr_requests_count(self)
 
     def _get_ombi_request_count(self) -> int:
-        if self.type == "sonarr":
-            extras = "/api/v1/Request/tv/total"
-        elif self.type == "radarr":
-            extras = "/api/v1/Request/movie/total"
-        else:
-            raise UnhandledError(f"Well you shouldn't have reached here, Arr.type={self.type}")
-        total = 0
-        try:
-            response = self.session.get(
-                url=f"{self.ombi_uri}{extras}",
-                headers={"ApiKey": self.ombi_api_key},
-                timeout=5,
-                verify=not self.skip_tls_verify_ombi,
-            )
-            response.raise_for_status()
-            payload = response.json()
-            if isinstance(payload, dict):
-                for key in ("total", "count", "totalCount", "totalRecords", "pending", "value"):
-                    value = payload.get(key)
-                    if isinstance(value, int):
-                        total = value
-                        break
-            elif isinstance(payload, list):
-                total = len(payload)
-        except Exception as e:
-            self.logger.exception(e, exc_info=sys.exc_info())
-        return total
+        from qBitrr.arss.request_providers import (
+            _get_ombi_request_count as __get_ombi_request_count,
+        )
+
+        return __get_ombi_request_count(self)
 
     def _get_ombi_requests(self) -> list[dict]:
-        if self.type == "sonarr":
-            extras = "/api/v1/Request/tvlite"
-        elif self.type == "radarr":
-            extras = "/api/v1/Request/movie"
-        else:
-            raise UnhandledError(f"Well you shouldn't have reached here, Arr.type={self.type}")
-        try:
-            response = self.session.get(
-                url=f"{self.ombi_uri}{extras}",
-                headers={"ApiKey": self.ombi_api_key},
-                timeout=5,
-                verify=not self.skip_tls_verify_ombi,
-            )
-            response.raise_for_status()
-            payload = response.json()
-            if isinstance(payload, list):
-                return payload
-            if isinstance(payload, dict):
-                for key in ("result", "results", "requests", "data", "items"):
-                    value = payload.get(key)
-                    if isinstance(value, list):
-                        return value
-            return []
-        except Exception as e:
-            self.logger.exception(e, exc_info=sys.exc_info())
-            return []
+        from qBitrr.arss.request_providers import _get_ombi_requests as __get_ombi_requests
+
+        return __get_ombi_requests(self)
 
     def _process_ombi_requests(self) -> dict[str, set[str, int]]:
-        requests = self._get_ombi_requests()
-        data = defaultdict(set)
-        for request in requests:
-            if self.type == "radarr" and self.ombi_approved_only and request.get("denied") is True:
-                continue
-            elif self.type == "sonarr" and self.ombi_approved_only:
-                # This is me being lazy and not wanting to deal with partially approved requests.
-                if any(child.get("denied") is True for child in request.get("childRequests", [])):
-                    continue
-            if imdbId := request.get("imdbId"):
-                data["ImdbId"].add(imdbId)
-            if self.type == "radarr" and (theMovieDbId := request.get("theMovieDbId")):
-                data["TmdbId"].add(theMovieDbId)
-            if self.type == "sonarr" and (tvDbId := request.get("tvDbId")):
-                data["TvdbId"].add(tvDbId)
-        return data
+        from qBitrr.arss.request_providers import _process_ombi_requests as __process_ombi_requests
+
+        return __process_ombi_requests(self)
 
     def _remove_empty_folders(self) -> None:
         new_sent_to_scan = set()
@@ -1797,616 +1565,91 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin, Torr
     ) -> Iterable[
         tuple[MoviesFilesModel | EpisodeFilesModel | SeriesFilesModel, bool, bool, bool, int]
     ]:
-        if self.type == "sonarr" and self.series_search is True:
-            serieslist = self.db_get_files_series()
-            for series in serieslist:
-                yield series[0], series[1], series[2], series[2] is not True, len(serieslist)
-        elif self.type == "sonarr" and self.series_search == "smart":
-            # Smart mode: decide dynamically based on what needs to be searched
-            episodelist = self.db_get_files_episodes()
-            if episodelist:
-                # Group episodes by series to determine if we should search by series or episode
-                series_episodes_map = {}
-                for episode_entry in episodelist:
-                    episode = episode_entry[0]
-                    series_id = episode.SeriesId
-                    if series_id not in series_episodes_map:
-                        series_episodes_map[series_id] = []
-                    series_episodes_map[series_id].append(episode_entry)
+        from qBitrr.arss.db_queries import db_get_files as _db_get_files
 
-                # Process each series
-                for series_id, episodes in series_episodes_map.items():
-                    if len(episodes) > 1:
-                        # Multiple episodes from same series - use series search (smart decision)
-                        self.logger.info(
-                            "[SMART MODE] Using series search for %s episodes from series ID %s",
-                            len(episodes),
-                            series_id,
-                        )
-                        # Create a series entry for searching
-                        series_model = (
-                            self.series_file_model.select()
-                            .where(
-                                (self.series_file_model.EntryId == series_id)
-                                & (self.series_file_model.ArrInstance == self._name)
-                            )
-                            .first()
-                        )
-                        if series_model:
-                            yield series_model, episodes[0][1], episodes[0][2], True, len(
-                                episodelist
-                            )
-                    else:
-                        # Single episode - use episode search (smart decision)
-                        episode = episodes[0][0]
-                        self.logger.info(
-                            "[SMART MODE] Using episode search for single episode: %s S%02dE%03d",
-                            episode.SeriesTitle,
-                            episode.SeasonNumber,
-                            episode.EpisodeNumber,
-                        )
-                        yield episodes[0][0], episodes[0][1], episodes[0][2], False, len(
-                            episodelist
-                        )
-        elif self.type == "sonarr" and self.series_search == False:
-            episodelist = self.db_get_files_episodes()
-            for episodes in episodelist:
-                yield episodes[0], episodes[1], episodes[2], False, len(episodelist)
-        elif self.type == "radarr":
-            movielist = self.db_get_files_movies()
-            for movies in movielist:
-                yield movies[0], movies[1], movies[2], False, len(movielist)
-        elif self.type == "lidarr":
-            albumlist = self.db_get_files_movies()  # This calls the lidarr section we added
-            for albums in albumlist:
-                yield albums[0], albums[1], albums[2], False, len(albumlist)
+        return _db_get_files(self)
 
     def db_maybe_reset_entry_searched_state(self):
-        if self.type == "sonarr":
-            self.db_reset__series_searched_state()
-            self.db_reset__episode_searched_state()
-        elif self.type == "radarr":
-            self.db_reset__movie_searched_state()
-        elif self.type == "lidarr":
-            self.db_reset__album_searched_state()
-        self.loop_completed = False
+        from qBitrr.arss.db_queries import (
+            db_maybe_reset_entry_searched_state as _db_maybe_reset_entry_searched_state,
+        )
+
+        return _db_maybe_reset_entry_searched_state(self)
 
     def db_reset__series_searched_state(self):
-        ids = []
-        self.series_file_model: SeriesFilesModel
-        self.model_file: EpisodeFilesModel
-        if (
-            self.loop_completed and self.reset_on_completion and self.series_search
-        ):  # Only wipe if a loop completed was tagged
-            with database_lock():
-                self.series_file_model.update(Searched=False, Upgrade=False).where(
-                    (self.series_file_model.Searched == True)
-                    & (self.series_file_model.ArrInstance == self._name)
-                ).execute()
-            series = with_retry(
-                lambda: self.client.series.get(),
-                retries=5,
-                backoff=0.5,
-                max_backoff=5,
-                exceptions=_ARR_RETRY_EXCEPTIONS,
-            )
-            for s in series:
-                ids.append(s["id"])
-            with database_lock():
-                if ids:
-                    self.series_file_model.delete().where(
-                        (self.series_file_model.EntryId.not_in(ids))
-                        & (self.series_file_model.ArrInstance == self._name)
-                    ).execute()
-                else:
-                    self.logger.warning(
-                        "%s: No series returned from Arr API during reset; "
-                        "skipping DB prune to prevent data loss",
-                        self._name,
-                    )
-            self.loop_completed = False
+        from qBitrr.arss.db_queries import (
+            db_reset__series_searched_state as _db_reset__series_searched_state,
+        )
+
+        return _db_reset__series_searched_state(self)
 
     def db_reset__episode_searched_state(self):
-        ids = []
-        self.model_file: EpisodeFilesModel
-        if (
-            self.loop_completed is True and self.reset_on_completion
-        ):  # Only wipe if a loop completed was tagged
-            with database_lock():
-                self.model_file.update(Searched=False, Upgrade=False).where(
-                    (self.model_file.Searched == True)
-                    & (self.model_file.ArrInstance == self._name)
-                ).execute()
-            series = with_retry(
-                lambda: self.client.series.get(),
-                retries=5,
-                backoff=0.5,
-                max_backoff=5,
-                exceptions=_ARR_RETRY_EXCEPTIONS,
-            )
-            for s in series:
-                episodes = with_retry(
-                    lambda s=s: self.client.episode.get(series_id=s["id"]),
-                    retries=5,
-                    backoff=0.5,
-                    max_backoff=5,
-                    exceptions=_ARR_RETRY_EXCEPTIONS,
-                )
-                for e in episodes:
-                    ids.append(e["id"])
-            with database_lock():
-                if ids:
-                    self.model_file.delete().where(
-                        (self.model_file.EntryId.not_in(ids))
-                        & (self.model_file.ArrInstance == self._name)
-                    ).execute()
-                else:
-                    self.logger.warning(
-                        "%s: No episodes returned from Arr API during reset; "
-                        "skipping DB prune to prevent data loss",
-                        self._name,
-                    )
-            self.loop_completed = False
+        from qBitrr.arss.db_queries import (
+            db_reset__episode_searched_state as _db_reset__episode_searched_state,
+        )
+
+        return _db_reset__episode_searched_state(self)
 
     def db_reset__movie_searched_state(self):
-        ids = []
-        self.model_file: MoviesFilesModel
-        if (
-            self.loop_completed is True and self.reset_on_completion
-        ):  # Only wipe if a loop completed was tagged
-            with database_lock():
-                self.model_file.update(Searched=False, Upgrade=False).where(
-                    (self.model_file.Searched == True)
-                    & (self.model_file.ArrInstance == self._name)
-                ).execute()
-            movies = with_retry(
-                lambda: self.client.movie.get(),
-                retries=5,
-                backoff=0.5,
-                max_backoff=5,
-                exceptions=_ARR_RETRY_EXCEPTIONS,
-            )
-            for m in movies:
-                ids.append(m["id"])
-            with database_lock():
-                if ids:
-                    self.model_file.delete().where(
-                        (self.model_file.EntryId.not_in(ids))
-                        & (self.model_file.ArrInstance == self._name)
-                    ).execute()
-                else:
-                    self.logger.warning(
-                        "%s: No movies returned from Arr API during reset; "
-                        "skipping DB prune to prevent data loss",
-                        self._name,
-                    )
-            self.loop_completed = False
+        from qBitrr.arss.db_queries import (
+            db_reset__movie_searched_state as _db_reset__movie_searched_state,
+        )
+
+        return _db_reset__movie_searched_state(self)
 
     def db_reset__album_searched_state(self):
-        ids = []
-        self.model_file: AlbumFilesModel
-        if (
-            self.loop_completed is True and self.reset_on_completion
-        ):  # Only wipe if a loop completed was tagged
-            with database_lock():
-                self.model_file.update(Searched=False, Upgrade=False).where(
-                    (self.model_file.Searched == True)
-                    & (self.model_file.ArrInstance == self._name)
-                ).execute()
-            artists = with_retry(
-                lambda: self.client.artist.get(),
-                retries=5,
-                backoff=0.5,
-                max_backoff=5,
-                exceptions=_ARR_RETRY_EXCEPTIONS,
-            )
-            for artist in artists:
-                albums = with_retry(
-                    lambda a=artist: self.client.album.get(artist_id=a["id"]),
-                    retries=5,
-                    backoff=0.5,
-                    max_backoff=5,
-                    exceptions=_ARR_RETRY_EXCEPTIONS,
-                )
-                for album in albums:
-                    ids.append(album["id"])
-            with database_lock():
-                if ids:
-                    self.model_file.delete().where(
-                        (self.model_file.EntryId.not_in(ids))
-                        & (self.model_file.ArrInstance == self._name)
-                    ).execute()
-                else:
-                    self.logger.warning(
-                        "%s: No albums returned from Arr API during reset; "
-                        "skipping DB prune to prevent data loss",
-                        self._name,
-                    )
-            self.loop_completed = False
+        from qBitrr.arss.db_queries import (
+            db_reset__album_searched_state as _db_reset__album_searched_state,
+        )
+
+        return _db_reset__album_searched_state(self)
 
     def _db_search_quality_cf_condition(self, *, missing_file_field):
-        """Build Searched / QualityMet / CustomFormatMet / missing-file WHERE fragment.
+        from qBitrr.arss.db_queries import (
+            _db_search_quality_cf_condition as __db_search_quality_cf_condition,
+        )
 
-        Shared by ``db_get_files_series|episodes|movies`` (and Lidarr albums).
-        ``missing_file_field`` is the model column for "no file yet" (e.g. EpisodeFileId).
-        """
-        model = self.model_file
-        if self.do_upgrade_search:
-            return model.Upgrade == False
-        if self.quality_unmet_search and not self.custom_format_unmet_search:
-            return (model.Searched == False) | (model.QualityMet == False)
-        if not self.quality_unmet_search and self.custom_format_unmet_search:
-            return (model.Searched == False) | (model.CustomFormatMet == False)
-        if self.quality_unmet_search and self.custom_format_unmet_search:
-            return (
-                (model.Searched == False)
-                | (model.QualityMet == False)
-                | (model.CustomFormatMet == False)
-            )
-        return (missing_file_field == 0) & (model.Searched == False)
+        return __db_search_quality_cf_condition(self, missing_file_field=missing_file_field)
 
     def db_get_files_series(self) -> list[list[SeriesFilesModel, bool, bool]] | None:
-        entries = []
-        if not (self.search_missing or self.do_upgrade_search):
-            return None
-        elif not self.series_search:
-            return None
-        elif self.type == "sonarr":
-            condition = self.model_file.AirDateUtc.is_null(False)
-            if not self.search_specials:
-                condition &= self.model_file.SeasonNumber != 0
-            condition &= self._db_search_quality_cf_condition(
-                missing_file_field=self.model_file.EpisodeFileId
-            )
-            todays_condition = copy(condition)
-            todays_condition &= self.model_file.AirDateUtc > (
-                datetime.now(timezone.utc) - timedelta(days=1)
-            )
-            todays_condition &= self.model_file.AirDateUtc < (
-                datetime.now(timezone.utc) - timedelta(hours=1)
-            )
-            condition &= self.model_file.AirDateUtc < (
-                datetime.now(timezone.utc) - timedelta(days=1)
-            )
-            if self.search_by_year and self.search_current_year is not None:
-                condition &= (
-                    self.model_file.AirDateUtc
-                    >= datetime(month=1, day=1, year=int(self.search_current_year)).date()
-                )
-                condition &= (
-                    self.model_file.AirDateUtc
-                    <= datetime(month=12, day=31, year=int(self.search_current_year)).date()
-                )
-            for i1, i2, i3 in self._search_todays(condition):
-                if i1 is not None:
-                    entries.append([i1, i2, i3])
-            if not self.do_upgrade_search:
-                condition = (self.series_file_model.Searched == False) & (
-                    self.series_file_model.ArrInstance == self._name
-                )
-            else:
-                condition = (self.series_file_model.Upgrade == False) & (
-                    self.series_file_model.ArrInstance == self._name
-                )
+        from qBitrr.arss.db_queries import db_get_files_series as _db_get_files_series
 
-            # Collect series entries with their priority based on episode reasons
-            # Missing > CustomFormat > Quality > Upgrade
-            reason_priority_map = {
-                "Missing": 1,
-                "CustomFormat": 2,
-                "Quality": 3,
-                "Upgrade": 4,
-            }
-
-            # Pre-fetch all episode reasons in a single query, grouped by SeriesId
-            series_ids = [
-                e.EntryId
-                for e in self.series_file_model.select(self.series_file_model.EntryId)
-                .where(condition)
-                .execute()
-            ]
-            reasons_by_series: dict[int, int] = {}
-            if series_ids:
-                for ep in (
-                    self.model_file.select(self.model_file.SeriesId, self.model_file.Reason)
-                    .where(self.model_file.SeriesId.in_(series_ids))
-                    .execute()
-                ):
-                    if ep.Reason:
-                        priority = reason_priority_map.get(ep.Reason, 5)
-                        sid = ep.SeriesId
-                        if sid not in reasons_by_series or priority < reasons_by_series[sid]:
-                            reasons_by_series[sid] = priority
-
-            series_entries = []
-            for entry_ in self.series_file_model.select().where(condition).execute():
-                min_priority = reasons_by_series.get(entry_.EntryId, 5)
-                series_entries.append((entry_, min_priority))
-
-            # Sort by priority, then by EntryId
-            series_entries.sort(key=lambda x: (x[1], x[0].EntryId))
-
-            for entry_, _ in series_entries:
-                self.logger.trace("Adding %s to search list", entry_.Title)
-                entries.append([entry_, False, False])
-            return entries
+        return _db_get_files_series(self)
 
     def db_get_files_episodes(self) -> list[list[EpisodeFilesModel, bool, bool]] | None:
-        entries = []
-        if not (self.search_missing or self.do_upgrade_search):
-            return None
-        elif self.type == "sonarr":
-            condition = (self.model_file.AirDateUtc.is_null(False)) & (
-                self.model_file.ArrInstance == self._name
-            )
-            if not self.search_specials:
-                condition &= self.model_file.SeasonNumber != 0
-            condition &= self._db_search_quality_cf_condition(
-                missing_file_field=self.model_file.EpisodeFileId
-            )
-            today_condition = copy(condition)
-            today_condition &= self.model_file.AirDateUtc > (
-                datetime.now(timezone.utc) - timedelta(days=1)
-            )
-            today_condition &= self.model_file.AirDateUtc < (
-                datetime.now(timezone.utc) - timedelta(hours=1)
-            )
-            condition &= self.model_file.AirDateUtc < (
-                datetime.now(timezone.utc) - timedelta(days=1)
-            )
-            if self.search_by_year and self.search_current_year is not None:
-                condition &= (
-                    self.model_file.AirDateUtc
-                    >= datetime(month=1, day=1, year=int(self.search_current_year)).date()
-                )
-                condition &= (
-                    self.model_file.AirDateUtc
-                    <= datetime(month=12, day=31, year=int(self.search_current_year)).date()
-                )
-            # Order searches by priority: Missing > CustomFormat > Quality > Upgrade
-            # Use CASE to assign priority values to each reason
-            from peewee import Case
+        from qBitrr.arss.db_queries import db_get_files_episodes as _db_get_files_episodes
 
-            reason_priority = Case(
-                None,
-                (
-                    (self.model_file.Reason == "Missing", 1),
-                    (self.model_file.Reason == "CustomFormat", 2),
-                    (self.model_file.Reason == "Quality", 3),
-                    (self.model_file.Reason == "Upgrade", 4),
-                ),
-                5,  # Default priority for other reasons
-            )
-
-            for entry in (
-                self.model_file.select()
-                .where(condition)
-                .group_by(self.model_file.SeriesId)
-                .order_by(
-                    reason_priority.asc(),
-                    self.model_file.EpisodeFileId.asc(),
-                    self.model_file.SeriesTitle,
-                    self.model_file.SeasonNumber.desc(),
-                    self.model_file.AirDateUtc.desc(),
-                )
-                .execute()
-            ):
-                entries.append([entry, False, False])
-            for i1, i2, i3 in self._search_todays(today_condition):
-                if i1 is not None:
-                    entries.append([i1, i2, i3])
-            return entries
+        return _db_get_files_episodes(self)
 
     def db_get_files_movies(self) -> list[list[MoviesFilesModel, bool, bool]] | None:
-        entries = []
-        if not (self.search_missing or self.do_upgrade_search):
-            return None
-        if self.type == "radarr":
-            condition = (self.model_file.Year.is_null(False)) & (
-                self.model_file.ArrInstance == self._name
-            )
-            condition &= self._db_search_quality_cf_condition(
-                missing_file_field=self.model_file.MovieFileId
-            )
-            if self.search_by_year:
-                condition &= self.model_file.Year == self.search_current_year
+        from qBitrr.arss.db_queries import db_get_files_movies as _db_get_files_movies
 
-            # Order searches by priority: Missing > CustomFormat > Quality > Upgrade
-            # Use CASE to assign priority values to each reason
-            from peewee import Case
-
-            reason_priority = Case(
-                None,
-                (
-                    (self.model_file.Reason == "Missing", 1),
-                    (self.model_file.Reason == "CustomFormat", 2),
-                    (self.model_file.Reason == "Quality", 3),
-                    (self.model_file.Reason == "Upgrade", 4),
-                ),
-                5,  # Default priority for other reasons
-            )
-
-            for entry in (
-                self.model_file.select()
-                .where(condition)
-                .order_by(
-                    reason_priority.asc(),  # Primary: order by reason priority
-                    self.model_file.MovieFileId.asc(),
-                )
-                .execute()
-            ):
-                entries.append([entry, False, False])
-            return entries
-        elif self.type == "lidarr":
-            condition = self.model_file.ArrInstance == self._name
-            condition &= self._db_search_quality_cf_condition(
-                missing_file_field=self.model_file.AlbumFileId
-            )
-
-            # Order searches by priority: Missing > CustomFormat > Quality > Upgrade
-            # Use CASE to assign priority values to each reason
-            from peewee import Case
-
-            reason_priority = Case(
-                None,
-                (
-                    (self.model_file.Reason == "Missing", 1),
-                    (self.model_file.Reason == "CustomFormat", 2),
-                    (self.model_file.Reason == "Quality", 3),
-                    (self.model_file.Reason == "Upgrade", 4),
-                ),
-                5,  # Default priority for other reasons
-            )
-
-            for entry in (
-                self.model_file.select()
-                .where(condition)
-                .order_by(
-                    reason_priority.asc(),  # Primary: order by reason priority
-                    self.model_file.AlbumFileId.asc(),
-                )
-                .execute()
-            ):
-                entries.append([entry, False, False])
-            return entries
+        return _db_get_files_movies(self)
 
     def db_get_request_files(self) -> Iterable[tuple[MoviesFilesModel | EpisodeFilesModel, int]]:
-        entries = []
-        self.logger.trace("Getting request files")
-        if self.type == "sonarr":
-            condition = (self.model_file.IsRequest == True) & (
-                self.model_file.ArrInstance == self._name
-            )
-            condition &= self.model_file.AirDateUtc.is_null(False)
-            condition &= self.model_file.EpisodeFileId == 0
-            condition &= self.model_file.Searched == False
-            condition &= self.model_file.AirDateUtc < (
-                datetime.now(timezone.utc) - timedelta(days=1)
-            )
-            entries = list(
-                self.model_file.select()
-                .where(condition)
-                .order_by(
-                    self.model_file.SeriesTitle,
-                    self.model_file.SeasonNumber.desc(),
-                    self.model_file.AirDateUtc.desc(),
-                )
-                .execute()
-            )
-        elif self.type == "radarr":
-            condition = (self.model_file.IsRequest == True) & (
-                self.model_file.ArrInstance == self._name
-            )
-            condition &= self.model_file.Year.is_null(False)
-            condition &= self.model_file.MovieFileId == 0
-            condition &= self.model_file.Searched == False
-            entries = list(
-                self.model_file.select()
-                .where(condition)
-                .order_by(self.model_file.Title.asc())
-                .execute()
-            )
-        for entry in entries:
-            yield entry, len(entries)
+        from qBitrr.arss.db_queries import db_get_request_files as _db_get_request_files
+
+        return _db_get_request_files(self)
 
     def db_request_update(self):
-        if self.overseerr_requests:
-            self.db_overseerr_update()
-        else:
-            self.db_ombi_update()
+        from qBitrr.arss.request_providers import db_request_update as _db_request_update
+
+        return _db_request_update(self)
 
     def _db_request_update(self, request_ids: dict[str, set[int | str]]):
-        if self.type == "sonarr" and any(i in request_ids for i in ["ImdbId", "TvdbId"]):
-            TvdbIds = request_ids.get("TvdbId")
-            ImdbIds = request_ids.get("ImdbId")
-            series = with_retry(
-                lambda: self.client.series.get(),
-                retries=5,
-                backoff=0.5,
-                max_backoff=5,
-                exceptions=_ARR_RETRY_EXCEPTIONS,
-            )
-            for s in series:
-                episodes = with_retry(
-                    lambda s=s: self.client.episode.get(series_id=s["id"]),
-                    retries=5,
-                    backoff=0.5,
-                    max_backoff=5,
-                    exceptions=_ARR_RETRY_EXCEPTIONS,
-                )
-                for e in episodes:
-                    if "airDateUtc" in e:
-                        if datetime.strptime(e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ").replace(
-                            tzinfo=timezone.utc
-                        ) > datetime.now(timezone.utc):
-                            continue
-                        if not self.search_specials and e["seasonNumber"] == 0:
-                            continue
-                        if TvdbIds and ImdbIds and "tvdbId" in e and "imdbId" in e:
-                            if s["tvdbId"] not in TvdbIds or s["imdbId"] not in ImdbIds:
-                                continue
-                        if ImdbIds and "imdbId" in e:
-                            if s["imdbId"] not in ImdbIds:
-                                continue
-                        if TvdbIds and "tvdbId" in e:
-                            if s["tvdbId"] not in TvdbIds:
-                                continue
-                        if not e["monitored"]:
-                            continue
-                        if e["episodeFileId"] != 0:
-                            continue
-                        self.db_update_single_series(db_entry=e, request=True)
-        elif self.type == "radarr" and any(i in request_ids for i in ["ImdbId", "TmdbId"]):
-            ImdbIds = request_ids.get("ImdbId")
-            TmdbIds = request_ids.get("TmdbId")
-            movies = with_retry(
-                lambda: self.client.movie.get(),
-                retries=5,
-                backoff=0.5,
-                max_backoff=5,
-                exceptions=_ARR_RETRY_EXCEPTIONS,
-            )
-            for m in movies:
-                if m["year"] > datetime.now().year or m["year"] == 0:
-                    continue
-                if TmdbIds and ImdbIds and "tmdbId" in m and "imdbId" in m:
-                    if m["tmdbId"] not in TmdbIds or m["imdbId"] not in ImdbIds:
-                        continue
-                if ImdbIds and "imdbId" in m:
-                    if m["imdbId"] not in ImdbIds:
-                        continue
-                if TmdbIds and "tmdbId" in m:
-                    if m["tmdbId"] not in TmdbIds:
-                        continue
-                if not m["monitored"]:
-                    continue
-                if m["hasFile"]:
-                    continue
-                self.db_update_single_series(db_entry=m, request=True)
+        from qBitrr.arss.request_providers import _db_request_update as __db_request_update
+
+        return __db_request_update(self, request_ids)
 
     def db_overseerr_update(self):
-        if (not self.search_missing) or (not self.overseerr_requests):
-            return
-        if self._get_overseerr_requests_count() == 0:
-            return
-        request_ids = self._temp_overseer_request_cache
-        if not any(i in request_ids for i in ["ImdbId", "TmdbId", "TvdbId"]):
-            return
-        self.logger.notice("Started updating database with Overseerr request entries.")
-        self._db_request_update(request_ids)
-        self.logger.notice("Finished updating database with Overseerr request entries")
+        from qBitrr.arss.request_providers import db_overseerr_update as _db_overseerr_update
+
+        return _db_overseerr_update(self)
 
     def db_ombi_update(self):
-        if (not self.search_missing) or (not self.ombi_search_requests):
-            return
-        if self._get_ombi_request_count() == 0:
-            return
-        request_ids = self._process_ombi_requests()
-        if not any(i in request_ids for i in ["ImdbId", "TmdbId", "TvdbId"]):
-            return
-        self.logger.notice("Started updating database with Ombi request entries.")
-        self._db_request_update(request_ids)
-        self.logger.notice("Finished updating database with Ombi request entries")
+        from qBitrr.arss.request_providers import db_ombi_update as _db_ombi_update
+
+        return _db_ombi_update(self)
 
     def db_update_todays_releases(self):
         if not self.prioritize_todays_release:

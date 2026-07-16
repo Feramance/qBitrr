@@ -14,6 +14,8 @@
     - `placeholder.py` – `PlaceHolderArr` worker for placeholder categories
     - `torrent_policy.py` – free-space guard and torrent policy mixins
     - `torrent_batch_mixin.py` – batched torrent processing helpers
+    - `qbit_side_effects.py` – shared pause/resume/delete helpers
+    - `db_queries.py` / `request_providers.py` – DB search selection and Ombi/Overseerr leaves
     - `db_update_handlers.py` – per-Arr-type DB update leaf functions
     - `_shared.py` – shared imports/constants for arss submodules
   - `qBitrr/arr_client.py` – Pyarr v6 client builders and shared JSON types
@@ -21,12 +23,14 @@
   - `qBitrr/qbit_seeding_config.py` – qBit-managed category seeding settings loader
   - `qBitrr/quality_profile_helpers.py` – shared quality-profile/search-state helpers for db_update paths
   - `qBitrr/config.py` – TOML config parsing, validation, migrations, live-reload getters
+  - `qBitrr/gen_config/` – config schema builders, validate/fill, and migrations
   - `qBitrr/config_reload_policy.py` – classifies config key changes into reload strategies (live, qbit_hot, arr preserve/reset DB, full restart)
-  - `qBitrr/webui.py` – Flask routes for `/api/*` (token-protected) and `/web/*` (helpers)
+  - `qBitrr/process_lifecycle.py` – spawn/restart helpers used by `qBitManager`
+  - `qBitrr/webui/` – Flask WebUI package (`app`, route registrars, catalog queries) for `/api/*` (token-protected) and `/web/*` (helpers)
   - `qBitrr/ffprobe.py` – media file verification via ffprobe
   - `qBitrr/tables.py` – Peewee models for persistent state (downloads, searches, expiry)
   - `webui/src/` – React dashboard with @mantine/core UI, react-hook-form, @tanstack/react-table
-- **Config**: `~/config/config.toml` (native) or `/config/config.toml` (Docker). Generated on first run via `gen_config.py`
+- **Config**: `~/config/config.toml` (native) or `/config/config.toml` (Docker). Generated on first run via `qBitrr/gen_config/`
 - **Logging**: Structured logs in `~/logs/` or `/config/logs`; `Main.log`, `WebUI.log`, per-Arr logs
 - **Deployment**: PyPI package (`qBitrr2`), Docker image (`feramance/qbitrr:latest`), or source install
 
@@ -118,10 +122,10 @@
   - `/ui` → serves React SPA from `qBitrr/static/`
 
 ## Development Tips
-- **Config Changes**: Edit `qBitrr/gen_config.py` (MyConfig class); regenerate example via `qbitrr --gen-config`
+- **Config Changes**: Edit `qBitrr/gen_config/` (MyConfig / section builders); regenerate example via `qbitrr --gen-config`
 - **WebUI Changes**: Run `npm run dev` in webui/, API requests proxy to http://localhost:6969
 - **Database Schema**: Modify `qBitrr/tables.py`, add migration logic in `config.py:apply_config_migrations()`
-- **New Arr Type**: Radarr/Sonarr/Lidarr share the `Arr` class (`self.type`); add API branches in `qBitrr/arss/` (primarily `arr.py`, `db_update_handlers.py`) and config in `gen_config.py`. Special workers subclass `Arr` (`PlaceHolderArr`, etc.) without calling full `Arr.__init__`. Register new managed instances in `ArrManager.build_arr_instances()` / `main.py` as needed
+- **New Arr Type**: Radarr/Sonarr/Lidarr share the `Arr` class (`self.type`); add API branches in `qBitrr/arss/` (primarily `arr.py`, `db_update_handlers.py`) and config in `gen_config/`. Special workers subclass `Arr` (`PlaceHolderArr`, etc.) without calling full `Arr.__init__`. Register new managed instances in `ArrManager.build_arr_instances()` / `main.py` as needed
 - **Pre-commit Bypass**: `git commit --no-verify` (discouraged; use for emergency hotfixes only)
 
 ## Testing & Validation
@@ -355,7 +359,7 @@ When making code changes, update the following documentation as applicable:
 
 #### 3. Configuration Examples
 - **`config.example.toml`**: Update with new config options and examples
-- **`qBitrr/gen_config.py`**: Add new config fields with descriptions
+- **`qBitrr/gen_config/`**: Add new config fields with descriptions
 
 #### 4. API Documentation
 - **`docs/reference/api.md`**: Update if adding/changing WebUI API endpoints

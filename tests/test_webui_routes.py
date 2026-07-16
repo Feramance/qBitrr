@@ -124,12 +124,9 @@ class TestEmptyCatalogPayload(unittest.TestCase):
 
 class TestDualRouteRegistration(unittest.TestCase):
     def test_webui_declares_twenty_five_dual_route_pairs(self) -> None:
-        source = (
-            Path(__file__)
-            .resolve()
-            .parents[1]
-            .joinpath("qBitrr", "webui.py")
-            .read_text(encoding="utf-8")
+        webui_pkg = Path(__file__).resolve().parents[1].joinpath("qBitrr", "webui")
+        source = "\n".join(
+            path.read_text(encoding="utf-8") for path in sorted(webui_pkg.rglob("*.py"))
         )
         paths = [match.group("path") for match in _DUAL_ROUTE_RE.finditer(source)]
         self.assertEqual(len(paths), 25, msg=f"dual_route paths: {paths}")
