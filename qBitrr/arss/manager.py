@@ -1,9 +1,36 @@
 from __future__ import annotations
 
-from qBitrr.arss._shared import *
+import logging
+import pathlib
+import re
+from typing import TYPE_CHECKING
+
+from qBitrr.arss._shared import (
+    CONFIG,
+    QBIT_DISABLED,
+    SEARCH_ONLY,
+    SkipException,
+    build_lidarr_client,
+    build_radarr_client,
+    build_sonarr_client,
+    find_overlap_conflicts,
+    get_auto_pause_resume_effective,
+    get_effective_qbit_disabled,
+    get_failed_category_effective,
+    get_free_space_guard_settings,
+    get_recheck_category_effective,
+    has_subcategory_separator,
+    matches_configured,
+    normalize_category,
+    qbit_sections,
+    run_logs,
+)
 from qBitrr.arss.arr import Arr
 from qBitrr.arss.placeholder import PlaceHolderArr
 from qBitrr.arss.torrent_policy import TorrentPolicyManager
+
+if TYPE_CHECKING:
+    from qBitrr.main import qBitManager
 
 
 class ArrManager:

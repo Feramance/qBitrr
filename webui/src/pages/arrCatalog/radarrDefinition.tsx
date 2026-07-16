@@ -11,16 +11,12 @@ import { summarizeAggregateMonitoredRows } from "../../constants/arrAggregateFet
 import { normalizeNumericId } from "../../utils/normalizeNumericId";
 import { radarrMovieThumbnailUrl } from "../../utils/arrThumbnailUrl";
 import { ArrCatalogIconTile } from "./ArrCatalogIconTile";
-import {
-  ArrCatalogBodyChrome,
-  ArrCatalogPagination,
-} from "./ArrCatalogBodyChrome";
-import {
-  ArrCatalogEmptyBranch,
-  ArrCatalogListOrGrid,
-} from "./ArrCatalogListOrGrid";
+import { ArrCatalogStandardBody } from "./ArrCatalogStandardBody";
 import { createStandardArrFilters } from "./createStandardArrFilters";
-import type { ArrCatalogDefinition } from "./definition";
+import type {
+  AnyArrCatalogDefinition,
+  ArrCatalogDefinition,
+} from "./definition";
 import { ARR_CATALOG_REGISTRY } from "./registry";
 import { useInstancePagedFetch } from "./useInstancePagedFetch";
 import { categoryForInstanceLabel } from "./utils";
@@ -302,6 +298,10 @@ export const RADARR_DEFINITION: ArrCatalogDefinition<
 
 ARR_CATALOG_REGISTRY.radarr = RADARR_DEFINITION;
 
+export function getRadarrCatalogDefinition(): AnyArrCatalogDefinition {
+  return RADARR_DEFINITION;
+}
+
 interface RadarrAggregateBodyProps {
   readonly rows: ReadonlyArray<RadarrAggRow>;
   readonly rowOrder: ReadonlyArray<string>;
@@ -376,62 +376,50 @@ function RadarrAggregateBody({
     !effectiveLoading && total === 0 && summary.total === 0 && instanceCount > 0;
 
   return (
-    <ArrCatalogBodyChrome
+    <ArrCatalogStandardBody
       summaryLine={summaryLine}
       onRefresh={onRefresh}
       loading={effectiveLoading}
       loadingHint="Loading Radarr library…"
-      footer={
-        total > 0 ? (
-          <ArrCatalogPagination
-            page={page}
-            totalPages={totalPages}
-            total={total}
-            itemNoun="items"
-            pageSize={aggregatePageSize}
-            loading={effectiveLoading}
-            onPageChange={onPageChange}
-          />
-        ) : null
-      }
-    >
-      <ArrCatalogEmptyBranch
-        order="syncFirst"
-        showCatalogEmptyHint={showCatalogEmptyHint}
-        hasRows={total > 0}
-        catalogEmptyMessage="No movies found in the local catalog."
-        noMatchMessage="No movies found."
-      >
-        <ArrCatalogListOrGrid
-          browseMode={browseMode}
-          rows={rows}
-          rowOrder={rowOrder}
-          rowsStore={rowsStore}
-          columns={columns}
-          getRowKey={radarrAggRowKey}
-          onRowSelect={onRowSelect}
-          iconGridRef={iconGridRef}
-          renderIconTile={(row) => {
-            const thumb = radarrAggThumbnail(row, instances);
-            return (
-              <ArrCatalogIconTile
-                key={radarrAggRowKey(row)}
-                posterSrc={thumb}
-                onClick={() => onRowSelect(row)}
-              >
-                {instanceCount > 1 ? (
-                  <div className="arr-movie-tile__instance">{row.__instance}</div>
-                ) : null}
-                <div className="arr-movie-tile__title">{row.title}</div>
-                <div className="arr-movie-tile__sub">
-                  {row.year != null ? String(row.year) : ""}
-                </div>
-              </ArrCatalogIconTile>
-            );
-          }}
-        />
-      </ArrCatalogEmptyBranch>
-    </ArrCatalogBodyChrome>
+      emptyOrder="syncFirst"
+      showCatalogEmptyHint={showCatalogEmptyHint}
+      hasRows={total > 0}
+      catalogEmptyMessage="No movies found in the local catalog."
+      noMatchMessage="No movies found."
+      showPagination={total > 0}
+      page={page}
+      totalPages={totalPages}
+      total={total}
+      itemNoun="items"
+      pageSize={aggregatePageSize}
+      onPageChange={onPageChange}
+      browseMode={browseMode}
+      rows={rows}
+      rowOrder={rowOrder}
+      rowsStore={rowsStore}
+      columns={columns}
+      getRowKey={radarrAggRowKey}
+      onRowSelect={onRowSelect}
+      iconGridRef={iconGridRef}
+      renderIconTile={(row) => {
+        const thumb = radarrAggThumbnail(row, instances);
+        return (
+          <ArrCatalogIconTile
+            key={radarrAggRowKey(row)}
+            posterSrc={thumb}
+            onClick={() => onRowSelect(row)}
+          >
+            {instanceCount > 1 ? (
+              <div className="arr-movie-tile__instance">{row.__instance}</div>
+            ) : null}
+            <div className="arr-movie-tile__title">{row.title}</div>
+            <div className="arr-movie-tile__sub">
+              {row.year != null ? String(row.year) : ""}
+            </div>
+          </ArrCatalogIconTile>
+        );
+      }}
+    />
   );
 }
 
@@ -487,61 +475,49 @@ function RadarrInstanceBody({
   );
 
   return (
-    <ArrCatalogBodyChrome
+    <ArrCatalogStandardBody
       summaryLine={summaryLine}
       onRefresh={refresh}
       loading={effectiveLoading}
       loadingHint="Loading…"
-      footer={
-        totalPages > 1 ? (
-          <ArrCatalogPagination
-            page={page}
-            totalPages={totalPages}
-            total={totalItems}
-            itemNoun="items"
-            pageSize={pageSize}
-            loading={effectiveLoading}
-            onPageChange={setPage}
-          />
-        ) : null
-      }
-    >
-      <ArrCatalogEmptyBranch
-        order="syncFirst"
-        showCatalogEmptyHint={showCatalogEmptyHint}
-        hasRows={visibleRows.length > 0}
-        catalogEmptyMessage="No movies in the local catalog."
-        noMatchMessage="No movies match the current filters."
-      >
-        <ArrCatalogListOrGrid
-          browseMode={browseMode}
-          rows={visibleRows}
-          rowOrder={rowOrder}
-          rowsStore={rowsStore}
-          columns={columns}
-          getRowKey={radarrInstanceRowKey}
-          onRowSelect={onRowSelect}
-          iconGridRef={iconGridRef}
-          renderIconTile={(row) => {
-            const thumb =
-              row.id != null && category
-                ? radarrMovieThumbnailUrl(category, row.id)
-                : "";
-            return (
-              <ArrCatalogIconTile
-                key={radarrInstanceRowKey(row)}
-                posterSrc={thumb}
-                onClick={() => onRowSelect(row)}
-              >
-                <div className="arr-movie-tile__title">{row.title}</div>
-                <div className="arr-movie-tile__sub">
-                  {row.year != null ? String(row.year) : ""}
-                </div>
-              </ArrCatalogIconTile>
-            );
-          }}
-        />
-      </ArrCatalogEmptyBranch>
-    </ArrCatalogBodyChrome>
+      emptyOrder="syncFirst"
+      showCatalogEmptyHint={showCatalogEmptyHint}
+      hasRows={visibleRows.length > 0}
+      catalogEmptyMessage="No movies in the local catalog."
+      noMatchMessage="No movies match the current filters."
+      showPagination={totalPages > 1}
+      page={page}
+      totalPages={totalPages}
+      total={totalItems}
+      itemNoun="items"
+      pageSize={pageSize}
+      onPageChange={setPage}
+      browseMode={browseMode}
+      rows={visibleRows}
+      rowOrder={rowOrder}
+      rowsStore={rowsStore}
+      columns={columns}
+      getRowKey={radarrInstanceRowKey}
+      onRowSelect={onRowSelect}
+      iconGridRef={iconGridRef}
+      renderIconTile={(row) => {
+        const thumb =
+          row.id != null && category
+            ? radarrMovieThumbnailUrl(category, row.id)
+            : "";
+        return (
+          <ArrCatalogIconTile
+            key={radarrInstanceRowKey(row)}
+            posterSrc={thumb}
+            onClick={() => onRowSelect(row)}
+          >
+            <div className="arr-movie-tile__title">{row.title}</div>
+            <div className="arr-movie-tile__sub">
+              {row.year != null ? String(row.year) : ""}
+            </div>
+          </ArrCatalogIconTile>
+        );
+      }}
+    />
   );
 }

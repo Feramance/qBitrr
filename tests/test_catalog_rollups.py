@@ -5,24 +5,14 @@ from __future__ import annotations
 import unittest
 from unittest import mock
 
-from tests.support.branch_compat import HAS_CATALOG_ROLLUP_SLICE
-
-from qBitrr.catalog_rollups import get_sonarr_episode_instance_counts_total
-
-if HAS_CATALOG_ROLLUP_SLICE:
-    from qBitrr.catalog_rollups import (
-        _availability_counts,
-        get_rollup_slice,
-        get_sonarr_series_counts_total,
-    )
-
-_refactor_rollups = unittest.skipUnless(
-    HAS_CATALOG_ROLLUP_SLICE,
-    "catalog rollup slice helpers are refactor-only",
+from qBitrr.catalog_rollups import (
+    _availability_counts,
+    get_rollup_slice,
+    get_sonarr_episode_instance_counts_total,
+    get_sonarr_series_counts_total,
 )
 
 
-@_refactor_rollups
 class TestAvailabilityCounts(unittest.TestCase):
     def test_missing_is_monitored_minus_available(self) -> None:
         self.assertEqual(
@@ -31,7 +21,6 @@ class TestAvailabilityCounts(unittest.TestCase):
         )
 
 
-@_refactor_rollups
 class TestGetRollupSlice(unittest.TestCase):
     def test_reads_section_after_ensure(self) -> None:
         arr = mock.MagicMock()

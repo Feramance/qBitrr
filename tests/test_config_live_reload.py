@@ -5,8 +5,6 @@ from __future__ import annotations
 import unittest
 from unittest import mock
 
-from tests.support.branch_compat import HAS_EXTENDED_CONFIG_GETTERS, HAS_LIVE_RELOAD_GETTERS
-
 import qBitrr.config as config_module
 
 
@@ -23,10 +21,6 @@ def _patch_enviro_config(**settings_overrides: object) -> mock.MagicMock:
     return mock_env
 
 
-@unittest.skipUnless(
-    HAS_LIVE_RELOAD_GETTERS,
-    "live-reload getter helpers are refactor-only",
-)
 class TestConfigLiveReloadGoldenMaster(unittest.TestCase):
     def setUp(self) -> None:
         self.config_mock = mock.MagicMock()
@@ -97,10 +91,6 @@ class TestConfigLiveReloadGoldenMaster(unittest.TestCase):
         )
 
 
-@unittest.skipUnless(
-    HAS_EXTENDED_CONFIG_GETTERS,
-    "extended live-reload getters are refactor-only",
-)
 class TestConfigLiveReloadExtendedGetters(unittest.TestCase):
     def setUp(self) -> None:
         self.config_mock = mock.MagicMock()
@@ -150,7 +140,6 @@ class TestConfigLiveReloadExtendedGetters(unittest.TestCase):
         self.assertEqual(free_space, "10GB")
         self.assertEqual(folder, "/data")
 
-    @unittest.skipUnless(HAS_LIVE_RELOAD_GETTERS, "get_failed_category_effective is refactor-only")
     def test_failed_category_normalizes_backslashes(self) -> None:
         self.env_mock.settings.failed_category = None
         self.config_mock.get.return_value = "parent\\child"
@@ -160,10 +149,6 @@ class TestConfigLiveReloadExtendedGetters(unittest.TestCase):
         log.warning.assert_called_once()
 
 
-@unittest.skipUnless(
-    HAS_LIVE_RELOAD_GETTERS,
-    "live-reload getter helpers are refactor-only",
-)
 class TestEnviroConfigHarness(unittest.TestCase):
     def test_patch_whole_enviro_config_avoids_frozen_instance_error(self) -> None:
         mock_env = _patch_enviro_config(ping_urls=["harness.test"])

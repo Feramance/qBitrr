@@ -21,6 +21,10 @@ import type {
   ArrCatalogSummary,
 } from "./definition";
 import { forEachInstanceChunkedPages } from "./forEachInstanceChunkedPages";
+import {
+  isEmptyStateReady,
+  useCatalogEmptyStateTracker,
+} from "./useCatalogFetchPrimitives";
 
 interface UseAggregateCatalogLoaderParams<
   TAggRow extends Hashable,
@@ -105,8 +109,7 @@ export function useAggregateCatalogLoader<
   const aggFetchGenRef = useRef(0);
   const aggActiveLoadsRef = useRef(0);
   const aggRequestKeyRef = useRef("");
-  const sawNonEmptyRef = useRef(false);
-  const stableEmptyStreakRef = useRef(0);
+  const emptyTracker = useCatalogEmptyStateTracker();
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
   const globalSearchRef = useRef(globalSearch);
@@ -186,8 +189,7 @@ export function useAggregateCatalogLoader<
       });
       if (aggRequestKeyRef.current !== requestKey) {
         aggRequestKeyRef.current = requestKey;
-        sawNonEmptyRef.current = false;
-        stableEmptyStreakRef.current = 0;
+        emptyTracker.resetEmptyState();
         setEmptyStateReady(false);
       }
       if (showLoading) {
@@ -260,12 +262,11 @@ export function useAggregateCatalogLoader<
           newSummary.missing > 0;
 
         if (hasCatalogData) {
-          sawNonEmptyRef.current = true;
-          stableEmptyStreakRef.current = 0;
+          emptyTracker.noteCatalogData(true);
           setEmptyStateReady((prev) => (prev ? prev : true));
         } else {
-          stableEmptyStreakRef.current += 1;
-          const ready = sawNonEmptyRef.current || stableEmptyStreakRef.current >= 2;
+          emptyTracker.noteCatalogData(false);
+          const ready = isEmptyStateReady(emptyTracker, false);
           setEmptyStateReady((prev) => (prev === ready ? prev : ready));
         }
 

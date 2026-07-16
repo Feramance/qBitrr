@@ -57,7 +57,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   );
   const [formState, setFormState] = useState<ConfigDocument | null>(null);
   const [loading, setLoading] = useState(false);
-  const [savingSection, setSavingSection] = useState<string | null>(null);
+  const [, setSavingSection] = useState<string | null>(null);
   const [pendingRenames, setPendingRenames] = useState<Map<string, string>>(new Map());
 
   const loadConfig = useCallback(async () => {

@@ -5,19 +5,13 @@ from __future__ import annotations
 import unittest
 from unittest import mock
 
-from tests.support.branch_compat import HAS_ARR_CLIENT
-
-if HAS_ARR_CLIENT:
-    from qBitrr.arr_client import (
-        build_arr_client_kwargs,
-        build_lidarr_client,
-        execute_command,
-    )
-
-_refactor_arr_client = unittest.skipUnless(HAS_ARR_CLIENT, "arr_client is refactor-only")
+from qBitrr.arr_client import (
+    build_arr_client_kwargs,
+    build_lidarr_client,
+    execute_command,
+)
 
 
-@_refactor_arr_client
 class TestBuildArrClientKwargs(unittest.TestCase):
     def test_https_url_splits_host_port_tls(self) -> None:
         kwargs = build_arr_client_kwargs(
@@ -40,7 +34,6 @@ class TestBuildArrClientKwargs(unittest.TestCase):
             self.assertEqual(kwargs["port"], 8686)
 
 
-@_refactor_arr_client
 class TestExecuteCommandFallback(unittest.TestCase):
     def test_execute_command_uses_command_execute(self) -> None:
         client = mock.MagicMock()
@@ -67,7 +60,6 @@ class TestExecuteCommandFallback(unittest.TestCase):
         self.assertEqual(result, [{"id": 1}])
 
 
-@_refactor_arr_client
 class TestPyarrV6ResourceMapping(unittest.TestCase):
     """Document v5-name -> v6 API mapping used when rewriting arss.py call sites."""
 
@@ -89,7 +81,6 @@ class TestPyarrV6ResourceMapping(unittest.TestCase):
         client.queue.delete.assert_called_with(item_id=3, remove_from_client=True, blocklist=False)
 
 
-@_refactor_arr_client
 class TestBuildArrClientKwargsCombinations(unittest.TestCase):
     def test_bare_host_uses_default_port(self) -> None:
         kwargs = build_arr_client_kwargs("radarr.local", "key", default_port=7878, api_ver="v3")
@@ -131,7 +122,6 @@ class TestBuildArrClientKwargsCombinations(unittest.TestCase):
             self.assertEqual(sonarr_cls.call_args.kwargs["api_ver"], "v3")
 
 
-@_refactor_arr_client
 class TestExecuteCommandEdgeCases(unittest.TestCase):
     def test_reraises_unrelated_value_error(self) -> None:
         client = mock.MagicMock()

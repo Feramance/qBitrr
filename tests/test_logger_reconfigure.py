@@ -6,10 +6,7 @@ import logging
 import unittest
 from unittest.mock import MagicMock, patch
 
-from tests.support.branch_compat import HAS_CONFIG_RELOAD_POLICY
 
-
-@unittest.skipUnless(HAS_CONFIG_RELOAD_POLICY, "reconfigure_logging_from_config is refactor-only")
 class TestReconfigureLoggingFromConfig(unittest.TestCase):
     def test_applies_console_level_from_config(self) -> None:
         from qBitrr.logger import reconfigure_logging_from_config

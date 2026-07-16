@@ -8,19 +8,13 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
 
-from tests.support.branch_compat import HAS_DUAL_ROUTE, HAS_WEBUI_CATALOG_HELPERS
-
-from qBitrr.webui import WebUI
-
-if HAS_WEBUI_CATALOG_HELPERS:
-    from qBitrr.webui import (
-        empty_catalog_payload,
-        parse_catalog_filters,
-        resolve_arr_handler,
-    )
-
-if HAS_DUAL_ROUTE:
-    from qBitrr.webui import dual_route
+from qBitrr.webui import (
+    WebUI,
+    dual_route,
+    empty_catalog_payload,
+    parse_catalog_filters,
+    resolve_arr_handler,
+)
 
 # 25 identical /api + /web pairs registered via @_dual_route (3 divergent pairs tested separately).
 IDENTICAL_ROUTE_PAIRS: list[tuple[str, str, str]] = [
@@ -116,7 +110,6 @@ class _WebUIClientTestCase(unittest.TestCase):
             p.stop()
 
 
-@unittest.skipUnless(HAS_WEBUI_CATALOG_HELPERS, "empty_catalog_payload is refactor-only")
 class TestEmptyCatalogPayload(unittest.TestCase):
     def test_radarr_shape(self) -> None:
         payload = empty_catalog_payload("radarr", page=1, page_size=25)
@@ -129,7 +122,6 @@ class TestEmptyCatalogPayload(unittest.TestCase):
         self.assertEqual(payload["albums"], [])
 
 
-@unittest.skipUnless(HAS_DUAL_ROUTE, "dual_route decorator is refactor-only")
 class TestDualRouteRegistration(unittest.TestCase):
     def test_webui_declares_twenty_five_dual_route_pairs(self) -> None:
         source = (
@@ -210,7 +202,6 @@ class TestDivergentRoutePairs(_WebUIClientTestCase):
         self.assertEqual(web.get_json(), {"token": "test-token"})
 
 
-@unittest.skipUnless(HAS_WEBUI_CATALOG_HELPERS, "parse_catalog_filters is refactor-only")
 class TestParseCatalogFilters(unittest.TestCase):
     def test_parses_page_and_missing_only(self) -> None:
         req = MagicMock()
@@ -241,7 +232,6 @@ class TestParseCatalogFilters(unittest.TestCase):
         self.assertNotIn("missing_only", filters)
 
 
-@unittest.skipUnless(HAS_WEBUI_CATALOG_HELPERS, "resolve_arr_handler is refactor-only")
 class TestResolveArrHandler(unittest.TestCase):
     def test_returns_503_when_manager_not_ready(self) -> None:
         from flask import Flask
@@ -300,7 +290,6 @@ class TestResolveArrHandler(unittest.TestCase):
         self.assertIs(arr, managed["movies"])
 
 
-@unittest.skipUnless(HAS_DUAL_ROUTE, "dual_route decorator is refactor-only")
 class TestDualRoute(unittest.TestCase):
     def test_registers_api_and_web_endpoints(self) -> None:
         from flask import Flask

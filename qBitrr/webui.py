@@ -150,7 +150,11 @@ def empty_catalog_payload(
 
 
 def dual_route(app: Flask, path: str, *, methods: tuple[str, ...] = ("GET",)) -> Any:
-    """Register identical ``/api`` and ``/web`` handlers (escape hatch: register divergent pairs manually)."""
+    """Register identical ``/api`` and ``/web`` handlers (escape hatch: register divergent pairs manually).
+
+    Intentionally separate (not dual_route): ``/meta`` (web adds auth fields),
+    ``/token`` (different auth gates), ``/config`` GET (web wraps version warnings).
+    """
 
     def decorator(fn: Any) -> Any:
         endpoint_base = fn.__name__
@@ -3582,20 +3586,20 @@ class WebUI:
             arr = managed[section]
             return _restart_arr_instance(arr)
 
+        def _load_redacted_config() -> dict[str, Any]:
+            """Reload TOML from disk and return a JSON-safe, secret-stripped dict."""
+            try:
+                CONFIG.load()
+            except Exception:
+                self.logger.debug("CONFIG.load failed in config GET", exc_info=True)
+            return _strip_sensitive_keys(_toml_to_jsonable(CONFIG.config))
+
         @app.get("/api/config")
         def api_get_config():
             if (resp := require_token()) is not None:
                 return resp
             try:
-                # Reload config from disk to reflect latest file
-                try:
-                    CONFIG.load()
-                except Exception:
-                    self.logger.debug("CONFIG.load failed in api_get_config", exc_info=True)
-                # Render current config as a JSON-able dict via tomlkit; never expose secrets
-                data = _toml_to_jsonable(CONFIG.config)
-                data = _strip_sensitive_keys(data)
-                return jsonify(data)
+                return jsonify(_load_redacted_config())
             except Exception:
                 self.logger.debug("api_get_config failed", exc_info=True)
                 return jsonify({"error": "Failed to load config"}), 500
@@ -3605,13 +3609,7 @@ class WebUI:
             if (resp := require_token()) is not None:
                 return resp
             try:
-                try:
-                    CONFIG.load()
-                except Exception:
-                    self.logger.debug("CONFIG.load failed in web_get_config", exc_info=True)
-                data = _toml_to_jsonable(CONFIG.config)
-                # Always redact secrets so API/Web UI never expose qBit passwords or Arr API keys
-                data = _strip_sensitive_keys(data)
+                data = _load_redacted_config()
 
                 # Check config version and add warning if mismatch
                 from qBitrr.config_version import get_config_version, validate_config_version

@@ -11,16 +11,7 @@ import {
 } from "react";
 import { getSonarrSeries } from "../../api/client";
 import type { ArrInfo, SonarrSeriesEntry, SonarrSeriesResponse } from "../../api/types";
-import {
-  ArrCatalogBodyChrome,
-  ArrCatalogPagination,
-} from "./ArrCatalogBodyChrome";
-import {
-  ArrCatalogEmptyBranch,
-  ArrCatalogListOrGrid,
-  ArrCatalogNoMatchHint,
-  ArrCatalogSyncEmptyHint,
-} from "./ArrCatalogListOrGrid";
+import { ArrCatalogStandardBody } from "./ArrCatalogStandardBody";
 import { useInterval } from "../../hooks/useInterval";
 import { useRowsStore } from "../../hooks/useRowsStore";
 import { arraysEqual } from "../../utils/dataSync";
@@ -517,7 +508,7 @@ function SonarrFlatAggregateBody({
   const effectiveLoading =
     loading || (instanceCount > 0 && !emptyStateReady && total === 0);
   return (
-    <ArrCatalogBodyChrome
+    <ArrCatalogStandardBody
       summaryLine={
         <>
           Flat episode list across all instances{" "}
@@ -535,47 +526,37 @@ function SonarrFlatAggregateBody({
       onRefresh={onRefresh}
       loading={effectiveLoading}
       loadingHint="Loading Sonarr episodes…"
-      footer={
-        total > 0 ? (
-          <ArrCatalogPagination
-            page={page}
-            totalPages={totalPages}
-            total={total}
-            itemNoun="episodes"
-            pageSize={aggregatePageSize}
-            loading={effectiveLoading}
-            onPageChange={onPageChange}
-          />
-        ) : null
+      emptyOrder="noItemsFirst"
+      showCatalogEmptyHint={
+        !effectiveLoading && total === 0 && summary.total === 0 && instanceCount > 0
       }
-    >
-      <ArrCatalogEmptyBranch
-        order="noItemsFirst"
-        showCatalogEmptyHint={!effectiveLoading && total === 0 && summary.total === 0 && instanceCount > 0}
-        hasRows={total > 0}
-        catalogEmptyMessage="No episodes found in the database."
-        noMatchMessage="No episodes match the current filters."
-      >
-        <ArrCatalogListOrGrid
-          browseMode={browseMode}
-          rows={rows}
-          rowOrder={rowOrder}
-          rowsStore={rowsStore}
-          columns={columns}
-          getRowKey={sonarrFlatEpisodeRowKey}
-          onRowSelect={() => undefined}
-          iconGridRef={iconGridRef}
-          renderIconTile={(row) => (
-            <div className="arr-movie-tile arr-movie-tile--text" key={sonarrFlatEpisodeRowKey(row)}>
-              <div className="arr-movie-tile__title">{row.series}</div>
-              <div className="arr-movie-tile__meta">
-                S{row.season}E{row.episode} — {row.title}
-              </div>
-            </div>
-          )}
-        />
-      </ArrCatalogEmptyBranch>
-    </ArrCatalogBodyChrome>
+      hasRows={total > 0}
+      catalogEmptyMessage="No episodes found in the database."
+      noMatchMessage="No episodes match the current filters."
+      showPagination={total > 0}
+      page={page}
+      totalPages={totalPages}
+      total={total}
+      itemNoun="episodes"
+      pageSize={aggregatePageSize}
+      onPageChange={onPageChange}
+      browseMode={browseMode}
+      rows={rows}
+      rowOrder={rowOrder}
+      rowsStore={rowsStore}
+      columns={columns}
+      getRowKey={sonarrFlatEpisodeRowKey}
+      onRowSelect={() => undefined}
+      iconGridRef={iconGridRef}
+      renderIconTile={(row) => (
+        <div className="arr-movie-tile arr-movie-tile--text" key={sonarrFlatEpisodeRowKey(row)}>
+          <div className="arr-movie-tile__title">{row.series}</div>
+          <div className="arr-movie-tile__meta">
+            S{row.season}E{row.episode} — {row.title}
+          </div>
+        </div>
+      )}
+    />
   );
 }
 
@@ -618,7 +599,7 @@ function SonarrFlatInstanceBody({
   const isFiltered = filters.onlyMissing || filters.reasonFilter !== "all";
   const columns = buildSonarrFlatColumns(1);
   return (
-    <ArrCatalogBodyChrome
+    <ArrCatalogStandardBody
       summaryLine={
         <>
           <strong>Episodes shown:</strong> {visibleRows.length.toLocaleString()} •{" "}
@@ -629,44 +610,34 @@ function SonarrFlatInstanceBody({
       onRefresh={refresh}
       loading={effectiveLoading}
       loadingHint="Loading episodes…"
-      footer={
-        totalPages > 1 ? (
-          <ArrCatalogPagination
-            page={page}
-            totalPages={totalPages}
-            total={totalItems}
-            itemNoun="episodes"
-            pageSize={pageSize}
-            loading={effectiveLoading}
-            onPageChange={setPage}
-          />
-        ) : null
-      }
-    >
-      {showCatalogEmptyHint ? (
-        <ArrCatalogSyncEmptyHint message="No episodes in the local catalog yet." />
-      ) : visibleRows.length === 0 && isFiltered ? (
-        <ArrCatalogNoMatchHint message="No episodes match the current filters." />
-      ) : visibleRows.length ? (
-        <ArrCatalogListOrGrid
-          browseMode={browseMode}
-          rows={visibleRows}
-          rowOrder={rowOrder}
-          rowsStore={rowsStore}
-          columns={columns}
-          getRowKey={sonarrFlatEpisodeRowKey}
-          onRowSelect={() => undefined}
-          iconGridRef={iconGridRef}
-          renderIconTile={(row) => (
-            <div className="arr-movie-tile arr-movie-tile--text" key={sonarrFlatEpisodeRowKey(row)}>
-              <div className="arr-movie-tile__title">{row.series}</div>
-              <div className="arr-movie-tile__meta">
-                S{row.season}E{row.episode} — {row.title}
-              </div>
-            </div>
-          )}
-        />
-      ) : null}
-    </ArrCatalogBodyChrome>
+      emptyOrder="noItemsFirst"
+      showCatalogEmptyHint={showCatalogEmptyHint}
+      hasRows={visibleRows.length > 0 || !isFiltered}
+      catalogEmptyMessage="No episodes in the local catalog yet."
+      noMatchMessage="No episodes match the current filters."
+      showPagination={totalPages > 1}
+      page={page}
+      totalPages={totalPages}
+      total={totalItems}
+      itemNoun="episodes"
+      pageSize={pageSize}
+      onPageChange={setPage}
+      browseMode={browseMode}
+      rows={visibleRows}
+      rowOrder={rowOrder}
+      rowsStore={rowsStore}
+      columns={columns}
+      getRowKey={sonarrFlatEpisodeRowKey}
+      onRowSelect={() => undefined}
+      iconGridRef={iconGridRef}
+      renderIconTile={(row) => (
+        <div className="arr-movie-tile arr-movie-tile--text" key={sonarrFlatEpisodeRowKey(row)}>
+          <div className="arr-movie-tile__title">{row.series}</div>
+          <div className="arr-movie-tile__meta">
+            S{row.season}E{row.episode} — {row.title}
+          </div>
+        </div>
+      )}
+    />
   );
 }

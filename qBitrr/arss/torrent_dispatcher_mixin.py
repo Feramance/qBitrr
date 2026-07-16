@@ -1,8 +1,27 @@
-"""Torrent processing mixin extracted from Arr."""
+"""Torrent decision-tree mixin extracted from Arr.
+
+Call graph (per loop):
+  Arr.process_torrents → TorrentDispatcherMixin._process_single_torrent
+  → TorrentInspectorMixin._process_single_torrent_* (decide) → Arr.process
+  → TorrentBatchMixin._process_* (pause / import / fail / resume / file priority).
+"""
 
 from __future__ import annotations
 
-from qBitrr.arss._shared import *
+import contextlib
+import time
+from datetime import datetime, timedelta
+
+import qbittorrentapi
+from qbittorrentapi import TorrentStates
+
+from qBitrr.arss._shared import (
+    _extract_tracker_host,
+    _parse_qbittorrent_tag_list,
+    _TrackerDataUnavailable,
+    get_failed_category_effective,
+    get_recheck_category_effective,
+)
 
 
 class TorrentDispatcherMixin:

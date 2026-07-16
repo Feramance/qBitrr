@@ -1,8 +1,23 @@
-"""Torrent processing mixin extracted from Arr."""
+"""Torrent state-inspection mixin extracted from Arr.
+
+Call graph (per loop):
+  Arr.process_torrents → TorrentDispatcherMixin._process_single_torrent
+  → TorrentInspectorMixin._process_single_torrent_* (decide) → Arr.process
+  → TorrentBatchMixin._process_* (pause / import / fail / resume / file priority).
+"""
 
 from __future__ import annotations
 
-from qBitrr.arss._shared import *
+import contextlib
+import pathlib
+import time
+from datetime import datetime, timedelta
+
+import qbittorrentapi
+import requests
+from qbittorrentapi import TorrentDictionary, TorrentStates
+
+from qBitrr.arss._shared import _TrackerDataUnavailable
 
 
 class TorrentInspectorMixin:

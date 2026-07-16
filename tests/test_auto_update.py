@@ -5,8 +5,6 @@ from __future__ import annotations
 import unittest
 from unittest import mock
 
-from tests.support.branch_compat import HAS_AUTO_UPDATE_PLATFORM_FIX
-
 from qBitrr.auto_update import (
     AutoUpdater,
     get_binary_asset_patterns,
@@ -44,10 +42,6 @@ class TestGetBinaryAssetPatterns(unittest.TestCase):
             get_binary_asset_patterns()
 
 
-@unittest.skipUnless(
-    HAS_AUTO_UPDATE_PLATFORM_FIX,
-    "unsupported-platform error message fixed on refactor (9de1e0b1)",
-)
 class TestAutoUpdateUnsupportedPlatformMessageFixedOnRefactor(unittest.TestCase):
     @mock.patch("qBitrr.auto_update.requests.get")
     @mock.patch("qBitrr.auto_update.get_binary_asset_patterns")

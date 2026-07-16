@@ -12,7 +12,9 @@ import {
   summarizeFlatEpisodes,
   type SonarrEpisodeFlatRow,
 } from "./sonarrCatalogModes";
+import { getArrCatalogDefinition } from "./getArrCatalogDefinition";
 import { getLidarrCatalogDefinition } from "./lidarrDefinition";
+import { getRadarrCatalogDefinition } from "./radarrDefinition";
 import { getSonarrCatalogDefinition } from "./sonarrDefinition";
 
 describe("getSonarrCatalogDefinition", () => {
@@ -40,6 +42,44 @@ describe("getLidarrCatalogDefinition", () => {
     const flat = getLidarrCatalogDefinition(false);
     expect(flat.searchPlaceholder).toBe("Filter albums");
     expect(flat.buildAggregateSelection({} as never, [])).not.toBeNull();
+  });
+});
+
+describe("getRadarrCatalogDefinition", () => {
+  it("returns the radarr catalog definition", () => {
+    const def = getRadarrCatalogDefinition();
+    expect(def.searchPlaceholder).toBe("Filter movies");
+    expect(def.kind).toBe("radarr");
+  });
+});
+
+describe("getArrCatalogDefinition", () => {
+  it("routes sonarr grouping opts", () => {
+    expect(
+      getArrCatalogDefinition("sonarr", { groupSonarr: true, groupLidarr: false })
+        .searchPlaceholder,
+    ).toBe("Filter series or episodes");
+    expect(
+      getArrCatalogDefinition("sonarr", { groupSonarr: false, groupLidarr: true })
+        .searchPlaceholder,
+    ).toBe("Filter episodes");
+  });
+
+  it("routes lidarr grouping opts", () => {
+    expect(
+      getArrCatalogDefinition("lidarr", { groupSonarr: false, groupLidarr: true })
+        .searchPlaceholder,
+    ).toBe("Filter artists");
+    expect(
+      getArrCatalogDefinition("lidarr", { groupSonarr: true, groupLidarr: false })
+        .searchPlaceholder,
+    ).toBe("Filter albums");
+  });
+
+  it("routes radarr to getRadarrCatalogDefinition", () => {
+    expect(
+      getArrCatalogDefinition("radarr", { groupSonarr: true, groupLidarr: true }),
+    ).toBe(getRadarrCatalogDefinition());
   });
 });
 

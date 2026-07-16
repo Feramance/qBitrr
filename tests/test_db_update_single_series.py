@@ -6,21 +6,12 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-from tests.support.branch_compat import HAS_DB_UPDATE_HANDLERS
-
 from qBitrr.arss import Arr
-
-if HAS_DB_UPDATE_HANDLERS:
-    from qBitrr.arss.db_update_handlers import db_update_single_series
-    from qBitrr.quality_profile_helpers import (
-        compute_search_reason,
-        plan_temp_profile_switch,
-        should_mark_searched,
-    )
-
-_refactor_db_update = unittest.skipUnless(
-    HAS_DB_UPDATE_HANDLERS,
-    "db_update_handlers split is refactor-only",
+from qBitrr.arss.db_update_handlers import db_update_single_series
+from qBitrr.quality_profile_helpers import (
+    compute_search_reason,
+    plan_temp_profile_switch,
+    should_mark_searched,
 )
 
 
@@ -54,7 +45,6 @@ def _search_enabled_arr(**overrides) -> Arr:
     return arr
 
 
-@_refactor_db_update
 class TestQualityProfileHelpers(unittest.TestCase):
     def test_should_mark_searched_requires_content(self) -> None:
         self.assertFalse(
@@ -97,7 +87,6 @@ class TestQualityProfileHelpers(unittest.TestCase):
         )
 
 
-@_refactor_db_update
 class TestArrMixinInheritance(unittest.TestCase):
     def test_arr_inherits_torrent_mixins(self) -> None:
         self.assertTrue(hasattr(Arr, "_process_paused"))
@@ -106,7 +95,6 @@ class TestArrMixinInheritance(unittest.TestCase):
         self.assertTrue(hasattr(Arr, "is_ignored_state"))
 
 
-@_refactor_db_update
 class TestRadarrMinimumAvailabilityPreserved(unittest.TestCase):
     """Inconsistency #1: Radarr-only minimum_availability_check gate."""
 
@@ -118,7 +106,6 @@ class TestRadarrMinimumAvailabilityPreserved(unittest.TestCase):
         arr.client.quality_profile.get.assert_not_called()
 
 
-@_refactor_db_update
 class TestSonarrSeriesConditionalProfileUpdate(unittest.TestCase):
     """Inconsistency #2: series-level PUT only when profile changes."""
 
@@ -144,7 +131,6 @@ class TestSonarrSeriesConditionalProfileUpdate(unittest.TestCase):
         arr._retry_profile_switch_update.assert_not_called()
 
 
-@_refactor_db_update
 class TestSonarrEpisodeProfileTrackingFixes(unittest.TestCase):
     """Inconsistencies #3 and #5."""
 
@@ -205,7 +191,6 @@ class TestSonarrEpisodeProfileTrackingFixes(unittest.TestCase):
         self.assertEqual(update_call.kwargs["data"], {"qualityProfileId": 2})
 
 
-@_refactor_db_update
 class TestRadarrMovieConditionalProfileUpdate(unittest.TestCase):
     """Inconsistency #2 for Radarr movies."""
 
@@ -229,7 +214,6 @@ class TestRadarrMovieConditionalProfileUpdate(unittest.TestCase):
         arr._retry_profile_switch_update.assert_not_called()
 
 
-@_refactor_db_update
 class TestLidarrArtistProfileTracking(unittest.TestCase):
     """Inconsistencies #4, #7, #8."""
 
@@ -296,7 +280,6 @@ class TestLidarrArtistProfileTracking(unittest.TestCase):
         self.assertIn("1", upgrade_logs[0])
 
 
-@_refactor_db_update
 class TestLidarrAlbumCustomFormatPreserved(unittest.TestCase):
     """Inconsistency #9: Lidarr albums hardcode custom format score to 0."""
 
@@ -321,7 +304,6 @@ class TestLidarrAlbumCustomFormatPreserved(unittest.TestCase):
         self.assertEqual(insert_kwargs["CustomFormatScore"], 0)
 
 
-@_refactor_db_update
 class TestJsonDecodeErrorMessagingPreserved(unittest.TestCase):
     """Inconsistency #10: type-specific JSONDecodeError log messages."""
 
@@ -354,7 +336,6 @@ class TestJsonDecodeErrorMessagingPreserved(unittest.TestCase):
         arr.logger.error.assert_not_called()
 
 
-@_refactor_db_update
 class TestQualityUnmetNestedKeyGuardPreserved(unittest.TestCase):
     """Inconsistency #6: episodeFile presence check without nested-key guard."""
 
@@ -386,7 +367,6 @@ class TestQualityUnmetNestedKeyGuardPreserved(unittest.TestCase):
         arr.logger.error.assert_called_once()
 
 
-@_refactor_db_update
 class TestDbUpdateEpisodeRetry(unittest.TestCase):
     """Inconsistency #11: with_retry on Sonarr episode list fetch."""
 
@@ -404,7 +384,7 @@ class TestDbUpdateEpisodeRetry(unittest.TestCase):
         with patch("qBitrr.arss.arr.with_retry", side_effect=real_with_retry) as mock_retry:
             with patch("qBitrr.arss.arr.fetch_search_activities", return_value={}):
                 with patch(
-                    "qBitrr.arss.arr.refresh_rollups_after_db_update",
+                    "qBitrr.arss.db_update_handlers.refresh_rollups_after_db_update",
                     return_value=None,
                 ):
                     arr.db_update()
@@ -412,13 +392,6 @@ class TestDbUpdateEpisodeRetry(unittest.TestCase):
         arr.client.episode.get.assert_called()
 
 
-@unittest.skipUnless(
-    __import__(
-        "tests.support.branch_compat", fromlist=["HAS_DB_UPDATE_HANDLERS"]
-    ).HAS_DB_UPDATE_HANDLERS,
-    "db_update_handlers is refactor-only",
-)
-@_refactor_db_update
 class TestDbUpdateRadarrMovieProfileSwitch(unittest.TestCase):
     """Radarr movie temp-profile downgrade when missing."""
 
@@ -446,13 +419,6 @@ class TestDbUpdateRadarrMovieProfileSwitch(unittest.TestCase):
         )
 
 
-@unittest.skipUnless(
-    __import__(
-        "tests.support.branch_compat", fromlist=["HAS_DB_UPDATE_HANDLERS"]
-    ).HAS_DB_UPDATE_HANDLERS,
-    "db_update_handlers is refactor-only",
-)
-@_refactor_db_update
 class TestDbUpdateUnmonitoredSkip(unittest.TestCase):
     def test_skips_unmonitored_sonarr_series(self) -> None:
         arr = _search_enabled_arr(type="sonarr")

@@ -5,41 +5,22 @@ from __future__ import annotations
 import unittest
 from unittest import mock
 
-from tests.support.branch_compat import (
-    HAS_ARR_SECTION_HELPERS,
-    HAS_AUTO_UPDATE_PLATFORM_FIX,
-    HAS_COERCE_BOOL,
-    HAS_PARSE_DURATION,
-    HAS_QBIT_SEEDING_CONFIG,
-    HAS_URL_BASE_HELPERS,
-)
-
 from qBitrr.duration_config import (
+    parse_duration,
     parse_duration_to_minutes,
     parse_duration_to_seconds,
 )
-
-if HAS_PARSE_DURATION:
-    from qBitrr.duration_config import parse_duration
-
 from qBitrr.gen_config import (
+    ARR_SECTION_PREFIXES,
     _normalize_theme_value,
     _normalize_view_density_value,
+    iter_arr_sections,
 )
-
-if HAS_ARR_SECTION_HELPERS:
-    from qBitrr.gen_config import ARR_SECTION_PREFIXES, iter_arr_sections
-if HAS_QBIT_SEEDING_CONFIG:
-    from qBitrr.qbit_seeding_config import load_qbit_seeding_config
-if HAS_COERCE_BOOL:
-    from qBitrr.utils import coerce_bool
-if HAS_URL_BASE_HELPERS:
-    from qBitrr.utils import normalize_url_base, qbit_sections
-
+from qBitrr.qbit_seeding_config import load_qbit_seeding_config
 from qBitrr.tables import AlbumFilesModel, EpisodeFilesModel, MoviesFilesModel
+from qBitrr.utils import coerce_bool, normalize_url_base, qbit_sections
 
 
-@unittest.skipUnless(HAS_COERCE_BOOL, "coerce_bool is refactor-only")
 class TestCoerceBoolGoldenMaster(unittest.TestCase):
     def test_falsy_strings(self) -> None:
         for value in ("0", "false", "none", "False", "NONE"):
@@ -62,7 +43,6 @@ class TestCoerceBoolGoldenMaster(unittest.TestCase):
         self.assertTrue(coerce_bool([1]))
 
 
-@unittest.skipUnless(HAS_URL_BASE_HELPERS, "normalize_url_base is refactor-only")
 class TestNormalizeUrlBaseGoldenMaster(unittest.TestCase):
     def test_empty_and_none(self) -> None:
         self.assertEqual(normalize_url_base(None), "")
@@ -75,7 +55,6 @@ class TestNormalizeUrlBaseGoldenMaster(unittest.TestCase):
         self.assertEqual(normalize_url_base("/ui/v2/"), "/ui/v2")
 
 
-@unittest.skipUnless(HAS_URL_BASE_HELPERS, "qbit_sections is refactor-only")
 class TestQbitSections(unittest.TestCase):
     def test_returns_qbit_sections_only(self) -> None:
         config = mock.MagicMock()
@@ -83,7 +62,6 @@ class TestQbitSections(unittest.TestCase):
         self.assertEqual(qbit_sections(config), ["qBit", "qBit-Seedbox"])
 
 
-@unittest.skipUnless(HAS_PARSE_DURATION, "parse_duration unified helper is refactor-only")
 class TestParseDurationGoldenMaster(unittest.TestCase):
     def test_seconds_default_suffix(self) -> None:
         self.assertEqual(parse_duration_to_seconds("60"), 60)
@@ -111,7 +89,6 @@ class TestNormalizeEnumGoldenMaster(unittest.TestCase):
         self.assertEqual(_normalize_view_density_value(None), "Comfortable")
 
 
-@unittest.skipUnless(HAS_ARR_SECTION_HELPERS, "iter_arr_sections is refactor-only")
 class TestIterArrSections(unittest.TestCase):
     def test_yields_arr_instance_sections(self) -> None:
         config = mock.MagicMock()
@@ -160,7 +137,6 @@ class TestTablesFieldGoldenMaster(unittest.TestCase):
                     self.assertEqual(movie_snap[name], episode_snap[name])
 
 
-@unittest.skipUnless(HAS_QBIT_SEEDING_CONFIG, "qbit_seeding_config is refactor-only")
 class TestLoadQbitSeedingConfig(unittest.TestCase):
     @mock.patch("qBitrr.qbit_seeding_config.CONFIG")
     def test_loads_section_keys_and_category_overrides(self, mock_config: mock.MagicMock) -> None:
@@ -193,10 +169,6 @@ class TestLoadQbitSeedingConfig(unittest.TestCase):
         self.assertNotIn("ignore_torrents_younger_than", result_ph)
 
 
-@unittest.skipUnless(
-    HAS_AUTO_UPDATE_PLATFORM_FIX,
-    "unsupported-platform error message fixed on refactor (9de1e0b1)",
-)
 class TestAutoUpdateUnsupportedPlatformMessageFixedOnRefactor(unittest.TestCase):
     @mock.patch("qBitrr.auto_update.requests.get")
     @mock.patch("qBitrr.auto_update.get_binary_asset_patterns")

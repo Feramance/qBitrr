@@ -4,9 +4,8 @@ import { ArrCatalogShell } from "./arrCatalog/ArrCatalogShell";
 import "./arrCatalog/radarrDefinition";
 import "./arrCatalog/sonarrDefinition";
 import "./arrCatalog/lidarrDefinition";
-import { getLidarrCatalogDefinition } from "./arrCatalog/lidarrDefinition";
-import { getSonarrCatalogDefinition } from "./arrCatalog/sonarrDefinition";
-import { ARR_CATALOG_REGISTRY, type ArrCatalogKind } from "./arrCatalog/registry";
+import { getArrCatalogDefinition } from "./arrCatalog/getArrCatalogDefinition";
+import type { ArrCatalogKind } from "./arrCatalog/registry";
 
 export type { ArrCatalogKind } from "./arrCatalog/registry";
 
@@ -27,15 +26,10 @@ export function ArrCatalogView({
   active: boolean;
 }): JSX.Element {
   const { groupSonarr, groupLidarr } = useWebUI();
-  const definition = useMemo(() => {
-    if (kind === "sonarr") {
-      return getSonarrCatalogDefinition(groupSonarr);
-    }
-    if (kind === "lidarr") {
-      return getLidarrCatalogDefinition(groupLidarr);
-    }
-    return ARR_CATALOG_REGISTRY[kind];
-  }, [kind, groupSonarr, groupLidarr]);
+  const definition = useMemo(
+    () => getArrCatalogDefinition(kind, { groupSonarr, groupLidarr }),
+    [kind, groupSonarr, groupLidarr],
+  );
 
   return <ArrCatalogShell definition={definition} active={active} />;
 }

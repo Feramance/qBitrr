@@ -1,7 +1,39 @@
 from __future__ import annotations
 
-from qBitrr.arss._shared import *
+import contextlib
+import pathlib
+import sys
+from collections import defaultdict
+from typing import TYPE_CHECKING
+
+import qbittorrentapi
+
+from qBitrr.arss._shared import (
+    _QBIT_READ_RETRY_EXCEPTIONS,
+    _QBIT_TORRENT_DELETE_EXCEPTIONS,
+    _QBIT_WRITE_RETRY_EXCEPTIONS,
+    CONFIG,
+    TAGLESS,
+    DelayLoopException,
+    ExpiringSet,
+    NoConnectionrException,
+    TorrentLibrary,
+    _collect_instance_hash_map_hashes,
+    _prune_instance_hash_map,
+    build_tracker_index,
+    get_completed_download_folder_effective,
+    get_ignore_torrents_younger_than_effective,
+    get_loop_sleep_timer_effective,
+    get_no_internet_sleep_timer_effective,
+    has_internet,
+    load_qbit_seeding_config,
+    normalize_category,
+    with_retry,
+)
 from qBitrr.arss.arr import Arr
+
+if TYPE_CHECKING:
+    from qBitrr.arss.manager import ArrManager
 
 
 class PlaceHolderArr(Arr):

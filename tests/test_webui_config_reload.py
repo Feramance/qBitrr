@@ -7,8 +7,6 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
 
-from tests.support.branch_compat import HAS_CONFIG_RELOAD_POLICY
-
 from qBitrr.webui import WebUI
 
 
@@ -69,7 +67,6 @@ class _WebUIClientTestCase(unittest.TestCase):
         self.reload_all_patcher.stop()
 
 
-@unittest.skipUnless(HAS_CONFIG_RELOAD_POLICY, "config_reload_policy is refactor-only")
 class TestWebUIConfigReload(_WebUIClientTestCase):
     def test_loop_sleep_timer_save_does_not_reload_all(self) -> None:
         response = self.client.post(

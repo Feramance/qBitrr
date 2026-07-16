@@ -1,7 +1,40 @@
 from __future__ import annotations
 
-from qBitrr.arss._shared import *
+import contextlib
+import pathlib
+import shutil
+import sys
+from collections import defaultdict
+from typing import TYPE_CHECKING
+
+import qbittorrentapi
+import requests
+from peewee import SqliteDatabase
+from qbittorrentapi import TorrentDictionary, TorrentStates
+
+from qBitrr.arss._shared import (
+    _QBIT_READ_RETRY_EXCEPTIONS,
+    _QBIT_WRITE_RETRY_EXCEPTIONS,
+    APPDATA_FOLDER,
+    AUTO_PAUSE_RESUME,
+    TAGLESS,
+    DelayLoopException,
+    NoConnectionrException,
+    TorrentLibrary,
+    build_tracker_index,
+    database_lock,
+    get_completed_download_folder_effective,
+    get_free_space_guard_settings,
+    get_loop_sleep_timer_effective,
+    get_no_internet_sleep_timer_effective,
+    has_internet,
+    parse_size,
+    with_retry,
+)
 from qBitrr.arss.arr import Arr
+
+if TYPE_CHECKING:
+    from qBitrr.arss.manager import ArrManager
 
 
 class TorrentPolicyManager(Arr):

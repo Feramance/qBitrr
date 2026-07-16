@@ -4,10 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from tests.support.branch_compat import HAS_CONFIG_RELOAD_POLICY
 
-
-@unittest.skipUnless(HAS_CONFIG_RELOAD_POLICY, "config_reload_policy is refactor-only")
 class TestConfigReloadPolicy(unittest.TestCase):
     def test_settings_loop_sleep_is_live(self) -> None:
         from qBitrr.config_reload_policy import ReloadCategory, classify_config_key

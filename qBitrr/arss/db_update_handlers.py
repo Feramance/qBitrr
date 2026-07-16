@@ -3,9 +3,28 @@
 from __future__ import annotations
 
 import sqlite3
+import sys
+from datetime import datetime
 from typing import TYPE_CHECKING
 
-from qBitrr.arss._shared import *
+import requests
+from peewee import OperationalError
+from ujson import JSONDecodeError
+
+from qBitrr.arss._shared import (
+    _ARR_RETRY_EXCEPTIONS,
+    AlbumFilesModel,
+    ArtistFilesModel,
+    DelayLoopException,
+    EpisodeFilesModel,
+    JsonObject,
+    MoviesFilesModel,
+    PyarrResourceNotFound,
+    SeriesFilesModel,
+    _lidarr_track_duration_seconds,
+    refresh_rollups_after_db_update,
+    with_retry,
+)
 from qBitrr.quality_profile_helpers import (
     arr_with_retry,
     compute_quality_met,
@@ -513,46 +532,27 @@ def update_radarr_entry(arr: Arr, db_entry: JsonObject, *, request: bool) -> Non
         if arr.use_temp_for_missing:
             quality_profile_id = db_entry.get("qualityProfileId")
             has_file = db_entry.get("hasFile", False)
-            profile_update_needed = False
-            if (
-                searched
-                and quality_profile_id in arr.main_quality_profile_ids.keys()
-                and not arr.keep_temp_profile
-            ):
-                new_main_id = arr.main_quality_profile_ids[quality_profile_id]
-                db_entry["qualityProfileId"] = new_main_id
-                profile_update_needed = True
+            data, profile_switch_timestamp, original_profile_for_db, current_profile_for_db = (
+                plan_temp_profile_switch(
+                    searched=searched,
+                    has_file=has_file,
+                    quality_profile_id=quality_profile_id,
+                    main_quality_profile_ids=arr.main_quality_profile_ids,
+                    temp_quality_profile_ids=arr.temp_quality_profile_ids,
+                    keep_temp_profile=arr.keep_temp_profile,
+                )
+            )
+            if data:
+                db_entry["qualityProfileId"] = data["qualityProfileId"]
                 arr.logger.debug(
                     "Updating quality profile for %s to %s",
                     db_entry["title"],
-                    new_main_id,
+                    data["qualityProfileId"],
                 )
-                profile_switch_timestamp = datetime.now()
-                original_profile_for_db = None
-                current_profile_for_db = None
-            elif (
-                not searched
-                and not has_file
-                and quality_profile_id in arr.temp_quality_profile_ids.keys()
-            ):
-                new_temp_id = arr.temp_quality_profile_ids[quality_profile_id]
-                db_entry["qualityProfileId"] = new_temp_id
-                profile_update_needed = True
-                arr.logger.debug(
-                    "Updating quality profile for %s to %s",
-                    db_entry["title"],
-                    new_temp_id,
-                )
-                profile_switch_timestamp = datetime.now()
-                original_profile_for_db = quality_profile_id
-                current_profile_for_db = new_temp_id
-
-            if profile_update_needed:
                 profile_update_success = arr._retry_profile_switch_update(
                     lambda: arr.client.movie.update(data=db_entry),
                     "movie",
                 )
-
                 if not profile_update_success:
                     profile_switch_timestamp = None
                     original_profile_for_db = None

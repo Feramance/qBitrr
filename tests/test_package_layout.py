@@ -12,7 +12,10 @@ class TestPackageLayout(unittest.TestCase):
     """Ensure pip-installable layout includes the arss subpackage."""
 
     def test_find_namespace_packages_includes_arss(self) -> None:
-        packages = find_namespace_packages(include=["qBitrr", "qBitrr.arss"])
+        packages = find_namespace_packages(
+            where=str(__file__).rsplit("/tests/", 1)[0],
+            include=["qBitrr", "qBitrr.arss"],
+        )
         self.assertIn("qBitrr", packages)
         self.assertIn("qBitrr.arss", packages)
 

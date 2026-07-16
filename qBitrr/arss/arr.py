@@ -1,22 +1,131 @@
 from __future__ import annotations
 
-from qBitrr.arss._shared import *
+import atexit
+import contextlib
+import logging
+import pathlib
+import re
+import shutil
+import sys
+import time
+from collections import defaultdict
+from collections.abc import Callable, Iterable, Iterator
+from copy import copy
+from datetime import datetime, timedelta, timezone
+from multiprocessing import current_process
+from typing import TYPE_CHECKING, Any, NoReturn
+
+import ffmpeg
+import pathos
+import qbittorrentapi
+import qbittorrentapi.exceptions
+import requests
+from packaging import version as version_parser
+from peewee import DatabaseError, Model, OperationalError, SqliteDatabase
+from qbittorrentapi import TorrentDictionary
+from ujson import JSONDecodeError
+
+from qBitrr.arss._shared import (
+    _ARR_RETRY_EXCEPTIONS,
+    _ARR_RETRY_EXCEPTIONS_EXTENDED,
+    _QBIT_READ_RETRY_EXCEPTIONS,
+    _QBIT_WRITE_RETRY_EXCEPTIONS,
+    APPDATA_FOLDER,
+    CONFIG,
+    PROCESS_ONLY,
+    QBIT_DISABLED,
+    SEARCH_ONLY,
+    TAGLESS,
+    AlbumFilesModel,
+    AlbumQueueModel,
+    ArtistFilesModel,
+    DelayLoopException,
+    EpisodeFilesModel,
+    EpisodeQueueModel,
+    ExpiringSet,
+    FilesQueued,
+    JsonObject,
+    Lidarr,
+    MovieQueueModel,
+    MoviesFilesModel,
+    NoConnectionrException,
+    PyarrConnectionError,
+    PyarrResourceNotFound,
+    PyarrServerError,
+    Radarr,
+    RestartLoopException,
+    SeriesFilesModel,
+    SkipException,
+    Sonarr,
+    TorrentLibrary,
+    TrackerIndex,
+    TrackFilesModel,
+    UnhandledError,
+    _extract_tracker_host,
+    _is_media_available,
+    _is_media_processing,
+    _normalize_media_status,
+    _parse_qbittorrent_tag_list,
+    _TrackerDataUnavailable,
+    absolute_file_paths,
+    build_tracker_index,
+    category_parents,
+    clear_search_activity,
+    database_lock,
+    execute_command,
+    fetch_search_activities,
+    get_completed_download_folder_effective,
+    get_ignore_torrents_younger_than_effective,
+    get_loop_sleep_timer_effective,
+    get_no_internet_sleep_timer_effective,
+    get_search_loop_delay_effective,
+    has_internet,
+    normalize_category,
+    record_search_activity,
+    run_logs,
+    sync_config_from_disk,
+    with_database_retry,
+    with_retry,
+)
 from qBitrr.arss.torrent_batch_mixin import TorrentBatchMixin
 from qBitrr.arss.torrent_dispatcher_mixin import TorrentDispatcherMixin
 from qBitrr.arss.torrent_inspector_mixin import TorrentInspectorMixin
+from qBitrr.arss.torrent_limits_mixin import TorrentLimitsMixin
+
+if TYPE_CHECKING:
+    from qBitrr.arss.manager import ArrManager
 
 
-class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
+class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin, TorrentLimitsMixin):
     def __init__(
         self,
         name: str,
         manager: ArrManager,
         client_builder: Callable[..., Radarr | Sonarr | Lidarr],
     ):
+        """Load Arr identity, settings, client, and DB; fail fast if unmanaged."""
+        self._client_builder = client_builder
+        self._init_identity(name, manager)
+        self._init_completed_folder()
+        self._init_arr_connection_settings(name)
+        self._init_torrent_settings(name)
+        self._init_tracker_and_seeding(name)
+        self._init_search_settings(name)
+        self._init_request_providers(name)
+        self._init_exclusion_regexes()
+        self._init_client_and_type(client_builder)
+        self._init_quality_profiles(name)
+        self._init_runtime_state()
+        self._log_init_config()
+        self._init_search_api_command()
+        self._init_qbit_tags()
+        self._init_models_and_db()
+
+    def _init_identity(self, name: str, manager: ArrManager):
+        """Register name/category with the manager and create the Arr logger."""
         if name in manager.groups:
             raise OSError(f"Group '{name}' has already been registered.")
         self._name = name
-        self._client_builder = client_builder
         self.managed = CONFIG.get(f"{name}.Managed", fallback=False)
         if not self.managed:
             raise SkipException
@@ -39,6 +148,8 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
         run_logs(self.logger, self._name)
         self._dedicated_qbit_clients: dict[str, qbittorrentapi.Client] = {}
 
+    def _init_completed_folder(self):
+        """Resolve completed_folder from qBit category save path or defaults."""
         # Set completed_folder path (used for category creation and file monitoring)
         if not QBIT_DISABLED:
             try:
@@ -89,6 +200,9 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
                     self._name,
                     self.completed_folder,
                 )
+
+    def _init_arr_connection_settings(self, name: str):
+        """Load Arr API key, import mode, and sync timers."""
         self.apikey = CONFIG.get_or_raise(f"{name}.APIKey")
         self.skip_tls_verify_servarr = CONFIG.get(f"{name}.SkipTLSVerify", fallback=False)
         self.re_search = CONFIG.get(f"{name}.ReSearch", fallback=False)
@@ -105,6 +219,8 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
             f"{name}.RssSyncTimer", fallback=15, unit="minutes"
         )
 
+    def _init_torrent_settings(self, name: str):
+        """Load torrent match/exclusion/allowlist and AutoDelete settings."""
         self.case_sensitive_matches = CONFIG.get(
             f"{name}.Torrent.CaseSensitiveMatches", fallback=False
         )
@@ -123,6 +239,8 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
             ]
         self.auto_delete = CONFIG.get(f"{name}.Torrent.AutoDelete", fallback=False)
 
+    def _init_tracker_and_seeding(self, name: str):
+        """Load seeding limits and merge global/Arr tracker configs."""
         self.remove_dead_trackers = CONFIG.get(
             f"{name}.Torrent.SeedingMode.RemoveDeadTrackers", fallback=False
         )
@@ -171,6 +289,8 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
                 "AutoDelete disabled due to missing folder: '%s'", self.completed_folder.parent
             )
 
+    def _init_search_settings(self, name: str):
+        """Load EntrySearch flags, stalls, and search DB path."""
         self.reset_on_completion = CONFIG.get(
             f"{name}.EntrySearch.SearchAgainOnSearchCompletion", fallback=False
         )
@@ -221,6 +341,8 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
         self._app_data_folder = APPDATA_FOLDER
         self.search_db_file = self._app_data_folder.joinpath(f"{self._name}.db")
 
+    def _init_request_providers(self, name: str):
+        """Load Ombi/Overseerr request-search settings."""
         self.ombi_search_requests = CONFIG.get(
             f"{name}.EntrySearch.Ombi.SearchOmbiRequests", fallback=False
         )
@@ -275,6 +397,8 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
         else:
             self.request_search_timer = None
 
+    def _init_exclusion_regexes(self):
+        """Compile folder/file exclusion and extension allowlist regexes."""
         if self.case_sensitive_matches:
             self.folder_exclusion_regex_re = (
                 re.compile("|".join(self.folder_exclusion_regex), re.DOTALL)
@@ -307,6 +431,9 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
                 if self.file_extension_allowlist
                 else None
             )
+
+    def _init_client_and_type(self, client_builder: Callable[..., Radarr | Sonarr | Lidarr]):
+        """Build the pyarr client and detect radarr/sonarr/lidarr type."""
         self.client = client_builder(
             self.uri,
             self.apikey,
@@ -336,6 +463,8 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
         except Exception:
             self.logger.debug("Failed to get version")
 
+    def _init_quality_profiles(self, name: str):
+        """Load temp/main quality profile mappings and optional startup reset."""
         # Try new QualityProfileMappings format first (dict), then fall back to old format (lists)
         self.quality_profile_mappings = CONFIG.get(
             f"{self._name}.EntrySearch.QualityProfileMappings", fallback={}
@@ -411,6 +540,8 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
         else:
             self.refresh_downloads_timer_last_checked = None
 
+    def _init_runtime_state(self):
+        """Initialize per-loop caches, queues, and HTTP session."""
         self.loop_completed = False
         self.queue = []
         self.cache = {}
@@ -465,6 +596,8 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
         self.manager.completed_folders.add(self.completed_folder)
         self.manager.category_allowlist.add(self.category)
 
+    def _log_init_config(self):
+        """Emit startup debug lines summarizing loaded config."""
         _masked_apikey = "[redacted]" if self.apikey else ""
         self.logger.debug(
             "%s Config: "
@@ -543,6 +676,8 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
                     "Script Config:  SearchRequestsEvery=%s", self.search_requests_every_x_seconds
                 )
 
+    def _init_search_api_command(self):
+        """Pick the Sonarr search command based on search mode flags."""
         if self.type == "sonarr":
             if (
                 self.quality_unmet_search
@@ -557,6 +692,8 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
             else:
                 self.search_api_command = "MissingEpisodeSearch"
 
+    def _init_qbit_tags(self):
+        """Ensure required qBittorrent tags exist on the primary client."""
         if not QBIT_DISABLED and not TAGLESS:
             try:
                 _client = self._get_primary_qbit_client()
@@ -588,6 +725,9 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
                     self._name,
                     str(e).split("\n")[0],  # Only log first line of error
                 )
+
+    def _init_models_and_db(self):
+        """Register search/torrent models and SQLite atexit cleanup."""
         self.search_setup_completed = False
         self.model_file: Model | None = None
         self.series_file_model: Model | None = None
@@ -1884,6 +2024,27 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
                     )
             self.loop_completed = False
 
+    def _db_search_quality_cf_condition(self, *, missing_file_field):
+        """Build Searched / QualityMet / CustomFormatMet / missing-file WHERE fragment.
+
+        Shared by ``db_get_files_series|episodes|movies`` (and Lidarr albums).
+        ``missing_file_field`` is the model column for "no file yet" (e.g. EpisodeFileId).
+        """
+        model = self.model_file
+        if self.do_upgrade_search:
+            return model.Upgrade == False
+        if self.quality_unmet_search and not self.custom_format_unmet_search:
+            return (model.Searched == False) | (model.QualityMet == False)
+        if not self.quality_unmet_search and self.custom_format_unmet_search:
+            return (model.Searched == False) | (model.CustomFormatMet == False)
+        if self.quality_unmet_search and self.custom_format_unmet_search:
+            return (
+                (model.Searched == False)
+                | (model.QualityMet == False)
+                | (model.CustomFormatMet == False)
+            )
+        return (missing_file_field == 0) & (model.Searched == False)
+
     def db_get_files_series(self) -> list[list[SeriesFilesModel, bool, bool]] | None:
         entries = []
         if not (self.search_missing or self.do_upgrade_search):
@@ -1894,26 +2055,9 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
             condition = self.model_file.AirDateUtc.is_null(False)
             if not self.search_specials:
                 condition &= self.model_file.SeasonNumber != 0
-            if self.do_upgrade_search:
-                condition &= self.model_file.Upgrade == False
-            else:
-                if self.quality_unmet_search and not self.custom_format_unmet_search:
-                    condition &= (self.model_file.Searched == False) | (
-                        self.model_file.QualityMet == False
-                    )
-                elif not self.quality_unmet_search and self.custom_format_unmet_search:
-                    condition &= (self.model_file.Searched == False) | (
-                        self.model_file.CustomFormatMet == False
-                    )
-                elif self.quality_unmet_search and self.custom_format_unmet_search:
-                    condition &= (
-                        (self.model_file.Searched == False)
-                        | (self.model_file.QualityMet == False)
-                        | (self.model_file.CustomFormatMet == False)
-                    )
-                else:
-                    condition &= self.model_file.EpisodeFileId == 0
-                    condition &= self.model_file.Searched == False
+            condition &= self._db_search_quality_cf_condition(
+                missing_file_field=self.model_file.EpisodeFileId
+            )
             todays_condition = copy(condition)
             todays_condition &= self.model_file.AirDateUtc > (
                 datetime.now(timezone.utc) - timedelta(days=1)
@@ -1997,26 +2141,9 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
             )
             if not self.search_specials:
                 condition &= self.model_file.SeasonNumber != 0
-            if self.do_upgrade_search:
-                condition &= self.model_file.Upgrade == False
-            else:
-                if self.quality_unmet_search and not self.custom_format_unmet_search:
-                    condition &= (self.model_file.Searched == False) | (
-                        self.model_file.QualityMet == False
-                    )
-                elif not self.quality_unmet_search and self.custom_format_unmet_search:
-                    condition &= (self.model_file.Searched == False) | (
-                        self.model_file.CustomFormatMet == False
-                    )
-                elif self.quality_unmet_search and self.custom_format_unmet_search:
-                    condition &= (
-                        (self.model_file.Searched == False)
-                        | (self.model_file.QualityMet == False)
-                        | (self.model_file.CustomFormatMet == False)
-                    )
-                else:
-                    condition &= self.model_file.EpisodeFileId == 0
-                    condition &= self.model_file.Searched == False
+            condition &= self._db_search_quality_cf_condition(
+                missing_file_field=self.model_file.EpisodeFileId
+            )
             today_condition = copy(condition)
             today_condition &= self.model_file.AirDateUtc > (
                 datetime.now(timezone.utc) - timedelta(days=1)
@@ -2078,26 +2205,9 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
             condition = (self.model_file.Year.is_null(False)) & (
                 self.model_file.ArrInstance == self._name
             )
-            if self.do_upgrade_search:
-                condition &= self.model_file.Upgrade == False
-            else:
-                if self.quality_unmet_search and not self.custom_format_unmet_search:
-                    condition &= (self.model_file.Searched == False) | (
-                        self.model_file.QualityMet == False
-                    )
-                elif not self.quality_unmet_search and self.custom_format_unmet_search:
-                    condition &= (self.model_file.Searched == False) | (
-                        self.model_file.CustomFormatMet == False
-                    )
-                elif self.quality_unmet_search and self.custom_format_unmet_search:
-                    condition &= (
-                        (self.model_file.Searched == False)
-                        | (self.model_file.QualityMet == False)
-                        | (self.model_file.CustomFormatMet == False)
-                    )
-                else:
-                    condition &= self.model_file.MovieFileId == 0
-                    condition &= self.model_file.Searched == False
+            condition &= self._db_search_quality_cf_condition(
+                missing_file_field=self.model_file.MovieFileId
+            )
             if self.search_by_year:
                 condition &= self.model_file.Year == self.search_current_year
 
@@ -2129,26 +2239,9 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
             return entries
         elif self.type == "lidarr":
             condition = self.model_file.ArrInstance == self._name
-            if self.do_upgrade_search:
-                condition &= self.model_file.Upgrade == False
-            else:
-                if self.quality_unmet_search and not self.custom_format_unmet_search:
-                    condition &= (self.model_file.Searched == False) | (
-                        self.model_file.QualityMet == False
-                    )
-                elif not self.quality_unmet_search and self.custom_format_unmet_search:
-                    condition &= (self.model_file.Searched == False) | (
-                        self.model_file.CustomFormatMet == False
-                    )
-                elif self.quality_unmet_search and self.custom_format_unmet_search:
-                    condition &= (
-                        (self.model_file.Searched == False)
-                        | (self.model_file.QualityMet == False)
-                        | (self.model_file.CustomFormatMet == False)
-                    )
-                else:
-                    condition &= self.model_file.AlbumFileId == 0
-                    condition &= self.model_file.Searched == False
+            condition &= self._db_search_quality_cf_condition(
+                missing_file_field=self.model_file.AlbumFileId
+            )
 
             # Order searches by priority: Missing > CustomFormat > Quality > Upgrade
             # Use CASE to assign priority values to each reason
@@ -2481,236 +2574,11 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
             self._webui_db_loaded = True
 
     def minimum_availability_check(self, db_entry: JsonObject) -> bool:
-        inCinemas = (
-            datetime.strptime(db_entry["inCinemas"], "%Y-%m-%dT%H:%M:%SZ")
-            if "inCinemas" in db_entry
-            else None
+        from qBitrr.radarr_availability import (
+            minimum_availability_check as _minimum_availability_check,
         )
-        digitalRelease = (
-            datetime.strptime(db_entry["digitalRelease"], "%Y-%m-%dT%H:%M:%SZ")
-            if "digitalRelease" in db_entry
-            else None
-        )
-        physicalRelease = (
-            datetime.strptime(db_entry["physicalRelease"], "%Y-%m-%dT%H:%M:%SZ")
-            if "physicalRelease" in db_entry
-            else None
-        )
-        now = datetime.now()
-        if db_entry["year"] > now.year or db_entry["year"] == 0:
-            self.logger.trace(
-                "Skipping 1 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                db_entry["title"],
-                db_entry["minimumAvailability"],
-                inCinemas,
-                digitalRelease,
-                physicalRelease,
-            )
-            return False
-        elif db_entry["year"] < now.year - 1 and db_entry["year"] != 0:
-            self.logger.trace(
-                "Grabbing 2 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                db_entry["title"],
-                db_entry["minimumAvailability"],
-                inCinemas,
-                digitalRelease,
-                physicalRelease,
-            )
-            return True
-        elif (
-            "inCinemas" not in db_entry
-            and "digitalRelease" not in db_entry
-            and "physicalRelease" not in db_entry
-            and db_entry["minimumAvailability"] == "released"
-        ):
-            self.logger.trace(
-                "Grabbing 3 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                db_entry["title"],
-                db_entry["minimumAvailability"],
-                inCinemas,
-                digitalRelease,
-                physicalRelease,
-            )
-            return True
-        elif (
-            "digitalRelease" in db_entry
-            and "physicalRelease" in db_entry
-            and db_entry["minimumAvailability"] == "released"
-        ):
-            if digitalRelease <= now or physicalRelease <= now:
-                self.logger.trace(
-                    "Grabbing 4 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                    db_entry["title"],
-                    db_entry["minimumAvailability"],
-                    inCinemas,
-                    digitalRelease,
-                    physicalRelease,
-                )
-                return True
-            else:
-                self.logger.trace(
-                    "Skipping 5 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                    db_entry["title"],
-                    db_entry["minimumAvailability"],
-                    inCinemas,
-                    digitalRelease,
-                    physicalRelease,
-                )
-                return False
-        elif ("digitalRelease" in db_entry or "physicalRelease" in db_entry) and db_entry[
-            "minimumAvailability"
-        ] == "released":
-            if "digitalRelease" in db_entry:
-                if digitalRelease <= now:
-                    self.logger.trace(
-                        "Grabbing 6 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                        db_entry["title"],
-                        db_entry["minimumAvailability"],
-                        inCinemas,
-                        digitalRelease,
-                        physicalRelease,
-                    )
-                    return True
-                else:
-                    self.logger.trace(
-                        "Skipping 7 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                        db_entry["title"],
-                        db_entry["minimumAvailability"],
-                        inCinemas,
-                        digitalRelease,
-                        physicalRelease,
-                    )
-                    return False
-            elif "physicalRelease" in db_entry:
-                if physicalRelease <= now:
-                    self.logger.trace(
-                        "Grabbing 8 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                        db_entry["title"],
-                        db_entry["minimumAvailability"],
-                        inCinemas,
-                        digitalRelease,
-                        physicalRelease,
-                    )
-                    return True
-                else:
-                    self.logger.trace(
-                        "Skipping 9 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                        db_entry["title"],
-                        db_entry["minimumAvailability"],
-                        inCinemas,
-                        digitalRelease,
-                        physicalRelease,
-                    )
-                    return False
-        elif (
-            "inCinemas" not in db_entry
-            and "digitalRelease" not in db_entry
-            and "physicalRelease" not in db_entry
-            and db_entry["minimumAvailability"] == "inCinemas"
-        ):
-            self.logger.trace(
-                "Grabbing 10 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                db_entry["title"],
-                db_entry["minimumAvailability"],
-                inCinemas,
-                digitalRelease,
-                physicalRelease,
-            )
-            return True
-        elif "inCinemas" in db_entry and db_entry["minimumAvailability"] == "inCinemas":
-            if inCinemas <= now:
-                self.logger.trace(
-                    "Grabbing 11 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                    db_entry["title"],
-                    db_entry["minimumAvailability"],
-                    inCinemas,
-                    digitalRelease,
-                    physicalRelease,
-                )
-                return True
-            else:
-                self.logger.trace(
-                    "Skipping 12 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                    db_entry["title"],
-                    db_entry["minimumAvailability"],
-                    inCinemas,
-                    digitalRelease,
-                    physicalRelease,
-                )
-                return False
-        elif "inCinemas" not in db_entry and db_entry["minimumAvailability"] == "inCinemas":
-            if "digitalRelease" in db_entry:
-                if digitalRelease <= now:
-                    self.logger.trace(
-                        "Grabbing 13 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                        db_entry["title"],
-                        db_entry["minimumAvailability"],
-                        inCinemas,
-                        digitalRelease,
-                        physicalRelease,
-                    )
-                    return True
-                else:
-                    self.logger.trace(
-                        "Skipping 14 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                        db_entry["title"],
-                        db_entry["minimumAvailability"],
-                        inCinemas,
-                        digitalRelease,
-                        physicalRelease,
-                    )
-                    return False
-            elif "physicalRelease" in db_entry:
-                if physicalRelease <= now:
-                    self.logger.trace(
-                        "Grabbing 15 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                        db_entry["title"],
-                        db_entry["minimumAvailability"],
-                        inCinemas,
-                        digitalRelease,
-                        physicalRelease,
-                    )
-                    return True
-                else:
-                    self.logger.trace(
-                        "Skipping 16 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                        db_entry["title"],
-                        db_entry["minimumAvailability"],
-                        inCinemas,
-                        digitalRelease,
-                        physicalRelease,
-                    )
-                    return False
-            else:
-                self.logger.trace(
-                    "Skipping 17 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                    db_entry["title"],
-                    db_entry["minimumAvailability"],
-                    inCinemas,
-                    digitalRelease,
-                    physicalRelease,
-                )
-                return False
-        elif db_entry["minimumAvailability"] == "announced":
-            self.logger.trace(
-                "Grabbing 18 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                db_entry["title"],
-                db_entry["minimumAvailability"],
-                inCinemas,
-                digitalRelease,
-                physicalRelease,
-            )
-            return True
-        else:
-            self.logger.trace(
-                "Skipping 19 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                db_entry["title"],
-                db_entry["minimumAvailability"],
-                inCinemas,
-                digitalRelease,
-                physicalRelease,
-            )
-            return False
+
+        return _minimum_availability_check(self, db_entry)
 
     def db_update_single_series(
         self,
@@ -2908,356 +2776,24 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
         series_search: bool = False,
         commands: int = 0,
     ):
-        request_tag = (
-            "[OVERSEERR REQUEST]: "
-            if request and self.overseerr_requests
-            else (
-                "[OMBI REQUEST]: "
-                if request and self.ombi_search_requests
-                else "[PRIORITY SEARCH - TODAY]: " if todays else ""
-            )
-        )
-        self.refresh_download_queue()
-        if request or todays:
-            bypass_limit = True
-        if file_model is None:
-            return None
-        features_enabled = (
-            self.search_missing
-            or self.do_upgrade_search
-            or self.quality_unmet_search
-            or self.custom_format_unmet_search
-            or self.ombi_search_requests
-            or self.overseerr_requests
-        )
-        if not features_enabled and not (request or todays):
-            return None
-        elif not self.is_alive:
-            raise NoConnectionrException(f"Could not connect to {self.uri}", error_type="arr")
-        elif self.type == "sonarr":
-            if not series_search:
-                file_model: EpisodeFilesModel
-                if not (request or todays):
-                    (
-                        self.model_queue.select(self.model_queue.Completed)
-                        .where(self.model_queue.EntryId == file_model.EntryId)
-                        .execute()
-                    )
-                else:
-                    pass
-                if file_model.EntryId in self.queue_file_ids:
-                    self.logger.debug(
-                        "%sSkipping: Already Searched: %s | "
-                        "S%02dE%03d | "
-                        "%s | [id=%s|AirDateUTC=%s]",
-                        request_tag,
-                        file_model.SeriesTitle,
-                        file_model.SeasonNumber,
-                        file_model.EpisodeNumber,
-                        file_model.Title,
-                        file_model.EntryId,
-                        file_model.AirDateUtc,
-                    )
-                    self.model_file.update(Searched=True, Upgrade=True).where(
-                        (self.model_file.EntryId == file_model.EntryId)
-                        & (self.model_file.ArrInstance == self._name)
-                    ).execute()
-                    return True
-                active_commands = self.arr_db_query_commands_count()
-                self.logger.info(
-                    "%s active search commands, %s remaining",
-                    active_commands,
-                    commands,
-                )
-                if not bypass_limit and active_commands >= self._get_search_command_limit():
-                    self.logger.trace(
-                        "Idle: Too many commands in queue: %s | "
-                        "S%02dE%03d | "
-                        "%s | [id=%s|AirDateUTC=%s]",
-                        file_model.SeriesTitle,
-                        file_model.SeasonNumber,
-                        file_model.EpisodeNumber,
-                        file_model.Title,
-                        file_model.EntryId,
-                        file_model.AirDateUtc,
-                    )
-                    return False
-                self.persistent_queue.insert(
-                    EntryId=file_model.EntryId, ArrInstance=self._name
-                ).on_conflict_ignore().execute()
-                self.model_queue.insert(
-                    Completed=False, EntryId=file_model.EntryId, ArrInstance=self._name
-                ).on_conflict_replace().execute()
-                if file_model.EntryId not in self.queue_file_ids:
-                    with_retry(
-                        lambda: execute_command(
-                            self.client, "EpisodeSearch", episodeIds=[file_model.EntryId]
-                        ),
-                        retries=5,
-                        backoff=0.5,
-                        max_backoff=5,
-                        exceptions=_ARR_RETRY_EXCEPTIONS,
-                    )
-                self.model_file.update(Searched=True, Upgrade=True).where(
-                    (self.model_file.EntryId == file_model.EntryId)
-                    & (self.model_file.ArrInstance == self._name)
-                ).execute()
-                reason_text = getattr(file_model, "Reason", None) or None
-                if reason_text:
-                    self.logger.hnotice(
-                        "%sSearching for: %s | S%02dE%03d | %s | [id=%s|AirDateUTC=%s][%s]",
-                        request_tag,
-                        file_model.SeriesTitle,
-                        file_model.SeasonNumber,
-                        file_model.EpisodeNumber,
-                        file_model.Title,
-                        file_model.EntryId,
-                        file_model.AirDateUtc,
-                        reason_text,
-                    )
-                else:
-                    self.logger.hnotice(
-                        "%sSearching for: %s | S%02dE%03d | %s | [id=%s|AirDateUTC=%s]",
-                        request_tag,
-                        file_model.SeriesTitle,
-                        file_model.SeasonNumber,
-                        file_model.EpisodeNumber,
-                        file_model.Title,
-                        file_model.EntryId,
-                        file_model.AirDateUtc,
-                    )
-                description = f"{file_model.SeriesTitle} S{file_model.SeasonNumber:02d}E{file_model.EpisodeNumber:02d}"
-                if getattr(file_model, "Title", None):
-                    description = f"{description} · {file_model.Title}"
-                context_label = self._humanize_request_tag(request_tag)
-                self._record_search_activity(
-                    description,
-                    context=context_label,
-                    detail=str(reason_text) if reason_text else None,
-                )
-                return True
-            else:
-                file_model: SeriesFilesModel
-                active_commands = self.arr_db_query_commands_count()
-                self.logger.info(
-                    "%s active search commands, %s remaining",
-                    active_commands,
-                    commands,
-                )
-                if not bypass_limit and active_commands >= self._get_search_command_limit():
-                    self.logger.trace(
-                        "Idle: Too many commands in queue: %s | [id=%s]",
-                        file_model.Title,
-                        file_model.EntryId,
-                    )
-                    return False
-                self.persistent_queue.insert(
-                    EntryId=file_model.EntryId, ArrInstance=self._name
-                ).on_conflict_ignore().execute()
-                self.model_queue.insert(
-                    Completed=False, EntryId=file_model.EntryId, ArrInstance=self._name
-                ).on_conflict_replace().execute()
-                with_retry(
-                    lambda: execute_command(
-                        self.client, self.search_api_command, seriesId=file_model.EntryId
-                    ),
-                    retries=5,
-                    backoff=0.5,
-                    max_backoff=5,
-                    exceptions=_ARR_RETRY_EXCEPTIONS,
-                )
-                self.model_file.update(Searched=True, Upgrade=True).where(
-                    (self.model_file.EntryId == file_model.EntryId)
-                    & (self.model_file.ArrInstance == self._name)
-                ).execute()
-                self.logger.hnotice(
-                    "%sSearching for: %s | %s | [id=%s]",
-                    request_tag,
-                    (
-                        "Missing episodes in"
-                        if "Missing" in self.search_api_command
-                        else "All episodes in"
-                    ),
-                    file_model.Title,
-                    file_model.EntryId,
-                )
-                context_label = self._humanize_request_tag(request_tag)
-                scope = (
-                    "Missing episodes in"
-                    if "Missing" in self.search_api_command
-                    else "All episodes in"
-                )
-                description = f"{scope} {file_model.Title}"
-                self._record_search_activity(description, context=context_label)
-                return True
-        elif self.type == "radarr":
-            file_model: MoviesFilesModel
-            if not (request or todays):
-                (
-                    self.model_queue.select(self.model_queue.Completed)
-                    .where(self.model_queue.EntryId == file_model.EntryId)
-                    .execute()
-                )
-            else:
-                pass
-            if file_model.EntryId in self.queue_file_ids:
-                self.logger.debug(
-                    "%sSkipping: Already Searched: %s (%s)",
-                    request_tag,
-                    file_model.Title,
-                    file_model.EntryId,
-                )
-                self.model_file.update(Searched=True, Upgrade=True).where(
-                    (self.model_file.EntryId == file_model.EntryId)
-                    & (self.model_file.ArrInstance == self._name)
-                ).execute()
-                return True
-            active_commands = self.arr_db_query_commands_count()
-            self.logger.info("%s active search commands, %s remaining", active_commands, commands)
-            if not bypass_limit and active_commands >= self._get_search_command_limit():
-                self.logger.trace(
-                    "Idle: Too many commands in queue: %s | [id=%s]",
-                    file_model.Title,
-                    file_model.EntryId,
-                )
-                return False
-            self.persistent_queue.insert(
-                EntryId=file_model.EntryId, ArrInstance=self._name
-            ).on_conflict_ignore().execute()
+        from qBitrr.arss.search_handlers import maybe_do_search as _maybe_do_search
 
-            self.model_queue.insert(
-                Completed=False, EntryId=file_model.EntryId, ArrInstance=self._name
-            ).on_conflict_replace().execute()
-            if file_model.EntryId:
-                with_retry(
-                    lambda: execute_command(
-                        self.client, "MoviesSearch", movieIds=[file_model.EntryId]
-                    ),
-                    retries=5,
-                    backoff=0.5,
-                    max_backoff=5,
-                    exceptions=_ARR_RETRY_EXCEPTIONS,
-                )
-            self.model_file.update(Searched=True, Upgrade=True).where(
-                (self.model_file.EntryId == file_model.EntryId)
-                & (self.model_file.ArrInstance == self._name)
-            ).execute()
-            reason_text = getattr(file_model, "Reason", None)
-            if reason_text:
-                self.logger.hnotice(
-                    "%sSearching for: %s (%s) [tmdbId=%s|id=%s][%s]",
-                    request_tag,
-                    file_model.Title,
-                    file_model.Year,
-                    file_model.TmdbId,
-                    file_model.EntryId,
-                    reason_text,
-                )
-            else:
-                self.logger.hnotice(
-                    "%sSearching for: %s (%s) [tmdbId=%s|id=%s]",
-                    request_tag,
-                    file_model.Title,
-                    file_model.Year,
-                    file_model.TmdbId,
-                    file_model.EntryId,
-                )
-            context_label = self._humanize_request_tag(request_tag)
-            description = (
-                f"{file_model.Title} ({file_model.Year})"
-                if getattr(file_model, "Year", None)
-                else f"{file_model.Title}"
-            )
-            self._record_search_activity(
-                description,
-                context=context_label,
-                detail=str(reason_text) if reason_text else None,
-            )
-            return True
-        elif self.type == "lidarr":
-            file_model: AlbumFilesModel
-            if not (request or todays):
-                (
-                    self.model_queue.select(self.model_queue.Completed)
-                    .where(self.model_queue.EntryId == file_model.EntryId)
-                    .execute()
-                )
-            else:
-                pass
-            if file_model.EntryId in self.queue_file_ids:
-                self.logger.debug(
-                    "%sSkipping: Already Searched: %s - %s (%s)",
-                    request_tag,
-                    file_model.ArtistTitle,
-                    file_model.Title,
-                    file_model.EntryId,
-                )
-                self.model_file.update(Searched=True, Upgrade=True).where(
-                    (self.model_file.EntryId == file_model.EntryId)
-                    & (self.model_file.ArrInstance == self._name)
-                ).execute()
-                return True
-            active_commands = self.arr_db_query_commands_count()
-            self.logger.info("%s active search commands, %s remaining", active_commands, commands)
-            if not bypass_limit and active_commands >= self._get_search_command_limit():
-                self.logger.trace(
-                    "Idle: Too many commands in queue: %s - %s | [id=%s]",
-                    file_model.ArtistTitle,
-                    file_model.Title,
-                    file_model.EntryId,
-                )
-                return False
-            self.persistent_queue.insert(
-                EntryId=file_model.EntryId, ArrInstance=self._name
-            ).on_conflict_ignore().execute()
-
-            self.model_queue.insert(
-                Completed=False, EntryId=file_model.EntryId, ArrInstance=self._name
-            ).on_conflict_replace().execute()
-            if file_model.EntryId:
-                with_retry(
-                    lambda: execute_command(
-                        self.client, "AlbumSearch", albumIds=[file_model.EntryId]
-                    ),
-                    retries=5,
-                    backoff=0.5,
-                    max_backoff=5,
-                    exceptions=_ARR_RETRY_EXCEPTIONS,
-                )
-            self.model_file.update(Searched=True, Upgrade=True).where(
-                (self.model_file.EntryId == file_model.EntryId)
-                & (self.model_file.ArrInstance == self._name)
-            ).execute()
-            reason_text = getattr(file_model, "Reason", None)
-            if reason_text:
-                self.logger.hnotice(
-                    "%sSearching for: %s - %s [foreignAlbumId=%s|id=%s][%s]",
-                    request_tag,
-                    file_model.ArtistTitle,
-                    file_model.Title,
-                    file_model.ForeignAlbumId,
-                    file_model.EntryId,
-                    reason_text,
-                )
-            else:
-                self.logger.hnotice(
-                    "%sSearching for: %s - %s [foreignAlbumId=%s|id=%s]",
-                    request_tag,
-                    file_model.ArtistTitle,
-                    file_model.Title,
-                    file_model.ForeignAlbumId,
-                    file_model.EntryId,
-                )
-            context_label = self._humanize_request_tag(request_tag)
-            description = f"{file_model.ArtistTitle} - {file_model.Title}"
-            self._record_search_activity(
-                description,
-                context=context_label,
-                detail=str(reason_text) if reason_text else None,
-            )
-            return True
+        return _maybe_do_search(
+            self,
+            file_model,
+            request=request,
+            todays=todays,
+            bypass_limit=bypass_limit,
+            series_search=series_search,
+            commands=commands,
+        )
 
     def process(self):
+        """Apply queued torrent side-effects (batch mixin), then folder cleanup.
+
+        Preceded by :meth:`process_torrents`, which classifies each torrent via
+        the dispatcher/inspector mixins before this method runs the batch queue.
+        """
         self._process_resume()
         self._process_paused()
         self._process_errored()
@@ -3543,6 +3079,11 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
                 )
 
     def process_torrents(self):
+        """Fetch torrents, classify each via dispatcher/inspector, then :meth:`process`.
+
+        Call graph: ``process_torrents`` → ``_process_single_torrent`` (dispatcher)
+        → ``_process_single_torrent_*`` (inspector) → ``process`` → ``_process_*`` (batch).
+        """
         self._sync_loop_settings_from_config()
         try:
             try:
@@ -4042,430 +3583,6 @@ class Arr(TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin):
         if tag_pri <= -100:
             return announce_pri
         return max(tag_pri, announce_pri)
-
-    def _resolve_hnr_clear_mode(self, tracker_or_config: dict) -> str:
-        """Resolve HnR mode from single HitAndRunMode key: 'and' | 'or' | 'disabled'."""
-        raw = tracker_or_config.get("HitAndRunMode")
-        if isinstance(raw, str) and raw.strip().lower() in ("and", "or", "disabled"):
-            return raw.strip().lower()
-        # Legacy: boolean HitAndRunMode (pre-migration)
-        if raw is True:
-            return "and"
-        return "disabled"
-
-    def _get_torrent_limit_meta(self, torrent: qbittorrentapi.TorrentDictionary):
-        def _to_number(value, default):
-            if value is None or isinstance(value, bool):
-                return default
-            if isinstance(value, (int, float)):
-                return value
-            try:
-                text = str(value).strip()
-                if not text:
-                    return default
-                return float(text) if "." in text else int(text)
-            except (TypeError, ValueError):
-                return default
-
-        def _positive_or_sentinel(value):
-            parsed = _to_number(value, default=-5)
-            return parsed if parsed > 0 else -5
-
-        _, monitored_trackers = self._get_torrent_important_trackers(torrent)
-        most_important_tracker, _unique_tags = self._get_most_important_tracker_and_tags(
-            monitored_trackers, {}
-        )
-
-        data_settings = {
-            "ratio_limit": _positive_or_sentinel(
-                most_important_tracker.get(
-                    "MaxUploadRatio", self.seeding_mode_global_max_upload_ratio
-                )
-            ),
-            "seeding_time_limit": _positive_or_sentinel(
-                most_important_tracker.get(
-                    "MaxSeedingTime", self.seeding_mode_global_max_seeding_time
-                )
-            ),
-            "dl_limit": _positive_or_sentinel(
-                most_important_tracker.get(
-                    "DownloadRateLimit", self.seeding_mode_global_download_limit
-                )
-            ),
-            "up_limit": _positive_or_sentinel(
-                most_important_tracker.get(
-                    "UploadRateLimit", self.seeding_mode_global_upload_limit
-                )
-            ),
-            "super_seeding": most_important_tracker.get("SuperSeedMode", torrent.super_seeding),
-            "max_eta": _to_number(
-                most_important_tracker.get("MaximumETA", self.maximum_eta),
-                self.maximum_eta,
-            ),
-            "hnr_clear_mode": self._resolve_hnr_clear_mode(most_important_tracker),
-            "hnr_min_seed_ratio": _to_number(
-                most_important_tracker.get("MinSeedRatio", 1.0),
-                1.0,
-            ),
-            "hnr_min_seeding_time_days": _to_number(
-                most_important_tracker.get("MinSeedingTimeDays", 0),
-                0,
-            ),
-            "hnr_min_download_percent": _to_number(
-                most_important_tracker.get("HitAndRunMinimumDownloadPercent", 10),
-                10,
-            ),
-            "hnr_partial_seed_ratio": _to_number(
-                most_important_tracker.get("HitAndRunPartialSeedRatio", 1.0),
-                1.0,
-            ),
-            "hnr_tracker_update_buffer": _to_number(
-                most_important_tracker.get("TrackerUpdateBuffer", 0),
-                0,
-            ),
-        }
-
-        data_torrent = {
-            "ratio_limit": _positive_or_sentinel(getattr(torrent, "ratio_limit", -5)),
-            "seeding_time_limit": _positive_or_sentinel(
-                getattr(torrent, "seeding_time_limit", -5)
-            ),
-            "dl_limit": _positive_or_sentinel(getattr(torrent, "dl_limit", -5)),
-            "up_limit": _positive_or_sentinel(getattr(torrent, "up_limit", -5)),
-            "super_seeding": torrent.super_seeding,
-        }
-        return data_settings, data_torrent
-
-    def _should_leave_alone(
-        self, torrent: qbittorrentapi.TorrentDictionary, instance_name: str = "default"
-    ) -> tuple[bool, int, bool, dict | None, dict | None]:
-        return_value = True
-        remove_torrent = False
-        if torrent.super_seeding or torrent.state_enum == TorrentStates.FORCED_UPLOAD:
-            return return_value, -1, remove_torrent, None, None
-
-        is_uploading = torrent.state_enum in (
-            TorrentStates.UPLOADING,
-            TorrentStates.STALLED_UPLOAD,
-            TorrentStates.QUEUED_UPLOAD,
-            TorrentStates.PAUSED_UPLOAD,
-        )
-        is_downloading = torrent.state_enum in (
-            TorrentStates.DOWNLOADING,
-            TorrentStates.STALLED_DOWNLOAD,
-            TorrentStates.QUEUED_DOWNLOAD,
-            TorrentStates.PAUSED_DOWNLOAD,
-            TorrentStates.FORCED_DOWNLOAD,
-            TorrentStates.METADATA_DOWNLOAD,
-            TorrentStates.FORCED_METADATA_DOWNLOAD,
-        )
-
-        try:
-            data_settings, data_torrent = self._get_torrent_limit_meta(torrent)
-        except _TrackerDataUnavailable:
-            self.logger.warning(
-                "Skipping tracker-dependent seeding checks for torrent '%s' (%s) this pass",
-                getattr(torrent, "name", "<unknown>"),
-                getattr(torrent, "hash", "<unknown>"),
-            )
-            return return_value, self.maximum_eta, remove_torrent, None, None
-        self.logger.trace("Config Settings for torrent [%s]: %r", torrent.name, data_settings)
-        self.logger.trace("Torrent Settings for torrent [%s]: %r", torrent.name, data_torrent)
-
-        ratio_limit_dat = data_settings.get("ratio_limit", -5)
-        ratio_limit_tor = data_torrent.get("ratio_limit", -5)
-        seeding_time_limit_dat = data_settings.get("seeding_time_limit", -5)
-        seeding_time_limit_tor = data_torrent.get("seeding_time_limit", -5)
-
-        seeding_time_limit = max(seeding_time_limit_dat, seeding_time_limit_tor)
-        ratio_limit = max(ratio_limit_dat, ratio_limit_tor)
-
-        if is_uploading and self.seeding_mode_global_remove_torrent != -1:
-            remove_torrent = self.torrent_limit_check(torrent, seeding_time_limit, ratio_limit)
-        else:
-            remove_torrent = False
-
-        hnr_override = False
-        if (
-            is_downloading
-            and remove_torrent
-            and not self._hnr_safe_to_remove(torrent, data_settings)
-        ):
-            self.logger.debug(
-                "HnR protection: keeping downloading torrent [%s] (ratio=%.2f, seeding=%s)",
-                torrent.name,
-                torrent.ratio,
-                timedelta(seconds=torrent.seeding_time),
-            )
-            remove_torrent = False
-            hnr_override = True
-
-        if hnr_override:
-            return_value = True
-        else:
-            return_value = not (
-                is_uploading and self.torrent_limit_check(torrent, seeding_time_limit, ratio_limit)
-            )
-        if data_settings.get("super_seeding", False) or data_torrent.get("super_seeding", False):
-            return_value = True
-        if self.in_tags(torrent, "qBitrr-free_space_paused", instance_name):
-            return_value = True
-        if (
-            return_value
-            and not self.in_tags(torrent, "qBitrr-allowed_seeding", instance_name)
-            and not self.in_tags(torrent, "qBitrr-free_space_paused", instance_name)
-        ):
-            self.add_tags(torrent, ["qBitrr-allowed_seeding"], instance_name)
-        elif (
-            not return_value and self.in_tags(torrent, "qBitrr-allowed_seeding", instance_name)
-        ) or self.in_tags(torrent, "qBitrr-free_space_paused", instance_name):
-            self.remove_tags(torrent, ["qBitrr-allowed_seeding"], instance_name)
-
-        if hnr_override and not self.in_tags(torrent, "qBitrr-hnr_active", instance_name):
-            self.add_tags(torrent, ["qBitrr-hnr_active"], instance_name)
-        elif not hnr_override and self.in_tags(torrent, "qBitrr-hnr_active", instance_name):
-            self.remove_tags(torrent, ["qBitrr-hnr_active"], instance_name)
-
-        self.logger.trace("Config Settings returned [%s]: %r", torrent.name, data_settings)
-        return (
-            return_value,
-            data_settings.get("max_eta", self.maximum_eta),
-            remove_torrent,
-            data_settings,
-            data_torrent,
-        )
-
-    def custom_format_unmet_check(self, torrent: qbittorrentapi.TorrentDictionary) -> bool:
-        try:
-            queue = with_retry(
-                lambda: self.client.queue.get(),
-                retries=5,
-                backoff=0.5,
-                max_backoff=5,
-                exceptions=_ARR_RETRY_EXCEPTIONS,
-            )
-
-            if not queue.get("records"):
-                return False
-
-            download_id = torrent.hash.upper()
-            record = next(
-                (r for r in queue["records"] if r.get("downloadId") == download_id), None
-            )
-
-            if not record:
-                return False
-
-            custom_format_score = record.get("customFormatScore")
-            if custom_format_score is None:
-                return False
-
-            # Default assumption: custom format requirements are met
-            cf_unmet = False
-
-            if self.type == "sonarr":
-                entry_id_field = "seriesId" if self.series_search else "episodeId"
-                file_id_field = None if self.series_search else "EpisodeFileId"
-            elif self.type == "radarr":
-                entry_id_field = "movieId"
-                file_id_field = "MovieFileId"
-            elif self.type == "lidarr":
-                entry_id_field = "albumId"
-                file_id_field = "AlbumFileId"
-            else:
-                return False  # Unknown type
-
-            entry_id = record.get(entry_id_field)
-            if not entry_id:
-                return False
-
-            # Retrieve the model entry from the database
-            model_entry = (
-                self.model_file.select()
-                .where(
-                    (self.model_file.EntryId == entry_id)
-                    & (self.model_file.ArrInstance == self._name)
-                )
-                .first()
-            )
-            if not model_entry:
-                return False
-
-            if self.type == "sonarr" and self.series_search:
-                if self.force_minimum_custom_format:
-                    min_score = getattr(model_entry, "MinCustomFormatScore", 0)
-                    cf_unmet = custom_format_score < min_score
-            else:
-                file_id = getattr(model_entry, file_id_field, 0) if file_id_field else 0
-                if file_id != 0:
-                    model_cf_score = getattr(model_entry, "CustomFormatScore", 0)
-                    cf_unmet = custom_format_score < model_cf_score
-                    if self.force_minimum_custom_format:
-                        min_score = getattr(model_entry, "MinCustomFormatScore", 0)
-                        cf_unmet = cf_unmet and custom_format_score < min_score
-
-            return cf_unmet
-
-        except Exception:
-            return False
-
-    def _hnr_allows_delete(
-        self,
-        torrent: qbittorrentapi.TorrentDictionary,
-        reason: str,
-        *,
-        data_settings: dict | None = None,
-    ) -> bool:
-        """Check if HnR obligations allow deleting this torrent.
-
-        Fetches tracker metadata and checks HnR. Returns True if deletion
-        is allowed, False if HnR protection blocks it.
-        """
-        if not any(self._resolve_hnr_clear_mode(t) != "disabled" for t in self.monitored_trackers):
-            return True  # Fast path: no HnR on any tracker
-
-        # If the HnR-enabled tracker reports the torrent as unregistered/dead,
-        # HnR no longer applies (tracker has removed the torrent).
-        if self._hnr_tracker_is_dead(torrent):
-            self.logger.debug(
-                "HnR bypass: tracker reports torrent as unregistered/dead [%s]",
-                torrent.name,
-            )
-            return True
-
-        if data_settings is None:
-            try:
-                data_settings, _ = self._get_torrent_limit_meta(torrent)
-            except _TrackerDataUnavailable as exc:
-                self.logger.warning(
-                    "HnR check skipped for torrent '%s' (%s): %s",
-                    getattr(torrent, "name", "<unknown>"),
-                    getattr(torrent, "hash", "<unknown>"),
-                    str(exc),
-                )
-                # Fail safe: without tracker metadata, do not allow deletion.
-                return False
-        if self._hnr_safe_to_remove(torrent, data_settings):
-            return True
-        self.logger.info(
-            "HnR protection: blocking %s of [%s] (ratio=%.2f, seeding=%s, progress=%.1f%%)",
-            reason,
-            torrent.name,
-            torrent.ratio,
-            timedelta(seconds=torrent.seeding_time),
-            torrent.progress * 100,
-        )
-        return False
-
-    def _hnr_tracker_is_dead(self, torrent: qbittorrentapi.TorrentDictionary) -> bool:
-        """Check if the HnR-enabled tracker reports the torrent as unregistered or dead.
-
-        If a tracker says the torrent is unregistered/unauthorized, the torrent
-        no longer exists on the tracker and HnR obligations cannot apply.
-        """
-        _dead_keywords = {
-            "unregistered torrent",
-            "torrent not registered",
-            "info hash is not authorized",
-            "torrent is not authorized",
-            "torrent not found",
-        }
-        # Build set of HnR-enabled tracker hostnames
-        hnr_hosts = {
-            _extract_tracker_host(t.get("URI") or "")
-            for t in self.monitored_trackers
-            if self._resolve_hnr_clear_mode(t) != "disabled"
-        } - {""}
-        if not hnr_hosts:
-            return False
-        try:
-            for tracker in torrent.trackers:
-                tracker_url = (getattr(tracker, "url", None) or "").rstrip("/")
-                if not tracker_url or _extract_tracker_host(tracker_url) not in hnr_hosts:
-                    continue
-                message_text = (getattr(tracker, "msg", "") or "").lower()
-                if any(keyword in message_text for keyword in _dead_keywords):
-                    return True
-        except Exception:
-            pass
-        return False
-
-    def _hnr_safe_to_remove(
-        self, torrent: qbittorrentapi.TorrentDictionary, tracker_meta: dict
-    ) -> bool:
-        """Returns True only if Hit and Run obligations are met."""
-        clear_mode = (tracker_meta.get("hnr_clear_mode") or "disabled").strip().lower()
-        if clear_mode == "disabled":
-            return True
-
-        min_ratio = tracker_meta.get("hnr_min_seed_ratio", 1.0)
-        min_time_secs = tracker_meta.get("hnr_min_seeding_time_days", 0) * 86400
-        min_dl_pct = tracker_meta.get("hnr_min_download_percent", 10) / 100.0
-        partial_ratio = tracker_meta.get("hnr_partial_seed_ratio", 1.0)
-        buffer_secs = tracker_meta.get("hnr_tracker_update_buffer", 0)
-
-        is_partial = torrent.progress < 1.0 and torrent.progress >= min_dl_pct
-        effective_seeding_time = torrent.seeding_time - buffer_secs
-
-        if torrent.progress < min_dl_pct:
-            return True  # Below minimum download threshold, no HnR obligation
-        if is_partial:
-            return torrent.ratio >= partial_ratio  # Partial: ratio only
-
-        ratio_met = torrent.ratio >= min_ratio if min_ratio > 0 else False
-        time_met = effective_seeding_time >= min_time_secs if min_time_secs > 0 else False
-
-        if clear_mode == "and":
-            if min_ratio > 0 and min_time_secs > 0:
-                return ratio_met and time_met
-            if min_ratio > 0:
-                return ratio_met
-            if min_time_secs > 0:
-                return time_met
-            return True
-        if clear_mode == "or":
-            if min_ratio > 0 and min_time_secs > 0:
-                return ratio_met or time_met
-            if min_ratio > 0:
-                return ratio_met
-            if min_time_secs > 0:
-                return time_met
-            return True
-        return True
-
-    def torrent_limit_check(
-        self, torrent: qbittorrentapi.TorrentDictionary, seeding_time_limit, ratio_limit
-    ) -> bool:
-        # -1 = Never remove (regardless of ratio/time limits)
-        if self.seeding_mode_global_remove_torrent == -1:
-            return False
-
-        # Treat limits <= 0 as unset; only consider a limit "met" when it is set (>0) and satisfied
-        ratio_limit_valid = ratio_limit is not None and ratio_limit > 0
-        time_limit_valid = seeding_time_limit is not None and seeding_time_limit > 0
-        ratio_met = ratio_limit_valid and torrent.ratio >= ratio_limit
-        time_met = time_limit_valid and torrent.seeding_time >= seeding_time_limit
-
-        mode = self.seeding_mode_global_remove_torrent
-        if mode in (1, 2, 3, 4) and not ratio_limit_valid and not time_limit_valid:
-            if not self._warned_no_seeding_limits:
-                self.logger.warning(
-                    "RemoveTorrent=%s but neither MaxUploadRatio nor MaxSeedingTime is set; "
-                    "skipping seeding-based removal until at least one limit is configured",
-                    mode,
-                )
-                self._warned_no_seeding_limits = True
-            return False
-
-        if mode == 4:
-            return ratio_met and time_met
-        if mode == 3:
-            return ratio_met or time_met
-        if mode == 2:
-            return time_met
-        if mode == 1:
-            return ratio_met
-        return False
 
     def refresh_download_queue(self):
         self.queue = self.get_queue() or []

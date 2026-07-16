@@ -1,8 +1,34 @@
-"""Torrent processing mixin extracted from Arr."""
+"""Torrent batch side-effects mixin extracted from Arr.
+
+Call graph (per loop):
+  Arr.process_torrents → TorrentDispatcherMixin._process_single_torrent
+  → TorrentInspectorMixin._process_single_torrent_* (decide) → Arr.process
+  → TorrentBatchMixin._process_* (pause / import / fail / resume / file priority).
+"""
 
 from __future__ import annotations
 
-from qBitrr.arss._shared import *
+import contextlib
+from collections import defaultdict
+from collections.abc import Iterable
+
+import qbittorrentapi
+import requests
+from ujson import JSONDecodeError
+
+from qBitrr.arss._shared import (
+    _ARR_RETRY_EXCEPTIONS,
+    _ARR_RETRY_EXCEPTIONS_EXTENDED,
+    _QBIT_TORRENT_DELETE_EXCEPTIONS,
+    _QBIT_WRITE_RETRY_EXCEPTIONS,
+    AUTO_PAUSE_RESUME,
+    PyarrResourceNotFound,
+    _collect_instance_hash_map_hashes,
+    _prune_instance_hash_map,
+    execute_command,
+    validate_and_return_torrent_file,
+    with_retry,
+)
 
 
 class TorrentBatchMixin:

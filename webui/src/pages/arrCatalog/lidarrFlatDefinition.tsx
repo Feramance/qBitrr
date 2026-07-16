@@ -7,14 +7,7 @@ import type {
   LidarrAlbumsResponse,
 } from "../../api/types";
 import { LidarrAlbumDetailBody } from "../../components/arr/LidarrAlbumDetailBody";
-import {
-  ArrCatalogBodyChrome,
-  ArrCatalogPagination,
-} from "./ArrCatalogBodyChrome";
-import {
-  ArrCatalogEmptyBranch,
-  ArrCatalogListOrGrid,
-} from "./ArrCatalogListOrGrid";
+import { ArrCatalogStandardBody } from "./ArrCatalogStandardBody";
 import { createStandardArrFilters } from "./createStandardArrFilters";
 import type { ArrCatalogDefinition } from "./definition";
 import { useInstancePagedFetch } from "./useInstancePagedFetch";
@@ -302,7 +295,7 @@ function LidarrFlatAggregateBody({
   const effectiveLoading =
     loading || (instanceCount > 0 && !emptyStateReady && total === 0);
   return (
-    <ArrCatalogBodyChrome
+    <ArrCatalogStandardBody
       summaryLine={
         <>
           Flat album list across all instances{" "}
@@ -320,53 +313,43 @@ function LidarrFlatAggregateBody({
       onRefresh={onRefresh}
       loading={effectiveLoading}
       loadingHint="Loading Lidarr albums…"
-      footer={
-        total > 0 ? (
-          <ArrCatalogPagination
-            page={page}
-            totalPages={totalPages}
-            total={total}
-            itemNoun="albums"
-            pageSize={aggregatePageSize}
-            loading={effectiveLoading}
-            onPageChange={onPageChange}
-          />
-        ) : null
+      emptyOrder="syncFirst"
+      showCatalogEmptyHint={
+        !effectiveLoading && total === 0 && summary.total === 0 && instanceCount > 0
       }
-    >
-      <ArrCatalogEmptyBranch
-        order="syncFirst"
-        showCatalogEmptyHint={!effectiveLoading && total === 0 && summary.total === 0 && instanceCount > 0}
-        hasRows={total > 0}
-        catalogEmptyMessage="No albums found in the local catalog."
-        noMatchMessage="No albums match the current filters."
-      >
-        <ArrCatalogListOrGrid
-          browseMode={browseMode}
-          rows={rows}
-          rowOrder={rowOrder}
-          rowsStore={rowsStore}
-          columns={columns}
-          getRowKey={lidarrAlbumFlatRowKey}
-          onRowSelect={onRowSelect}
-          iconGridRef={iconGridRef}
-          renderIconTile={(row) => {
-            const album = row.album as Record<string, unknown>;
-            const title = String(album?.["title"] ?? "—");
-            const artist = String(album?.["artistName"] ?? "—");
-            return (
-              <div className="arr-movie-tile arr-movie-tile--text" key={lidarrAlbumFlatRowKey(row)}>
-                {instanceCount > 1 ? (
-                  <div className="arr-movie-tile__instance">{row.__instance}</div>
-                ) : null}
-                <div className="arr-movie-tile__title">{title}</div>
-                <div className="arr-movie-tile__meta">{artist}</div>
-              </div>
-            );
-          }}
-        />
-      </ArrCatalogEmptyBranch>
-    </ArrCatalogBodyChrome>
+      hasRows={total > 0}
+      catalogEmptyMessage="No albums found in the local catalog."
+      noMatchMessage="No albums match the current filters."
+      showPagination={total > 0}
+      page={page}
+      totalPages={totalPages}
+      total={total}
+      itemNoun="albums"
+      pageSize={aggregatePageSize}
+      onPageChange={onPageChange}
+      browseMode={browseMode}
+      rows={rows}
+      rowOrder={rowOrder}
+      rowsStore={rowsStore}
+      columns={columns}
+      getRowKey={lidarrAlbumFlatRowKey}
+      onRowSelect={onRowSelect}
+      iconGridRef={iconGridRef}
+      renderIconTile={(row) => {
+        const album = row.album as Record<string, unknown>;
+        const title = String(album?.["title"] ?? "—");
+        const artist = String(album?.["artistName"] ?? "—");
+        return (
+          <div className="arr-movie-tile arr-movie-tile--text" key={lidarrAlbumFlatRowKey(row)}>
+            {instanceCount > 1 ? (
+              <div className="arr-movie-tile__instance">{row.__instance}</div>
+            ) : null}
+            <div className="arr-movie-tile__title">{title}</div>
+            <div className="arr-movie-tile__meta">{artist}</div>
+          </div>
+        );
+      }}
+    />
   );
 }
 
@@ -408,7 +391,7 @@ function LidarrFlatInstanceBody({
   const effectiveLoading = loading || (!emptyStateReady && visibleRows.length === 0);
   const columns = buildLidarrFlatColumns(1);
   return (
-    <ArrCatalogBodyChrome
+    <ArrCatalogStandardBody
       summaryLine={
         <>
           <strong>Albums shown:</strong> {visibleRows.length.toLocaleString()} •{" "}
@@ -419,49 +402,39 @@ function LidarrFlatInstanceBody({
       onRefresh={refresh}
       loading={effectiveLoading}
       loadingHint="Loading albums…"
-      footer={
-        totalPages > 1 ? (
-          <ArrCatalogPagination
-            page={page}
-            totalPages={totalPages}
-            total={totalItems}
-            itemNoun="albums"
-            pageSize={pageSize}
-            loading={effectiveLoading}
-            onPageChange={setPage}
-          />
-        ) : null
-      }
-    >
-      {showCatalogEmptyHint ? (
-        <div className="hint catalog-sync-hint">No albums in the local catalog yet.</div>
-      ) : visibleRows.length ? (
-        <ArrCatalogListOrGrid
-          browseMode={browseMode}
-          rows={visibleRows}
-          rowOrder={rowOrder}
-          rowsStore={rowsStore}
-          columns={columns}
-          getRowKey={lidarrAlbumFlatRowKey}
-          onRowSelect={onRowSelect}
-          iconGridRef={iconGridRef}
-          renderIconTile={(row) => {
-            const album = row.album as Record<string, unknown>;
-            return (
-              <div className="arr-movie-tile arr-movie-tile--text" key={lidarrAlbumFlatRowKey(row)}>
-                <div className="arr-movie-tile__title">
-                  {String(album?.["title"] ?? "—")}
-                </div>
-                <div className="arr-movie-tile__meta">
-                  {String(album?.["artistName"] ?? "—")}
-                </div>
-              </div>
-            );
-          }}
-        />
-      ) : (
-        <div className="hint">No albums match the current filters.</div>
-      )}
-    </ArrCatalogBodyChrome>
+      emptyOrder="syncFirst"
+      showCatalogEmptyHint={showCatalogEmptyHint}
+      hasRows={visibleRows.length > 0}
+      catalogEmptyMessage="No albums in the local catalog yet."
+      noMatchMessage="No albums match the current filters."
+      showPagination={totalPages > 1}
+      page={page}
+      totalPages={totalPages}
+      total={totalItems}
+      itemNoun="albums"
+      pageSize={pageSize}
+      onPageChange={setPage}
+      browseMode={browseMode}
+      rows={visibleRows}
+      rowOrder={rowOrder}
+      rowsStore={rowsStore}
+      columns={columns}
+      getRowKey={lidarrAlbumFlatRowKey}
+      onRowSelect={onRowSelect}
+      iconGridRef={iconGridRef}
+      renderIconTile={(row) => {
+        const album = row.album as Record<string, unknown>;
+        return (
+          <div className="arr-movie-tile arr-movie-tile--text" key={lidarrAlbumFlatRowKey(row)}>
+            <div className="arr-movie-tile__title">
+              {String(album?.["title"] ?? "—")}
+            </div>
+            <div className="arr-movie-tile__meta">
+              {String(album?.["artistName"] ?? "—")}
+            </div>
+          </div>
+        );
+      }}
+    />
   );
 }

@@ -6,21 +6,17 @@ import unittest
 from datetime import datetime
 from unittest import mock
 
-from tests.support.branch_compat import HAS_QUALITY_PROFILE_HELPERS
-
-if HAS_QUALITY_PROFILE_HELPERS:
-    from qBitrr.quality_profile_helpers import (
-        compute_quality_met,
-        compute_search_reason,
-        get_profile_name_cached,
-        plan_temp_profile_switch,
-        resolve_custom_format_score,
-        resolve_min_format_score,
-        should_mark_searched,
-    )
+from qBitrr.quality_profile_helpers import (
+    compute_quality_met,
+    compute_search_reason,
+    get_profile_name_cached,
+    plan_temp_profile_switch,
+    resolve_custom_format_score,
+    resolve_min_format_score,
+    should_mark_searched,
+)
 
 
-@unittest.skipUnless(HAS_QUALITY_PROFILE_HELPERS, "quality_profile_helpers is refactor-only")
 class TestShouldMarkSearchedCombinations(unittest.TestCase):
     def test_all_search_gates_must_pass(self) -> None:
         cases = [
@@ -52,7 +48,6 @@ class TestShouldMarkSearchedCombinations(unittest.TestCase):
                 )
 
 
-@unittest.skipUnless(HAS_QUALITY_PROFILE_HELPERS, "quality_profile_helpers is refactor-only")
 class TestComputeSearchReasonCombinations(unittest.TestCase):
     def test_reason_matrix(self) -> None:
         self.assertEqual(
@@ -117,7 +112,6 @@ class TestComputeSearchReasonCombinations(unittest.TestCase):
         )
 
 
-@unittest.skipUnless(HAS_QUALITY_PROFILE_HELPERS, "quality_profile_helpers is refactor-only")
 class TestPlanTempProfileSwitchCombinations(unittest.TestCase):
     def test_upgrade_from_temp_when_searched(self) -> None:
         data, ts, orig, current = plan_temp_profile_switch(
@@ -173,7 +167,6 @@ class TestPlanTempProfileSwitchCombinations(unittest.TestCase):
         self.assertIsNone(ts)
 
 
-@unittest.skipUnless(HAS_QUALITY_PROFILE_HELPERS, "quality_profile_helpers is refactor-only")
 class TestResolveMinFormatScore(unittest.TestCase):
     def test_uses_stored_score_first(self) -> None:
         score = resolve_min_format_score(
@@ -213,7 +206,6 @@ class TestResolveMinFormatScore(unittest.TestCase):
         logger.warning.assert_called_once()
 
 
-@unittest.skipUnless(HAS_QUALITY_PROFILE_HELPERS, "quality_profile_helpers is refactor-only")
 class TestResolveCustomFormatScore(unittest.TestCase):
     def test_zero_when_no_content(self) -> None:
         self.assertEqual(
@@ -256,7 +248,6 @@ class TestResolveCustomFormatScore(unittest.TestCase):
         fetch.assert_called_once_with(42)
 
 
-@unittest.skipUnless(HAS_QUALITY_PROFILE_HELPERS, "quality_profile_helpers is refactor-only")
 class TestComputeQualityMet(unittest.TestCase):
     def test_matrix(self) -> None:
         self.assertFalse(compute_quality_met(has_content=False, quality_unmet=False))
@@ -264,7 +255,6 @@ class TestComputeQualityMet(unittest.TestCase):
         self.assertTrue(compute_quality_met(has_content=True, quality_unmet=False))
 
 
-@unittest.skipUnless(HAS_QUALITY_PROFILE_HELPERS, "quality_profile_helpers is refactor-only")
 class TestGetProfileNameCached(unittest.TestCase):
     def test_caches_fetched_profile(self) -> None:
         cache: dict = {}

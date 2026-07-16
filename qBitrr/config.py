@@ -169,6 +169,8 @@ NO_INTERNET_SLEEP_TIMER = ENVIRO_CONFIG.settings.no_internet_sleep_timer or CONF
 LOOP_SLEEP_TIMER = ENVIRO_CONFIG.settings.loop_sleep_timer or CONFIG.get_duration(
     "Settings.LoopSleepTimer", fallback=5
 )
+# Process-start snapshots above. Long-lived loops should call get_*_effective() below
+# so live config reload can update values without a full restart.
 SEARCH_LOOP_DELAY = ENVIRO_CONFIG.settings.search_loop_delay or CONFIG.get_duration(
     "Settings.SearchLoopDelay", fallback=-1
 )
@@ -230,7 +232,12 @@ def get_auto_update_settings() -> tuple[bool, str]:
 
 
 def get_auto_pause_resume_effective() -> bool:
-    """Return AutoPauseResume from env override or current CONFIG (for live reload)."""
+    """Return AutoPauseResume from env override or current CONFIG (for live reload).
+
+    Loop-read settings should use ``get_*_effective()`` helpers, not the process-start
+    module constants (e.g. ``AUTO_PAUSE_RESUME``), so config saves can take effect
+    without a full restart.
+    """
     if ENVIRO_CONFIG.settings.auto_pause_resume is not None:
         return ENVIRO_CONFIG.settings.auto_pause_resume
     return CONFIG.get("Settings.AutoPauseResume", fallback=True)
