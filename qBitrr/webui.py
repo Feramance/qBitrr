@@ -3111,10 +3111,10 @@ class WebUI:
                 else None
             )
             flat_mode = coerce_bool(request.args.get("flat_mode", False))
-            # Flat album browse (GroupLidarr=false) pages by album rows via
-            # ``group_by_artist=0``. Default remains artist-grouped payloads; that mode
-            # reports artist-count ``total`` so aggregate clients stop after the last
-            # artist page instead of looping on the album rollup count.
+            # Optional ``group_by_artist=0`` pages by album rows. Default remains
+            # artist-grouped payloads; that mode reports artist-count ``total`` so
+            # aggregate clients stop after the last artist page instead of looping
+            # on the album rollup count.
             if "group_by_artist" in request.args:
                 group_by_artist = coerce_bool(request.args.get("group_by_artist"))
             else:
@@ -3463,8 +3463,6 @@ class WebUI:
             # WebUI settings
             webui_settings = {
                 "LiveArr": CONFIG.get("WebUI.LiveArr", fallback=True),
-                "GroupSonarr": CONFIG.get("WebUI.GroupSonarr", fallback=True),
-                "GroupLidarr": CONFIG.get("WebUI.GroupLidarr", fallback=True),
                 "Theme": CONFIG.get("WebUI.Theme", fallback="Dark"),
                 "ViewDensity": CONFIG.get("WebUI.ViewDensity", fallback="Comfortable"),
             }

@@ -1,5 +1,4 @@
 import { useMemo, type JSX } from "react";
-import { useWebUI } from "../context/WebUIContext";
 import { ArrCatalogShell } from "./arrCatalog/ArrCatalogShell";
 import "./arrCatalog/radarrDefinition";
 import "./arrCatalog/sonarrDefinition";
@@ -15,8 +14,8 @@ export type { ArrCatalogKind } from "./arrCatalog/registry";
  * orchestration; the definition supplies fetch / map / render slots specific to one
  * Arr.
  *
- * Sonarr/Lidarr definitions switch between grouped (series/artist rows + modal) and
- * flat (episode/album rows) based on `WebUI.GroupSonarr` / `WebUI.GroupLidarr`.
+ * Sonarr/Lidarr browse always uses series/artist rows with seasons/episodes or
+ * albums/tracks in the detail modal.
  */
 export function ArrCatalogView({
   kind,
@@ -25,11 +24,7 @@ export function ArrCatalogView({
   kind: ArrCatalogKind;
   active: boolean;
 }): JSX.Element {
-  const { groupSonarr, groupLidarr } = useWebUI();
-  const definition = useMemo(
-    () => getArrCatalogDefinition(kind, { groupSonarr, groupLidarr }),
-    [kind, groupSonarr, groupLidarr],
-  );
+  const definition = useMemo(() => getArrCatalogDefinition(kind), [kind]);
 
   return <ArrCatalogShell definition={definition} active={active} />;
 }

@@ -562,28 +562,6 @@ export function SimpleConfigModal({
                   <p className="field-description">Enable real-time updates for Arr views</p>
                 </div>
                 <div className="field">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={webUI.groupSonarr}
-                      onChange={(e) => webUI.setGroupSonarr(e.target.checked)}
-                    />
-                    {" "}Group Sonarr by Series
-                  </label>
-                  <p className="field-description">Group Sonarr episodes by series in views</p>
-                </div>
-                <div className="field">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={webUI.groupLidarr}
-                      onChange={(e) => webUI.setGroupLidarr(e.target.checked)}
-                    />
-                    {" "}Group Lidarr by Artist
-                  </label>
-                  <p className="field-description">Group Lidarr albums by artist in views</p>
-                </div>
-                <div className="field">
                   <label>Theme</label>
                   <select
                     value={webUI.theme}

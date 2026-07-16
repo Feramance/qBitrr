@@ -150,24 +150,6 @@ def _add_web_settings_section(config: TOMLDocument):
     )
     _gen_default_line(
         web_settings,
-        [
-            "Reserved: Sonarr browse lists series rows with seasons/episodes in the modal;",
-            "this flag currently does nothing (see docs/configuration/webui.md)",
-        ],
-        "GroupSonarr",
-        True,
-    )
-    _gen_default_line(
-        web_settings,
-        [
-            "Reserved: Lidarr browse lists artist rows with albums/tracks in the modal;",
-            "this flag currently does nothing (see docs/configuration/webui.md)",
-        ],
-        "GroupLidarr",
-        True,
-    )
-    _gen_default_line(
-        web_settings,
         "WebUI theme (Light or Dark)",
         "Theme",
         "Dark",
@@ -1233,6 +1215,13 @@ def _migrate_webui_config(config: MyConfig) -> bool:
         migrated = True
         print("Migrated WebUI SecureCookies to BehindHttpsProxy")
 
+    # Remove obsolete GroupSonarr / GroupLidarr (browse is always series/artist rows)
+    for obsolete_key in ("GroupSonarr", "GroupLidarr"):
+        if obsolete_key in webui_section:
+            del webui_section[obsolete_key]
+            migrated = True
+            print(f"Removed obsolete WebUI.{obsolete_key}")
+
     return migrated
 
 
@@ -1815,8 +1804,6 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
         ("BehindHttpsProxy", False),
         ("UrlBase", ""),
         ("LiveArr", True),
-        ("GroupSonarr", True),
-        ("GroupLidarr", True),
         ("Theme", "Dark"),
         ("ViewDensity", "Comfortable"),
     ]

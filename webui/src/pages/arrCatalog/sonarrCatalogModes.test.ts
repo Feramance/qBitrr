@@ -3,8 +3,6 @@ import type { SonarrSeriesEntry } from "../../api/types";
 import {
   filterSeriesEntriesForMissing,
   filterSeriesEntryByReason,
-  filterSonarrFlatEpisodes,
-  type SonarrEpisodeFlatRow,
 } from "./sonarrCatalogModes";
 
 const baseEntry: SonarrSeriesEntry = {
@@ -33,42 +31,6 @@ const baseEntry: SonarrSeriesEntry = {
     },
   },
 };
-
-const flatRows: SonarrEpisodeFlatRow[] = [
-  {
-    __instance: "S1",
-    series: "Demo",
-    season: "1",
-    episode: "1",
-    title: "Pilot",
-    monitored: true,
-    hasFile: false,
-    airDate: "",
-    reason: "Missing",
-  },
-  {
-    __instance: "S1",
-    series: "Demo",
-    season: "1",
-    episode: "2",
-    title: "Two",
-    monitored: true,
-    hasFile: true,
-    airDate: "",
-    reason: "Quality",
-  },
-  {
-    __instance: "S1",
-    series: "Other",
-    season: "1",
-    episode: "1",
-    title: "Search gap",
-    monitored: true,
-    hasFile: false,
-    airDate: "",
-    reason: null,
-  },
-];
 
 describe("filterSeriesEntriesForMissing", () => {
   it("returns all entries when onlyMissing is false", () => {
@@ -142,42 +104,5 @@ describe("filterSeriesEntryByReason", () => {
 
   it("returns null when no episodes match reason", () => {
     expect(filterSeriesEntryByReason(baseEntry, "Upgrade")).toBeNull();
-  });
-});
-
-describe("filterSonarrFlatEpisodes combinations", () => {
-  it("passes through when no filters active", () => {
-    expect(
-      filterSonarrFlatEpisodes(flatRows, { onlyMissing: false, reasonFilter: "all" }, ""),
-    ).toHaveLength(3);
-  });
-
-  it("combines onlyMissing + reason + search", () => {
-    const out = filterSonarrFlatEpisodes(
-      flatRows,
-      { onlyMissing: true, reasonFilter: "Missing" },
-      "pilot",
-    );
-    expect(out).toHaveLength(1);
-    expect(out[0]?.title).toBe("Pilot");
-  });
-
-  it("matches Not being searched including null reasons", () => {
-    const out = filterSonarrFlatEpisodes(
-      flatRows,
-      { onlyMissing: false, reasonFilter: "Not being searched" },
-      "",
-    );
-    expect(out).toHaveLength(1);
-    expect(out[0]?.title).toBe("Search gap");
-  });
-
-  it("search matches series, season, episode, and instance", () => {
-    expect(
-      filterSonarrFlatEpisodes(flatRows, { onlyMissing: false, reasonFilter: "all" }, "s1"),
-    ).toHaveLength(3);
-    expect(
-      filterSonarrFlatEpisodes(flatRows, { onlyMissing: false, reasonFilter: "all" }, "other"),
-    ).toHaveLength(1);
   });
 });

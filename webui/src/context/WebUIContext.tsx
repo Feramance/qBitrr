@@ -8,21 +8,15 @@ type Theme = "light" | "dark";
 
 interface WebUISettings {
   liveArr: boolean;
-  groupSonarr: boolean;
-  groupLidarr: boolean;
   viewDensity: ViewDensity;
   theme: Theme;
 }
 
 interface WebUIContextValue {
   liveArr: boolean;
-  groupSonarr: boolean;
-  groupLidarr: boolean;
   viewDensity: ViewDensity;
   theme: Theme;
   setLiveArr: (value: boolean) => void;
-  setGroupSonarr: (value: boolean) => void;
-  setGroupLidarr: (value: boolean) => void;
   setViewDensity: (value: ViewDensity) => void;
   setTheme: (value: Theme) => void;
 }
@@ -32,8 +26,6 @@ const WebUIContext = createContext<WebUIContextValue | null>(null);
 export function WebUIProvider({ children }: { children: ReactNode }): JSX.Element {
   const [settings, setSettings] = useState<WebUISettings>({
     liveArr: true,
-    groupSonarr: true,
-    groupLidarr: true,
     viewDensity: "comfortable",
     theme: "dark",
   });
@@ -68,8 +60,6 @@ export function WebUIProvider({ children }: { children: ReactNode }): JSX.Elemen
 
         setSettings({
           liveArr: webui?.LiveArr === true,
-          groupSonarr: webui?.GroupSonarr === true,
-          groupLidarr: webui?.GroupLidarr === true,
           viewDensity,
           theme,
         });
@@ -104,28 +94,6 @@ export function WebUIProvider({ children }: { children: ReactNode }): JSX.Elemen
     [saveSettings],
   );
 
-  const setGroupSonarr = useMemo(
-    () =>
-      createPersistedBooleanSetter<WebUISettings, "groupSonarr">(
-        setSettings,
-        saveSettings,
-        "groupSonarr",
-        "GroupSonarr",
-      ),
-    [saveSettings],
-  );
-
-  const setGroupLidarr = useMemo(
-    () =>
-      createPersistedBooleanSetter<WebUISettings, "groupLidarr">(
-        setSettings,
-        saveSettings,
-        "groupLidarr",
-        "GroupLidarr",
-      ),
-    [saveSettings],
-  );
-
   const setViewDensity = useCallback((value: ViewDensity) => {
     setSettings(prev => ({ ...prev, viewDensity: value }));
     // Store in localStorage for instant application
@@ -148,16 +116,12 @@ export function WebUIProvider({ children }: { children: ReactNode }): JSX.Elemen
 
   const value = useMemo<WebUIContextValue>(() => ({
     liveArr: settings.liveArr,
-    groupSonarr: settings.groupSonarr,
-    groupLidarr: settings.groupLidarr,
     viewDensity: settings.viewDensity,
     theme: settings.theme,
     setLiveArr,
-    setGroupSonarr,
-    setGroupLidarr,
     setViewDensity,
     setTheme,
-  }), [settings, setLiveArr, setGroupSonarr, setGroupLidarr, setViewDensity, setTheme]);
+  }), [settings, setLiveArr, setViewDensity, setTheme]);
 
   return <WebUIContext.Provider value={value}>{children}</WebUIContext.Provider>;
 }

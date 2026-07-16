@@ -185,8 +185,6 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
     // Keys that are managed dynamically and should not trigger dirty state
     const liveKeys = new Set([
       "WebUI.LiveArr",
-      "WebUI.GroupSonarr",
-      "WebUI.GroupLidarr",
       "WebUI.Theme",
       "WebUI.ViewDensity",
     ]);

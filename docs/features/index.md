@@ -409,10 +409,6 @@ Token = "your-secret-token"
 
 # Theme
 Theme = "Dark"  # Dark or Light
-
-# Reserved WebUI toggles (kept as defaults; unused by browse UI today)
-GroupSonarr = true
-GroupLidarr = true
 ```
 
 **Security:**

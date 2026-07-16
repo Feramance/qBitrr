@@ -768,8 +768,6 @@ Host = "0.0.0.0"
 Port = 6969
 Token = ""
 LiveArr = true
-GroupSonarr = true
-GroupLidarr = true
 Theme = "Dark"
 ViewDensity = "Comfortable"
 ```
@@ -883,32 +881,6 @@ When `false`:
 - Lower resource usage
 
 **Recommendation:** Keep `true` for best UX.
-
----
-
-### GroupSonarr
-
-```toml
-GroupSonarr = true
-```
-
-**Type:** Boolean
-**Default:** `true`
-
-**Reserved.** Not applied by the current WebUI implementation. Behaviour is described in [Web UI → Arr views](../webui/arr-views.md#overview): browse uses series rows; the modal nests seasons and episodes.
-
----
-
-### GroupLidarr
-
-```toml
-GroupLidarr = true
-```
-
-**Type:** Boolean
-**Default:** `true`
-
-**Reserved.** Not applied by the current WebUI implementation. Behaviour is described in [Web UI → Arr views](../webui/arr-views.md#overview): browse uses artist rows; the modal nests albums and tracks.
 
 ---
 

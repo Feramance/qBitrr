@@ -1,47 +1,21 @@
 import { describe, expect, it } from "vitest";
-import {
-  filterLidarrAlbumRows,
-  lidarrAlbumFlatRowKey,
-  summarizeLidarrAlbumRows,
-  type LidarrAlbumFlatRow,
-} from "./lidarrCatalogModes";
-import {
-  filterSonarrFlatEpisodes,
-  seriesEntryToFlatEpisodes,
-  sonarrFlatEpisodeRowKey,
-  summarizeFlatEpisodes,
-  type SonarrEpisodeFlatRow,
-} from "./sonarrCatalogModes";
 import { getArrCatalogDefinition } from "./getArrCatalogDefinition";
 import { getLidarrCatalogDefinition } from "./lidarrDefinition";
 import { getRadarrCatalogDefinition } from "./radarrDefinition";
 import { getSonarrCatalogDefinition } from "./sonarrDefinition";
 
 describe("getSonarrCatalogDefinition", () => {
-  it("returns grouped definition when groupSonarr is true", () => {
-    const grouped = getSonarrCatalogDefinition(true);
-    expect(grouped.searchPlaceholder).toBe("Filter series or episodes");
-    expect(grouped.buildAggregateSelection({} as never, [])).not.toBeNull();
-  });
-
-  it("returns flat definition when groupSonarr is false", () => {
-    const flat = getSonarrCatalogDefinition(false);
-    expect(flat.searchPlaceholder).toBe("Filter episodes");
-    expect(flat.buildAggregateSelection({} as never, [])).toBeNull();
-    expect(flat.buildInstanceSelection({} as never, "cat", "Inst", [])).toBeNull();
+  it("returns the series-grouped Sonarr definition", () => {
+    const def = getSonarrCatalogDefinition();
+    expect(def.searchPlaceholder).toBe("Filter series or episodes");
+    expect(def.buildAggregateSelection({} as never, [])).not.toBeNull();
   });
 });
 
 describe("getLidarrCatalogDefinition", () => {
-  it("returns grouped definition when groupLidarr is true", () => {
-    const grouped = getLidarrCatalogDefinition(true);
-    expect(grouped.searchPlaceholder).toBe("Filter artists");
-  });
-
-  it("returns flat definition when groupLidarr is false", () => {
-    const flat = getLidarrCatalogDefinition(false);
-    expect(flat.searchPlaceholder).toBe("Filter albums");
-    expect(flat.buildAggregateSelection({} as never, [])).not.toBeNull();
+  it("returns the artist-grouped Lidarr definition", () => {
+    const def = getLidarrCatalogDefinition();
+    expect(def.searchPlaceholder).toBe("Filter artists");
   });
 });
 
@@ -54,269 +28,19 @@ describe("getRadarrCatalogDefinition", () => {
 });
 
 describe("getArrCatalogDefinition", () => {
-  it("routes sonarr grouping opts", () => {
-    expect(
-      getArrCatalogDefinition("sonarr", { groupSonarr: true, groupLidarr: false })
-        .searchPlaceholder,
-    ).toBe("Filter series or episodes");
-    expect(
-      getArrCatalogDefinition("sonarr", { groupSonarr: false, groupLidarr: true })
-        .searchPlaceholder,
-    ).toBe("Filter episodes");
+  it("routes sonarr to the series-grouped definition", () => {
+    expect(getArrCatalogDefinition("sonarr")).toBe(getSonarrCatalogDefinition());
+    expect(getArrCatalogDefinition("sonarr").searchPlaceholder).toBe(
+      "Filter series or episodes",
+    );
   });
 
-  it("routes lidarr grouping opts", () => {
-    expect(
-      getArrCatalogDefinition("lidarr", { groupSonarr: false, groupLidarr: true })
-        .searchPlaceholder,
-    ).toBe("Filter artists");
-    expect(
-      getArrCatalogDefinition("lidarr", { groupSonarr: true, groupLidarr: false })
-        .searchPlaceholder,
-    ).toBe("Filter albums");
+  it("routes lidarr to the artist-grouped definition", () => {
+    expect(getArrCatalogDefinition("lidarr")).toBe(getLidarrCatalogDefinition());
+    expect(getArrCatalogDefinition("lidarr").searchPlaceholder).toBe("Filter artists");
   });
 
   it("routes radarr to getRadarrCatalogDefinition", () => {
-    expect(
-      getArrCatalogDefinition("radarr", { groupSonarr: true, groupLidarr: true }),
-    ).toBe(getRadarrCatalogDefinition());
-  });
-});
-
-describe("seriesEntryToFlatEpisodes", () => {
-  it("flattens nested seasons into episode rows", () => {
-    const rows = seriesEntryToFlatEpisodes(
-      {
-        series: {
-          title: "Test Show",
-          id: 7,
-          qualityProfileName: "HD",
-        },
-        totals: { available: 0, monitored: 1, missing: 1 },
-        seasons: {
-          "1": {
-            monitored: 1,
-            available: 0,
-            episodes: [
-              {
-                episodeNumber: 1,
-                title: "Pilot",
-                monitored: true,
-                hasFile: false,
-                airDateUtc: "2020-01-01",
-                reason: "Missing",
-              },
-            ],
-          },
-        },
-      },
-      "Sonarr-1",
-    );
-    expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({
-      __instance: "Sonarr-1",
-      series: "Test Show",
-      season: "1",
-      episode: 1,
-      title: "Pilot",
-      qualityProfileName: "HD",
-    });
-    expect(sonarrFlatEpisodeRowKey(rows[0])).toBe("Sonarr-1::Test Show::1::1");
-  });
-});
-
-describe("filterSonarrFlatEpisodes", () => {
-  const sample: SonarrEpisodeFlatRow[] = [
-    {
-      __instance: "A",
-      series: "Show",
-      season: "1",
-      episode: "1",
-      title: "One",
-      monitored: true,
-      hasFile: false,
-      airDate: "",
-      reason: "Missing",
-    },
-    {
-      __instance: "A",
-      series: "Show",
-      season: "1",
-      episode: "2",
-      title: "Two",
-      monitored: true,
-      hasFile: true,
-      airDate: "",
-      reason: null,
-    },
-  ];
-
-  it("filters missing-only episodes", () => {
-    const out = filterSonarrFlatEpisodes(
-      sample,
-      { onlyMissing: true, reasonFilter: "all" },
-      "",
-    );
-    expect(out).toHaveLength(1);
-    expect(out[0]?.episode).toBe("1");
-  });
-
-  it("filters by search term on title", () => {
-    const out = filterSonarrFlatEpisodes(
-      sample,
-      { onlyMissing: false, reasonFilter: "all" },
-      "two",
-    );
-    expect(out).toHaveLength(1);
-    expect(out[0]?.title).toBe("Two");
-  });
-
-  it("filters by each reason value", () => {
-    const withReasons: SonarrEpisodeFlatRow[] = [
-      { ...sample[0]!, reason: "Missing" },
-      { ...sample[1]!, reason: "Quality" },
-      {
-        ...sample[0]!,
-        episode: "3",
-        title: "Three",
-        reason: "Upgrade",
-      },
-    ];
-    expect(
-      filterSonarrFlatEpisodes(withReasons, { onlyMissing: false, reasonFilter: "Quality" }, ""),
-    ).toHaveLength(1);
-    expect(
-      filterSonarrFlatEpisodes(withReasons, { onlyMissing: false, reasonFilter: "Upgrade" }, ""),
-    ).toHaveLength(1);
-  });
-});
-
-describe("summarizeFlatEpisodes", () => {
-  it("counts monitored availability buckets", () => {
-    const summary = summarizeFlatEpisodes([
-      {
-        __instance: "A",
-        series: "S",
-        season: "1",
-        episode: "1",
-        title: "E1",
-        monitored: true,
-        hasFile: true,
-        airDate: "",
-      },
-      {
-        __instance: "A",
-        series: "S",
-        season: "1",
-        episode: "2",
-        title: "E2",
-        monitored: true,
-        hasFile: false,
-        airDate: "",
-      },
-      {
-        __instance: "A",
-        series: "S",
-        season: "1",
-        episode: "3",
-        title: "E3",
-        monitored: false,
-        hasFile: false,
-        airDate: "",
-      },
-    ]);
-    expect(summary).toEqual({
-      available: 1,
-      monitored: 2,
-      missing: 1,
-      total: 3,
-    });
-  });
-});
-
-describe("filterLidarrAlbumRows", () => {
-  const rows: LidarrAlbumFlatRow[] = [
-    {
-      __instance: "L1",
-      album: {
-        title: "Album A",
-        artistName: "Artist One",
-        hasFile: false,
-        monitored: true,
-        reason: "Missing",
-      },
-      totals: { available: 0, monitored: 1 },
-      tracks: [],
-    },
-    {
-      __instance: "L1",
-      album: {
-        title: "Album B",
-        artistName: "Artist Two",
-        hasFile: true,
-        monitored: true,
-        reason: null,
-      },
-      totals: { available: 1, monitored: 1 },
-      tracks: [],
-    },
-  ];
-
-  it("filters albums without files when onlyMissing is set", () => {
-    const out = filterLidarrAlbumRows(
-      rows,
-      { onlyMissing: true, reasonFilter: "all" },
-      "",
-    );
-    expect(out).toHaveLength(1);
-    expect((out[0]?.album as Record<string, unknown>)["title"]).toBe("Album A");
-  });
-
-  it("builds stable album row keys", () => {
-    expect(lidarrAlbumFlatRowKey(rows[0]!)).toContain("Artist One");
-  });
-
-  it("summarizes album rows", () => {
-    const summary = summarizeLidarrAlbumRows(rows);
-    expect(summary.total).toBe(2);
-    expect(summary.monitored).toBe(2);
-    expect(summary.available).toBe(1);
-  });
-
-  it("filters by reason including Not being searched", () => {
-    const withReasons: LidarrAlbumFlatRow[] = [
-      {
-        ...rows[0]!,
-        album: { ...rows[0]!.album, reason: "Quality" },
-      },
-      {
-        ...rows[1]!,
-        album: { ...rows[1]!.album, reason: null },
-      },
-    ];
-    expect(
-      filterLidarrAlbumRows(withReasons, { onlyMissing: false, reasonFilter: "Quality" }, ""),
-    ).toHaveLength(1);
-    expect(
-      filterLidarrAlbumRows(withReasons, { onlyMissing: false, reasonFilter: "Not being searched" }, ""),
-    ).toHaveLength(1);
-  });
-
-  it("combines onlyMissing, reason, and search", () => {
-    const out = filterLidarrAlbumRows(
-      rows,
-      { onlyMissing: true, reasonFilter: "Missing" },
-      "album a",
-    );
-    expect(out).toHaveLength(1);
-    expect((out[0]?.album as Record<string, unknown>)["title"]).toBe("Album A");
-  });
-
-  it("uses numeric id in row key when present", () => {
-    const withId: LidarrAlbumFlatRow = {
-      ...rows[0]!,
-      album: { ...rows[0]!.album, id: 99 },
-    };
-    expect(lidarrAlbumFlatRowKey(withId)).toContain("id:99");
+    expect(getArrCatalogDefinition("radarr")).toBe(getRadarrCatalogDefinition());
   });
 });

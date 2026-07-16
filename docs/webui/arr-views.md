@@ -364,20 +364,9 @@ When enabled, bypasses database cache and fetches live data directly from Arr AP
 LiveArr = false  # Use database cache (recommended)
 ```
 
-### WebUI.GroupSonarr / WebUI.GroupLidarr
+### Browse layout
 
-**Paths**: `Settings.WebUI.GroupSonarr`, `Settings.WebUI.GroupLidarr`
-**Type**: `bool` each
-**Default**: `true` each
-
-These keys remain in [`config.toml`](../configuration/config-file.md) for compatibility; the React WebUI does **not** branch on them. Sonarr browsing is series-row + modal (`series → seasons → episodes`). Lidarr browsing is artist-row + modal (`artist → albums → tracks`).
-
-**Example**:
-```toml
-[WebUI]
-GroupSonarr = true
-GroupLidarr = true
-```
+Sonarr browsing is always series-row + modal (`series → seasons → episodes`). Lidarr browsing is always artist-row + modal (`artist → albums → tracks`).
 
 ---
 

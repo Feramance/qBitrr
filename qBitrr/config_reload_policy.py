@@ -20,8 +20,6 @@ _ARR_KEY_RE = re.compile(
 FRONTEND_ONLY_KEYS = frozenset(
     {
         "WebUI.LiveArr",
-        "WebUI.GroupSonarr",
-        "WebUI.GroupLidarr",
         "WebUI.Theme",
         "WebUI.ViewDensity",
     }

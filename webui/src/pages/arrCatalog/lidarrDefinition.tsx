@@ -13,7 +13,6 @@ import { ArrCatalogIconTile } from "./ArrCatalogIconTile";
 import { ArrCatalogStandardBody } from "./ArrCatalogStandardBody";
 import { createStandardArrFilters } from "./createStandardArrFilters";
 import type { ArrCatalogDefinition, ArrCatalogSummary, AnyArrCatalogDefinition } from "./definition";
-import { LIDARR_FLAT_DEFINITION } from "./lidarrFlatDefinition";
 import { ARR_CATALOG_REGISTRY } from "./registry";
 import { useInstancePagedFetch } from "./useInstancePagedFetch";
 import { categoryForInstanceLabel } from "./utils";
@@ -449,12 +448,8 @@ export const LIDARR_DEFINITION: ArrCatalogDefinition<
 
 ARR_CATALOG_REGISTRY.lidarr = LIDARR_DEFINITION;
 
-export { LIDARR_DEFINITION as LIDARR_GROUPED_DEFINITION };
-
-export function getLidarrCatalogDefinition(
-  grouped: boolean,
-): AnyArrCatalogDefinition {
-  return grouped ? LIDARR_DEFINITION : LIDARR_FLAT_DEFINITION;
+export function getLidarrCatalogDefinition(): AnyArrCatalogDefinition {
+  return LIDARR_DEFINITION;
 }
 
 interface LidarrAggregateBodyProps {

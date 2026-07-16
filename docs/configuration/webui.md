@@ -48,10 +48,6 @@ Token = ""
 # Live updates
 LiveArr = true
 
-# Reserved (no effect today; kept for compatibility)
-GroupSonarr = true
-GroupLidarr = true
-
 # Default theme
 Theme = "Dark"
 ```
@@ -328,32 +324,6 @@ LiveArr = false  # Reduce load
 
 ---
 
-## GroupSonarr
-
-```toml
-GroupSonarr = true
-```
-
-**Type:** Boolean
-**Default:** `true`
-
-**Reserved.** The React WebUI does not read this flag today. Browse is **one row per series** (List or Icon mode); seasons and episodes open in the detail modal (`series → seasons → episodes`). The key remains for backwards compatibility.
-
----
-
-## GroupLidarr
-
-```toml
-GroupLidarr = true
-```
-
-**Type:** Boolean
-**Default:** `true`
-
-**Reserved.** The React WebUI does not read this flag today. Browse is **one row per artist** (List or Icon mode); albums and tracks open in the detail modal (`artist → albums → tracks`). The key remains for backwards compatibility.
-
----
-
 ## ViewDensity
 
 ```toml
@@ -402,8 +372,6 @@ Host = "0.0.0.0"
 Port = 6969
 Token = ""  # No authentication
 LiveArr = true
-GroupSonarr = true
-GroupLidarr = true
 Theme = "Dark"
 ViewDensity = "Comfortable"
 ```
@@ -422,8 +390,6 @@ Host = "0.0.0.0"
 Port = 6969
 Token = "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6"
 LiveArr = true
-GroupSonarr = true
-GroupLidarr = true
 Theme = "Dark"
 ViewDensity = "Comfortable"
 ```
@@ -444,8 +410,6 @@ UrlBase = "/qbitrr"
 BehindHttpsProxy = true
 Token = ""  # Reverse proxy handles auth
 LiveArr = true
-GroupSonarr = true
-GroupLidarr = true
 Theme = "Dark"
 ViewDensity = "Comfortable"
 ```
@@ -476,8 +440,6 @@ Host = "0.0.0.0"
 Port = 6969
 Token = ""
 LiveArr = false  # Disable auto-refresh
-GroupSonarr = false  # Reserved; no perf effect
-GroupLidarr = false  # Reserved; no perf effect
 Theme = "Dark"
 ```
 

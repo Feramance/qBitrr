@@ -113,18 +113,7 @@ Questarr already implements the pipeline in `server/cron.ts` + `server/search.ts
 
 ## Phase 0c — Remove obsolete WebUI group toggles
 
-`WebUI.GroupSonarr` and `WebUI.GroupLidarr` are **reserved/no-op** today (docs: browse already uses series/artist rows + modal in catalog definitions; toggles do not change behavior). Remove as part of this effort—**do not** add `GroupQuestarr`.
-
-| Area | Remove / update |
-|------|-----------------|
-| `qBitrr/gen_config.py` | `GroupSonarr`, `GroupLidarr` keys + defaults |
-| `config.example.toml` | Same |
-| `qBitrr/webui.py` | Status payload + save allowlist |
-| `webui/src/context/WebUIContext.tsx` | State, setters, API mapping |
-| `webui/src/pages/ConfigView.tsx` | Toggle UI + tooltips |
-| `webui/src/config/tooltips.ts` | Entries |
-| `docs/configuration/config-file.md`, `webui.md`, `config-editor.md`, `arr-views.md`, `api.md`, `features/index.md`, `getting-started/migration.md` | References |
-| Config migration | Drop keys from existing configs (or ignore deprecated keys with one release note) |
+**Done.** `WebUI.GroupSonarr` / `WebUI.GroupLidarr` have been removed (config migration strips stale keys; browse is always series/artist rows + modal). Do **not** add `GroupQuestarr`.
 
 ---
 
@@ -132,7 +121,7 @@ Questarr already implements the pipeline in `server/cron.ts` + `server/search.ts
 
 ### M1 — Usable daily driver
 
-- Phase 0 + 0c (branch + remove group toggles)
+- Phase 0 + 0c (branch; group toggles already removed)
 - Phase 1: client, registration, connection test
 - Phase 2 (partial): models, queue emulation, torrent health, idempotent claim
 - Minimal docs: setup, category alignment, service account
@@ -298,7 +287,7 @@ Small `QuestarrAPI` unit tests: login, 401 refresh, queue normalization (e.g. `r
 ## Implementation checklist (todos)
 
 - [ ] **feature-branch** — `feature/questarr-integration` from `master`
-- [ ] **remove-group-configs** — Remove `GroupSonarr` / `GroupLidarr` (no `GroupQuestarr`)
+- [x] **remove-group-configs** — Remove `GroupSonarr` / `GroupLidarr` (no `GroupQuestarr`)
 - [ ] **upstream-discussion-doc** — `docs/upstream/questarr-api-requests.md`
 - [ ] **questarr-client** — `QuestarrAPI` + JWT
 - [ ] **register-config** — ArrManager, gen_config, migration, webui
@@ -315,7 +304,7 @@ Small `QuestarrAPI` unit tests: login, 401 refresh, queue normalization (e.g. `r
 
 ## Suggested order
 
-0. Branch + remove `GroupSonarr`/`GroupLidarr`
+0. Branch (group configs already removed)
 1. M1: client, registration, models, torrent health, claim
 2. M2: re-search, search loop, WebUI, docs, mock tests
 3. Parallel: upstream discussion doc + Questarr PR
