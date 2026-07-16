@@ -1,5 +1,7 @@
 """Torrent processing mixin extracted from Arr."""
 
+from __future__ import annotations
+
 from qBitrr.arss._shared import *
 
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from qBitrr.arss._shared import *
 from qBitrr.arss.arr import Arr
 

@@ -43,6 +43,7 @@ export interface ArrInstanceModalProps {
   onRename: (oldName: string, newName: string) => void;
   onClose: () => void;
   onSave: () => Promise<boolean>;
+  onDelete?: () => void;
   overlapWarnings: string[];
 }
 
@@ -53,6 +54,7 @@ export function ArrInstanceModal({
   onRename,
   onClose,
   onSave,
+  onDelete,
   overlapWarnings,
 }: ArrInstanceModalProps): JSX.Element {
   const { generalFields, entryFields, entryOmbiFields, entryOverseerrFields, torrentFields, seedingFields, trackerFields } =
@@ -307,6 +309,19 @@ export function ArrInstanceModal({
           />
         </div>
         <div className="modal-footer">
+          {onDelete && (
+            <button
+              className="btn danger"
+              type="button"
+              onClick={safeClick(() => {
+                onDelete();
+                onClose();
+              })}
+            >
+              <IconImage src={DeleteIcon} />
+              Delete
+            </button>
+          )}
           <button
             className="btn secondary"
             type="button"
@@ -472,6 +487,7 @@ export interface SimpleConfigModalProps {
   basePath: string[];
   onChange: (path: string[], def: FieldDefinition, value: unknown) => void;
   onClose: () => void;
+  onSave?: () => Promise<boolean>;
   showLiveSettings?: boolean;
   onSetPassword?: () => void;
 }
@@ -483,10 +499,25 @@ export function SimpleConfigModal({
   basePath,
   onChange,
   onClose,
+  onSave,
   showLiveSettings = false,
   onSetPassword,
 }: SimpleConfigModalProps): JSX.Element | null {
   const webUI = useWebUI();
+  const [savingModal, setSavingModal] = useState(false);
+
+  const handleSave = async () => {
+    if (!onSave || savingModal) return;
+    setSavingModal(true);
+    try {
+      const saved = await onSave();
+      if (saved) {
+        onClose();
+      }
+    } finally {
+      setSavingModal(false);
+    }
+  };
 
   if (!state) return null;
   return (
@@ -584,10 +615,22 @@ export function SimpleConfigModal({
           )}
         </div>
         <div className="modal-footer">
-          <button className="btn primary" type="button" onClick={safeClick(onClose)}>
-            <IconImage src={SaveIcon} />
-            Done
-          </button>
+          {onSave ? (
+            <button
+              className="btn primary"
+              type="button"
+              onClick={() => void handleSave()}
+              disabled={savingModal}
+            >
+              <IconImage src={SaveIcon} />
+              {savingModal ? "Saving..." : "Save"}
+            </button>
+          ) : (
+            <button className="btn primary" type="button" onClick={safeClick(onClose)}>
+              <IconImage src={SaveIcon} />
+              Done
+            </button>
+          )}
         </div>
       </div>
     </div>

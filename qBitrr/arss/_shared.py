@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import atexit
 import contextlib
 import logging
 import pathlib
@@ -8,10 +9,11 @@ import shutil
 import sys
 import time
 from collections import defaultdict
+from collections.abc import Callable, Iterable, Iterator
 from copy import copy
 from datetime import datetime, timedelta, timezone
 from multiprocessing import current_process
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, NoReturn
 
 import ffmpeg
 import pathos
@@ -19,7 +21,7 @@ import qbittorrentapi
 import qbittorrentapi.exceptions
 import requests
 from packaging import version as version_parser
-from peewee import Model, OperationalError, SqliteDatabase
+from peewee import DatabaseError, Model, OperationalError, SqliteDatabase
 from qbittorrentapi import TorrentDictionary, TorrentStates
 from ujson import JSONDecodeError
 
@@ -68,6 +70,7 @@ from qBitrr.config import (
     get_no_internet_sleep_timer_effective,
     get_recheck_category_effective,
     get_search_loop_delay_effective,
+    sync_config_from_disk,
 )
 from qBitrr.db_lock import database_lock, with_database_retry
 from qBitrr.errors import (
@@ -241,13 +244,17 @@ __all__ = [
     "AlbumFilesModel",
     "AlbumQueueModel",
     "ArtistFilesModel",
+    "Callable",
     "COMPLETED_DOWNLOAD_FOLDER",
     "CONFIG",
+    "DatabaseError",
     "DelayLoopException",
     "EpisodeFilesModel",
     "EpisodeQueueModel",
     "ExpiringSet",
     "FilesQueued",
+    "Iterable",
+    "Iterator",
     "JSONDecodeError",
     "JsonObject",
     "Lidarr",
@@ -255,6 +262,7 @@ __all__ = [
     "MovieQueueModel",
     "MoviesFilesModel",
     "NoConnectionrException",
+    "NoReturn",
     "OperationalError",
     "PROCESS_ONLY",
     "PyarrConnectionError",
@@ -268,6 +276,7 @@ __all__ = [
     "SkipException",
     "Sonarr",
     "SqliteDatabase",
+    "sync_config_from_disk",
     "TAGLESS",
     "TorrentDictionary",
     "TorrentLibrary",
@@ -276,6 +285,7 @@ __all__ = [
     "TrackerIndex",
     "UnhandledError",
     "absolute_file_paths",
+    "atexit",
     "build_lidarr_client",
     "build_radarr_client",
     "build_sonarr_client",

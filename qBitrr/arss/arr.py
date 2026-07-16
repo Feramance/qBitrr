@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from qBitrr.arss._shared import *
 from qBitrr.arss.torrent_batch_mixin import TorrentBatchMixin
 from qBitrr.arss.torrent_dispatcher_mixin import TorrentDispatcherMixin

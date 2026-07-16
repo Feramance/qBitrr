@@ -10,15 +10,12 @@ import {
 import { IconImage } from "../components/IconImage";
 import ConfigureIcon from "../icons/gear.svg";
 import AddIcon from "../icons/plus.svg";
-import SaveIcon from "../icons/check-mark.svg";
-import DeleteIcon from "../icons/trash.svg";
 import {
   AUTH_SETTINGS_FIELDS,
   SETTINGS_FIELDS,
   WEB_SETTINGS_FIELDS,
 } from "./config/configFields";
 import {
-  buildAllChanges,
   buildSectionChanges,
   ensureArrDefaults,
   flatten,
@@ -29,7 +26,6 @@ import {
   setValue,
 } from "./config/configDocumentUtils";
 import {
-  getChangedSectionKeys,
   validateSectionsForSave,
 } from "./config/configValidation";
 import {
@@ -61,7 +57,6 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   );
   const [formState, setFormState] = useState<ConfigDocument | null>(null);
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [savingSection, setSavingSection] = useState<string | null>(null);
   const [pendingRenames, setPendingRenames] = useState<Map<string, string>>(new Map());
 
@@ -562,48 +557,6 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
     [formState, originalConfig, pendingRenames, push, applyConfigSaveResult]
   );
 
-  const handleSubmit = useCallback(async () => {
-    if (!formState) return;
-    setSaving(true);
-    try {
-      const changedSections = getChangedSectionKeys(formState, originalConfig, pendingRenames);
-      const validationErrors = validateSectionsForSave(
-        formState,
-        changedSections,
-        originalConfig,
-        true
-      );
-      if (validationErrors.length) {
-        push(formatValidationErrors(validationErrors), "error");
-        setSaving(false);
-        return;
-      }
-
-      const changes = buildAllChanges(formState, originalConfig, pendingRenames);
-      if (Object.keys(changes).length === 0) {
-        push("No changes detected", "info");
-        setSaving(false);
-        return;
-      }
-
-      const { configReloaded, reloadType, affectedInstances } = await updateConfig({ changes });
-      await applyConfigSaveResult(
-        configReloaded,
-        reloadType,
-        affectedInstances,
-        "all",
-        Object.keys(changes)
-      );
-    } catch (error) {
-      push(
-        error instanceof Error ? error.message : "Failed to update configuration",
-        "error"
-      );
-    } finally {
-      setSaving(false);
-    }
-  }, [formState, originalConfig, pendingRenames, push, applyConfigSaveResult]);
-
   if (loading || !formState) {
     return (
       <section className="card">
@@ -685,23 +638,6 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
                         </dl>
                         <div className="config-arr-actions">
                           <button
-                            className="btn danger"
-                            type="button"
-                            onClick={() => deleteQbitInstance(key)}
-                          >
-                            <IconImage src={DeleteIcon} />
-                            Delete
-                          </button>
-                          <button
-                            className="btn secondary"
-                            type="button"
-                            disabled={savingSection === key || saving}
-                            onClick={() => void saveSection(key)}
-                          >
-                            <IconImage src={SaveIcon} />
-                            {savingSection === key ? "Saving..." : "Save"}
-                          </button>
-                          <button
                             className="btn primary"
                             type="button"
                             onClick={() => setActiveQbitKey(key)}
@@ -743,7 +679,6 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
                         const uri = getValue(value as ConfigDocument, ["URI"]);
                         const category = getValue(value as ConfigDocument, ["Category"]);
                         const managed = getValue(value as ConfigDocument, ["Managed"]);
-                        const canDelete = group.type === "radarr" || group.type === "sonarr" || group.type === "lidarr";
                         return (
                           <div className="card config-card config-arr-card" key={key}>
                             <div className="card-header">{key}</div>
@@ -765,25 +700,6 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
                                 </div>
                               </dl>
                               <div className="config-arr-actions">
-                                {canDelete ? (
-                                  <button
-                                    className="btn danger"
-                                    type="button"
-                                    onClick={() => deleteArrInstance(key)}
-                                  >
-                                    <IconImage src={DeleteIcon} />
-                                    Delete
-                                  </button>
-                                ) : null}
-                                <button
-                                  className="btn secondary"
-                                  type="button"
-                                  disabled={savingSection === key || saving}
-                                  onClick={() => void saveSection(key)}
-                                >
-                                  <IconImage src={SaveIcon} />
-                                  {savingSection === key ? "Saving..." : "Save"}
-                                </button>
                                 <button
                                   className="btn primary"
                                   type="button"
@@ -803,16 +719,6 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
               ))}
             </div>
           ) : null}
-          <div className="config-footer">
-            <button
-              className="btn primary"
-              onClick={() => void handleSubmit()}
-              disabled={saving}
-            >
-              <IconImage src={SaveIcon} />
-              Save + Live Reload
-            </button>
-          </div>
         </div>
       </section>
       {activeArrKey && formState ? (
@@ -823,6 +729,11 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           onRename={handleRenameSection}
           onClose={() => setActiveArrKey(null)}
           onSave={() => saveSection(activeArrKey)}
+          onDelete={
+            /^(radarr|sonarr|lidarr)/i.test(activeArrKey)
+              ? () => deleteArrInstance(activeArrKey)
+              : undefined
+          }
           overlapWarnings={categoryOverlapWarnings}
         />
       ) : null}
@@ -834,6 +745,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           basePath={[]}
           onChange={handleFieldChange}
           onClose={() => setSettingsOpen(false)}
+          onSave={() => saveSection("Settings")}
         />
       ) : null}
       {isWebSettingsOpen ? (
@@ -844,6 +756,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           basePath={[]}
           onChange={handleFieldChange}
           onClose={() => setWebSettingsOpen(false)}
+          onSave={() => saveSection("WebUI")}
           showLiveSettings={true}
         />
       ) : null}
@@ -855,6 +768,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           basePath={[]}
           onChange={handleFieldChange}
           onClose={() => setAuthSettingsOpen(false)}
+          onSave={() => saveSection("WebUI")}
           onSetPassword={() => setSetPasswordOpen(true)}
         />
       ) : null}

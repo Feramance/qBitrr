@@ -155,6 +155,7 @@ export function validateSection(
     validateFieldGroup(errors, SETTINGS_FIELDS, formState, [], { root: formState });
   } else if (sectionKey === "WebUI") {
     validateFieldGroup(errors, WEB_SETTINGS_FIELDS, formState, [], { root: formState });
+    validateFieldGroup(errors, AUTH_SETTINGS_FIELDS, formState, [], { root: formState });
   } else if (sectionKey === "Authentication") {
     validateFieldGroup(errors, AUTH_SETTINGS_FIELDS, formState, [], { root: formState });
   }
