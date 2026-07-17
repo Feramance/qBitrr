@@ -63,7 +63,9 @@ def _get_oversee_requests_all(arr) -> dict[str, set]:
                 if type__ == "movie":
                     id__ = entry.get("media", {}).get("tmdbId")
                 elif type__ == "tv":
-                    id__ = entry.get("media", {}).get("tvdbId")
+                    # Overseerr's /api/v1/tv/{id} takes a TMDB id, not a TVDB id
+                    # (same as /api/v1/movie/{id}); `media` carries both.
+                    id__ = entry.get("media", {}).get("tmdbId")
                 else:
                     id__ = None
                 if not id__ or type_ != type__:
