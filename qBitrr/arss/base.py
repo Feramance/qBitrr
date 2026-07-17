@@ -591,7 +591,6 @@ class ArrBase(
     def _log_init_config(self):
         """Emit startup debug lines summarizing loaded config."""
         # Never pass secret values into logging args (CodeQL clear-text logging).
-        _apikey_state = "set" if bool(self.apikey) else "unset"
         self.logger.debug(
             "%s Config: "
             "Managed: %s, "
@@ -599,7 +598,7 @@ class ArrBase(
             "ImportMode: %s, "
             "Category: %s, "
             "URI: %s, "
-            "API Key: [%s], "
+            "API Key: [redacted], "
             "RefreshDownloadsTimer=%s, "
             "RssSyncTimer=%s",
             self._name,
@@ -608,7 +607,6 @@ class ArrBase(
             self.import_mode,
             self.category,
             self.uri,
-            _apikey_state,
             self.refresh_downloads_timer,
             self.rss_sync_timer,
         )
@@ -654,16 +652,14 @@ class ArrBase(
             self.logger.debug("Script Config:  SearchOmbiRequests=%s", self.ombi_search_requests)
             if self.ombi_search_requests:
                 self.logger.debug("Script Config:  OmbiURI=%s", self.ombi_uri)
-                _ombi_state = "set" if bool(self.ombi_api_key) else "unset"
-                self.logger.debug("Script Config:  OmbiAPIKey=[%s]", _ombi_state)
+                self.logger.debug("Script Config:  OmbiAPIKey=[redacted]")
                 self.logger.debug("Script Config:  ApprovedOnly=%s", self.ombi_approved_only)
             self.logger.debug(
                 "Script Config:  SearchOverseerrRequests=%s", self.overseerr_requests
             )
             if self.overseerr_requests:
                 self.logger.debug("Script Config:  OverseerrURI=%s", self.overseerr_uri)
-                _overseerr_state = "set" if bool(self.overseerr_api_key) else "unset"
-                self.logger.debug("Script Config:  OverseerrAPIKey=[%s]", _overseerr_state)
+                self.logger.debug("Script Config:  OverseerrAPIKey=[redacted]")
             if self.ombi_search_requests or self.overseerr_requests:
                 self.logger.debug(
                     "Script Config:  SearchRequestsEvery=%s", self.search_requests_every_x_seconds
