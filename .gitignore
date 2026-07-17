@@ -15,6 +15,13 @@
 test.py
 /.github/workflows/test.yml
 .compose-test/
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
 
 # Python
 __pycache__/
@@ -51,9 +58,17 @@ ENV/
 /site/
 .cache/
 *.log
+gren-changelog.log
 
 # MkDocs
 /.mkdocs_cache/
+
+# Runtime / local data (never commit)
+.local-torrents/
+qBitManager/
+
+# Design source / editor binaries
+*.psd
 
 # Temporary files
 *.tmp
@@ -65,8 +80,21 @@ ENV/
 Thumbs.db
 /.pre-commit-cache/
 
-# Test and session files
+# Temporary docs / session notes (see AGENTS.md pre-merge cleanup)
+*_TEST*.md
+*_RESULTS*.md
+READY_FOR_*.md
+*_PLAN.md
+*_SUMMARY.md
+*_NOTES.md
+/TODO.md
+/TASKS.md
+docs/plans/
+docs/development/*-plan.md
+docs/development/*_PLAN.md
 session-ses_*.md
+
+# Test and session files
 test_database_*.py
 deep_database_test.py
 test_webui.sh
