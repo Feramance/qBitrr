@@ -46,8 +46,11 @@ from qBitrr.webui import WebUI
 if CONFIG_EXISTS:
     from qBitrr.arss import ArrManager
 else:
-    print("Configuration not found. Please create a config file and restart.")
-    sys.exit(1)
+    ArrManager = None  # type: ignore[misc, assignment]
+    print(
+        "Configuration was generated or is incomplete. "
+        "Update config.toml for your environment, then restart."
+    )
 
 logger = logging.getLogger("qBitrr")
 run_logs(logger, "Main")
@@ -1281,7 +1284,8 @@ def run():
     _delete_all_databases()
 
     if not CONFIG_EXISTS:
-        sys.exit(1)
+        # First-boot / missing config: exit cleanly after generate (see config.py).
+        sys.exit(0)
     manager = qBitManager()
     run_logs(logger)
     # Early consolidated config validation feedback
