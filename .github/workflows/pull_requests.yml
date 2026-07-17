@@ -21,6 +21,7 @@ jobs:
       with:
         fetch-depth: 0
         token: ${{ secrets.PAT || github.token }}
+        repository: ${{ github.event.pull_request.head.repo.full_name }}
         ref: ${{ github.event.pull_request.head.ref }}
     - name: Set up Python
       uses: actions/setup-python@v6
@@ -66,6 +67,7 @@ jobs:
       with:
         fetch-depth: 0
         token: ${{ secrets.PAT || github.token }}
+        repository: ${{ github.event.pull_request.head.repo.full_name }}
         ref: ${{ github.event.pull_request.head.ref }}
     - name: Install Homebrew dependencies
       if: runner.os == 'macOS'
