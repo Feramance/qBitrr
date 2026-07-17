@@ -88,8 +88,18 @@ elif (not CONFIG_FILE.exists()) and (not CONFIG_PATH.exists()):
     CONFIG_FILE = _write_config_file(docker=True)
     print(f'"{CONFIG_FILE.name}" has been generated with default values.')
     print("Update the file to match your environment, then restart the container.")
-    # First boot never continues with empty credentials (would NameError on CONFIG).
-    sys.exit(0)
+    # Load generated defaults so module-level CONFIG.get works (e.g. freeze analysis).
+    CONFIG_EXISTS = False
+    CONFIG = MyConfig(CONFIG_FILE)
+    # Runtime/Docker first-boot: stop cleanly. Skip exit under PyInstaller analysis,
+    # which imports the package in a subprocess without a pre-existing config.
+    _packaging_import = (
+        getattr(sys, "frozen", False)
+        or hasattr(sys, "_MEIPASS")
+        or any(name == "PyInstaller" or name.startswith("PyInstaller.") for name in sys.modules)
+    )
+    if not _packaging_import:
+        sys.exit(0)
 
 elif CONFIG_FILE.exists():
     CONFIG = MyConfig(CONFIG_FILE)
