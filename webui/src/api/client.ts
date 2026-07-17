@@ -35,6 +35,81 @@ const MAX_AUTH_RETRIES = 1;
 // Request deduplication cache
 const inflightRequests = new Map<string, Promise<unknown>>();
 
+/** Short-lived GET response cache (status/config/meta/processes). Arr catalogs use TTL 0. */
+interface TtlCacheEntry {
+  expiresAt: number;
+  value: unknown;
+}
+
+const ttlResponseCache = new Map<string, TtlCacheEntry>();
+
+const GET_TTL_MS: ReadonlyArray<{ match: (path: string) => boolean; ttlMs: number }> = [
+  { match: (path) => path.includes("/web/status"), ttlMs: 2_000 },
+  { match: (path) => path.includes("/web/config"), ttlMs: 30_000 },
+  {
+    match: (path) => path.includes("/web/meta") && !/[?&]force=1(?:&|$)/.test(path),
+    ttlMs: 60_000,
+  },
+  { match: (path) => path.includes("/web/processes"), ttlMs: 800 },
+];
+
+function extractRequestPath(input: RequestInfo | URL): string {
+  const raw = input instanceof Request ? input.url : String(input);
+  try {
+    if (raw.startsWith("http://") || raw.startsWith("https://")) {
+      const url = new URL(raw);
+      return `${url.pathname}${url.search}`;
+    }
+  } catch {
+    // fall through
+  }
+  return raw;
+}
+
+function resolveGetTtlMs(path: string): number {
+  // Arr catalog paged URLs keep their own caches — never TTL here.
+  if (
+    /\/web\/(?:radarr|sonarr|lidarr)\//.test(path) ||
+    /\/web\/arr\//.test(path)
+  ) {
+    return 0;
+  }
+  for (const rule of GET_TTL_MS) {
+    if (rule.match(path)) {
+      return rule.ttlMs;
+    }
+  }
+  return 0;
+}
+
+function readTtlCache<T>(key: string): T | undefined {
+  const entry = ttlResponseCache.get(key);
+  if (!entry) {
+    return undefined;
+  }
+  if (Date.now() > entry.expiresAt) {
+    ttlResponseCache.delete(key);
+    return undefined;
+  }
+  return entry.value as T;
+}
+
+function writeTtlCache(key: string, value: unknown, ttlMs: number): void {
+  if (ttlMs <= 0) {
+    return;
+  }
+  ttlResponseCache.set(key, { value, expiresAt: Date.now() + ttlMs });
+}
+
+/** Invalidate TTL entries whose request path matches any of the substrings. */
+export function invalidateGetCache(pathSubstrings: readonly string[]): void {
+  for (const key of [...ttlResponseCache.keys()]) {
+    if (pathSubstrings.some((part) => key.includes(part))) {
+      ttlResponseCache.delete(key);
+    }
+  }
+}
+
 function createRequestKey(input: RequestInfo | URL, init?: RequestInit): string {
   const url = input instanceof Request ? input.url : String(input);
   const method = init?.method || "GET";
@@ -123,13 +198,26 @@ async function fetchJson<T>(input: RequestInfo | URL, init?: RequestInit): Promi
   const method = init?.method || "GET";
   if (method === "GET") {
     const key = createRequestKey(input, init);
-    const existingRequest = inflightRequests.get(key) as Promise<T> | undefined;
+    const path = extractRequestPath(input);
+    const ttlMs = resolveGetTtlMs(path);
 
+    if (ttlMs > 0) {
+      const cached = readTtlCache<T>(key);
+      if (cached !== undefined) {
+        return cached;
+      }
+    }
+
+    const existingRequest = inflightRequests.get(key) as Promise<T> | undefined;
     if (existingRequest) {
       return existingRequest;
     }
 
     const promise = fetchWithAuthRetry<T>(input, init, (response) => handleJson<T>(response))
+      .then((value) => {
+        writeTtlCache(key, value, ttlMs);
+        return value;
+      })
       .finally(() => {
         inflightRequests.delete(key);
       });
@@ -178,6 +266,10 @@ async function handleText(res: Response): Promise<string> {
 }
 
 export async function getMeta(params?: { force?: boolean }): Promise<MetaResponse> {
+  if (params?.force) {
+    // Forced meta must bypass TTL and drop any soft-cached meta entries.
+    invalidateGetCache(["/web/meta"]);
+  }
   const query = params?.force ? "?force=1" : "";
   const meta = await fetchJson<MetaResponse>(`/web/meta${query}`);
   setUrlBaseFromMeta(meta.url_base);
@@ -385,10 +477,12 @@ export async function getConfig(): Promise<ConfigDocument> {
 export async function updateConfig(
   payload: ConfigUpdatePayload
 ): Promise<ConfigUpdateResponse> {
-  return fetchJson<ConfigUpdateResponse>("/web/config", {
+  const result = await fetchJson<ConfigUpdateResponse>("/web/config", {
     method: "POST",
     body: JSON.stringify(payload),
   });
+  invalidateGetCache(["/web/config", "/web/meta"]);
+  return result;
 }
 
 export async function triggerUpdate(): Promise<void> {
@@ -456,6 +550,7 @@ export async function setPassword(req: SetPasswordRequest): Promise<{ success: b
 export async function logout(): Promise<void> {
   await fetch(webPath("/web/logout"), { method: "POST", credentials: "include" });
   clearStoredToken();
+  invalidateGetCache(["/web/config", "/web/meta", "/web/status", "/web/processes"]);
 }
 
 export async function fetchWebToken(): Promise<string | null> {

@@ -1,5 +1,5 @@
 import type { ColumnDef } from "@tanstack/react-table";
-import { type JSX, type RefCallback } from "react";
+import { useCallback, useMemo, type JSX, type RefCallback } from "react";
 import { getLidarrArtists } from "../../api/client";
 import type {
   ArrInfo,
@@ -138,71 +138,71 @@ function lidarrArtistTileStats(
   );
 }
 
-function buildLidarrInstanceColumns(): ColumnDef<LidarrInstanceRow>[] {
-  return [
-    {
-      id: "artist",
-      header: "Artist",
-      cell: ({ row }) => {
-        const a = row.original.artist as Record<string, unknown>;
-        return String(a?.["name"] ?? "—");
-      },
+/** Module-level column defs — stable identity across renders for StableTable memo. */
+const LIDARR_INSTANCE_COLUMNS: ColumnDef<LidarrInstanceRow>[] = [
+  {
+    id: "artist",
+    header: "Artist",
+    cell: ({ row }) => {
+      const a = row.original.artist as Record<string, unknown>;
+      return String(a?.["name"] ?? "—");
     },
-    {
-      id: "albums",
-      header: "Albums",
-      cell: ({ row }) => {
-        const a = row.original.artist as Record<string, unknown>;
-        return Number(a?.["albumCount"] ?? 0).toLocaleString();
-      },
+  },
+  {
+    id: "albums",
+    header: "Albums",
+    cell: ({ row }) => {
+      const a = row.original.artist as Record<string, unknown>;
+      return Number(a?.["albumCount"] ?? 0).toLocaleString();
     },
-    {
-      id: "tracks",
-      header: "Tracks",
-      cell: ({ row }) => {
-        const a = row.original.artist as Record<string, unknown>;
-        return Number(a?.["trackTotalCount"] ?? 0).toLocaleString();
-      },
+  },
+  {
+    id: "tracks",
+    header: "Tracks",
+    cell: ({ row }) => {
+      const a = row.original.artist as Record<string, unknown>;
+      return Number(a?.["trackTotalCount"] ?? 0).toLocaleString();
     },
-    {
-      id: "monitored",
-      header: "Monitored",
-      cell: ({ row }) => {
-        const a = row.original.artist as Record<string, unknown>;
-        const monitored = Boolean(a?.["monitored"]);
-        return (
-          <span className={`track-status ${monitored ? "available" : "missing"}`}>
-            {monitored ? "✓" : "✗"}
-          </span>
-        );
-      },
+  },
+  {
+    id: "monitored",
+    header: "Monitored",
+    cell: ({ row }) => {
+      const a = row.original.artist as Record<string, unknown>;
+      const monitored = Boolean(a?.["monitored"]);
+      return (
+        <span className={`track-status ${monitored ? "available" : "missing"}`}>
+          {monitored ? "✓" : "✗"}
+        </span>
+      );
     },
-    {
-      id: "qualityProfileName",
-      header: "Quality profile",
-      cell: ({ row }) => {
-        const a = row.original.artist as Record<string, unknown>;
-        return (
-          (a?.["qualityProfileName"] as string | null | undefined) || "—"
-        );
-      },
+  },
+  {
+    id: "qualityProfileName",
+    header: "Quality profile",
+    cell: ({ row }) => {
+      const a = row.original.artist as Record<string, unknown>;
+      return (
+        (a?.["qualityProfileName"] as string | null | undefined) || "—"
+      );
     },
-  ];
-}
+  },
+];
 
-function buildLidarrAggColumns(
-  instanceCount: number,
-): ColumnDef<LidarrAggRow>[] {
-  const cols: ColumnDef<LidarrAggRow>[] = [];
-  if (instanceCount > 1) {
-    cols.push({
-      id: "instance",
-      header: "Instance",
-      cell: ({ row }) => row.original.__instance,
-    });
-  }
-  cols.push(...(buildLidarrInstanceColumns() as ColumnDef<LidarrAggRow>[]));
-  return cols;
+const LIDARR_AGG_COLUMNS_SINGLE =
+  LIDARR_INSTANCE_COLUMNS as ColumnDef<LidarrAggRow>[];
+
+const LIDARR_AGG_COLUMNS_MULTI: ColumnDef<LidarrAggRow>[] = [
+  {
+    id: "instance",
+    header: "Instance",
+    cell: ({ row }) => row.original.__instance,
+  },
+  ...LIDARR_AGG_COLUMNS_SINGLE,
+];
+
+function getLidarrAggColumns(instanceCount: number): ColumnDef<LidarrAggRow>[] {
+  return instanceCount > 1 ? LIDARR_AGG_COLUMNS_MULTI : LIDARR_AGG_COLUMNS_SINGLE;
 }
 
 const LIDARR_INITIAL_ROLLUP: LidarrRollup = {
@@ -495,7 +495,34 @@ function LidarrAggregateBody({
   instances,
   instanceCount,
 }: LidarrAggregateBodyProps): JSX.Element {
-  const columns = buildLidarrAggColumns(instanceCount);
+  const columns = useMemo(
+    () => getLidarrAggColumns(instanceCount),
+    [instanceCount],
+  );
+  const renderIconTile = useCallback(
+    (row: LidarrAggRow) => {
+      const artist = row.artist as Record<string, unknown>;
+      const id = artist?.["id"];
+      const name = (artist?.["name"] as string | undefined) || "—";
+      const cat = categoryForInstanceLabel([...instances], row.__instance);
+      const thumb =
+        typeof id === "number" ? lidarrArtistThumbnailUrl(cat, id) : "";
+      return (
+        <ArrCatalogIconTile
+          key={lidarrAggRowKey(row)}
+          posterSrc={thumb}
+          onClick={() => onRowSelect(row)}
+        >
+          {instanceCount > 1 ? (
+            <div className="arr-movie-tile__instance">{row.__instance}</div>
+          ) : null}
+          <div className="arr-movie-tile__title">{name}</div>
+          {lidarrArtistTileStats(artist)}
+        </ArrCatalogIconTile>
+      );
+    },
+    [instances, instanceCount, onRowSelect],
+  );
   const waitingForStableEmpty =
     instanceCount > 0 && !emptyStateReady && total === 0;
   const effectiveLoading = loading || waitingForStableEmpty;
@@ -566,27 +593,7 @@ function LidarrAggregateBody({
       getRowKey={lidarrAggRowKey}
       onRowSelect={onRowSelect}
       iconGridRef={iconGridRef}
-      renderIconTile={(row) => {
-        const artist = row.artist as Record<string, unknown>;
-        const id = artist?.["id"];
-        const name = (artist?.["name"] as string | undefined) || "—";
-        const cat = categoryForInstanceLabel([...instances], row.__instance);
-        const thumb =
-          typeof id === "number" ? lidarrArtistThumbnailUrl(cat, id) : "";
-        return (
-          <ArrCatalogIconTile
-            key={lidarrAggRowKey(row)}
-            posterSrc={thumb}
-            onClick={() => onRowSelect(row)}
-          >
-            {instanceCount > 1 ? (
-              <div className="arr-movie-tile__instance">{row.__instance}</div>
-            ) : null}
-            <div className="arr-movie-tile__title">{name}</div>
-            {lidarrArtistTileStats(artist)}
-          </ArrCatalogIconTile>
-        );
-      }}
+      renderIconTile={renderIconTile}
     />
   );
 }
@@ -630,7 +637,27 @@ function LidarrInstanceBody({
   setPage,
   refresh,
 }: LidarrInstanceBodyProps): JSX.Element {
-  const columns = buildLidarrInstanceColumns();
+  const columns = LIDARR_INSTANCE_COLUMNS;
+  const renderIconTile = useCallback(
+    (row: LidarrInstanceRow) => {
+      const artist = row.artist as Record<string, unknown>;
+      const id = artist?.["id"];
+      const name = String(artist?.["name"] ?? "—");
+      const thumb =
+        typeof id === "number" ? lidarrArtistThumbnailUrl(category, id) : "";
+      return (
+        <ArrCatalogIconTile
+          key={lidarrInstanceRowKey(row)}
+          posterSrc={thumb}
+          onClick={() => onRowSelect(row)}
+        >
+          <div className="arr-movie-tile__title">{name}</div>
+          {lidarrArtistTileStats(artist)}
+        </ArrCatalogIconTile>
+      );
+    },
+    [category, onRowSelect],
+  );
   const waitingForStableEmpty =
     !emptyStateReady && visibleRows.length === 0;
   const effectiveLoading = loading || waitingForStableEmpty;
@@ -668,23 +695,7 @@ function LidarrInstanceBody({
       getRowKey={lidarrInstanceRowKey}
       onRowSelect={onRowSelect}
       iconGridRef={iconGridRef}
-      renderIconTile={(row) => {
-        const artist = row.artist as Record<string, unknown>;
-        const id = artist?.["id"];
-        const name = String(artist?.["name"] ?? "—");
-        const thumb =
-          typeof id === "number" ? lidarrArtistThumbnailUrl(category, id) : "";
-        return (
-          <ArrCatalogIconTile
-            key={lidarrInstanceRowKey(row)}
-            posterSrc={thumb}
-            onClick={() => onRowSelect(row)}
-          >
-            <div className="arr-movie-tile__title">{name}</div>
-            {lidarrArtistTileStats(artist)}
-          </ArrCatalogIconTile>
-        );
-      }}
+      renderIconTile={renderIconTile}
     />
   );
 }

@@ -26,6 +26,7 @@ import {
   useCatalogPageCache,
   useCatalogSearchRegistration,
 } from "./useCatalogFetchPrimitives";
+import { softCapCachedPages } from "./utils";
 
 /**
  * Flat-strategy instance pipeline used by Radarr + Lidarr.
@@ -254,7 +255,10 @@ export function useInstancePagedFetch<
           setPages((prev) => {
             let next: Record<number, ReadonlyArray<TInstRow>>;
             if (adapter.keepAllPages) {
-              next = { ...prev, [resolvedPage]: syncResult.data };
+              next = softCapCachedPages(
+                { ...prev, [resolvedPage]: syncResult.data },
+                resolvedPage,
+              );
             } else {
               next = { [resolvedPage]: syncResult.data };
             }

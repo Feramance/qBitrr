@@ -199,7 +199,15 @@ Serve service worker for PWA support.
 Cache-Control: no-cache, no-store, must-revalidate
 ```
 
-**Use Case**: Progressive Web App functionality, offline support.
+**Use Case**: Progressive Web App functionality, offline support for static assets.
+
+**Caching behavior** (client `public/sw.js`):
+
+- **`/web/*` and `/api/*`**: network-first (dynamic JSON is never served cache-first).
+- **Static assets** (JS/CSS/fonts/images under the app origin): cache-first.
+- Log tail requests bypass the runtime cache.
+
+The WebUI also keeps a short in-memory TTL on selected GETs (for example `/web/status` ~2s, `/web/config` ~30s, `/web/meta` ~60s unless `force=1`) so overlapping shell and view polls share recent responses.
 
 ---
 
@@ -1404,9 +1412,10 @@ add_header Access-Control-Allow-Headers "Authorization, Content-Type";
 
 **Not supported**. Use HTTP polling for real-time updates:
 
-- `GET /api/processes` - Poll every 5-10 seconds
-- `GET /api/meta` - Poll every 60 seconds (cached for 1 hour)
-- `GET /api/status` - Poll every 10-30 seconds
+- `GET /api/processes` - Poll about every 2 seconds while the Processes tab is active
+- `GET /api/meta` - Quiet poll about every 5 minutes (forced on tab visibility / update UI); server may cache longer
+- `GET /api/status` - Poll about every 15 seconds for Arr tab visibility
+- Arr catalog endpoints - Poll about every 15 seconds while the Arr tab is active and `WebUI.LiveArr` is enabled
 
 ---
 

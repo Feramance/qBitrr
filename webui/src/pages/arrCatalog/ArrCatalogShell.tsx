@@ -16,6 +16,7 @@ import { useWebUI } from "../../context/WebUIContext";
 import { useArrBrowseMode } from "../../hooks/useArrBrowseMode";
 import { useArrIconGridPageSize } from "../../hooks/useArrIconGridPageSize";
 import type { Hashable } from "../../utils/dataSync";
+import { refreshPendingPosterObservers } from "../../utils/sharedIntersectionObserver";
 import { ArrCatalogDetailModalHost } from "./ArrCatalogDetailModalHost";
 import type {
   ArrCatalogDefinition,
@@ -114,7 +115,19 @@ export function ArrCatalogShell<
   );
   const { gridRef, roundPageSize } = useArrIconGridPageSize(
     browseMode === "icon",
+    active,
   );
+
+  // After keep-alive unhide, force IntersectionObserver to recheck posters that never loaded.
+  useEffect(() => {
+    if (!active || browseMode !== "icon") {
+      return;
+    }
+    const id = window.requestAnimationFrame(() => {
+      refreshPendingPosterObservers();
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [active, browseMode]);
 
   const aggregatePageSize = useMemo(
     () => roundPageSize(definition.aggregate.basePageSize),
@@ -197,6 +210,7 @@ export function ArrCatalogShell<
     liveArr,
     globalSearch,
     filters,
+    initialFilters: definition.initialFilters,
     adapter: definition.aggregate,
     aggregatePageSize,
     pushToast,

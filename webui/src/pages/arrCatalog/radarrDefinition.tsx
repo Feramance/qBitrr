@@ -1,5 +1,5 @@
 import type { ColumnDef } from "@tanstack/react-table";
-import { type JSX } from "react";
+import { useCallback, useMemo, type JSX } from "react";
 import { getRadarrMovies } from "../../api/client";
 import type {
   ArrInfo,
@@ -76,79 +76,79 @@ function radarrFilterRows<T extends RadarrMovie>(
   return out;
 }
 
-function buildRadarrInstanceColumns(): ColumnDef<RadarrInstanceRow>[] {
-  return [
-    { accessorKey: "title", header: "Title", cell: (info) => info.getValue() },
-    { accessorKey: "year", header: "Year", size: 80 },
-    {
-      accessorKey: "monitored",
-      header: "Monitored",
-      cell: (info) => {
-        const monitored = info.getValue() as boolean;
+/** Module-level column defs — stable identity across renders for StableTable memo. */
+const RADARR_INSTANCE_COLUMNS: ColumnDef<RadarrInstanceRow>[] = [
+  { accessorKey: "title", header: "Title", cell: (info) => info.getValue() },
+  { accessorKey: "year", header: "Year", size: 80 },
+  {
+    accessorKey: "monitored",
+    header: "Monitored",
+    cell: (info) => {
+      const monitored = info.getValue() as boolean;
+      return (
+        <span className={`track-status ${monitored ? "available" : "missing"}`}>
+          {monitored ? "✓" : "✗"}
+        </span>
+      );
+    },
+    size: 100,
+  },
+  {
+    accessorKey: "hasFile",
+    header: "Has File",
+    cell: (info) => {
+      const hasFile = info.getValue() as boolean;
+      return (
+        <span className={`track-status ${hasFile ? "available" : "missing"}`}>
+          {hasFile ? "✓" : "✗"}
+        </span>
+      );
+    },
+    size: 100,
+  },
+  {
+    accessorKey: "qualityProfileName",
+    header: "Quality Profile",
+    cell: (info) => {
+      const name = info.getValue() as string | null | undefined;
+      return name || "—";
+    },
+    size: 150,
+  },
+  {
+    accessorKey: "reason",
+    header: "Reason",
+    cell: (info) => {
+      const reason = info.getValue() as string | null;
+      if (!reason) {
         return (
-          <span className={`track-status ${monitored ? "available" : "missing"}`}>
-            {monitored ? "✓" : "✗"}
+          <span className="table-badge table-badge-reason">
+            Not being searched
           </span>
         );
-      },
-      size: 100,
+      }
+      return (
+        <span className="table-badge table-badge-reason">{reason}</span>
+      );
     },
-    {
-      accessorKey: "hasFile",
-      header: "Has File",
-      cell: (info) => {
-        const hasFile = info.getValue() as boolean;
-        return (
-          <span className={`track-status ${hasFile ? "available" : "missing"}`}>
-            {hasFile ? "✓" : "✗"}
-          </span>
-        );
-      },
-      size: 100,
-    },
-    {
-      accessorKey: "qualityProfileName",
-      header: "Quality Profile",
-      cell: (info) => {
-        const name = info.getValue() as string | null | undefined;
-        return name || "—";
-      },
-      size: 150,
-    },
-    {
-      accessorKey: "reason",
-      header: "Reason",
-      cell: (info) => {
-        const reason = info.getValue() as string | null;
-        if (!reason) {
-          return (
-            <span className="table-badge table-badge-reason">
-              Not being searched
-            </span>
-          );
-        }
-        return (
-          <span className="table-badge table-badge-reason">{reason}</span>
-        );
-      },
-      size: 120,
-    },
-  ];
-}
+    size: 120,
+  },
+];
 
-function buildRadarrAggColumns(
-  instanceCount: number,
-): ColumnDef<RadarrAggRow>[] {
-  const cols: ColumnDef<RadarrAggRow>[] = [];
-  if (instanceCount > 1) {
-    cols.push({
-      accessorKey: "__instance",
-      header: "Instance",
-      size: 150,
-    });
-  }
-  cols.push(...(buildRadarrInstanceColumns() as ColumnDef<RadarrAggRow>[]));
-  return cols;
+const RADARR_AGG_COLUMNS_SINGLE =
+  RADARR_INSTANCE_COLUMNS as ColumnDef<RadarrAggRow>[];
+
+const RADARR_AGG_COLUMNS_MULTI: ColumnDef<RadarrAggRow>[] = [
+  {
+    accessorKey: "__instance",
+    header: "Instance",
+    size: 150,
+  },
+  ...RADARR_AGG_COLUMNS_SINGLE,
+];
+
+function getRadarrAggColumns(instanceCount: number): ColumnDef<RadarrAggRow>[] {
+  return instanceCount > 1 ? RADARR_AGG_COLUMNS_MULTI : RADARR_AGG_COLUMNS_SINGLE;
 }
 
 function radarrInstanceRowKey(row: RadarrInstanceRow): string {
@@ -345,7 +345,31 @@ function RadarrAggregateBody({
   instances,
   instanceCount,
 }: RadarrAggregateBodyProps): JSX.Element {
-  const columns = buildRadarrAggColumns(instanceCount);
+  const columns = useMemo(
+    () => getRadarrAggColumns(instanceCount),
+    [instanceCount],
+  );
+  const renderIconTile = useCallback(
+    (row: RadarrAggRow) => {
+      const thumb = radarrAggThumbnail(row, instances);
+      return (
+        <ArrCatalogIconTile
+          key={radarrAggRowKey(row)}
+          posterSrc={thumb}
+          onClick={() => onRowSelect(row)}
+        >
+          {instanceCount > 1 ? (
+            <div className="arr-movie-tile__instance">{row.__instance}</div>
+          ) : null}
+          <div className="arr-movie-tile__title">{row.title}</div>
+          <div className="arr-movie-tile__sub">
+            {row.year != null ? String(row.year) : ""}
+          </div>
+        </ArrCatalogIconTile>
+      );
+    },
+    [instances, instanceCount, onRowSelect],
+  );
   const waitingForStableEmpty =
     instanceCount > 0 && !emptyStateReady && total === 0;
   const effectiveLoading = loading || waitingForStableEmpty;
@@ -401,24 +425,7 @@ function RadarrAggregateBody({
       getRowKey={radarrAggRowKey}
       onRowSelect={onRowSelect}
       iconGridRef={iconGridRef}
-      renderIconTile={(row) => {
-        const thumb = radarrAggThumbnail(row, instances);
-        return (
-          <ArrCatalogIconTile
-            key={radarrAggRowKey(row)}
-            posterSrc={thumb}
-            onClick={() => onRowSelect(row)}
-          >
-            {instanceCount > 1 ? (
-              <div className="arr-movie-tile__instance">{row.__instance}</div>
-            ) : null}
-            <div className="arr-movie-tile__title">{row.title}</div>
-            <div className="arr-movie-tile__sub">
-              {row.year != null ? String(row.year) : ""}
-            </div>
-          </ArrCatalogIconTile>
-        );
-      }}
+      renderIconTile={renderIconTile}
     />
   );
 }
@@ -462,7 +469,28 @@ function RadarrInstanceBody({
   setPage,
   refresh,
 }: RadarrInstanceBodyProps): JSX.Element {
-  const columns = buildRadarrInstanceColumns();
+  const columns = RADARR_INSTANCE_COLUMNS;
+  const renderIconTile = useCallback(
+    (row: RadarrInstanceRow) => {
+      const thumb =
+        row.id != null && category
+          ? radarrMovieThumbnailUrl(category, row.id)
+          : "";
+      return (
+        <ArrCatalogIconTile
+          key={radarrInstanceRowKey(row)}
+          posterSrc={thumb}
+          onClick={() => onRowSelect(row)}
+        >
+          <div className="arr-movie-tile__title">{row.title}</div>
+          <div className="arr-movie-tile__sub">
+            {row.year != null ? String(row.year) : ""}
+          </div>
+        </ArrCatalogIconTile>
+      );
+    },
+    [category, onRowSelect],
+  );
   const waitingForStableEmpty =
     !emptyStateReady && visibleRows.length === 0;
   const effectiveLoading = loading || waitingForStableEmpty;
@@ -500,24 +528,7 @@ function RadarrInstanceBody({
       getRowKey={radarrInstanceRowKey}
       onRowSelect={onRowSelect}
       iconGridRef={iconGridRef}
-      renderIconTile={(row) => {
-        const thumb =
-          row.id != null && category
-            ? radarrMovieThumbnailUrl(category, row.id)
-            : "";
-        return (
-          <ArrCatalogIconTile
-            key={radarrInstanceRowKey(row)}
-            posterSrc={thumb}
-            onClick={() => onRowSelect(row)}
-          >
-            <div className="arr-movie-tile__title">{row.title}</div>
-            <div className="arr-movie-tile__sub">
-              {row.year != null ? String(row.year) : ""}
-            </div>
-          </ArrCatalogIconTile>
-        );
-      }}
+      renderIconTile={renderIconTile}
     />
   );
 }

@@ -1,6 +1,6 @@
 // qBitrr Service Worker
-// Update cache version on every deployment to force refresh
-const CACHE_VERSION = Date.now();
+// Cache version is injected at Vite build time (deploy-tied); fallback for raw public/ copies.
+const CACHE_VERSION = "__QBITRR_CACHE_VERSION__";
 const CACHE_NAME = `qbitrr-v${CACHE_VERSION}`;
 const RUNTIME_CACHE = `qbitrr-runtime-v${CACHE_VERSION}`;
 
@@ -54,11 +54,57 @@ function pathIncludesApi(pathname) {
   return pathname === '/api' || pathname.startsWith('/api/') || pathname.includes('/api/');
 }
 
+function pathIncludesWeb(pathname) {
+  return pathname === '/web' || pathname.startsWith('/web/') || pathname.includes('/web/');
+}
+
 function pathIncludesWebLogs(pathname) {
   return pathname.includes('/web/logs/');
 }
 
-// Fetch event - network-first strategy for API calls, cache-first for assets
+function isStaticAssetPath(pathname) {
+  // Cache-first only for static assets; never for /web/* or /api/* JSON endpoints.
+  if (pathIncludesWeb(pathname) || pathIncludesApi(pathname)) {
+    return false;
+  }
+  return /\.(?:js|css|mjs|map|woff2?|ttf|otf|eot|png|jpe?g|gif|svg|webp|ico|wasm|json)$/i.test(pathname)
+    || pathname.includes('/assets/')
+    || pathname.includes('/static/');
+}
+
+async function networkFirstNoStore(request) {
+  try {
+    return await fetch(request);
+  } catch (error) {
+    const cached = await caches.match(request);
+    if (cached) {
+      return cached;
+    }
+    throw error;
+  }
+}
+
+async function cacheFirst(request) {
+  const cachedResponse = await caches.match(request);
+  if (cachedResponse) {
+    return cachedResponse;
+  }
+
+  const response = await fetch(request);
+  // Don't cache non-successful responses
+  if (!response || response.status !== 200 || response.type === 'error') {
+    return response;
+  }
+
+  const responseToCache = response.clone();
+  caches.open(RUNTIME_CACHE).then((cache) => {
+    cache.put(request, responseToCache);
+  });
+
+  return response;
+}
+
+// Fetch event - network-first for /web/* and /api/*, cache-first for static assets only
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
@@ -73,46 +119,18 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network-first for API calls
-  if (pathIncludesApi(url.pathname)) {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          // Clone the response before caching
-          const responseToCache = response.clone();
-          caches.open(RUNTIME_CACHE).then((cache) => {
-            cache.put(request, responseToCache);
-          });
-          return response;
-        })
-        .catch(() => {
-          // Return cached response if network fails
-          return caches.match(request);
-        })
-    );
+  // Network-first (do not cache dynamic JSON) for all /web/* and /api/*
+  if (pathIncludesWeb(url.pathname) || pathIncludesApi(url.pathname)) {
+    event.respondWith(networkFirstNoStore(request));
     return;
   }
 
-  // Cache-first for static assets
-  event.respondWith(
-    caches.match(request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
+  // Cache-first for static assets only
+  if (isStaticAssetPath(url.pathname)) {
+    event.respondWith(cacheFirst(request));
+    return;
+  }
 
-      return fetch(request).then((response) => {
-        // Don't cache non-successful responses
-        if (!response || response.status !== 200 || response.type === 'error') {
-          return response;
-        }
-
-        const responseToCache = response.clone();
-        caches.open(RUNTIME_CACHE).then((cache) => {
-          cache.put(request, responseToCache);
-        });
-
-        return response;
-      });
-    })
-  );
+  // Default: network-first without caching (HTML shells, unknown paths)
+  event.respondWith(networkFirstNoStore(request));
 });

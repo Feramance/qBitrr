@@ -131,7 +131,7 @@ export function QbitCategoriesView({ active }: QbitCategoriesViewProps): JSX.Ele
     () => {
       void load(false);
     },
-    liveArr ? 1000 : null
+    active && liveArr ? 5000 : null
   );
 
   const handleRefresh = useCallback(() => {

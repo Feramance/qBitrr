@@ -10,14 +10,18 @@ export default function App(): JSX.Element {
     <ErrorBoundary>
       <ToastProvider>
         <SearchProvider>
-          <WebUIProvider>
-            <AuthGate>
-              {(authRequired, onSignOut) => (
-                <AppShell authRequired={authRequired} onSignOut={onSignOut} />
-              )}
-            </AuthGate>
-            <ToastViewport />
-          </WebUIProvider>
+          <AuthGate>
+            {(authRequired, onSignOut, initialMeta) => (
+              <WebUIProvider>
+                <AppShell
+                  authRequired={authRequired}
+                  onSignOut={onSignOut}
+                  initialMeta={initialMeta}
+                />
+              </WebUIProvider>
+            )}
+          </AuthGate>
+          <ToastViewport />
         </SearchProvider>
       </ToastProvider>
     </ErrorBoundary>

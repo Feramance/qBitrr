@@ -42,6 +42,8 @@ interface UseAggregateCatalogLoaderParams<
   readonly liveArr: boolean;
   readonly globalSearch: string;
   readonly filters: TFilters;
+  /** Default filter state — used to skip filter/sort copies when unchanged. */
+  readonly initialFilters: TFilters;
   readonly adapter: ArrCatalogAggregateAdapter<TAggRow, TAggResp, TFilters, TRollup>;
   readonly aggregatePageSize: number;
   readonly pushToast: (
@@ -96,6 +98,7 @@ export function useAggregateCatalogLoader<
     liveArr,
     globalSearch,
     filters,
+    initialFilters,
     adapter,
     aggregatePageSize,
     pushToast,
@@ -151,15 +154,27 @@ export function useAggregateCatalogLoader<
   const { snapshot, store } = useRowsStore<TAggRow>(rowsStoreOpts as never);
 
   const filtersKey = useMemo(() => JSON.stringify(filters), [filters]);
+  const initialFiltersKey = useMemo(
+    () => JSON.stringify(initialFilters),
+    [initialFilters],
+  );
+  const searchAndFiltersDefault =
+    !debouncedSearch && filtersKey === initialFiltersKey;
 
+  // Skip filter/sort array copies when search + filters are at defaults and there is
+  // no custom sort (Radarr/Sonarr). Lidarr still sorts when filters are default.
   const filteredRows = useMemo<ReadonlyArray<TAggRow>>(() => {
+    if (searchAndFiltersDefault) {
+      return rows;
+    }
     const filterFn = adapter.filterRows;
     if (!filterFn) return rows;
     return filterFn(rows, filters, debouncedSearch);
-  }, [rows, debouncedSearch, adapter, filtersKey, filters]);
+  }, [rows, debouncedSearch, adapter, filters, searchAndFiltersDefault]);
 
   const sortedRows = useMemo<ReadonlyArray<TAggRow>>(() => {
     const sortFn = adapter.sortRows;
+    // No sort adapter (Radarr/Sonarr): reuse filteredRows reference — no copy.
     if (!sortFn) return filteredRows;
     return sortFn(filteredRows);
   }, [filteredRows, adapter]);
@@ -353,7 +368,7 @@ export function useAggregateCatalogLoader<
     }
   }, [selection, globalSearch]);
 
-  // Polling on visible aggregate view (only when liveArr is enabled).
+  // Polling on visible aggregate view (only when liveArr is enabled and tab is active).
   useInterval(
     () => {
       if (document.visibilityState !== "visible") return;
@@ -365,7 +380,9 @@ export function useAggregateCatalogLoader<
         void loadAggregate({ showLoading: false });
       }
     },
-    selection === "aggregate" && liveArr ? AGGREGATE_POLL_INTERVAL_MS : null,
+    active && selection === "aggregate" && liveArr
+      ? AGGREGATE_POLL_INTERVAL_MS
+      : null,
   );
 
   const refresh = useCallback(() => {

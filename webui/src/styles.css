@@ -97,8 +97,8 @@ body {
     background: var(--surface);
     border-bottom: 1px solid var(--border);
     box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
-    backdrop-filter: blur(12px) saturate(180%);
-    -webkit-backdrop-filter: blur(12px) saturate(180%);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
 }
 
 [data-theme="light"] .appbar {
@@ -186,7 +186,6 @@ body {
     display: grid;
     grid-template-columns: 1fr;
     gap: 20px;
-    animation: fadeInUp 0.3s ease;
     box-sizing: border-box;
 }
 
@@ -215,7 +214,7 @@ body {
     border-radius: 8px;
     cursor: pointer;
     font-weight: 500;
-    transition: all 0.15s ease;
+    transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
     position: relative;
     overflow: hidden;
     user-select: none;
@@ -342,7 +341,7 @@ body {
     padding: 8px 14px;
     border-radius: 8px;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -837,7 +836,7 @@ body {
     font-size: 0.8em;
     font-weight: 600;
     border: 1px solid transparent;
-    transition: all 0.15s ease;
+    transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
 }
 .table-badge:hover {
     transform: scale(1.05);
@@ -893,7 +892,7 @@ body {
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 9px 12px;
-    transition: all 0.15s ease;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 [data-theme="dark"] .field input,
@@ -1047,7 +1046,7 @@ details {
 }
 details summary {
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: color 0.15s ease, background-color 0.15s ease;
     padding: 4px;
     border-radius: 6px;
 }
@@ -1152,7 +1151,7 @@ pre::-webkit-scrollbar-thumb:hover {
     border-radius: 10px;
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
     min-width: 260px;
-    transition: all 0.2s ease;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
     animation: slideIn 0.2s ease;
 }
 
@@ -1220,7 +1219,7 @@ pre::-webkit-scrollbar-thumb:hover {
     font-weight: 500;
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
 .status-pill:hover {
     background: rgba(255, 255, 255, 0.08);
@@ -1302,7 +1301,7 @@ pre::-webkit-scrollbar-thumb:hover {
     color: var(--on-surface);
     font-size: 14px;
     text-align: center;
-    transition: all 0.2s ease;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
 }
 
 .pagination-jump:focus {
@@ -1336,7 +1335,7 @@ pre::-webkit-scrollbar-thumb:hover {
     background: rgba(122, 162, 247, 0.15);
     border: 1px solid rgba(122, 162, 247, 0.25);
     color: var(--primary);
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
 .badge:hover {
     background: rgba(122, 162, 247, 0.25);
@@ -1419,10 +1418,6 @@ svg[height] {
     transition: box-shadow 0.2s ease;
 }
 
-.responsive-table tbody tr {
-    animation: fadeInUp 0.2s ease;
-}
-
 .responsive-table tbody tr:nth-child(even) {
     background: rgba(255, 255, 255, 0.02);
 }
@@ -1448,7 +1443,11 @@ svg[height] {
 }
 
 .animate-fade-in {
-    animation: fadeInUp 0.2s ease;
+    animation: fadeIn 0.15s ease;
+}
+
+.view-transition .animate-fade-in {
+    animation: none;
 }
 
 .table-badge {
@@ -1473,19 +1472,8 @@ svg[height] {
     color: var(--danger);
 }
 
-@keyframes fadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(8px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
 .view-transition {
-    animation: fadeInUp 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: fadeIn 0.13s ease;
 }
 
 @keyframes slideIn {
@@ -1505,15 +1493,6 @@ svg[height] {
     }
     50% {
         opacity: 0.7;
-    }
-}
-
-@keyframes glow {
-    0%, 100% {
-        box-shadow: 0 0 8px rgba(122, 162, 247, 0.3);
-    }
-    50% {
-        box-shadow: 0 0 16px rgba(122, 162, 247, 0.5);
     }
 }
 
@@ -1763,7 +1742,7 @@ svg[height] {
     display: flex;
     flex-direction: column;
     gap: 14px;
-    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: border-color 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     overflow: hidden;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
@@ -1851,7 +1830,7 @@ svg[height] {
     background: rgba(122, 162, 247, 0.15);
     border: 1px solid rgba(122, 162, 247, 0.3);
     color: var(--primary);
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
 .process-card__badge:hover {
     background: rgba(122, 162, 247, 0.25);
@@ -1867,12 +1846,11 @@ svg[height] {
     border-radius: 50%;
     background: rgba(153, 162, 173, 0.6);
     box-shadow: 0 0 6px rgba(0, 0, 0, 0.35);
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
 }
 .status-indicator--ok {
     background: var(--success);
     box-shadow: 0 0 12px rgba(34, 197, 94, 0.5);
-    animation: pulse 1.5s ease-in-out infinite;
 }
 .status-indicator--bad {
     background: var(--danger);
@@ -1896,7 +1874,7 @@ svg[height] {
     border-radius: 10px;
     padding: 12px 14px;
     background: var(--bg);
-    transition: all 0.15s ease;
+    transition: border-color 0.15s ease, transform 0.15s ease, background-color 0.15s ease;
 }
 
 [data-theme="dark"] .process-chip {
@@ -1994,7 +1972,7 @@ svg[height] {
     text-align: center;
     color: var(--muted);
     background: linear-gradient(135deg, rgba(122, 162, 247, 0.03) 0%, rgba(122, 162, 247, 0.01) 100%);
-    transition: all 0.2s ease;
+    transition: border-color 0.2s ease, background 0.2s ease;
     position: relative;
     overflow: hidden;
 }
@@ -2346,7 +2324,6 @@ svg[height] {
     min-height: 100dvh;
     box-sizing: border-box;
     background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(4px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2387,9 +2364,7 @@ svg[height] {
     margin: auto;
     flex-shrink: 0;
     box-shadow: 0 24px 64px rgba(0, 0, 0, 0.2), 0 8px 16px rgba(0, 0, 0, 0.1);
-    animation: modalSlideIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    animation: modalSlideIn 0.15s ease;
 }
 
 [data-theme="dark"] .modal {
@@ -2404,11 +2379,9 @@ svg[height] {
 @keyframes modalSlideIn {
     from {
         opacity: 0;
-        transform: translateY(-20px) scale(0.95);
     }
     to {
         opacity: 1;
-        transform: translateY(0) scale(1);
     }
 }
 .modal-header {
@@ -3395,7 +3368,7 @@ svg[height] {
     font-size: 13px;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: color 0.2s ease, background-color 0.2s ease;
 }
 
 .view-density-toggle button:hover {
@@ -3752,7 +3725,7 @@ svg[height] {
     border-radius: 6px !important;
     padding: 6px !important;
     cursor: pointer !important;
-    transition: all 0.15s ease !important;
+    transition: background-color 0.15s ease, border-color 0.15s ease !important;
 }
 
 .react-lazylog-searchbar-filter:hover,
@@ -4364,4 +4337,15 @@ svg[height] {
 
 .arr-detail-dl dd {
     margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
 }

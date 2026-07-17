@@ -29,7 +29,7 @@
   - `qBitrr/webui/` – Flask WebUI package (`app`, route registrars, catalog queries) for `/api/*` (token-protected) and `/web/*` (helpers)
   - `qBitrr/ffprobe.py` – media file verification via ffprobe
   - `qBitrr/tables.py` – Peewee models for persistent state (downloads, searches, expiry)
-  - `webui/src/` – React dashboard with @mantine/core UI, react-hook-form, @tanstack/react-table
+  - `webui/src/` – React dashboard with custom CSS (`styles.css` + Tailwind), Context API, @tanstack/react-table
 - **Config**: `~/config/config.toml` (native) or `/config/config.toml` (Docker). Generated on first run via `qBitrr/gen_config/`
 - **Logging**: Structured logs in `~/logs/` or `/config/logs`; `Main.log`, `WebUI.log`, per-Arr logs
 - **Deployment**: PyPI package (`qBitrr2`), Docker image (`feramance/qbitrr:latest`), or source install
@@ -94,7 +94,7 @@
 - **Import Order**: React → node_modules/@-scoped → local modules → local icons (SVGs)
 - **Hooks**: Declare dependencies correctly; use `useCallback`/`useMemo` for expensive ops
 - **State Management**: Context API (`SearchContext`, `ToastContext`, `WebUIContext`) for global state
-- **UI Library**: @mantine/core v8 for components; follow Mantine conventions (e.g., `sx` prop for inline styles)
+- **UI**: Custom CSS in `webui/src/styles.css` plus Tailwind utilities; prefer existing class patterns (`card`, `btn`, `field`, `modal`) over new component libraries
 
 ### General
 - **Indentation**: 4 spaces (Python), 2 spaces (JS/TS/JSON/YAML)

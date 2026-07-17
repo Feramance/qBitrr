@@ -47,6 +47,16 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
   const { theme } = useWebUI();
   const isDark = theme === 'dark';
   const selectStyles = useMemo(() => getSelectStyles(isDark), [isDark]);
+  /** Remount LazyLog when the tab becomes active again so it remeasures after `hidden`. */
+  const [lazyLogEpoch, setLazyLogEpoch] = useState(0);
+  const prevActiveRef = useRef(active);
+
+  useEffect(() => {
+    if (active && !prevActiveRef.current) {
+      setLazyLogEpoch((prev) => prev + 1);
+    }
+    prevActiveRef.current = active;
+  }, [active]);
 
   const loadList = useCallback(async () => {
     setLoadingList(true);
@@ -156,7 +166,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
     () => {
       void fetchLogContent(false, true);
     },
-    active && liveUpdates ? 1000 : null
+    active && liveUpdates ? 2000 : null
   );
 
 
@@ -264,6 +274,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
               )}
               <div style={{ flex: 1, minHeight: 0 }}>
                 <LazyLog
+              key={lazyLogEpoch}
               text={logContent}
               follow={follow}
               enableSearch

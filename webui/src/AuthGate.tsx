@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState, type JSX } from "react";
 import { getMeta, logout, fetchWebToken } from "./api/client";
+import type { MetaResponse } from "./api/types";
 import { LoginPage } from "./pages/LoginPage";
 
 class ErrorBoundary extends React.Component<
@@ -43,26 +44,111 @@ interface AuthInfo {
   setupRequired: boolean;
 }
 
-function AuthGate({ children }: { children: (authRequired: boolean, onSignOut: () => void) => React.ReactNode }): JSX.Element {
+function readStoredToken(): string | null {
+  return (
+    localStorage.getItem("token") ||
+    localStorage.getItem("webui-token") ||
+    localStorage.getItem("webui_token") ||
+    null
+  );
+}
+
+function authInfoFromMeta(meta: MetaResponse): AuthInfo {
+  return {
+    authRequired: Boolean(meta.auth_required),
+    localAuthEnabled: Boolean(meta.local_auth_enabled),
+    oidcEnabled: Boolean(meta.oidc_enabled),
+    setupRequired: Boolean(meta.setup_required),
+  };
+}
+
+function AuthGate({
+  children,
+}: {
+  children: (
+    authRequired: boolean,
+    onSignOut: () => void,
+    initialMeta: MetaResponse | null
+  ) => React.ReactNode;
+}): JSX.Element {
   const [authState, setAuthState] = useState<AuthState>("loading");
-  const [authInfo, setAuthInfo] = useState<AuthInfo>({ authRequired: false, localAuthEnabled: false, oidcEnabled: false, setupRequired: false });
+  const [authInfo, setAuthInfo] = useState<AuthInfo>({
+    authRequired: false,
+    localAuthEnabled: false,
+    oidcEnabled: false,
+    setupRequired: false,
+  });
   const [authBootstrapError, setAuthBootstrapError] = useState<string | null>(null);
+  const [initialMeta, setInitialMeta] = useState<MetaResponse | null>(null);
 
   const checkAuth = useCallback(async () => {
     setAuthBootstrapError(null);
     setAuthState("loading");
+    setInitialMeta(null);
+
+    const existingToken = readStoredToken();
+
     try {
+      if (existingToken) {
+        // Token present: parallelize meta + session token refresh to shorten boot waterfall.
+        const [metaResult, tokenResult] = await Promise.allSettled([
+          getMeta(),
+          fetchWebToken(),
+        ]);
+
+        if (metaResult.status === "rejected") {
+          const error = metaResult.reason;
+          const detail =
+            error instanceof Error && error.message.trim().length > 0
+              ? error.message
+              : "Unable to reach qBitrr backend";
+          setAuthBootstrapError(detail);
+          setAuthState("error");
+          return;
+        }
+
+        const meta = metaResult.value;
+        setInitialMeta(meta);
+        const info = authInfoFromMeta(meta);
+        setAuthInfo(info);
+
+        if (!info.authRequired) {
+          setAuthState("authenticated");
+          return;
+        }
+
+        const token =
+          tokenResult.status === "fulfilled" ? tokenResult.value : null;
+        if (token) {
+          localStorage.setItem("token", token);
+          setAuthState("authenticated");
+        } else {
+          setAuthState("unauthenticated");
+        }
+        return;
+      }
+
       const meta = await getMeta();
-      const authRequired = Boolean(meta.auth_required);
-      setAuthInfo({
-        authRequired,
-        localAuthEnabled: Boolean(meta.local_auth_enabled),
-        oidcEnabled: Boolean(meta.oidc_enabled),
-        setupRequired: Boolean(meta.setup_required),
-      });
-      if (!authRequired) {
+      setInitialMeta(meta);
+      const info = authInfoFromMeta(meta);
+      setAuthInfo(info);
+
+      if (!info.authRequired) {
         setAuthState("authenticated");
         return;
+      }
+
+      // Auth required but no stored token — try session cookie via /web/token.
+      try {
+        const token = await fetchWebToken();
+        if (token) {
+          localStorage.setItem("token", token);
+          setAuthState("authenticated");
+        } else {
+          setAuthState("unauthenticated");
+        }
+      } catch {
+        setAuthState("unauthenticated");
       }
     } catch (error) {
       const detail =
@@ -71,21 +157,6 @@ function AuthGate({ children }: { children: (authRequired: boolean, onSignOut: (
           : "Unable to reach qBitrr backend";
       setAuthBootstrapError(detail);
       setAuthState("error");
-      return;
-    }
-
-    // Try to fetch token (succeeds if session cookie or token already valid)
-    try {
-      const token = await fetchWebToken();
-      if (token) {
-        localStorage.setItem("token", token);
-        setAuthState("authenticated");
-      } else {
-        setAuthState("unauthenticated");
-      }
-    } catch {
-      // Token fetch failed while auth is required — remain unauthenticated
-      setAuthState("unauthenticated");
     }
   }, []);
 
@@ -99,6 +170,7 @@ function AuthGate({ children }: { children: (authRequired: boolean, onSignOut: (
 
   const handleSignOut = useCallback(async () => {
     await logout();
+    setInitialMeta(null);
     setAuthState("unauthenticated");
   }, []);
 
@@ -144,7 +216,7 @@ function AuthGate({ children }: { children: (authRequired: boolean, onSignOut: (
     );
   }
 
-  return <>{children(authInfo.authRequired, handleSignOut)}</>;
+  return <>{children(authInfo.authRequired, handleSignOut, initialMeta)}</>;
 }
 
 

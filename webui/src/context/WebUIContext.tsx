@@ -23,15 +23,32 @@ interface WebUIContextValue {
 
 const WebUIContext = createContext<WebUIContextValue | null>(null);
 
+function applyThemeEarly(): void {
+  try {
+    const storedTheme = localStorage.getItem("theme");
+    const theme = storedTheme === "light" || storedTheme === "dark" ? storedTheme : "dark";
+    document.documentElement.setAttribute("data-theme", theme);
+  } catch {
+    document.documentElement.setAttribute("data-theme", "dark");
+  }
+}
+
+applyThemeEarly();
+
 export function WebUIProvider({ children }: { children: ReactNode }): JSX.Element {
-  const [settings, setSettings] = useState<WebUISettings>({
-    liveArr: true,
-    viewDensity: "comfortable",
-    theme: "dark",
+  const [settings, setSettings] = useState<WebUISettings>(() => {
+    const storedDensity = localStorage.getItem("viewDensity") as ViewDensity | null;
+    const storedTheme = localStorage.getItem("theme") as Theme | null;
+    return {
+      liveArr: true,
+      viewDensity: storedDensity === "compact" ? "compact" : "comfortable",
+      theme: storedTheme === "light" ? "light" : "dark",
+    };
   });
   const { push } = useToast();
 
-  // Load initial settings
+  // Load settings from backend only after AuthGate has authenticated (this provider
+  // mounts inside the authenticated tree — see App.tsx).
   useEffect(() => {
     const loadSettings = async () => {
       try {

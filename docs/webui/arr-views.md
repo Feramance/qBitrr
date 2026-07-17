@@ -364,6 +364,21 @@ When enabled, bypasses database cache and fetches live data directly from Arr AP
 LiveArr = false  # Use database cache (recommended)
 ```
 
+### Tab keep-alive and polling
+
+Visited tabs stay mounted and are hidden (`display: none`) on switch so Arr browse state (filters, page, selection) survives tab changes. Background tabs do **not** poll: Processes, Logs, Arr catalogs, and qBittorrent categories only refresh while their tab is the active one (and, where applicable, when live mode is on).
+
+| Surface | Interval | Gate |
+|---------|----------|------|
+| Processes | 2s | Tab active |
+| Logs (live updates) | 2s | Tab active and live toggle on |
+| qBittorrent categories | 5s | Tab active and `WebUI.LiveArr` |
+| Arr catalog (instance + aggregate) | 15s | Tab active and `WebUI.LiveArr` (and no blocking global search) |
+| AppShell `/web/status` (Arr tab visibility) | 15s | Always while shell is open |
+| AppShell meta (quiet) | 5 min | Soft refresh; forced on visibility |
+
+**Icon grid / posters**: Icon layout page size is measured only when the Arr tab is visible (zero-width / hidden measures are ignored). Returning to a kept-alive Arr tab remeasures the grid and re-observes poster images so tiles and thumbnails recover after hide/show.
+
 ### Browse layout
 
 Sonarr browsing is always series-row + modal (`series → seasons → episodes`). Lidarr browsing is always artist-row + modal (`artist → albums → tracks`).

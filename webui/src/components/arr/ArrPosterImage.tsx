@@ -79,6 +79,8 @@ export function ArrPosterImage({
     loadIdRef.current += 1;
     attemptRef.current = 0;
     clearRetryTimer();
+    // Reset load state when the poster URL changes (new row / retry base src).
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional reset on src identity change
     setLoaded(false);
     setFailed(false);
     setReleased(false);
@@ -105,7 +107,6 @@ export function ArrPosterImage({
       if (cancelEnqueue) cancelEnqueue();
     };
     // Only re-bind visibility when the base src changes; retries re-enqueue directly.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: src-only
   }, [src]);
 
   useEffect(() => {

@@ -86,8 +86,8 @@ function areProcessListsEqual(a: ProcessInfo[], b: ProcessInfo[]): boolean {
 
 function getRefreshDelay(active: boolean): number | null {
   if (!active) return null;
-  // Refresh every 1 second when active
-  return 1000;
+  // Refresh every 2 seconds when active
+  return 2000;
 }
 
 interface ProcessesViewProps {

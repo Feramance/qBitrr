@@ -49,7 +49,7 @@ import {
   filterSeriesEntryByReason,
 } from "./sonarrCatalogModes";
 import { ARR_CATALOG_REGISTRY } from "./registry";
-import { categoryForInstanceLabel } from "./utils";
+import { categoryForInstanceLabel, softCapCachedPages } from "./utils";
 
 const SONARR_PAGE_SIZE = 25;
 
@@ -284,10 +284,13 @@ function useSonarrInstancePipeline(
             SONARR_INSTANCE_PAGE_HASH_FIELDS,
           );
 
-        const next = { ...prev, [resolvedPage]: series };
+        const next = softCapCachedPages(
+          { ...prev, [resolvedPage]: series },
+          resolvedPage,
+        ) as Record<number, SonarrSeriesEntry[]>;
         pagesRef.current = next;
         if (pageChanged) {
-          setPages({ ...next } as Record<number, SonarrSeriesEntry[]>);
+          setPages({ ...next });
           setLastUpdated(new Date().toLocaleTimeString());
         }
 
@@ -504,40 +507,41 @@ function useSonarrInstancePipeline(
   };
 }
 
-function buildSonarrInstanceColumns(): ColumnDef<SonarrSeriesGroupRow>[] {
-  return [
-    {
-      accessorKey: "series" as const,
-      header: "Series",
-      cell: (info) => String(info.getValue() ?? ""),
-    },
-    {
-      id: "episodes",
-      header: "Episodes",
-      cell: ({ row }) => row.original.episodes.length,
-    },
-    {
-      accessorKey: "qualityProfileName" as const,
-      header: "Quality profile",
-      cell: (info) =>
-        (info.getValue() as string | null | undefined) || "—",
-    },
-  ];
-}
+/** Module-level column defs — stable identity across renders for StableTable memo. */
+const SONARR_INSTANCE_COLUMNS: ColumnDef<SonarrSeriesGroupRow>[] = [
+  {
+    accessorKey: "series" as const,
+    header: "Series",
+    cell: (info) => String(info.getValue() ?? ""),
+  },
+  {
+    id: "episodes",
+    header: "Episodes",
+    cell: ({ row }) => row.original.episodes.length,
+  },
+  {
+    accessorKey: "qualityProfileName" as const,
+    header: "Quality profile",
+    cell: (info) =>
+      (info.getValue() as string | null | undefined) || "—",
+  },
+];
 
-function buildSonarrAggColumns(
+const SONARR_AGG_COLUMNS_SINGLE = SONARR_INSTANCE_COLUMNS;
+
+const SONARR_AGG_COLUMNS_MULTI: ColumnDef<SonarrSeriesGroupRow>[] = [
+  {
+    accessorKey: "instance" as const,
+    header: "Instance",
+    cell: (info) => String(info.getValue() ?? ""),
+  },
+  ...SONARR_INSTANCE_COLUMNS,
+];
+
+function getSonarrAggColumns(
   instanceCount: number,
 ): ColumnDef<SonarrSeriesGroupRow>[] {
-  const base: ColumnDef<SonarrSeriesGroupRow>[] = [];
-  if (instanceCount > 1) {
-    base.push({
-      accessorKey: "instance" as const,
-      header: "Instance",
-      cell: (info) => String(info.getValue() ?? ""),
-    });
-  }
-  base.push(...buildSonarrInstanceColumns());
-  return base;
+  return instanceCount > 1 ? SONARR_AGG_COLUMNS_MULTI : SONARR_AGG_COLUMNS_SINGLE;
 }
 
 export const SONARR_DEFINITION: ArrCatalogDefinition<
@@ -716,7 +720,37 @@ function SonarrAggregateBody({
   instances,
   instanceCount,
 }: SonarrAggregateBodyProps): JSX.Element {
-  const columns = buildSonarrAggColumns(instanceCount);
+  const columns = useMemo(
+    () => getSonarrAggColumns(instanceCount),
+    [instanceCount],
+  );
+  const renderIconTile = useCallback(
+    (g: SonarrSeriesGroupRow) => {
+      const cat = categoryForInstanceLabel([...instances], g.instance);
+      const sid = g.seriesId;
+      const thumb =
+        sid != null && cat ? sonarrSeriesThumbnailUrl(cat, sid) : "";
+      return (
+        <ArrCatalogIconTile
+          key={`${g.instance}-${String(g.seriesId ?? "")}-${g.series}`}
+          posterSrc={thumb}
+          onClick={() => onRowSelect(g)}
+        >
+          {instanceCount > 1 ? (
+            <div className="arr-movie-tile__instance">{g.instance}</div>
+          ) : null}
+          <div className="arr-movie-tile__title">{g.series}</div>
+          <div className="arr-movie-tile__stats arr-movie-tile__stats--sonarr-episodes">
+            {sonarrMonitoredEpisodeProgress(g)}
+          </div>
+          <div className="arr-movie-tile__quality">
+            {g.qualityProfileName ?? "—"}
+          </div>
+        </ArrCatalogIconTile>
+      );
+    },
+    [instances, instanceCount, onRowSelect],
+  );
   const waitingForStableEmpty =
     instanceCount > 0 && !emptyStateReady && total === 0;
   const effectiveLoading = loading || waitingForStableEmpty;
@@ -777,30 +811,7 @@ function SonarrAggregateBody({
       getRowKey={sonarrGroupRowKey}
       onRowSelect={onRowSelect}
       iconGridRef={iconGridRef}
-      renderIconTile={(g) => {
-        const cat = categoryForInstanceLabel([...instances], g.instance);
-        const sid = g.seriesId;
-        const thumb =
-          sid != null && cat ? sonarrSeriesThumbnailUrl(cat, sid) : "";
-        return (
-          <ArrCatalogIconTile
-            key={`${g.instance}-${String(g.seriesId ?? "")}-${g.series}`}
-            posterSrc={thumb}
-            onClick={() => onRowSelect(g)}
-          >
-            {instanceCount > 1 ? (
-              <div className="arr-movie-tile__instance">{g.instance}</div>
-            ) : null}
-            <div className="arr-movie-tile__title">{g.series}</div>
-            <div className="arr-movie-tile__stats arr-movie-tile__stats--sonarr-episodes">
-              {sonarrMonitoredEpisodeProgress(g)}
-            </div>
-            <div className="arr-movie-tile__quality">
-              {g.qualityProfileName ?? "—"}
-            </div>
-          </ArrCatalogIconTile>
-        );
-      }}
+      renderIconTile={renderIconTile}
     />
   );
 }
@@ -868,7 +879,30 @@ function SonarrInstanceBody({
     </>
   );
 
-  const columns = buildSonarrInstanceColumns();
+  const columns = SONARR_INSTANCE_COLUMNS;
+  const renderIconTile = useCallback(
+    (g: SonarrSeriesGroupRow) => {
+      const sid = g.seriesId;
+      const thumb =
+        sid != null && category ? sonarrSeriesThumbnailUrl(category, sid) : "";
+      return (
+        <ArrCatalogIconTile
+          key={`${g.instance}-${String(g.seriesId ?? "")}-${g.series}`}
+          posterSrc={thumb}
+          onClick={() => onRowSelect(g)}
+        >
+          <div className="arr-movie-tile__title">{g.series}</div>
+          <div className="arr-movie-tile__stats arr-movie-tile__stats--sonarr-episodes">
+            {sonarrMonitoredEpisodeProgress(g)}
+          </div>
+          <div className="arr-movie-tile__quality">
+            {g.qualityProfileName ?? "—"}
+          </div>
+        </ArrCatalogIconTile>
+      );
+    },
+    [category, onRowSelect],
+  );
 
   return (
     <ArrCatalogStandardBody
@@ -900,26 +934,7 @@ function SonarrInstanceBody({
       getRowKey={sonarrGroupRowKey}
       onRowSelect={onRowSelect}
       iconGridRef={iconGridRef}
-      renderIconTile={(g) => {
-        const sid = g.seriesId;
-        const thumb =
-          sid != null && category ? sonarrSeriesThumbnailUrl(category, sid) : "";
-        return (
-          <ArrCatalogIconTile
-            key={`${g.instance}-${String(g.seriesId ?? "")}-${g.series}`}
-            posterSrc={thumb}
-            onClick={() => onRowSelect(g)}
-          >
-            <div className="arr-movie-tile__title">{g.series}</div>
-            <div className="arr-movie-tile__stats arr-movie-tile__stats--sonarr-episodes">
-              {sonarrMonitoredEpisodeProgress(g)}
-            </div>
-            <div className="arr-movie-tile__quality">
-              {g.qualityProfileName ?? "—"}
-            </div>
-          </ArrCatalogIconTile>
-        );
-      }}
+      renderIconTile={renderIconTile}
     />
   );
 }

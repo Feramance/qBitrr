@@ -1,10 +1,14 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState, type JSX, lazy, Suspense } from "react";
-const ProcessesView = lazy(() => import("./pages/ProcessesView").then(module => ({ default: module.ProcessesView })));
-const LogsView = lazy(() => import("./pages/LogsView").then(module => ({ default: module.LogsView })));
-const ArrCatalogView = lazy(() => import("./pages/ArrCatalogView").then(module => ({ default: module.ArrCatalogView })));
-const QbitCategoriesView = lazy(() => import("./pages/QbitCategoriesView").then(module => ({ default: module.QbitCategoriesView })));
-const ConfigView = lazy(() => import("./pages/ConfigView").then(module => ({ default: module.ConfigView })));
-import { ChangelogModal } from "./components/ChangelogModal";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  startTransition,
+  type JSX,
+  lazy,
+  Suspense,
+} from "react";
 import { formatVersionLabel } from "./utils/formatVersionLabel";
 import { useToast } from "./context/ToastContext";
 import { useSearch } from "./context/SearchContext";
@@ -24,10 +28,44 @@ import SonarrIcon from "./icons/sonarr.svg";
 import LidarrIcon from "./icons/lidarr.svg";
 import QbitIcon from "./icons/qbittorrent.svg";
 import ConfigIcon from "./icons/gear.svg";
-import logoUrl from "./assets/logov2-clean.svg";
+import logoUrl from "./assets/logo-64.png";
 import { safeClick } from "./utils/safeClick";
 
 type Tab = "processes" | "logs" | "radarr" | "sonarr" | "lidarr" | "qbittorrent" | "config";
+
+const loadProcessesView = () =>
+  import("./pages/ProcessesView").then((module) => ({ default: module.ProcessesView }));
+const loadLogsView = () =>
+  import("./pages/LogsView").then((module) => ({ default: module.LogsView }));
+const loadArrCatalogView = () =>
+  import("./pages/ArrCatalogView").then((module) => ({ default: module.ArrCatalogView }));
+const loadQbitCategoriesView = () =>
+  import("./pages/QbitCategoriesView").then((module) => ({ default: module.QbitCategoriesView }));
+const loadConfigView = () =>
+  import("./pages/ConfigView").then((module) => ({ default: module.ConfigView }));
+
+const ProcessesView = lazy(loadProcessesView);
+const LogsView = lazy(loadLogsView);
+const ArrCatalogView = lazy(loadArrCatalogView);
+const QbitCategoriesView = lazy(loadQbitCategoriesView);
+const ConfigView = lazy(loadConfigView);
+const ChangelogModal = lazy(() =>
+  import("./components/ChangelogModal").then((module) => ({ default: module.ChangelogModal }))
+);
+
+const TAB_PREFETCHERS: Record<Tab, () => Promise<unknown>> = {
+  processes: loadProcessesView,
+  logs: loadLogsView,
+  radarr: loadArrCatalogView,
+  sonarr: loadArrCatalogView,
+  lidarr: loadArrCatalogView,
+  qbittorrent: loadQbitCategoriesView,
+  config: loadConfigView,
+};
+
+function prefetchTab(tabId: Tab): void {
+  void TAB_PREFETCHERS[tabId]();
+}
 
 interface NavTab {
   id: Tab;
@@ -35,8 +73,19 @@ interface NavTab {
   icon: string;
 }
 
-function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOut: () => void }): JSX.Element {
+function AppShell({
+  authRequired,
+  onSignOut,
+  initialMeta = null,
+}: {
+  authRequired: boolean;
+  onSignOut: () => void;
+  initialMeta?: MetaResponse | null;
+}): JSX.Element {
   const [activeTab, setActiveTab] = useState<Tab>("processes");
+  const [visitedTabs, setVisitedTabs] = useState<ReadonlySet<Tab>>(
+    () => new Set<Tab>(["processes"]),
+  );
   const [configuredArrTabs, setConfiguredArrTabs] = useState<{
     radarr: boolean;
     sonarr: boolean;
@@ -47,8 +96,20 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
     lidarr: false,
   });
   const [configDirty, setConfigDirty] = useState(false);
+  const [configKey, setConfigKey] = useState(0);
   const { push } = useToast();
   const { setValue: setSearchValue } = useSearch();
+
+  const markTabVisited = useCallback((tabId: Tab) => {
+    setVisitedTabs((prev) => {
+      if (prev.has(tabId)) {
+        return prev;
+      }
+      const next = new Set(prev);
+      next.add(tabId);
+      return next;
+    });
+  }, []);
 
   const switchTab = useCallback(
     (tabId: Tab) => {
@@ -59,15 +120,21 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
         if (!shouldLeave) {
           return;
         }
+        // Remount Config so discarded drafts match previous leave-without-saving semantics.
+        setConfigKey((prev) => prev + 1);
+        setConfigDirty(false);
       }
-      setActiveTab(tabId);
+      startTransition(() => {
+        setActiveTab(tabId);
+        markTabVisited(tabId);
+      });
       setSearchValue("");
     },
-    [activeTab, configDirty, setSearchValue]
+    [activeTab, configDirty, markTabVisited, setSearchValue]
   );
   const { viewDensity, setViewDensity } = useWebUI();
   const isOnline = useNetworkStatus();
-  const [meta, setMeta] = useState<MetaResponse | null>(null);
+  const [meta, setMeta] = useState<MetaResponse | null>(initialMeta);
   const [metaLoading, setMetaLoading] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
   const [showAlreadyUpToDateModal, setShowAlreadyUpToDateModal] = useState(false);
@@ -81,24 +148,22 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
   const [reloadKey, setReloadKey] = useState(0);
   const [showWelcomeChangelog, setShowWelcomeChangelog] = useState(false);
 
-  // Theme is now managed by WebUIContext and applied automatically
-
-  // Clear cache on every page load to ensure fresh content
+  // Idle-prefetch lazy route chunks so first visits after cold start are cheaper.
   useEffect(() => {
-    const clearCache = async () => {
-      if ('caches' in window) {
-        try {
-          const cacheNames = await caches.keys();
-          await Promise.all(
-            cacheNames.map(cacheName => caches.delete(cacheName))
-          );
-        } catch {
-          // cache clear failed, non-critical
-        }
+    const run = () => {
+      for (const tabId of Object.keys(TAB_PREFETCHERS) as Tab[]) {
+        prefetchTab(tabId);
       }
     };
-    clearCache();
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(run, { timeout: 4000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const timer = window.setTimeout(run, 2000);
+    return () => window.clearTimeout(timer);
   }, []);
+
+  // Theme is now managed by WebUIContext and applied automatically
 
   const refreshMeta = useCallback(
     async (options?: { force?: boolean; silent?: boolean }): Promise<MetaResponse | null> => {
@@ -127,12 +192,17 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
     [push]
   );
 
+  // Soft-reuse AuthGate meta when present; only fetch if we mounted without it.
+  // Reserve force for update UI / visibility — quiet 5-min poll covers freshness.
   useEffect(() => {
+    if (initialMeta) {
+      return;
+    }
     const id = window.setTimeout(() => {
-      void refreshMeta({ force: true });
+      void refreshMeta({ force: false, silent: true });
     }, 0);
     return () => window.clearTimeout(id);
-  }, [refreshMeta]);
+  }, [initialMeta, refreshMeta]);
 
   // Check for new version on first launch - show welcome popup with changelog
   useEffect(() => {
@@ -275,7 +345,7 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
     }, 0);
     const id = window.setInterval(() => {
       void refreshStatus();
-    }, 5 * 1000); // Refresh every 5 seconds for more dynamic tab loading
+    }, 15 * 1000); // Refresh Arr tab visibility; client TTL covers status overlap
     return () => {
       window.clearTimeout(initialId);
       window.clearInterval(id);
@@ -443,11 +513,14 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
     const tabExists = tabs.some((tab) => tab.id === activeTab);
     if (!tabExists && tabs.length > 0) {
       const id = window.setTimeout(() => {
-        setActiveTab("processes");
+        startTransition(() => {
+          setActiveTab("processes");
+          markTabVisited("processes");
+        });
       }, 0);
       return () => window.clearTimeout(id);
     }
-  }, [tabs, activeTab]);
+  }, [tabs, activeTab, markTabVisited]);
 
   const handleCheckUpdates = useCallback(async () => {
     const data = await refreshMeta({ force: true });
@@ -607,6 +680,8 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
               key={tab.id}
               className={activeTab === tab.id ? "active" : ""}
               onClick={safeClick(() => switchTab(tab.id))}
+              onMouseEnter={() => prefetchTab(tab.id)}
+              onFocus={() => prefetchTab(tab.id)}
             >
               <IconImage src={tab.icon} />
               <span>{tab.label}</span>
@@ -614,62 +689,92 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
           ))}
         </nav>
         <Suspense fallback={<div className="loading">Loading...</div>}>
-          <div key={activeTab} className="view-transition">
-            {activeTab === "processes" && <ProcessesView key={`processes-${reloadKey}`} active />}
-            {activeTab === "logs" && <LogsView key={`logs-${reloadKey}`} active />}
-            {activeTab === "radarr" && visibleTabIds.has("radarr") && (
-              <ArrCatalogView key={`radarr-${reloadKey}`} kind="radarr" active />
-            )}
-            {activeTab === "sonarr" && visibleTabIds.has("sonarr") && (
-              <ArrCatalogView key={`sonarr-${reloadKey}`} kind="sonarr" active />
-            )}
-            {activeTab === "lidarr" && visibleTabIds.has("lidarr") && (
-              <ArrCatalogView key={`lidarr-${reloadKey}`} kind="lidarr" active />
-            )}
-            {activeTab === "qbittorrent" && <QbitCategoriesView key={`qbittorrent-${reloadKey}`} active />}
-            {activeTab === "config" && <ConfigView key="config" onDirtyChange={setConfigDirty} />}
+          <div className="view-transition">
+            {visitedTabs.has("processes") ? (
+              <div hidden={activeTab !== "processes"}>
+                <ProcessesView
+                  key={`processes-${reloadKey}`}
+                  active={activeTab === "processes"}
+                />
+              </div>
+            ) : null}
+            {visitedTabs.has("logs") ? (
+              <div hidden={activeTab !== "logs"}>
+                <LogsView key={`logs-${reloadKey}`} active={activeTab === "logs"} />
+              </div>
+            ) : null}
+            {visitedTabs.has("radarr") && visibleTabIds.has("radarr") ? (
+              <div hidden={activeTab !== "radarr"}>
+                <ArrCatalogView kind="radarr" active={activeTab === "radarr"} />
+              </div>
+            ) : null}
+            {visitedTabs.has("sonarr") && visibleTabIds.has("sonarr") ? (
+              <div hidden={activeTab !== "sonarr"}>
+                <ArrCatalogView kind="sonarr" active={activeTab === "sonarr"} />
+              </div>
+            ) : null}
+            {visitedTabs.has("lidarr") && visibleTabIds.has("lidarr") ? (
+              <div hidden={activeTab !== "lidarr"}>
+                <ArrCatalogView kind="lidarr" active={activeTab === "lidarr"} />
+              </div>
+            ) : null}
+            {visitedTabs.has("qbittorrent") ? (
+              <div hidden={activeTab !== "qbittorrent"}>
+                <QbitCategoriesView
+                  key={`qbittorrent-${reloadKey}`}
+                  active={activeTab === "qbittorrent"}
+                />
+              </div>
+            ) : null}
+            {visitedTabs.has("config") ? (
+              <div hidden={activeTab !== "config"}>
+                <ConfigView key={`config-${configKey}`} onDirtyChange={setConfigDirty} />
+              </div>
+            ) : null}
           </div>
         </Suspense>
       </main>
-      {showChangelog && meta ? (
-        <ChangelogModal
-          variant="updateAvailable"
-          currentVersion={meta.current_version}
-          latestVersion={latestVersion}
-          changelog={meta.changelog}
-          changelogUrl={changelogUrl}
-          repositoryUrl={repositoryUrl}
-          updateState={updateState}
-          updating={updateBusy}
-          installationType={meta.installation_type}
-          binaryDownloadUrl={meta.binary_download_url}
-          binaryDownloadName={meta.binary_download_name}
-          binaryDownloadSize={meta.binary_download_size}
-          binaryDownloadError={meta.binary_download_error}
-          onClose={handleCloseChangelog}
-          onUpdate={handleTriggerUpdate}
-        />
-      ) : null}
-      {showWelcomeChangelog && meta ? (
-        <ChangelogModal
-          variant="welcome"
-          currentVersion={meta.current_version}
-          changelog={meta.current_version_changelog || meta.changelog}
-          changelogUrl={changelogUrl}
-          repositoryUrl={repositoryUrl}
-          onClose={handleCloseWelcomeChangelog}
-        />
-      ) : null}
-      {showAlreadyUpToDateModal && meta ? (
-        <ChangelogModal
-          variant="upToDate"
-          currentVersion={meta.current_version}
-          changelog={meta.current_version_changelog || meta.changelog}
-          changelogUrl={changelogUrl}
-          repositoryUrl={repositoryUrl}
-          onClose={handleCloseAlreadyUpToDateModal}
-        />
-      ) : null}
+      <Suspense fallback={null}>
+        {showChangelog && meta ? (
+          <ChangelogModal
+            variant="updateAvailable"
+            currentVersion={meta.current_version}
+            latestVersion={latestVersion}
+            changelog={meta.changelog}
+            changelogUrl={changelogUrl}
+            repositoryUrl={repositoryUrl}
+            updateState={updateState}
+            updating={updateBusy}
+            installationType={meta.installation_type}
+            binaryDownloadUrl={meta.binary_download_url}
+            binaryDownloadName={meta.binary_download_name}
+            binaryDownloadSize={meta.binary_download_size}
+            binaryDownloadError={meta.binary_download_error}
+            onClose={handleCloseChangelog}
+            onUpdate={handleTriggerUpdate}
+          />
+        ) : null}
+        {showWelcomeChangelog && meta ? (
+          <ChangelogModal
+            variant="welcome"
+            currentVersion={meta.current_version}
+            changelog={meta.current_version_changelog || meta.changelog}
+            changelogUrl={changelogUrl}
+            repositoryUrl={repositoryUrl}
+            onClose={handleCloseWelcomeChangelog}
+          />
+        ) : null}
+        {showAlreadyUpToDateModal && meta ? (
+          <ChangelogModal
+            variant="upToDate"
+            currentVersion={meta.current_version}
+            changelog={meta.current_version_changelog || meta.changelog}
+            changelogUrl={changelogUrl}
+            repositoryUrl={repositoryUrl}
+            onClose={handleCloseAlreadyUpToDateModal}
+          />
+        ) : null}
+      </Suspense>
     </div>
   );
 }
