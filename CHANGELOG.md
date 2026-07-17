@@ -1,5 +1,17 @@
 # Changelog
 
+## v5.12.12 (17/07/2026)
+
+### 🐛 Bug Fixes
+- [[patch] Fixed Overseerr tv matching and qbit instance re initialisation when failed](https://github.com/Feramance/qBitrr/commit/9c25c3c1a544e1a69aa0ade415d99347d9c31560) - @Feramance
+- [fix: use TMDB id for Overseerr TV lookups](https://github.com/Feramance/qBitrr/commit/635de5cfd97f617499f19ea888dca813c6f74aad) - @Feramance
+- [fix: recover when qBit instance init failed at startup](https://github.com/Feramance/qBitrr/commit/c1436cfa30cfb9e649f47c93e0423e75adbbd3c8) - @Feramance
+
+### 🔧 Maintenance
+- [ci: checkout fork PR heads for unittest and package jobs](https://github.com/Feramance/qBitrr/commit/0eb6b645910d43430437d7e205d282a376bddcfa) - @Feramance
+
+---
+
 ## v5.12.11 (14/07/2026)
 
 ### 🐛 Bug Fixes
