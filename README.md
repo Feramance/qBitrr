@@ -183,10 +183,10 @@ Released under the [MIT License](LICENSE). Use it, modify it, share it—commerc
 
 ## Star History
 
-<a href="https://www.star-history.com/#Feramance/qBitrr&type=date&legend=top-left">
+<a href="https://www.star-history.com/?repos=Feramance%2FqBitrr&type=date&legend=top-left">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Feramance/qBitrr&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Feramance/qBitrr&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Feramance/qBitrr&type=date&legend=top-left" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=Feramance/qBitrr&type=date&theme=dark&legend=top-left&sealed_token=EXe-Jk5zmkaT62MxEUEshh3juu06IvhODSmGySh0hyQiA_DOrfWNv0H1axUNBrDDL3RfIB1KBnpwm5kw9YZhRByncU_LfykUCU-Iim2GqBEFbMXIQK6O2RVJwvcFHd7yI8_-Gl0ARaG-blnqO5RNw53c3lXvPYOldEWHA58pMTSfMqF5czAY9CDgrZeQ" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=Feramance/qBitrr&type=date&legend=top-left&sealed_token=EXe-Jk5zmkaT62MxEUEshh3juu06IvhODSmGySh0hyQiA_DOrfWNv0H1axUNBrDDL3RfIB1KBnpwm5kw9YZhRByncU_LfykUCU-Iim2GqBEFbMXIQK6O2RVJwvcFHd7yI8_-Gl0ARaG-blnqO5RNw53c3lXvPYOldEWHA58pMTSfMqF5czAY9CDgrZeQ" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=Feramance/qBitrr&type=date&legend=top-left&sealed_token=EXe-Jk5zmkaT62MxEUEshh3juu06IvhODSmGySh0hyQiA_DOrfWNv0H1axUNBrDDL3RfIB1KBnpwm5kw9YZhRByncU_LfykUCU-Iim2GqBEFbMXIQK6O2RVJwvcFHd7yI8_-Gl0ARaG-blnqO5RNw53c3lXvPYOldEWHA58pMTSfMqF5czAY9CDgrZeQ" />
  </picture>
 </a>
