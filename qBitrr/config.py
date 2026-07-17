@@ -88,8 +88,8 @@ elif (not CONFIG_FILE.exists()) and (not CONFIG_PATH.exists()):
     CONFIG_FILE = _write_config_file(docker=True)
     print(f'"{CONFIG_FILE.name}" has been generated with default values.')
     print("Update the file to match your environment, then restart the container.")
-
-    CONFIG_EXISTS = False
+    # First boot never continues with empty credentials (would NameError on CONFIG).
+    sys.exit(0)
 
 elif CONFIG_FILE.exists():
     CONFIG = MyConfig(CONFIG_FILE)

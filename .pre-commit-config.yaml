@@ -54,7 +54,13 @@ repos:
     entry: python scripts/openapi_check.py
     language: system
     pass_filenames: false
-    files: ^(qBitrr/(webui\.py|openapi\.json)|scripts/openapi_check\.py)$
+    files: ^(qBitrr/(webui(/.*)?\.py|openapi\.json)|scripts/openapi_check\.py)$
+  - id: config-fields-check
+    name: config-fields-check (gen_config vs configFields.ts)
+    entry: python scripts/config_fields_check.py --check-reload
+    language: system
+    pass_filenames: false
+    files: ^(qBitrr/(gen_config/.*\.py|config_reload_policy\.py)|webui/src/pages/config/configFields(\.generated)?\.ts|scripts/config_fields_(check\.py|allowlist\.txt))$
 ci:
   autofix_commit_msg: |
     [pre-commit.ci] auto fixes from pre-commit.com hooks

@@ -6,7 +6,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-from qBitrr.arss import Arr
+from qBitrr.arss import Arr, LidarrArr, RadarrArr, SonarrArr
 from qBitrr.arss.db_update_handlers import db_update_single_series
 from qBitrr.quality_profile_helpers import (
     compute_search_reason,
@@ -16,9 +16,11 @@ from qBitrr.quality_profile_helpers import (
 
 
 def _search_enabled_arr(**overrides) -> Arr:
-    arr = Arr.__new__(Arr)
+    arr_type = overrides.get("type", "sonarr")
+    cls = {"sonarr": SonarrArr, "radarr": RadarrArr, "lidarr": LidarrArr}.get(arr_type, Arr)
+    arr = cls.__new__(cls)
     arr._name = overrides.get("_name", "TestArr")
-    arr.type = overrides.get("type", "sonarr")
+    arr.type = arr_type
     arr.search_missing = overrides.get("search_missing", True)
     arr.do_upgrade_search = overrides.get("do_upgrade_search", False)
     arr.quality_unmet_search = overrides.get("quality_unmet_search", False)
@@ -40,7 +42,6 @@ def _search_enabled_arr(**overrides) -> Arr:
     arr.series_file_model = MagicMock()
     arr.artists_file_model = MagicMock()
     arr.track_file_model = None
-    arr.minimum_availability_check = MagicMock(return_value=True)
     arr._retry_profile_switch_update = MagicMock(return_value=True)
     return arr
 
@@ -100,9 +101,12 @@ class TestRadarrMinimumAvailabilityPreserved(unittest.TestCase):
 
     def test_skips_movie_when_minimum_availability_fails(self) -> None:
         arr = _search_enabled_arr(type="radarr")
-        arr.minimum_availability_check.return_value = False
         arr.model_file.get_or_none.return_value = None
-        db_update_single_series(arr, db_entry={"id": 1, "title": "Movie", "monitored": True})
+        with patch(
+            "qBitrr.arss.db_update_handlers.minimum_availability_check",
+            return_value=False,
+        ):
+            db_update_single_series(arr, db_entry={"id": 1, "title": "Movie", "monitored": True})
         arr.client.quality_profile.get.assert_not_called()
 
 
@@ -209,6 +213,7 @@ class TestRadarrMovieConditionalProfileUpdate(unittest.TestCase):
             "tmdbId": 1,
             "year": 2020,
             "movieFileId": 0,
+            "minimumAvailability": "released",
         }
         db_update_single_series(arr, db_entry=db_entry)
         arr._retry_profile_switch_update.assert_not_called()
@@ -381,8 +386,8 @@ class TestDbUpdateEpisodeRetry(unittest.TestCase):
         arr.client.series.get.return_value = [{"id": 1, "monitored": True}]
         arr.client.episode.get.return_value = []
         arr.series_file_model.insert.return_value.on_conflict.return_value.execute = MagicMock()
-        with patch("qBitrr.arss.arr.with_retry", side_effect=real_with_retry) as mock_retry:
-            with patch("qBitrr.arss.arr.fetch_search_activities", return_value={}):
+        with patch("qBitrr.arss.sonarr.with_retry", side_effect=real_with_retry) as mock_retry:
+            with patch("qBitrr.arss.base.fetch_search_activities", return_value={}):
                 with patch(
                     "qBitrr.arss.db_update_handlers.refresh_rollups_after_db_update",
                     return_value=None,
@@ -410,6 +415,7 @@ class TestDbUpdateRadarrMovieProfileSwitch(unittest.TestCase):
             "tmdbId": 1,
             "year": 2020,
             "movieFileId": 0,
+            "minimumAvailability": "released",
         }
         db_update_single_series(arr, db_entry=db_entry)
         arr._retry_profile_switch_update.assert_called_once()

@@ -1,0 +1,27 @@
+# Allowlist for scripts/config_fields_check.py
+#
+# Lines are dotted inventory paths (or prefix*). Comments and blank lines ignored.
+# Section headers below select which direction the exception applies to.
+# Keep this list to intentional omissions only (custom UI, write-only, AoT schemas).
+
+# --- gen_config only / missing in FE ---
+# Internal / not edited via FieldDefinition rows (custom UI or write-only).
+Settings.ConfigVersion
+WebUI.Theme
+WebUI.ViewDensity
+WebUI.LiveArr
+WebUI.PasswordHash
+# Custom QualityProfileMappings editor (not a FieldDefinition path).
+Arr.EntrySearch.QualityProfileMappings
+# TLS toggles exist in defaults but are not yet exposed as FE fields.
+qBit.SkipTLSVerify
+Arr.SkipTLSVerify
+Arr.EntrySearch.Ombi.SkipTLSVerify
+Arr.EntrySearch.Overseerr.SkipTLSVerify
+
+# --- FE only / missing in gen_config ---
+# Optional Arr override of qBit MatchSubcategories (not emitted by generate_doc).
+Arr.MatchSubcategories
+# Tracker AoT entry schema — gen_config emits empty Trackers = [] arrays only.
+Arr.Torrent.Trackers[].*
+qBit.Trackers[].*

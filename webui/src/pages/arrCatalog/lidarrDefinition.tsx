@@ -13,7 +13,6 @@ import { ArrCatalogIconTile } from "./ArrCatalogIconTile";
 import { ArrCatalogStandardBody } from "./ArrCatalogStandardBody";
 import { createStandardArrFilters } from "./createStandardArrFilters";
 import type { ArrCatalogDefinition, ArrCatalogSummary, AnyArrCatalogDefinition } from "./definition";
-import { ARR_CATALOG_REGISTRY } from "./registry";
 import { useInstancePagedFetch } from "./useInstancePagedFetch";
 import { categoryForInstanceLabel } from "./utils";
 import type { RowsStore } from "../../utils/rowsStore";
@@ -445,8 +444,6 @@ export const LIDARR_DEFINITION: ArrCatalogDefinition<
   renderAggregateBody: (props) => <LidarrAggregateBody {...props} />,
   renderInstanceBody: (props) => <LidarrInstanceBody {...props} />,
 };
-
-ARR_CATALOG_REGISTRY.lidarr = LIDARR_DEFINITION;
 
 export function getLidarrCatalogDefinition(): AnyArrCatalogDefinition {
   return LIDARR_DEFINITION;

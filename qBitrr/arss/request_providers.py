@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
+import sys
 from collections import defaultdict
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
+import requests
+
 from qBitrr.arss._shared import (
     _ARR_RETRY_EXCEPTIONS,
+    UnhandledError,
     _is_media_processing,
     _normalize_media_status,
     with_retry,
 )
+from qBitrr.arss.db_update_handlers import db_update_single_series
 
 if TYPE_CHECKING:
     pass
@@ -151,7 +156,7 @@ def _get_oversee_requests_all(arr) -> dict[str, set]:
 
 
 def _get_overseerr_requests_count(arr) -> int:
-    arr._get_oversee_requests_all()
+    _get_oversee_requests_all(arr)
     if arr.type == "sonarr":
         return len(
             arr._temp_overseer_request_cache.get("TvdbId", [])
@@ -225,7 +230,7 @@ def _get_ombi_requests(arr) -> list[dict]:
 
 
 def _process_ombi_requests(arr) -> dict[str, set[str, int]]:
-    requests = arr._get_ombi_requests()
+    requests = _get_ombi_requests(arr)
     data = defaultdict(set)
     for request in requests:
         if arr.type == "radarr" and arr.ombi_approved_only and request.get("denied") is True:
@@ -245,9 +250,9 @@ def _process_ombi_requests(arr) -> dict[str, set[str, int]]:
 
 def db_request_update(arr):
     if arr.overseerr_requests:
-        arr.db_overseerr_update()
+        db_overseerr_update(arr)
     else:
-        arr.db_ombi_update()
+        db_ombi_update(arr)
 
 
 def _db_request_update(arr, request_ids: dict[str, set[int | str]]):
@@ -290,7 +295,7 @@ def _db_request_update(arr, request_ids: dict[str, set[int | str]]):
                         continue
                     if e["episodeFileId"] != 0:
                         continue
-                    arr.db_update_single_series(db_entry=e, request=True)
+                    db_update_single_series(arr, db_entry=e, request=True)
     elif arr.type == "radarr" and any(i in request_ids for i in ["ImdbId", "TmdbId"]):
         ImdbIds = request_ids.get("ImdbId")
         TmdbIds = request_ids.get("TmdbId")
@@ -317,30 +322,30 @@ def _db_request_update(arr, request_ids: dict[str, set[int | str]]):
                 continue
             if m["hasFile"]:
                 continue
-            arr.db_update_single_series(db_entry=m, request=True)
+            db_update_single_series(arr, db_entry=m, request=True)
 
 
 def db_overseerr_update(arr):
     if (not arr.search_missing) or (not arr.overseerr_requests):
         return
-    if arr._get_overseerr_requests_count() == 0:
+    if _get_overseerr_requests_count(arr) == 0:
         return
     request_ids = arr._temp_overseer_request_cache
     if not any(i in request_ids for i in ["ImdbId", "TmdbId", "TvdbId"]):
         return
     arr.logger.notice("Started updating database with Overseerr request entries.")
-    arr._db_request_update(request_ids)
+    _db_request_update(arr, request_ids)
     arr.logger.notice("Finished updating database with Overseerr request entries")
 
 
 def db_ombi_update(arr):
     if (not arr.search_missing) or (not arr.ombi_search_requests):
         return
-    if arr._get_ombi_request_count() == 0:
+    if _get_ombi_request_count(arr) == 0:
         return
-    request_ids = arr._process_ombi_requests()
+    request_ids = _process_ombi_requests(arr)
     if not any(i in request_ids for i in ["ImdbId", "TmdbId", "TvdbId"]):
         return
     arr.logger.notice("Started updating database with Ombi request entries.")
-    arr._db_request_update(request_ids)
+    _db_request_update(arr, request_ids)
     arr.logger.notice("Finished updating database with Ombi request entries")

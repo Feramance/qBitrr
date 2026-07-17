@@ -10,9 +10,6 @@ from qBitrr.arss._shared import (
     QBIT_DISABLED,
     SEARCH_ONLY,
     SkipException,
-    build_lidarr_client,
-    build_radarr_client,
-    build_sonarr_client,
     find_overlap_conflicts,
     get_auto_pause_resume_effective,
     get_effective_qbit_disabled,
@@ -25,7 +22,8 @@ from qBitrr.arss._shared import (
     qbit_sections,
     run_logs,
 )
-from qBitrr.arss.arr import Arr
+from qBitrr.arss.base import ArrBase
+from qBitrr.arss.factory import build_arr_instance
 from qBitrr.arss.placeholder import PlaceHolderArr
 from qBitrr.arss.torrent_policy import TorrentPolicyManager
 
@@ -48,7 +46,7 @@ class ArrManager:
         self.policy_manager_tracker_sync_categories: set[str] = set()
         self.category_allowlist: set[str] = self.special_categories.copy()
         self.completed_folders: set[pathlib.Path] = set()
-        self.managed_objects: dict[str, Arr] = {}
+        self.managed_objects: dict[str, ArrBase] = {}
         # Prefix dispatch: all Arr + qBit-managed category keys used as roots for
         # :meth:`matches_configured` when instance-level ``MatchSubcategories`` /
         # per-Arr overrides allow prefix matching (see ``_prefix_match_allowed_for_owner``).
@@ -360,19 +358,8 @@ class ArrManager:
         for key in CONFIG.sections():
             if search := re.match("(rad|son|anim|lid)arr.*", key, re.IGNORECASE):
                 name = search.group(0)
-                match = search.group(1)
-                if match.lower() == "son":
-                    call_builder = build_sonarr_client
-                elif match.lower() == "anim":
-                    call_builder = build_sonarr_client
-                elif match.lower() == "rad":
-                    call_builder = build_radarr_client
-                elif match.lower() == "lid":
-                    call_builder = build_lidarr_client
-                else:
-                    call_builder = None
                 try:
-                    managed_object = Arr(name, self, client_builder=call_builder)
+                    managed_object = build_arr_instance(name, self)
                     self.groups.add(name)
                     self.uris.add(managed_object.uri)
                     self.managed_objects[managed_object.category] = managed_object
@@ -397,7 +384,7 @@ class ArrManager:
             and get_auto_pause_resume_effective()
             and not get_effective_qbit_disabled()
         )
-        sort_enabled = Arr.global_sort_torrents_enabled() and not get_effective_qbit_disabled()
+        sort_enabled = ArrBase.global_sort_torrents_enabled() and not get_effective_qbit_disabled()
         should_start_torrent_policy_manager = bool(
             all_monitored_categories and has_configured_qbit_instance
         )

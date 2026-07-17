@@ -91,6 +91,32 @@ class TestConfigReloadPolicy(unittest.TestCase):
         )
         self.assertEqual(plan.primary_reload_type(), "live")
         self.assertFalse(plan.needs_full_restart)
+        self.assertEqual(
+            plan.live_keys,
+            ["Settings.LoopSleepTimer", "Settings.FailedCategory"],
+        )
+        self.assertFalse(plan.arr_live_instances)
+
+    def test_classify_changes_arr_live_populates_arr_live_instances(self) -> None:
+        from qBitrr.config_reload_policy import classify_config_changes
+
+        plan = classify_config_changes(
+            {
+                "Radarr.Main.EntrySearch.SearchMissing": True,
+                "Radarr.Main.Torrent.AutoDelete": False,
+                "Settings.LoopSleepTimer": 15,
+            }
+        )
+        self.assertEqual(plan.primary_reload_type(), "live")
+        self.assertIn("Radarr.Main", plan.arr_live_instances)
+        self.assertEqual(
+            plan.arr_live_instances["Radarr.Main"],
+            [
+                "Radarr.Main.EntrySearch.SearchMissing",
+                "Radarr.Main.Torrent.AutoDelete",
+            ],
+        )
+        self.assertEqual(plan.live_keys, ["Settings.LoopSleepTimer"])
 
     def test_classify_changes_mixed_arr_reset_and_respawn(self) -> None:
         from qBitrr.config_reload_policy import classify_config_changes

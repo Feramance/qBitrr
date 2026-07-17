@@ -26,7 +26,7 @@ import {
   useCatalogPageCache,
   useCatalogSearchRegistration,
 } from "./useCatalogFetchPrimitives";
-import { softCapCachedPages } from "./utils";
+import { softCapCachedPages, visibleRowsForCachedPage } from "./utils";
 
 /**
  * Flat-strategy instance pipeline used by Radarr + Lidarr.
@@ -363,38 +363,22 @@ export function useInstancePagedFetch<
     },
   );
 
-  // Build "all cached rows" view used by Radarr's filter-then-paginate pattern.  When
-  // `keepAllPages` is false, this is just the current page (Lidarr).
-  const allRows = useMemo<ReadonlyArray<TInstRow>>(() => {
-    if (!adapter.keepAllPages) {
-      return pages[page] ?? [];
-    }
-    const sortedKeys = Object.keys(pages)
-      .map(Number)
-      .sort((a, b) => a - b);
-    const out: TInstRow[] = [];
-    for (const k of sortedKeys) {
-      const slice = pages[k];
-      if (slice) out.push(...slice);
-    }
-    return out;
-  }, [pages, page, adapter.keepAllPages]);
+  // Display the current server page from the cache. `keepAllPages` only warms
+  // flip-back; it must not concat + absolute-slice (breaks after soft-cap drops
+  // early pages). Lidarr keeps a single page; Radarr filters that page client-side.
+  const allRows = useMemo<ReadonlyArray<TInstRow>>(() => pages[page] ?? [], [pages, page]);
 
   const filteredRows = useMemo<ReadonlyArray<TInstRow>>(() => {
-    const f = adapter.filterRows;
-    if (!f) return allRows;
-    return f(allRows, filtersRef.current);
+    return visibleRowsForCachedPage(pages, page, (rows) => {
+      const f = adapter.filterRows;
+      return f ? f(rows, filtersRef.current) : rows;
+    });
     // `filters` is intentional: the memo reads the latest filter state via the
     // ref, but we still want to recompute when any filter actually changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allRows, adapter, filters]);
+  }, [pages, page, allRows, adapter, filters]);
 
-  const visibleRows = useMemo<ReadonlyArray<TInstRow>>(() => {
-    if (!adapter.keepAllPages) {
-      return filteredRows;
-    }
-    return filteredRows.slice(page * pageSize, page * pageSize + pageSize);
-  }, [filteredRows, page, pageSize, adapter.keepAllPages]);
+  const visibleRows = filteredRows;
 
   // Push the visible slice through the row store for surgical updates.
   useEffect(() => {

@@ -33,6 +33,35 @@ def arr_with_retry(fn: Callable[[], T], *, retries: int = 5) -> T:
     )
 
 
+def retry_profile_switch_update(
+    update_fn: Callable[[], Any],
+    *,
+    attempts: int,
+    kind: str,
+    logger: Any,
+    sleep_fn: Callable[[float], None] | None = None,
+) -> bool:
+    """Retry an Arr quality-profile PUT using the configured switch-attempt count."""
+    import time as _time
+
+    sleeper = sleep_fn or _time.sleep
+    for attempt in range(max(1, attempts)):
+        try:
+            update_fn()
+            return True
+        except _ARR_RETRY_EXCEPTIONS as exc:
+            if attempt == attempts - 1:
+                logger.error(
+                    "Failed to update %s profile after %d attempts: %s",
+                    kind,
+                    attempts,
+                    exc,
+                )
+                return False
+            sleeper(1)
+    return False
+
+
 def should_mark_searched(
     *,
     has_content: bool,

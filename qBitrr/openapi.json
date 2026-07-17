@@ -309,6 +309,36 @@
         ]
       }
     },
+    "/api/config/schema": {
+      "get": {
+        "operationId": "api_config_schema_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Structured field registry (labels, kinds, reload hints)"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get configuration field schema",
+        "tags": [
+          "WebUI"
+        ]
+      }
+    },
     "/api/docs": {
       "get": {
         "operationId": "api_swagger_ui",
@@ -1757,6 +1787,36 @@
           }
         ],
         "summary": "Update configuration",
+        "tags": [
+          "WebUI"
+        ]
+      }
+    },
+    "/web/config/schema": {
+      "get": {
+        "operationId": "web_config_schema_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Structured field registry (labels, kinds, reload hints)"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get configuration field schema",
         "tags": [
           "WebUI"
         ]

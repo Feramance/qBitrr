@@ -17,7 +17,6 @@ import type {
   AnyArrCatalogDefinition,
   ArrCatalogDefinition,
 } from "./definition";
-import { ARR_CATALOG_REGISTRY } from "./registry";
 import { useInstancePagedFetch } from "./useInstancePagedFetch";
 import { categoryForInstanceLabel } from "./utils";
 
@@ -295,8 +294,6 @@ export const RADARR_DEFINITION: ArrCatalogDefinition<
     <RadarrInstanceBody {...props} />
   ),
 };
-
-ARR_CATALOG_REGISTRY.radarr = RADARR_DEFINITION;
 
 export function getRadarrCatalogDefinition(): AnyArrCatalogDefinition {
   return RADARR_DEFINITION;

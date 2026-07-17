@@ -338,7 +338,7 @@ export interface ArrCatalogDefinition<
   ) => ReactNode;
 }
 
-/** Convenience alias for the most-erased form of a definition (used by registry). */
+/** Convenience alias for the most-erased form of a definition (shell / loaders). */
 export type AnyArrCatalogDefinition = ArrCatalogDefinition<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   any,

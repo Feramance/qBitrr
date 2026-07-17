@@ -60,6 +60,33 @@ jobs:
         cd webui
         npm ci
         npm run test
+  drift-checks:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.PAT || github.token }}
+        repository: ${{ github.event.pull_request.head.repo.full_name }}
+        ref: ${{ github.event.pull_request.head.ref }}
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: 3.12.2
+        cache: pip
+        cache-dependency-path: |
+          setup.cfg
+          pyproject.toml
+    - name: Install Python dependencies
+      run: |
+        python -m pip install -U pip
+        python -m pip install -e '.[dev]'
+    - name: Check config fields drift
+      run: python scripts/config_fields_check.py --check-reload
+    - name: Check OpenAPI drift
+      run: python scripts/openapi_check.py
   package:
     if: github.event.pull_request.draft == false
     runs-on: ${{ matrix.os }}

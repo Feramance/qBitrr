@@ -60,6 +60,8 @@ Commands:
   newenv                     Create or replace this project's virtual environment.
   syncenv                    Sync this project's virtual environment to Red's latest dependencies.
   openapi-check              Diff Flask routes vs qBitrr/openapi.json (drift fails CI).
+  config-fields-check        Diff gen_config defaults vs configFields.ts (drift fails CI).
+  generate-config-fields     Emit webui configFields.generated.ts from the Python registry.
   docs-install               Install documentation dependencies.
   docs-serve                 Serve documentation locally with hot reload.
   docs-build                 Build documentation site.
@@ -77,6 +79,16 @@ reformat:
 .PHONY: openapi-check
 openapi-check:
 	$(PYTHON) scripts/openapi_check.py
+
+# gen_config ↔ WebUI configFields inventory drift check
+.PHONY: config-fields-check
+config-fields-check:
+	$(PYTHON) scripts/config_fields_check.py --check-reload
+
+# Build-time UI field stubs from qBitrr/gen_config/fields.py
+.PHONY: generate-config-fields
+generate-config-fields:
+	$(PYTHON) scripts/generate_config_fields_ts.py
 
 # Dependencies
 bumpdeps:

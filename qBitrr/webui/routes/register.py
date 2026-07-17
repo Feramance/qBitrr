@@ -1537,6 +1537,19 @@ def register_routes(webui: WebUI) -> None:
             webui.logger.debug("api_get_config failed", exc_info=True)
             return jsonify({"error": "Failed to load config"}), 500
 
+    @_dual_route("/config/schema")
+    def api_config_schema():
+        """Return the structured config field registry (labels, kinds, reload hints)."""
+        if (resp := require_token()) is not None:
+            return resp
+        try:
+            from qBitrr.gen_config.fields import build_config_schema
+
+            return jsonify(build_config_schema())
+        except Exception:
+            webui.logger.debug("api_config_schema failed", exc_info=True)
+            return jsonify({"error": "Failed to load config schema"}), 500
+
     @app.get("/web/config")
     def web_get_config():
         if (resp := require_token()) is not None:

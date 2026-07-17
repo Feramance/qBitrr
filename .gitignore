@@ -14,6 +14,7 @@
 /qBitrr/testing/
 test.py
 /.github/workflows/test.yml
+.compose-test/
 
 # Python
 __pycache__/
@@ -75,3 +76,4 @@ test_webui.sh
 opencodetmp/
 .claude
 CLAUDE.md
+.codegen-config/

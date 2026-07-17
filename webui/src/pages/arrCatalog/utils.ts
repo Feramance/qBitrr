@@ -37,6 +37,22 @@ export function softCapCachedPages<T>(
 }
 
 /**
+ * Visible rows for a soft-capped `keepAllPages` cache.
+ *
+ * Always returns the server page at `page` (after optional filtering). Never
+ * concatenates cached pages and re-slices with an absolute page index — that
+ * breaks once early pages are dropped by {@link softCapCachedPages}.
+ */
+export function visibleRowsForCachedPage<T>(
+  pages: Record<number, ReadonlyArray<T>>,
+  page: number,
+  filterRows?: (rows: ReadonlyArray<T>) => ReadonlyArray<T>,
+): ReadonlyArray<T> {
+  const slice = pages[page] ?? [];
+  return filterRows ? filterRows(slice) : slice;
+}
+
+/**
  * Resolve category key for API/thumbnail calls from aggregate row `__instance` label.
  */
 export function categoryForInstanceLabel(

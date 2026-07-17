@@ -12,15 +12,11 @@ from collections import defaultdict
 from collections.abc import Iterable
 
 import qbittorrentapi
-import requests
-from ujson import JSONDecodeError
 
 from qBitrr.arss._shared import (
-    _ARR_RETRY_EXCEPTIONS,
     _ARR_RETRY_EXCEPTIONS_EXTENDED,
     _QBIT_TORRENT_DELETE_EXCEPTIONS,
     _QBIT_WRITE_RETRY_EXCEPTIONS,
-    PyarrResourceNotFound,
     _collect_instance_hash_map_hashes,
     _prune_instance_hash_map,
     execute_command,
@@ -117,222 +113,7 @@ class TorrentBatchMixin:
             )
         object_id = self.requeue_cache.get(entry)
         if self.re_search and object_id:
-            if self.type == "sonarr":
-                object_ids = list(object_id)
-                self.logger.trace("Requeue cache entry list: %s", object_ids)
-                if self.series_search:
-                    series_id = None
-                    try:
-                        data = with_retry(
-                            lambda: self.client.series.get(item_id=object_ids[0]),
-                            retries=5,
-                            backoff=0.5,
-                            max_backoff=5,
-                            exceptions=_ARR_RETRY_EXCEPTIONS,
-                        )
-                        name = data["title"]
-                        series_id = data["id"]
-                        if name:
-                            year = data.get("year", 0)
-                            tvdbId = data.get("tvdbId", 0)
-                            self.logger.notice(
-                                "Re-Searching series: %s (%s) | [tvdbId=%s|id=%s]",
-                                name,
-                                year,
-                                tvdbId,
-                                series_id,
-                            )
-                        else:
-                            self.logger.notice("Re-Searching series: %s", series_id)
-                    except PyarrResourceNotFound as e:
-                        self.logger.warning(
-                            "Series %s not found in Sonarr (likely removed): %s",
-                            object_ids[0],
-                            str(e),
-                        )
-                    for object_id in object_ids:
-                        if object_id in self.queue_file_ids:
-                            self.queue_file_ids.remove(object_id)
-                    if series_id:
-                        self.logger.trace("Research series id: %s", series_id)
-                        with_retry(
-                            lambda sid=series_id: execute_command(
-                                self.client, self.search_api_command, seriesId=sid
-                            ),
-                            retries=5,
-                            backoff=0.5,
-                            max_backoff=5,
-                            exceptions=_ARR_RETRY_EXCEPTIONS,
-                        )
-                        if self.persistent_queue:
-                            self.persistent_queue.insert(
-                                EntryId=series_id, ArrInstance=self._name
-                            ).on_conflict_ignore()
-                else:
-                    for object_id in object_ids:
-                        episode_found = False
-                        try:
-                            data = with_retry(
-                                lambda oid=object_id: self.client.episode.get(item_id=oid),
-                                retries=5,
-                                backoff=0.5,
-                                max_backoff=5,
-                                exceptions=(
-                                    requests.exceptions.ChunkedEncodingError,
-                                    requests.exceptions.ContentDecodingError,
-                                    requests.exceptions.ConnectionError,
-                                    JSONDecodeError,
-                                    AttributeError,
-                                ),
-                            )
-                            name = data.get("title")
-                            series_id = data.get("series", {}).get("id")
-                            if name:
-                                episodeNumber = data.get("episodeNumber", 0)
-                                absoluteEpisodeNumber = data.get("absoluteEpisodeNumber", 0)
-                                seasonNumber = data.get("seasonNumber", 0)
-                                seriesTitle = data.get("series", {}).get("title")
-                                year = data.get("series", {}).get("year", 0)
-                                tvdbId = data.get("series", {}).get("tvdbId", 0)
-                                self.logger.notice(
-                                    "Re-Searching episode: %s (%s) | "
-                                    "S%02dE%03d "
-                                    "(E%04d) | "
-                                    "%s | "
-                                    "[tvdbId=%s|id=%s]",
-                                    seriesTitle,
-                                    year,
-                                    seasonNumber,
-                                    episodeNumber,
-                                    absoluteEpisodeNumber,
-                                    name,
-                                    tvdbId,
-                                    object_id,
-                                )
-                            else:
-                                self.logger.notice("Re-Searching episode: %s", object_id)
-                            episode_found = True
-                        except PyarrResourceNotFound as e:
-                            self.logger.warning(
-                                "Episode %s not found in Sonarr (likely removed): %s",
-                                object_id,
-                                str(e),
-                            )
-
-                        if object_id in self.queue_file_ids:
-                            self.queue_file_ids.remove(object_id)
-                        if episode_found:
-                            with_retry(
-                                lambda oid=object_id: execute_command(
-                                    self.client, "EpisodeSearch", episodeIds=[oid]
-                                ),
-                                retries=5,
-                                backoff=0.5,
-                                max_backoff=5,
-                                exceptions=_ARR_RETRY_EXCEPTIONS,
-                            )
-                            if self.persistent_queue:
-                                self.persistent_queue.insert(
-                                    EntryId=object_id, ArrInstance=self._name
-                                ).on_conflict_ignore()
-            elif self.type == "radarr":
-                self.logger.trace("Requeue cache entry: %s", object_id)
-                movie_found = False
-                try:
-                    data = with_retry(
-                        lambda: self.client.movie.get(item_id=object_id),
-                        retries=5,
-                        backoff=0.5,
-                        max_backoff=5,
-                        exceptions=(
-                            requests.exceptions.ChunkedEncodingError,
-                            requests.exceptions.ContentDecodingError,
-                            requests.exceptions.ConnectionError,
-                            JSONDecodeError,
-                            AttributeError,
-                        ),
-                    )
-                    name = data.get("title")
-                    if name:
-                        year = data.get("year", 0)
-                        tmdbId = data.get("tmdbId", 0)
-                        self.logger.notice(
-                            "Re-Searching movie: %s (%s) | [tmdbId=%s|id=%s]",
-                            name,
-                            year,
-                            tmdbId,
-                            object_id,
-                        )
-                    else:
-                        self.logger.notice("Re-Searching movie: %s", object_id)
-                    movie_found = True
-                except PyarrResourceNotFound as e:
-                    self.logger.warning(
-                        "Movie %s not found in Radarr (likely removed): %s", object_id, str(e)
-                    )
-                if object_id in self.queue_file_ids:
-                    self.queue_file_ids.remove(object_id)
-                if movie_found:
-                    with_retry(
-                        lambda: execute_command(self.client, "MoviesSearch", movieIds=[object_id]),
-                        retries=5,
-                        backoff=0.5,
-                        max_backoff=5,
-                        exceptions=_ARR_RETRY_EXCEPTIONS,
-                    )
-                    if self.persistent_queue:
-                        self.persistent_queue.insert(
-                            EntryId=object_id, ArrInstance=self._name
-                        ).on_conflict_ignore()
-            elif self.type == "lidarr":
-                self.logger.trace("Requeue cache entry: %s", object_id)
-                album_found = False
-                try:
-                    data = with_retry(
-                        lambda: self.client.album.get(item_id=object_id),
-                        retries=5,
-                        backoff=0.5,
-                        max_backoff=5,
-                        exceptions=(
-                            requests.exceptions.ChunkedEncodingError,
-                            requests.exceptions.ContentDecodingError,
-                            requests.exceptions.ConnectionError,
-                            JSONDecodeError,
-                            AttributeError,
-                        ),
-                    )
-                    name = data.get("title")
-                    if name:
-                        artist_title = data.get("artist", {}).get("artistName", "")
-                        foreign_album_id = data.get("foreignAlbumId", "")
-                        self.logger.notice(
-                            "Re-Searching album: %s - %s | [foreignAlbumId=%s|id=%s]",
-                            artist_title,
-                            name,
-                            foreign_album_id,
-                            object_id,
-                        )
-                    else:
-                        self.logger.notice("Re-Searching album: %s", object_id)
-                    album_found = True
-                except PyarrResourceNotFound as e:
-                    self.logger.warning(
-                        "Album %s not found in Lidarr (likely removed): %s", object_id, str(e)
-                    )
-                if object_id in self.queue_file_ids:
-                    self.queue_file_ids.remove(object_id)
-                if album_found:
-                    with_retry(
-                        lambda: execute_command(self.client, "AlbumSearch", albumIds=[object_id]),
-                        retries=5,
-                        backoff=0.5,
-                        max_backoff=5,
-                        exceptions=_ARR_RETRY_EXCEPTIONS,
-                    )
-                    if self.persistent_queue:
-                        self.persistent_queue.insert(
-                            EntryId=object_id, ArrInstance=self._name
-                        ).on_conflict_ignore()
+            self._re_search_failed_media(object_id)
 
     def _process_errored(self) -> None:
         # Recheck all torrents marked for rechecking on their owning qBit instance.
@@ -439,6 +220,20 @@ class TorrentBatchMixin:
                     )
 
     def _process_failed(self) -> None:
+        self._process_failed_deletes(
+            use_qbit_retry=True,
+            warn_if_missing=False,
+            cross_arr=False,
+        )
+
+    def _process_failed_deletes(
+        self,
+        *,
+        use_qbit_retry: bool,
+        warn_if_missing: bool,
+        cross_arr: bool,
+    ) -> None:
+        """Delete queued failed torrents and optionally dispatch Arr queue deletes."""
         to_delete_all = self.delete.union(
             self.missing_files_post_delete, self.downloads_with_bad_error_message_blocklist
         )
@@ -446,16 +241,16 @@ class TorrentBatchMixin:
         skip_blacklist = {
             i.upper() for i in self.skip_blacklist.union(self.missing_files_post_delete)
         }
-        if (
+        if not (
             to_delete_all
             or self.remove_from_qbit
             or self.skip_blacklist
             or self.remove_from_qbit_by_instance
             or self.delete_by_instance
         ):
-            self._log_deletion_summary_line()
-            self._log_deletion_sample_debug(to_delete_all)
-        # Delete torrents from the correct qBit instance (multi-instance).
+            return
+        self._log_deletion_summary_line()
+        self._log_deletion_sample_debug(to_delete_all)
         from qBitrr.arss.qbit_side_effects import (
             delete_hashes_on_primary,
             delete_hashes_per_instance,
@@ -468,12 +263,14 @@ class TorrentBatchMixin:
         for inst_name, hashes in self.delete_by_instance.items():
             if hashes:
                 per_instance_batches.setdefault(inst_name, set()).update(hashes)
+        after_success = self._evict_hashes_from_qbit_side_caches if use_qbit_retry else None
         per_instance_deleted = delete_hashes_per_instance(
             self,
             per_instance_batches,
-            use_qbit_retry=True,
-            after_success=self._evict_hashes_from_qbit_side_caches,
+            use_qbit_retry=use_qbit_retry,
+            after_success=after_success,
         )
+        deleted_hashes: set[str] = set(per_instance_deleted)
         _prune_instance_hash_map(self.remove_from_qbit_by_instance, per_instance_deleted)
         _prune_instance_hash_map(self.delete_by_instance, per_instance_deleted)
         pending_per_instance = _collect_instance_hash_map_hashes(
@@ -481,34 +278,39 @@ class TorrentBatchMixin:
         )
         to_delete_all = to_delete_all - per_instance_deleted
         to_delete_default = to_delete_all - pending_per_instance
-        deleted_hashes: set[str] = set()
+        primary_deleted: set[str] = set()
         if self.remove_from_qbit or self.skip_blacklist or to_delete_default:
-            # Remove remaining torrents via the default client.
             if to_delete_default:
-                deleted_hashes.update(
+                primary_deleted.update(
                     delete_hashes_on_primary(
                         self,
                         to_delete_default,
-                        use_qbit_retry=True,
-                        error_label="from qBit",
+                        use_qbit_retry=use_qbit_retry,
+                        warn_if_missing=warn_if_missing,
+                        error_label=(
+                            "from qBit (to_delete_all)" if warn_if_missing else "from qBit"
+                        ),
                     )
                 )
             if self.remove_from_qbit or self.skip_blacklist:
-                temp_to_delete = self.remove_from_qbit.union(self.skip_blacklist)
-                deleted_hashes.update(
+                rest = self.remove_from_qbit.union(self.skip_blacklist) - deleted_hashes
+                primary_deleted.update(
                     delete_hashes_on_primary(
                         self,
-                        temp_to_delete,
-                        use_qbit_retry=True,
-                        error_label="from qBit",
+                        rest,
+                        use_qbit_retry=use_qbit_retry,
+                        warn_if_missing=warn_if_missing,
+                        error_label=(
+                            "from qBit (remove/blacklist)" if warn_if_missing else "from qBit"
+                        ),
                     )
                 )
-            self._evict_hashes_from_qbit_side_caches(deleted_hashes)
-        confirmed_deleted = per_instance_deleted | deleted_hashes
+            self._evict_hashes_from_qbit_side_caches(deleted_hashes | primary_deleted)
+        confirmed_deleted = deleted_hashes | primary_deleted
         dispatch_targets = confirmed_deleted & queue_delete_targets
         if dispatch_targets:
             self._process_failed_dispatch_queue_deletes(
-                dispatch_targets, skip_blacklist, cross_arr=False
+                dispatch_targets, skip_blacklist, cross_arr=cross_arr
             )
         all_deleted = confirmed_deleted
         if self.missing_files_post_delete:

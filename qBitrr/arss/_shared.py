@@ -1,28 +1,10 @@
 from __future__ import annotations
 
-import atexit
-import contextlib
-import logging
-import pathlib
-import re
-import shutil
-import sys
-import time
-from collections import defaultdict
-from collections.abc import Callable, Iterable, Iterator
-from copy import copy
-from datetime import datetime, timedelta, timezone
-from multiprocessing import current_process
-from typing import TYPE_CHECKING, Any, NoReturn
+from typing import TYPE_CHECKING, Any
 
-import ffmpeg
-import pathos
 import qbittorrentapi
 import qbittorrentapi.exceptions
 import requests
-from packaging import version as version_parser
-from peewee import DatabaseError, Model, OperationalError, SqliteDatabase
-from qbittorrentapi import TorrentDictionary, TorrentStates
 from ujson import JSONDecodeError
 
 from qBitrr.arr_client import (
@@ -54,7 +36,6 @@ from qBitrr.category_paths import (
 from qBitrr.config import (
     APPDATA_FOLDER,
     AUTO_PAUSE_RESUME,
-    COMPLETED_DOWNLOAD_FOLDER,
     CONFIG,
     PROCESS_ONLY,
     QBIT_DISABLED,
@@ -244,26 +225,17 @@ __all__ = [
     "AlbumFilesModel",
     "AlbumQueueModel",
     "ArtistFilesModel",
-    "Callable",
-    "COMPLETED_DOWNLOAD_FOLDER",
     "CONFIG",
-    "DatabaseError",
     "DelayLoopException",
     "EpisodeFilesModel",
     "EpisodeQueueModel",
     "ExpiringSet",
     "FilesQueued",
-    "Iterable",
-    "Iterator",
-    "JSONDecodeError",
     "JsonObject",
     "Lidarr",
-    "Model",
     "MovieQueueModel",
     "MoviesFilesModel",
     "NoConnectionrException",
-    "NoReturn",
-    "OperationalError",
     "PROCESS_ONLY",
     "PyarrConnectionError",
     "PyarrResourceNotFound",
@@ -275,32 +247,22 @@ __all__ = [
     "SeriesFilesModel",
     "SkipException",
     "Sonarr",
-    "SqliteDatabase",
     "sync_config_from_disk",
     "TAGLESS",
-    "TorrentDictionary",
     "TorrentLibrary",
-    "TorrentStates",
     "TrackFilesModel",
     "TrackerIndex",
     "UnhandledError",
     "absolute_file_paths",
-    "atexit",
     "build_lidarr_client",
     "build_radarr_client",
     "build_sonarr_client",
     "build_tracker_index",
     "category_parents",
     "clear_search_activity",
-    "contextlib",
-    "copy",
-    "current_process",
     "database_lock",
-    "datetime",
-    "defaultdict",
     "execute_command",
     "fetch_search_activities",
-    "ffmpeg",
     "find_overlap_conflicts",
     "get_auto_pause_resume_effective",
     "get_completed_download_folder_effective",
@@ -315,26 +277,14 @@ __all__ = [
     "has_internet",
     "has_subcategory_separator",
     "load_qbit_seeding_config",
-    "logging",
     "matches_configured",
     "normalize_category",
     "parse_size",
-    "pathlib",
-    "pathos",
     "qbit_sections",
-    "qbittorrentapi",
-    "re",
     "record_search_activity",
     "refresh_rollups_after_db_update",
-    "requests",
     "run_logs",
-    "shutil",
-    "sys",
-    "time",
-    "timedelta",
-    "timezone",
     "validate_and_return_torrent_file",
-    "version_parser",
     "with_database_retry",
     "with_retry",
 ]

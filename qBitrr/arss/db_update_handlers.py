@@ -36,13 +36,33 @@ from qBitrr.quality_profile_helpers import (
     resolve_min_format_score,
     should_mark_searched,
 )
+from qBitrr.radarr_availability import minimum_availability_check
 
 if TYPE_CHECKING:
-    from qBitrr.arss.arr import Arr
+    from qBitrr.arss.base import ArrBase as Arr
 
 
 def _fetch_quality_profile(arr: Arr, quality_profile_id: int) -> JsonObject:
     return arr_with_retry(lambda: arr.client.quality_profile.get(item_id=quality_profile_id)) or {}
+
+
+def _fetch_quality_profile_cached(arr: Arr, quality_profile_id: int) -> JsonObject:
+    """Fetch a quality profile with Arr cache / invalid-id tracking (Lidarr-friendly)."""
+    if quality_profile_id in arr._invalid_quality_profiles:
+        return {}
+    if quality_profile_id in arr._quality_profile_cache:
+        return arr._quality_profile_cache[quality_profile_id]
+    try:
+        profile = _fetch_quality_profile(arr, quality_profile_id)
+        arr._quality_profile_cache[quality_profile_id] = profile
+        return profile
+    except PyarrResourceNotFound:
+        arr._invalid_quality_profiles.add(quality_profile_id)
+        arr.logger.warning(
+            "Quality profile %s not found, defaulting scores to 0",
+            quality_profile_id,
+        )
+        return {}
 
 
 def update_sonarr_episode(arr: Arr, db_entry: JsonObject, *, request: bool) -> None:
@@ -472,7 +492,7 @@ def update_radarr_entry(arr: Arr, db_entry: JsonObject, *, request: bool) -> Non
     movieData = arr.model_file.get_or_none(
         (arr.model_file.EntryId == db_entry["id"]) & (arr.model_file.ArrInstance == arr._name)
     )
-    if arr.minimum_availability_check(db_entry) and (
+    if minimum_availability_check(arr, db_entry) and (
         db_entry["monitored"] or arr.search_unmonitored
     ):
         if movieData:
@@ -655,90 +675,19 @@ def update_lidarr_album(arr: Arr, db_entry: JsonObject, *, request: bool) -> Non
         (arr.model_file.EntryId == db_entry["id"]) & (arr.model_file.ArrInstance == arr._name)
     )
     if db_entry["monitored"] or arr.search_unmonitored:
-        _retry_exc = (
-            requests.exceptions.ChunkedEncodingError,
-            requests.exceptions.ContentDecodingError,
-            requests.exceptions.ConnectionError,
-            JSONDecodeError,
+        minCustomFormat = resolve_min_format_score(
+            stored_score=getattr(albumData, "MinCustomFormatScore", 0) if albumData else 0,
+            quality_profile_id=db_entry.get("profileId"),
+            fetch_profile=lambda qpid: _fetch_quality_profile_cached(arr, qpid),
+            logger=arr.logger,
+            label="Album",
+            entry_id=db_entry.get("id", "Unknown"),
         )
-        if albumData:
-            if not albumData.MinCustomFormatScore:
-                try:
-                    profile_id = db_entry["profileId"]
-                    if profile_id in arr._invalid_quality_profiles:
-                        minCustomFormat = 0
-                    elif profile_id in arr._quality_profile_cache:
-                        minCustomFormat = arr._quality_profile_cache[profile_id].get(
-                            "minFormatScore", 0
-                        )
-                    else:
-                        try:
-                            profile = with_retry(
-                                lambda pid=profile_id: arr.client.quality_profile.get(item_id=pid),
-                                retries=5,
-                                backoff=0.5,
-                                max_backoff=5,
-                                exceptions=_retry_exc,
-                            )
-                            arr._quality_profile_cache[profile_id] = profile
-                            minCustomFormat = profile.get("minFormatScore", 0)
-                        except PyarrResourceNotFound:
-                            arr._invalid_quality_profiles.add(profile_id)
-                            arr.logger.warning(
-                                "Quality profile %s not found for album %s, defaulting to 0",
-                                db_entry.get("profileId"),
-                                db_entry.get("title", "Unknown"),
-                            )
-                            minCustomFormat = 0
-                except Exception:
-                    minCustomFormat = 0
-            else:
-                minCustomFormat = albumData.MinCustomFormatScore
-            if db_entry.get("statistics", {}).get("percentOfTracks", 0) == 100:
-                albumFileId = db_entry.get("statistics", {}).get("sizeOnDisk", 0)
-                if albumFileId != albumData.AlbumFileId:
-                    customFormat = 0  # Lidarr may not have customFormatScore
-                else:
-                    customFormat = albumData.CustomFormatScore
-            else:
-                customFormat = 0
-        else:
-            try:
-                profile_id = db_entry["profileId"]
-                if profile_id in arr._invalid_quality_profiles:
-                    minCustomFormat = 0
-                elif profile_id in arr._quality_profile_cache:
-                    minCustomFormat = arr._quality_profile_cache[profile_id].get(
-                        "minFormatScore", 0
-                    )
-                else:
-                    try:
-                        profile = with_retry(
-                            lambda pid=profile_id: arr.client.quality_profile.get(item_id=pid),
-                            retries=5,
-                            backoff=0.5,
-                            max_backoff=5,
-                            exceptions=_retry_exc,
-                        )
-                        arr._quality_profile_cache[profile_id] = profile
-                        minCustomFormat = profile.get("minFormatScore", 0)
-                    except PyarrResourceNotFound:
-                        arr._invalid_quality_profiles.add(profile_id)
-                        arr.logger.warning(
-                            "Quality profile %s not found for album %s, defaulting to 0",
-                            db_entry.get("profileId"),
-                            db_entry.get("title", "Unknown"),
-                        )
-                        minCustomFormat = 0
-            except Exception:
-                minCustomFormat = 0
-            if db_entry.get("statistics", {}).get("percentOfTracks", 0) == 100:
-                customFormat = 0  # Lidarr may not have customFormatScore
-            else:
-                customFormat = 0
-
-        # Determine if album has all tracks
         hasAllTracks = db_entry.get("statistics", {}).get("percentOfTracks", 0) == 100
+        customFormat = 0  # Lidarr may not have customFormatScore
+        size_on_disk = db_entry.get("statistics", {}).get("sizeOnDisk", 0)
+        if albumData and hasAllTracks and size_on_disk == albumData.AlbumFileId:
+            customFormat = albumData.CustomFormatScore
 
         # Check if quality cutoff is met for Lidarr
         # Unlike Sonarr/Radarr which have a qualityCutoffNotMet boolean field,
@@ -748,17 +697,13 @@ def update_lidarr_album(arr: Arr, db_entry: JsonObject, *, request: bool) -> Non
             try:
                 # Get the artist's quality profile to find the cutoff
                 artist_id = db_entry.get("artistId")
-                artist_data = arr.client.artist.get(item_id=artist_id)
+                artist_data = (
+                    arr_with_retry(lambda: arr.client.artist.get(item_id=artist_id)) or {}
+                )
                 profile_id = artist_data.get("qualityProfileId")
 
                 if profile_id:
-                    # Get or use cached profile
-                    if profile_id in arr._quality_profile_cache:
-                        profile = arr._quality_profile_cache[profile_id]
-                    else:
-                        profile = arr.client.quality_profile.get(item_id=profile_id)
-                        arr._quality_profile_cache[profile_id] = profile
-
+                    profile = _fetch_quality_profile_cached(arr, profile_id)
                     cutoff_quality_id = profile.get("cutoff")
                     upgrade_allowed = profile.get("upgradeAllowed", False)
 
@@ -767,7 +712,10 @@ def update_lidarr_album(arr: Arr, db_entry: JsonObject, *, request: bool) -> Non
                         album_id = db_entry.get("id")
                         track_files = []
                         if album_id:
-                            tracks = arr.client.track.get(album_id=album_id) or []
+                            tracks = (
+                                arr_with_retry(lambda: arr.client.track.get(album_id=album_id))
+                                or []
+                            )
                             track_file_ids = sorted(
                                 {
                                     int(track_file_id)
@@ -778,7 +726,12 @@ def update_lidarr_album(arr: Arr, db_entry: JsonObject, *, request: bool) -> Non
                             )
                             if track_file_ids:
                                 track_files = (
-                                    arr.client.track_file.get(track_file_ids=track_file_ids) or []
+                                    arr_with_retry(
+                                        lambda: arr.client.track_file.get(
+                                            track_file_ids=track_file_ids
+                                        )
+                                    )
+                                    or []
                                 )
 
                         if track_files:
@@ -850,15 +803,15 @@ def update_lidarr_album(arr: Arr, db_entry: JsonObject, *, request: bool) -> Non
         try:
             artist_id = db_entry.get("artistId")
             if artist_id:
-                # Try to get from already-fetched artist data if available
-                artist_data = arr.client.artist.get(item_id=artist_id)
+                artist_data = (
+                    arr_with_retry(lambda: arr.client.artist.get(item_id=artist_id)) or {}
+                )
                 qualityProfileId = artist_data.get("qualityProfileId")
-                if qualityProfileId:
-                    # Fetch quality profile from cache or API
-                    if qualityProfileId not in arr._quality_profile_cache:
-                        profile = arr.client.quality_profile.get(item_id=qualityProfileId)
-                        arr._quality_profile_cache[qualityProfileId] = profile
-                    qualityProfileName = arr._quality_profile_cache[qualityProfileId].get("name")
+                qualityProfileName = get_profile_name_cached(
+                    quality_profile_id=qualityProfileId,
+                    cache=arr._quality_profile_cache,
+                    fetch_profile=lambda qpid: _fetch_quality_profile_cached(arr, qpid),
+                )
         except Exception:
             pass
 
@@ -991,21 +944,8 @@ def update_lidarr_artist(arr: Arr, db_entry: JsonObject) -> None:
         & (arr.artists_file_model.ArrInstance == arr._name)
     )
     if db_entry["monitored"] or arr.search_unmonitored:
-        _retry_exc = (
-            requests.exceptions.ChunkedEncodingError,
-            requests.exceptions.ContentDecodingError,
-            requests.exceptions.ConnectionError,
-            JSONDecodeError,
-        )
         artistMetadata = (
-            with_retry(
-                lambda eid=EntryId: arr.client.artist.get(item_id=eid),
-                retries=5,
-                backoff=0.5,
-                max_backoff=5,
-                exceptions=_retry_exc,
-            )
-            or {}
+            arr_with_retry(lambda eid=EntryId: arr.client.artist.get(item_id=eid)) or {}
         )
         quality_profile_id = None
         if isinstance(artistMetadata, dict):
@@ -1016,7 +956,7 @@ def update_lidarr_artist(arr: Arr, db_entry: JsonObject) -> None:
             minCustomFormat = resolve_min_format_score(
                 stored_score=0,
                 quality_profile_id=quality_profile_id,
-                fetch_profile=lambda qpid: _fetch_quality_profile(arr, qpid),
+                fetch_profile=lambda qpid: _fetch_quality_profile_cached(arr, qpid),
                 logger=arr.logger,
                 label="Artist",
                 entry_id=EntryId,

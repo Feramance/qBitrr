@@ -103,6 +103,28 @@ class TestWebUIConfigReload(_WebUIClientTestCase):
         self.assertTrue(db_file.exists(), "live Settings save must not delete search DB")
         db_file.unlink(missing_ok=True)
 
+    def test_arr_live_key_save_calls_apply_arr_live_refresh(self) -> None:
+        arr = MagicMock()
+        arr._name = "Radarr.Main"
+        self.manager.arr_manager = MagicMock()
+        self.manager.arr_manager.managed_objects = {"movies": arr}
+
+        with patch.object(WebUI, "_apply_arr_live_refresh") as live_refresh:
+            response = self.client.post(
+                "/web/config",
+                json={"changes": {"Radarr.Main.EntrySearch.SearchMissing": True}},
+                content_type="application/json",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertEqual(payload["reloadType"], "live")
+        self.assertTrue(payload["configReloaded"])
+        self.reload_all_mock.assert_not_called()
+        live_refresh.assert_called_once()
+        plan = live_refresh.call_args.args[0]
+        self.assertIn("Radarr.Main", plan.arr_live_instances)
+
     def test_preserve_db_reload_skips_db_deletion(self) -> None:
         db_file = Path("/tmp/qbitrr-preserve-db-test.db")
         db_file.write_text("stub", encoding="utf-8")

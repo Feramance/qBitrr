@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import io
+from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 from PIL import Image
 
@@ -10,6 +12,7 @@ from qBitrr.webui_thumbnails import (
     _CACHE_KEY_VERSION,
     _POSTER_MAX_EDGE,
     _cache_file_path,
+    _get_entity_dict,
     _lidarr_artist_mediacovers_candidates,
     _normalize_thumbnail_bytes,
     _radarr_sonarr_mediacovers_candidates,
@@ -68,3 +71,56 @@ def test_normalize_thumbnail_resizes_and_webp() -> None:
     with Image.open(io.BytesIO(out)) as result:
         w, h = result.size
         assert max(w, h) <= _POSTER_MAX_EDGE
+
+
+def test_get_entity_dict_uses_pyarr_v6_movie_get() -> None:
+    """Pyarr v6 clients expose ``movie.get``, not flat ``get_movie``."""
+    client = MagicMock(spec=["movie"])
+    client.movie.get.return_value = {"id": 9, "images": []}
+    assert _get_entity_dict(client, "radarr", 9) == {"id": 9, "images": []}
+    client.movie.get.assert_called_once_with(item_id=9, includeLocalCovers=True)
+
+
+def test_get_entity_dict_uses_pyarr_v6_series_get() -> None:
+    client = MagicMock(spec=["series"])
+    client.series.get.return_value = {"id": 42}
+    assert _get_entity_dict(client, "sonarr", 42) == {"id": 42}
+    client.series.get.assert_called_once_with(item_id=42, includeLocalCovers=True)
+
+
+def test_get_entity_dict_uses_pyarr_v6_artist_get() -> None:
+    client = MagicMock(spec=["artist"])
+    client.artist.get.return_value = {"id": 3}
+    assert _get_entity_dict(client, "lidarr_artist", 3) == {"id": 3}
+    client.artist.get.assert_called_once_with(item_id=3, includeLocalCovers=True)
+
+
+def test_get_entity_dict_falls_back_when_include_local_covers_unsupported() -> None:
+    client = MagicMock(spec=["movie"])
+    # First call with includeLocalCovers raises; second without succeeds.
+    client.movie.get.side_effect = [
+        TypeError("unexpected kw"),
+        {"id": 5},
+    ]
+    assert _get_entity_dict(client, "radarr", 5) == {"id": 5}
+    assert client.movie.get.call_args_list[0].kwargs == {
+        "item_id": 5,
+        "includeLocalCovers": True,
+    }
+    assert client.movie.get.call_args_list[1].kwargs == {"item_id": 5}
+
+
+def test_get_entity_dict_legacy_flat_api_fallback() -> None:
+    client = SimpleNamespace(get_movie=MagicMock(return_value={"id": 1}))
+    assert _get_entity_dict(client, "radarr", 1) == {"id": 1}
+    client.get_movie.assert_called_once_with(1, includeLocalCovers=True)
+
+
+def test_get_entity_dict_returns_none_for_non_dict() -> None:
+    client = MagicMock(spec=["series"])
+    client.series.get.return_value = [{"id": 1}]
+    assert _get_entity_dict(client, "sonarr", 1) is None
+
+
+def test_get_entity_dict_returns_none_for_unknown_kind() -> None:
+    assert _get_entity_dict(MagicMock(), "unknown", 1) is None

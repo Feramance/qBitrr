@@ -17,8 +17,6 @@ from qBitrr.arss._shared import (
     ExpiringSet,
     NoConnectionrException,
     TorrentLibrary,
-    _collect_instance_hash_map_hashes,
-    _prune_instance_hash_map,
     build_tracker_index,
     get_completed_download_folder_effective,
     get_ignore_torrents_younger_than_effective,
@@ -27,15 +25,16 @@ from qBitrr.arss._shared import (
     has_internet,
     load_qbit_seeding_config,
     normalize_category,
+    sync_config_from_disk,
     with_retry,
 )
-from qBitrr.arss.arr import Arr
+from qBitrr.arss.base import ArrBase
 
 if TYPE_CHECKING:
     from qBitrr.arss.manager import ArrManager
 
 
-class PlaceHolderArr(Arr):
+class PlaceHolderArr(ArrBase):
     def __init__(self, name: str, manager: ArrManager):
         self.type = "placeholder"
         # Subcategory paths: titlecase each segment for logs/UI; use spaced slashes
@@ -54,16 +53,7 @@ class PlaceHolderArr(Arr):
         self.import_torrents = []
         self.change_priority = {}
         self.change_priority_by_instance: dict[str, dict[str, list]] = defaultdict(dict)
-        self.recheck_by_instance: dict[str, set[str]] = {}
-        self.pause = set()
-        self.pause_by_instance: dict[str, set[str]] = defaultdict(set)
-        self.skip_blacklist = set()
-        self.remove_from_qbit = set()
-        self.remove_from_qbit_by_instance: dict[str, set[str]] = {}
-        self.delete_by_instance: dict[str, set[str]] = {}
-        self.delete = set()
-        self.resume = set()
-        self.resume_by_instance: dict[str, set[str]] = defaultdict(set)
+        self._init_qbit_action_buckets(include_recheck=True, include_delete=True)
         self.expiring_bool = ExpiringSet(max_age_seconds=10)
         self.ignore_torrents_younger_than = get_ignore_torrents_younger_than_effective()
         self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
@@ -181,85 +171,11 @@ class PlaceHolderArr(Arr):
 
     def _process_failed(self) -> None:
         """Delete torrents from the correct qBit instance and log any delete failures."""
-        to_delete_all = self.delete.union(
-            self.missing_files_post_delete, self.downloads_with_bad_error_message_blocklist
+        self._process_failed_deletes(
+            use_qbit_retry=False,
+            warn_if_missing=True,
+            cross_arr=True,
         )
-        queue_delete_targets = set(to_delete_all)
-        skip_blacklist = {
-            i.upper() for i in self.skip_blacklist.union(self.missing_files_post_delete)
-        }
-        if not (
-            to_delete_all
-            or self.remove_from_qbit
-            or self.skip_blacklist
-            or self.remove_from_qbit_by_instance
-            or self.delete_by_instance
-        ):
-            return
-        self._log_deletion_summary_line()
-        self._log_deletion_sample_debug(to_delete_all)
-        deleted_hashes: set[str] = set()
-        per_instance_batches: dict[str, set[str]] = {}
-        for inst_name, hashes in self.remove_from_qbit_by_instance.items():
-            if hashes:
-                per_instance_batches.setdefault(inst_name, set()).update(hashes)
-        for inst_name, hashes in self.delete_by_instance.items():
-            if hashes:
-                per_instance_batches.setdefault(inst_name, set()).update(hashes)
-        from qBitrr.arss.qbit_side_effects import (
-            delete_hashes_on_primary,
-            delete_hashes_per_instance,
-        )
-
-        per_instance_deleted = delete_hashes_per_instance(
-            self, per_instance_batches, use_qbit_retry=False
-        )
-        deleted_hashes.update(per_instance_deleted)
-        _prune_instance_hash_map(self.remove_from_qbit_by_instance, per_instance_deleted)
-        _prune_instance_hash_map(self.delete_by_instance, per_instance_deleted)
-        pending_per_instance = _collect_instance_hash_map_hashes(
-            self.delete_by_instance, self.remove_from_qbit_by_instance
-        )
-        to_delete_all = to_delete_all - per_instance_deleted
-        to_delete_default = to_delete_all - pending_per_instance
-        temp_to_delete: set[str] = set()
-        # Remaining remove_from_qbit/skip_blacklist and to_delete_default via default client.
-        if self.remove_from_qbit or self.skip_blacklist or to_delete_default:
-            if to_delete_default:
-                deleted = delete_hashes_on_primary(
-                    self,
-                    to_delete_default,
-                    use_qbit_retry=False,
-                    warn_if_missing=True,
-                    error_label="from qBit (to_delete_all)",
-                )
-                temp_to_delete.update(deleted)
-            if self.remove_from_qbit or self.skip_blacklist:
-                rest = (self.remove_from_qbit.union(self.skip_blacklist)) - deleted_hashes
-                deleted = delete_hashes_on_primary(
-                    self,
-                    rest,
-                    use_qbit_retry=False,
-                    warn_if_missing=True,
-                    error_label="from qBit (remove/blacklist)",
-                )
-                temp_to_delete.update(deleted)
-            cleaned_hashes = deleted_hashes.union(temp_to_delete)
-            self._evict_hashes_from_qbit_side_caches(cleaned_hashes)
-        confirmed_deleted = deleted_hashes | temp_to_delete
-        dispatch_targets = confirmed_deleted & queue_delete_targets
-        if dispatch_targets:
-            self._process_failed_dispatch_queue_deletes(
-                dispatch_targets, skip_blacklist, cross_arr=True
-            )
-        all_deleted = confirmed_deleted
-        if self.missing_files_post_delete:
-            self.missing_files_post_delete -= all_deleted
-        if self.downloads_with_bad_error_message_blocklist:
-            self.downloads_with_bad_error_message_blocklist -= all_deleted
-        self.skip_blacklist -= all_deleted
-        self.remove_from_qbit -= all_deleted
-        self.delete -= all_deleted
 
     def _process_errored(self):
         # Recheck all torrents marked for rechecking on their owning qBit instance.
@@ -326,9 +242,27 @@ class PlaceHolderArr(Arr):
         with contextlib.suppress(AttributeError):
             self.files_to_cleanup.clear()
 
+    def _sync_loop_settings_from_config(self) -> None:
+        """Refresh PlaceHolder age window and completed folder from live Settings."""
+        sync_config_from_disk()
+        ignore_seconds = get_ignore_torrents_younger_than_effective()
+        if ignore_seconds != self.ignore_torrents_younger_than:
+            self.ignore_torrents_younger_than = ignore_seconds
+            self.timed_ignore_cache = ExpiringSet(max_age_seconds=ignore_seconds)
+            self.timed_ignore_cache_2 = ExpiringSet(max_age_seconds=ignore_seconds * 2)
+            self.timed_skip = ExpiringSet(max_age_seconds=ignore_seconds)
+        new_completed = pathlib.Path(get_completed_download_folder_effective()).joinpath(
+            self.category
+        )
+        if new_completed != self.completed_folder:
+            self.manager.completed_folders.discard(self.completed_folder)
+            self.completed_folder = new_completed
+            self.manager.completed_folders.add(self.completed_folder)
+
     def process_torrents(self):
         try:
             try:
+                self._sync_loop_settings_from_config()
                 torrents_with_instances = with_retry(
                     lambda: self._get_torrents_from_all_instances(),
                     retries=5,
@@ -360,7 +294,7 @@ class PlaceHolderArr(Arr):
                         length=get_no_internet_sleep_timer_effective(), error_type="delay"
                     )
 
-                managed_tag_pool = Arr.merge_global_tracker_configured_add_tags()
+                managed_tag_pool = ArrBase.merge_global_tracker_configured_add_tags()
                 for instance_name, torrent in torrents_with_instances:
                     with contextlib.suppress(qbittorrentapi.NotFound404Error):
                         self._process_single_torrent(

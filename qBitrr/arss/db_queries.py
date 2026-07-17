@@ -18,7 +18,7 @@ from qBitrr.arss._shared import (
 )
 
 if TYPE_CHECKING:
-    from qBitrr.arss.arr import Arr
+    from qBitrr.arss.base import ArrBase as Arr
 
 
 def db_get_files(
@@ -27,12 +27,12 @@ def db_get_files(
     tuple[MoviesFilesModel | EpisodeFilesModel | SeriesFilesModel, bool, bool, bool, int]
 ]:
     if arr.type == "sonarr" and arr.series_search is True:
-        serieslist = arr.db_get_files_series()
+        serieslist = db_get_files_series(arr)
         for series in serieslist:
             yield series[0], series[1], series[2], series[2] is not True, len(serieslist)
     elif arr.type == "sonarr" and arr.series_search == "smart":
         # Smart mode: decide dynamically based on what needs to be searched
-        episodelist = arr.db_get_files_episodes()
+        episodelist = db_get_files_episodes(arr)
         if episodelist:
             # Group episodes by series to determine if we should search by series or episode
             series_episodes_map = {}
@@ -74,182 +74,162 @@ def db_get_files(
                     )
                     yield episodes[0][0], episodes[0][1], episodes[0][2], False, len(episodelist)
     elif arr.type == "sonarr" and arr.series_search == False:
-        episodelist = arr.db_get_files_episodes()
+        episodelist = db_get_files_episodes(arr)
         for episodes in episodelist:
             yield episodes[0], episodes[1], episodes[2], False, len(episodelist)
     elif arr.type == "radarr":
-        movielist = arr.db_get_files_movies()
+        movielist = db_get_files_movies(arr)
         for movies in movielist:
             yield movies[0], movies[1], movies[2], False, len(movielist)
     elif arr.type == "lidarr":
-        albumlist = arr.db_get_files_movies()  # This calls the lidarr section we added
+        albumlist = db_get_files_movies(arr)  # This calls the lidarr section we added
         for albums in albumlist:
             yield albums[0], albums[1], albums[2], False, len(albumlist)
 
 
 def db_maybe_reset_entry_searched_state(arr):
     if arr.type == "sonarr":
-        arr.db_reset__series_searched_state()
-        arr.db_reset__episode_searched_state()
+        db_reset__series_searched_state(arr)
+        db_reset__episode_searched_state(arr)
     elif arr.type == "radarr":
-        arr.db_reset__movie_searched_state()
+        db_reset__movie_searched_state(arr)
     elif arr.type == "lidarr":
-        arr.db_reset__album_searched_state()
+        db_reset__album_searched_state(arr)
     arr.loop_completed = False
 
 
-def db_reset__series_searched_state(arr):
-    ids = []
-    arr.series_file_model: SeriesFilesModel
-    arr.model_file: EpisodeFilesModel
-    if (
-        arr.loop_completed and arr.reset_on_completion and arr.series_search
-    ):  # Only wipe if a loop completed was tagged
-        with database_lock():
-            arr.series_file_model.update(Searched=False, Upgrade=False).where(
-                (arr.series_file_model.Searched == True)
-                & (arr.series_file_model.ArrInstance == arr._name)
+def _db_reset_searched_state(
+    arr, *, model, collect_ids, entity_label: str, extra_gate: bool = True
+):
+    """Clear Searched/Upgrade flags, prune orphans not returned by Arr, reset loop flag."""
+    if not (arr.loop_completed and arr.reset_on_completion and extra_gate):
+        return
+    with database_lock():
+        model.update(Searched=False, Upgrade=False).where(
+            (model.Searched == True) & (model.ArrInstance == arr._name)
+        ).execute()
+    ids = list(collect_ids())
+    with database_lock():
+        if ids:
+            model.delete().where(
+                (model.EntryId.not_in(ids)) & (model.ArrInstance == arr._name)
             ).execute()
-        series = with_retry(
-            lambda: arr.client.series.get(),
+        else:
+            arr.logger.warning(
+                "%s: No %s returned from Arr API during reset; "
+                "skipping DB prune to prevent data loss",
+                arr._name,
+                entity_label,
+            )
+    arr.loop_completed = False
+
+
+def _collect_series_ids(arr):
+    series = with_retry(
+        lambda: arr.client.series.get(),
+        retries=5,
+        backoff=0.5,
+        max_backoff=5,
+        exceptions=_ARR_RETRY_EXCEPTIONS,
+    )
+    return [s["id"] for s in series]
+
+
+def _collect_episode_ids(arr):
+    ids = []
+    series = with_retry(
+        lambda: arr.client.series.get(),
+        retries=5,
+        backoff=0.5,
+        max_backoff=5,
+        exceptions=_ARR_RETRY_EXCEPTIONS,
+    )
+    for s in series:
+        episodes = with_retry(
+            lambda s=s: arr.client.episode.get(series_id=s["id"]),
             retries=5,
             backoff=0.5,
             max_backoff=5,
             exceptions=_ARR_RETRY_EXCEPTIONS,
         )
-        for s in series:
-            ids.append(s["id"])
-        with database_lock():
-            if ids:
-                arr.series_file_model.delete().where(
-                    (arr.series_file_model.EntryId.not_in(ids))
-                    & (arr.series_file_model.ArrInstance == arr._name)
-                ).execute()
-            else:
-                arr.logger.warning(
-                    "%s: No series returned from Arr API during reset; "
-                    "skipping DB prune to prevent data loss",
-                    arr._name,
-                )
-        arr.loop_completed = False
+        for e in episodes:
+            ids.append(e["id"])
+    return ids
+
+
+def _collect_movie_ids(arr):
+    movies = with_retry(
+        lambda: arr.client.movie.get(),
+        retries=5,
+        backoff=0.5,
+        max_backoff=5,
+        exceptions=_ARR_RETRY_EXCEPTIONS,
+    )
+    return [m["id"] for m in movies]
+
+
+def _collect_album_ids(arr):
+    ids = []
+    artists = with_retry(
+        lambda: arr.client.artist.get(),
+        retries=5,
+        backoff=0.5,
+        max_backoff=5,
+        exceptions=_ARR_RETRY_EXCEPTIONS,
+    )
+    for artist in artists:
+        albums = with_retry(
+            lambda a=artist: arr.client.album.get(artist_id=a["id"]),
+            retries=5,
+            backoff=0.5,
+            max_backoff=5,
+            exceptions=_ARR_RETRY_EXCEPTIONS,
+        )
+        for album in albums:
+            ids.append(album["id"])
+    return ids
+
+
+def db_reset__series_searched_state(arr):
+    arr.series_file_model: SeriesFilesModel
+    arr.model_file: EpisodeFilesModel
+    _db_reset_searched_state(
+        arr,
+        model=arr.series_file_model,
+        collect_ids=lambda: _collect_series_ids(arr),
+        entity_label="series",
+        extra_gate=bool(arr.series_search),
+    )
 
 
 def db_reset__episode_searched_state(arr):
-    ids = []
     arr.model_file: EpisodeFilesModel
-    if (
-        arr.loop_completed is True and arr.reset_on_completion
-    ):  # Only wipe if a loop completed was tagged
-        with database_lock():
-            arr.model_file.update(Searched=False, Upgrade=False).where(
-                (arr.model_file.Searched == True) & (arr.model_file.ArrInstance == arr._name)
-            ).execute()
-        series = with_retry(
-            lambda: arr.client.series.get(),
-            retries=5,
-            backoff=0.5,
-            max_backoff=5,
-            exceptions=_ARR_RETRY_EXCEPTIONS,
-        )
-        for s in series:
-            episodes = with_retry(
-                lambda s=s: arr.client.episode.get(series_id=s["id"]),
-                retries=5,
-                backoff=0.5,
-                max_backoff=5,
-                exceptions=_ARR_RETRY_EXCEPTIONS,
-            )
-            for e in episodes:
-                ids.append(e["id"])
-        with database_lock():
-            if ids:
-                arr.model_file.delete().where(
-                    (arr.model_file.EntryId.not_in(ids))
-                    & (arr.model_file.ArrInstance == arr._name)
-                ).execute()
-            else:
-                arr.logger.warning(
-                    "%s: No episodes returned from Arr API during reset; "
-                    "skipping DB prune to prevent data loss",
-                    arr._name,
-                )
-        arr.loop_completed = False
+    _db_reset_searched_state(
+        arr,
+        model=arr.model_file,
+        collect_ids=lambda: _collect_episode_ids(arr),
+        entity_label="episodes",
+    )
 
 
 def db_reset__movie_searched_state(arr):
-    ids = []
     arr.model_file: MoviesFilesModel
-    if (
-        arr.loop_completed is True and arr.reset_on_completion
-    ):  # Only wipe if a loop completed was tagged
-        with database_lock():
-            arr.model_file.update(Searched=False, Upgrade=False).where(
-                (arr.model_file.Searched == True) & (arr.model_file.ArrInstance == arr._name)
-            ).execute()
-        movies = with_retry(
-            lambda: arr.client.movie.get(),
-            retries=5,
-            backoff=0.5,
-            max_backoff=5,
-            exceptions=_ARR_RETRY_EXCEPTIONS,
-        )
-        for m in movies:
-            ids.append(m["id"])
-        with database_lock():
-            if ids:
-                arr.model_file.delete().where(
-                    (arr.model_file.EntryId.not_in(ids))
-                    & (arr.model_file.ArrInstance == arr._name)
-                ).execute()
-            else:
-                arr.logger.warning(
-                    "%s: No movies returned from Arr API during reset; "
-                    "skipping DB prune to prevent data loss",
-                    arr._name,
-                )
-        arr.loop_completed = False
+    _db_reset_searched_state(
+        arr,
+        model=arr.model_file,
+        collect_ids=lambda: _collect_movie_ids(arr),
+        entity_label="movies",
+    )
 
 
 def db_reset__album_searched_state(arr):
-    ids = []
     arr.model_file: AlbumFilesModel
-    if (
-        arr.loop_completed is True and arr.reset_on_completion
-    ):  # Only wipe if a loop completed was tagged
-        with database_lock():
-            arr.model_file.update(Searched=False, Upgrade=False).where(
-                (arr.model_file.Searched == True) & (arr.model_file.ArrInstance == arr._name)
-            ).execute()
-        artists = with_retry(
-            lambda: arr.client.artist.get(),
-            retries=5,
-            backoff=0.5,
-            max_backoff=5,
-            exceptions=_ARR_RETRY_EXCEPTIONS,
-        )
-        for artist in artists:
-            albums = with_retry(
-                lambda a=artist: arr.client.album.get(artist_id=a["id"]),
-                retries=5,
-                backoff=0.5,
-                max_backoff=5,
-                exceptions=_ARR_RETRY_EXCEPTIONS,
-            )
-            for album in albums:
-                ids.append(album["id"])
-        with database_lock():
-            if ids:
-                arr.model_file.delete().where(
-                    (arr.model_file.EntryId.not_in(ids))
-                    & (arr.model_file.ArrInstance == arr._name)
-                ).execute()
-            else:
-                arr.logger.warning(
-                    "%s: No albums returned from Arr API during reset; "
-                    "skipping DB prune to prevent data loss",
-                    arr._name,
-                )
-        arr.loop_completed = False
+    _db_reset_searched_state(
+        arr,
+        model=arr.model_file,
+        collect_ids=lambda: _collect_album_ids(arr),
+        entity_label="albums",
+    )
 
 
 def _db_search_quality_cf_condition(arr, *, missing_file_field):
@@ -284,8 +264,8 @@ def db_get_files_series(arr) -> list[list[SeriesFilesModel, bool, bool]] | None:
         condition = arr.model_file.AirDateUtc.is_null(False)
         if not arr.search_specials:
             condition &= arr.model_file.SeasonNumber != 0
-        condition &= arr._db_search_quality_cf_condition(
-            missing_file_field=arr.model_file.EpisodeFileId
+        condition &= _db_search_quality_cf_condition(
+            arr, missing_file_field=arr.model_file.EpisodeFileId
         )
         todays_condition = copy(condition)
         todays_condition &= arr.model_file.AirDateUtc > (
@@ -369,8 +349,8 @@ def db_get_files_episodes(arr) -> list[list[EpisodeFilesModel, bool, bool]] | No
         )
         if not arr.search_specials:
             condition &= arr.model_file.SeasonNumber != 0
-        condition &= arr._db_search_quality_cf_condition(
-            missing_file_field=arr.model_file.EpisodeFileId
+        condition &= _db_search_quality_cf_condition(
+            arr, missing_file_field=arr.model_file.EpisodeFileId
         )
         today_condition = copy(condition)
         today_condition &= arr.model_file.AirDateUtc > (
@@ -432,8 +412,8 @@ def db_get_files_movies(arr) -> list[list[MoviesFilesModel, bool, bool]] | None:
         condition = (arr.model_file.Year.is_null(False)) & (
             arr.model_file.ArrInstance == arr._name
         )
-        condition &= arr._db_search_quality_cf_condition(
-            missing_file_field=arr.model_file.MovieFileId
+        condition &= _db_search_quality_cf_condition(
+            arr, missing_file_field=arr.model_file.MovieFileId
         )
         if arr.search_by_year:
             condition &= arr.model_file.Year == arr.search_current_year
@@ -466,8 +446,8 @@ def db_get_files_movies(arr) -> list[list[MoviesFilesModel, bool, bool]] | None:
         return entries
     elif arr.type == "lidarr":
         condition = arr.model_file.ArrInstance == arr._name
-        condition &= arr._db_search_quality_cf_condition(
-            missing_file_field=arr.model_file.AlbumFileId
+        condition &= _db_search_quality_cf_condition(
+            arr, missing_file_field=arr.model_file.AlbumFileId
         )
 
         # Order searches by priority: Missing > CustomFormat > Quality > Upgrade

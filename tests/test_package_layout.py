@@ -36,5 +36,13 @@ class TestPackageLayout(unittest.TestCase):
         self.assertIsNotNone(spec.submodule_search_locations)
 
     def test_arss_arr_submodule_importable(self) -> None:
-        spec = importlib.util.find_spec("qBitrr.arss.arr")
-        self.assertIsNotNone(spec)
+        for name in (
+            "qBitrr.arss.arr",
+            "qBitrr.arss.base",
+            "qBitrr.arss.radarr",
+            "qBitrr.arss.sonarr",
+            "qBitrr.arss.lidarr",
+            "qBitrr.arss.factory",
+        ):
+            spec = importlib.util.find_spec(name)
+            self.assertIsNotNone(spec, name)

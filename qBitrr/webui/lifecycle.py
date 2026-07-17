@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 import time
 
 from qBitrr.config_reload_policy import ReloadPlan
@@ -230,30 +229,11 @@ class LifecycleMixin:
             self.logger.info("Instance %s is not managed, skipping", instance_name)
             return
 
-        # Determine client builder based on name
-        client_builder = None
-        if re.match(r"^(Rad|rad)arr", instance_name):
-            from qBitrr.arr_client import build_radarr_client
-
-            client_builder = build_radarr_client
-        elif re.match(r"^(Son|son|Anim|anim)arr", instance_name):
-            from qBitrr.arr_client import build_sonarr_client
-
-            client_builder = build_sonarr_client
-        elif re.match(r"^(Lid|lid)arr", instance_name):
-            from qBitrr.arr_client import build_lidarr_client
-
-            client_builder = build_lidarr_client
-        else:
-            self.logger.error("Unknown Arr type for instance: %s", instance_name)
-            return
-
         try:
-            # Create new Arr instance
-            from qBitrr.arss import Arr
+            from qBitrr.arss import build_arr_instance
             from qBitrr.errors import SkipException
 
-            new_arr = Arr(instance_name, self.manager.arr_manager, client_builder=client_builder)
+            new_arr = build_arr_instance(instance_name, self.manager.arr_manager)
 
             # Register in manager
             self.manager.arr_manager.groups.add(instance_name)

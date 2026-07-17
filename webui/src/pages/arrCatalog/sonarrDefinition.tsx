@@ -48,8 +48,7 @@ import {
   filterSeriesEntriesForMissing,
   filterSeriesEntryByReason,
 } from "./sonarrCatalogModes";
-import { ARR_CATALOG_REGISTRY } from "./registry";
-import { categoryForInstanceLabel, softCapCachedPages } from "./utils";
+import { categoryForInstanceLabel, softCapCachedPages, visibleRowsForCachedPage } from "./utils";
 
 const SONARR_PAGE_SIZE = 25;
 
@@ -414,6 +413,7 @@ function useSonarrInstancePipeline(
   );
 
   const allSeries = useMemo<SonarrSeriesEntry[]>(() => {
+    // Catalog-empty checks use any cached page; display uses the current server page.
     const sortedKeys = Object.keys(pages)
       .map(Number)
       .sort((a, b) => a - b);
@@ -425,38 +425,35 @@ function useSonarrInstancePipeline(
     return out;
   }, [pages]);
 
-  const filteredGroups = useMemo<SonarrSeriesGroupRow[]>(() => {
-    const missingFiltered = filterSeriesEntriesForMissing(
-      allSeries,
-      filters.onlyMissing,
-    );
-    const withReason: SonarrSeriesEntry[] = [];
-    for (const entry of missingFiltered) {
-      const f = filterSeriesEntryByReason(entry, filters.reasonFilter);
-      if (f) withReason.push(f);
-    }
-    const q = (globalSearchRef.current || "").trim().toLowerCase();
-    const filtered = q
-      ? withReason.filter((e) => {
-          const t = (e.series?.["title"] as string | undefined) || "";
-          return t.toLowerCase().includes(q);
-        })
-      : withReason;
-    return filtered.map(
+  const visibleRows = useMemo<SonarrSeriesGroupRow[]>(() => {
+    const pageSeries = visibleRowsForCachedPage(pages, page, (rows) => {
+      const missingFiltered = filterSeriesEntriesForMissing(
+        [...rows],
+        filters.onlyMissing,
+      );
+      const withReason: SonarrSeriesEntry[] = [];
+      for (const entry of missingFiltered) {
+        const f = filterSeriesEntryByReason(entry, filters.reasonFilter);
+        if (f) withReason.push(f);
+      }
+      const q = (globalSearchRef.current || "").trim().toLowerCase();
+      if (!q) return withReason;
+      return withReason.filter((e) => {
+        const t = (e.series?.["title"] as string | undefined) || "";
+        return t.toLowerCase().includes(q);
+      });
+    });
+    return pageSeries.map(
       (e) => seriesEntryToGroup(e, instanceLabel) as SonarrSeriesGroupRow,
     );
   }, [
-    allSeries,
+    pages,
+    page,
     filters.onlyMissing,
     filters.reasonFilter,
     instanceLabel,
     globalSearchRef,
   ]);
-
-  const visibleRows = useMemo<SonarrSeriesGroupRow[]>(
-    () => filteredGroups.slice(page * pageSize, page * pageSize + pageSize),
-    [filteredGroups, page, pageSize],
-  );
 
   // Push the current page slice through the row store.
   useEffect(() => {
@@ -670,8 +667,6 @@ export const SONARR_DEFINITION: ArrCatalogDefinition<
   renderAggregateBody: (props) => <SonarrAggregateBody {...props} />,
   renderInstanceBody: (props) => <SonarrInstanceBody {...props} />,
 };
-
-ARR_CATALOG_REGISTRY.sonarr = SONARR_DEFINITION;
 
 export function getSonarrCatalogDefinition(): AnyArrCatalogDefinition {
   return SONARR_DEFINITION;

@@ -264,7 +264,11 @@ def classify_config_changes(changes: Mapping[str, Any]) -> ReloadPlan:
         elif category == ReloadCategory.FULL_RESTART:
             plan.full_restart_keys.append(key)
         elif category == ReloadCategory.LIVE:
-            plan.live_keys.append(key)
+            arr_match = _arr_instance_for_key(key)
+            if arr_match:
+                plan.arr_live_instances.setdefault(arr_match[0], []).append(key)
+            else:
+                plan.live_keys.append(key)
         elif category == ReloadCategory.QBIT_HOT:
             section = _qbit_section_for_key(key)
             if section:

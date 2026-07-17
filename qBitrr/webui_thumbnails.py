@@ -485,7 +485,29 @@ def _http_get_bytes(
 
 
 def _get_entity_dict(client: Any, kind: str, entry_id: int) -> dict[str, Any] | None:
-    if kind == "radarr" and hasattr(client, "get_movie"):
+    """Fetch a single Arr entity dict via pyarr v6 namespaced APIs.
+
+    Uses ``client.movie.get`` / ``client.series.get`` / ``client.artist.get`` with
+    ``item_id=`` (same pattern as :mod:`qBitrr.arr_client` consumers). Falls back to
+    legacy flat ``get_movie`` / ``get_series`` / ``get_artist`` when present.
+    """
+    resource = None
+    if kind == "radarr":
+        resource = getattr(client, "movie", None)
+    elif kind == "sonarr":
+        resource = getattr(client, "series", None)
+    elif kind == "lidarr_artist":
+        resource = getattr(client, "artist", None)
+    else:
+        return None
+
+    out: Any = None
+    if resource is not None and hasattr(resource, "get"):
+        try:
+            out = resource.get(item_id=entry_id, includeLocalCovers=True)
+        except TypeError:
+            out = resource.get(item_id=entry_id)
+    elif kind == "radarr" and hasattr(client, "get_movie"):
         try:
             out = client.get_movie(entry_id, includeLocalCovers=True)
         except TypeError:

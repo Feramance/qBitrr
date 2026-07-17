@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from qBitrr.arss._shared import JsonObject
 
 if TYPE_CHECKING:
-    from qBitrr.arss.arr import Arr
+    from qBitrr.arss.base import ArrBase as Arr
 
 
 def minimum_availability_check(arr: Arr, db_entry: JsonObject) -> bool:

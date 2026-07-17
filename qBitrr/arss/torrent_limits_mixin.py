@@ -243,17 +243,10 @@ class TorrentLimitsMixin:
             # Default assumption: custom format requirements are met
             cf_unmet = False
 
-            if self.type == "sonarr":
-                entry_id_field = "seriesId" if self.series_search else "episodeId"
-                file_id_field = None if self.series_search else "EpisodeFileId"
-            elif self.type == "radarr":
-                entry_id_field = "movieId"
-                file_id_field = "MovieFileId"
-            elif self.type == "lidarr":
-                entry_id_field = "albumId"
-                file_id_field = "AlbumFileId"
-            else:
-                return False  # Unknown type
+            fields = self._custom_format_queue_fields()
+            if fields is None:
+                return False
+            entry_id_field, file_id_field = fields
 
             entry_id = record.get(entry_id_field)
             if not entry_id:
@@ -271,12 +264,12 @@ class TorrentLimitsMixin:
             if not model_entry:
                 return False
 
-            if self.type == "sonarr" and self.series_search:
+            if file_id_field is None:
                 if self.force_minimum_custom_format:
                     min_score = getattr(model_entry, "MinCustomFormatScore", 0)
                     cf_unmet = custom_format_score < min_score
             else:
-                file_id = getattr(model_entry, file_id_field, 0) if file_id_field else 0
+                file_id = getattr(model_entry, file_id_field, 0)
                 if file_id != 0:
                     model_cf_score = getattr(model_entry, "CustomFormatScore", 0)
                     cf_unmet = custom_format_score < model_cf_score

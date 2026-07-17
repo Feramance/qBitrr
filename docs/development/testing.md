@@ -107,6 +107,141 @@ docker stop qbitrr-test
 docker rm qbitrr-test
 ```
 
+## Live smoke (compose)
+
+Use the **test-only** stack in [`docker-compose.test.yml`](../../docker-compose.test.yml) (linuxserver qBittorrent + Radarr + qBitrr built from this branch). Data lands under `.compose-test/` (gitignored). Do not use this compose for production.
+
+Host ports (to avoid clashing with local Arr/qBit installs):
+
+| Service | Host | In-compose |
+|---------|------|------------|
+| qBittorrent WebUI | http://localhost:18080 | `qbittorrent:8080` |
+| Radarr | http://localhost:17878 | `radarr:7878` |
+| qBitrr WebUI | http://localhost:16969 | `qbitrr:6969` |
+
+### Build
+
+```bash
+docker compose -f docker-compose.test.yml build
+```
+
+### Checklist (finite; record pass/fail in the PR)
+
+Record results in the PR description (or review notes). Do **not** add a permanent `*_TEST*.md` in the repo root.
+
+1. **Cold start / first-boot (Phase A)** — empty data dir generates `config.toml` and exits cleanly (no `NameError`).
+2. **Configured start** — WebUI up; qBit + Arr connected.
+3. **Live: `Settings.AutoPauseResume`** — WebUI save changes pause/resume behavior without a full process restart.
+4. **Live: Arr LIVE key** — e.g. `EntrySearch.SearchMissing`; worker picks up via live refresh.
+5. **Live: FreeSpace** — WebUI save; policy loop reflects the new threshold.
+6. **Torrent path (optional fixtures)** — detect / failed or recheck category handling if you can add a torrent.
+7. **`RadarrArr` spawn** — after the per-type hierarchy, manager builds `RadarrArr` (and Sonarr/Lidarr if configured).
+
+### Phase A — first-boot (empty config)
+
+```bash
+mkdir -p .compose-test/qbitrr-firstboot
+docker compose -f docker-compose.test.yml run --rm --no-deps \
+  -v "$(pwd)/.compose-test/qbitrr-firstboot:/config" \
+  qbitrr
+# Expect: exit code 0, message that config.toml was generated, file present under
+# .compose-test/qbitrr-firstboot/config.toml, no NameError in logs.
+```
+
+Local equivalent (no Docker):
+
+```bash
+# Uses the same contract as tests/test_config_first_boot.py
+python -m unittest tests.test_config_first_boot -v
+```
+
+### Bring up qBit + Radarr
+
+```bash
+mkdir -p .compose-test/{qbittorrent,radarr,qbitrr,downloads,media}
+docker compose -f docker-compose.test.yml up -d qbittorrent radarr
+```
+
+Bootstrap notes:
+
+1. **qBittorrent** — open http://localhost:18080. Username is `admin`; the temporary password is printed in `docker logs qbitrr-test-qbittorrent`. Set a persistent password in the WebUI, set default save path to `/downloads`, and create category `radarr-movies` (save path `/downloads/radarr-movies` is fine).
+2. **Radarr** — open http://localhost:17878, complete the wizard (root folder `/movies`). Add a qBittorrent download client pointing at host `qbittorrent`, port `8080`, with category `radarr-movies`. Copy the API key from **Settings → General**.
+3. **qBitrr config** — copy the generated `config.toml` into `.compose-test/qbitrr/` (or run Phase A into that directory), then set at least:
+
+```toml
+[Settings]
+CompletedDownloadFolder = "/downloads"
+FreeSpaceFolder = "/downloads"
+FreeSpace = "-1"
+AutoPauseResume = true
+
+[qBit]
+Host = "qbittorrent"
+Port = 8080
+UserName = "admin"
+Password = "<persistent qBit password>"
+
+[Radarr-Movies]
+Managed = true
+URI = "http://radarr:7878"
+APIKey = "<radarr api key>"
+Category = "radarr-movies"
+
+[Radarr-Movies.EntrySearch]
+SearchMissing = false
+```
+
+Disable or leave unmanaged any other Arr sections that still say `CHANGE_ME`.
+
+Generated configs often set `WebUI.AuthDisabled = false` and a random `WebUI.Token`. Use that token for API calls:
+
+```bash
+TOKEN=$(rg -oP '(?m)^Token = "\K[^"]+' .compose-test/qbitrr/config.toml)
+curl -s -H "Authorization: Bearer $TOKEN" http://localhost:16969/api/processes
+```
+
+```bash
+docker compose -f docker-compose.test.yml up -d qbitrr
+docker logs -f qbitrr-test-qbitrr
+# WebUI: http://localhost:16969/ui → /static/index.html
+```
+
+### Confirming `RadarrArr`
+
+With a configured stack:
+
+```bash
+# Factory wiring (works without live Arr credentials)
+docker compose -f docker-compose.test.yml exec qbitrr \
+  python -c "from qBitrr.arss.factory import arr_class_for_section as f; print(f('Radarr-Movies').__name__)"
+# Expect: RadarrArr
+
+# Live spawn: Arr worker log should show the instance starting
+docker logs qbitrr-test-qbitrr 2>&1 | grep -E 'Starting Arr instance: Radarr-Movies|Starting Radarr-Movies monitor|qBitrr\.Radarr-Movies'
+```
+
+Unit coverage of the same factory mapping: `tests/test_arss_startup.py`.
+
+### Live-reload checks (items 3–5)
+
+Use the WebUI or `POST /api/config` with `{"changes":{...}}` and a Bearer token:
+
+1. Toggle **Settings.AutoPauseResume** — expect `reloadType: live` and WebUI.log `Live settings changed (no worker restart): Settings.AutoPauseResume` (same worker PIDs).
+2. Toggle **Radarr-Movies.EntrySearch.SearchMissing** — expect `Applying live Arr config refresh for: Radarr-Movies` and Radarr-Movies.log `Applied in-place config refresh`.
+3. Set **Settings.FreeSpace** / **FreeSpaceFolder** — expect live settings notice; policy loop reads effective FreeSpace on subsequent iterations.
+
+### Tear down
+
+```bash
+docker compose -f docker-compose.test.yml down
+# Optional: wipe local state
+# rm -rf .compose-test
+```
+
+### If Docker / images are unavailable
+
+Run Phase A via `tests/test_config_first_boot.py`, run live-reload characterization tests under `tests/`, and exercise the checklist against any existing local qBit + Arr instances. Note in the PR which checklist rows could not be live-smoked.
+
 ## Future: Automated Testing
 
 **Planned for v6.0:**
@@ -166,33 +301,7 @@ def test_full_import_flow(qbit_mock, radarr_mock):
 
 ### End-to-End Tests
 
-Test against real services (Docker Compose):
-
-```yaml
-# docker-compose.test.yml
-services:
-  qbittorrent:
-    image: linuxserver/qbittorrent
-    # ...
-
-  radarr:
-    image: linuxserver/radarr
-    # ...
-
-  qbitrr:
-    build: .
-    depends_on:
-      - qbittorrent
-      - radarr
-    # ...
-```
-
-```bash
-# Run E2E tests
-docker-compose -f docker-compose.test.yml up -d
-python tests/e2e/test_real_services.py
-docker-compose -f docker-compose.test.yml down
-```
+Prefer the manual finite checklist under [Live smoke (compose)](#live-smoke-compose) with `docker-compose.test.yml`. Automated E2E scripts under `tests/e2e/` are not required for the confidence-hardening smoke.
 
 ### Performance Tests
 

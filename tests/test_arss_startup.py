@@ -1,4 +1,4 @@
-"""Smoke tests for Arr startup after arss.py package split."""
+"""Smoke tests for Arr startup after arss package hierarchy split."""
 
 from __future__ import annotations
 
@@ -7,40 +7,46 @@ from unittest.mock import MagicMock, patch
 
 import requests
 
-from qBitrr.arss import Arr, ArrManager
+from qBitrr.arss import ArrManager, LidarrArr, RadarrArr, SonarrArr, arr_class_for_section
+from qBitrr.arss.base import ArrBase
 from qBitrr.errors import SkipException
 
 
 class TestArssSplitImports(unittest.TestCase):
-    """Star-imported names from _shared must be visible in arr submodules."""
+    """Star-imported names from _shared must be visible in ArrBase module."""
 
-    def test_arr_module_exposes_atexit_and_database_error(self) -> None:
-        import qBitrr.arss.arr as arr_mod
+    def test_base_module_exposes_atexit_and_database_error(self) -> None:
+        import qBitrr.arss.base as base_mod
 
-        self.assertTrue(hasattr(arr_mod, "atexit"))
-        self.assertTrue(hasattr(arr_mod, "DatabaseError"))
-        self.assertTrue(hasattr(arr_mod, "sync_config_from_disk"))
+        self.assertTrue(hasattr(base_mod, "atexit"))
+        self.assertTrue(hasattr(base_mod, "DatabaseError"))
+        self.assertTrue(hasattr(base_mod, "sync_config_from_disk"))
 
-    def test_atexit_register_works_from_arr_namespace(self) -> None:
-        import qBitrr.arss.arr as arr_mod
+    def test_atexit_register_works_from_base_namespace(self) -> None:
+        import qBitrr.arss.base as base_mod
 
         session = requests.Session()
         try:
-            arr_mod.atexit.register(session.close)
+            base_mod.atexit.register(session.close)
         finally:
             session.close()
 
+    def test_arr_shim_exports_arrbase_alias(self) -> None:
+        from qBitrr.arss import Arr
+
+        self.assertIs(Arr, ArrBase)
+
 
 class TestArrInitSessionSetup(unittest.TestCase):
-    """Arr.__init__ must reach session/atexit setup without NameError."""
+    """RadarrArr.__init__ must reach session/atexit setup without NameError."""
 
-    @patch.object(Arr, "register_search_mode")
-    @patch("qBitrr.arss.arr.run_logs")
-    @patch("qBitrr.arss.arr.CONFIG")
-    @patch("qBitrr.arss.arr.QBIT_DISABLED", True)
-    @patch("qBitrr.arss.arr.SEARCH_ONLY", True)
-    @patch("qBitrr.arss.arr.PROCESS_ONLY", False)
-    @patch("qBitrr.arss.arr.TAGLESS", True)
+    @patch.object(RadarrArr, "register_search_mode")
+    @patch("qBitrr.arss.base.run_logs")
+    @patch("qBitrr.arss.base.CONFIG")
+    @patch("qBitrr.arss.base.QBIT_DISABLED", True)
+    @patch("qBitrr.arss.base.SEARCH_ONLY", True)
+    @patch("qBitrr.arss.base.PROCESS_ONLY", False)
+    @patch("qBitrr.arss.base.TAGLESS", True)
     def test_init_registers_session_close_on_atexit(
         self,
         mock_config: MagicMock,
@@ -79,24 +85,29 @@ class TestArrInitSessionSetup(unittest.TestCase):
         mock_client = MagicMock()
         client_builder = MagicMock(return_value=mock_client)
 
-        def _isinstance(obj: object, cls: type) -> bool:
-            if obj is mock_client and cls.__name__ == "Radarr":
-                return True
-            return isinstance(obj, cls)
+        with patch("qBitrr.arss.base.atexit.register") as mock_register:
+            arr = RadarrArr("TestRadarr", manager, client_builder=client_builder)
 
-        with patch("qBitrr.arss.arr.atexit.register") as mock_register:
-            with patch("qBitrr.arss.arr.isinstance", side_effect=_isinstance):
-                arr = Arr("TestRadarr", manager, client_builder=client_builder)
-
+        self.assertEqual(arr.type, "radarr")
         self.assertIsInstance(arr.session, requests.Session)
         mock_register.assert_any_call(arr.session.close)
+
+
+class TestArrFactory(unittest.TestCase):
+    """Section prefix selects the correct concrete Arr class."""
+
+    def test_arr_class_for_section(self) -> None:
+        self.assertIs(arr_class_for_section("Radarr.Main"), RadarrArr)
+        self.assertIs(arr_class_for_section("Sonarr-TV"), SonarrArr)
+        self.assertIs(arr_class_for_section("Animarr"), SonarrArr)
+        self.assertIs(arr_class_for_section("Lidarr.Music"), LidarrArr)
 
 
 class TestBuildArrInstances(unittest.TestCase):
     """ArrManager.build_arr_instances registers managed Arr objects."""
 
     @patch("qBitrr.arss.manager.CONFIG")
-    @patch("qBitrr.arss.manager.Arr")
+    @patch("qBitrr.arss.manager.build_arr_instance")
     @patch("qBitrr.arss.manager.get_free_space_guard_settings", return_value=("-1", None))
     @patch("qBitrr.arss.manager.get_auto_pause_resume_effective", return_value=False)
     @patch("qBitrr.arss.manager.get_effective_qbit_disabled", return_value=True)
@@ -107,21 +118,22 @@ class TestBuildArrInstances(unittest.TestCase):
         _mock_qbit_disabled: MagicMock,
         _mock_auto_pause: MagicMock,
         _mock_fs: MagicMock,
-        mock_arr_cls: MagicMock,
+        mock_build: MagicMock,
         mock_config: MagicMock,
     ) -> None:
         mock_config.sections.return_value = ["Radarr-1080"]
         mock_arr = MagicMock()
         mock_arr.uri = "http://127.0.0.1:7878"
         mock_arr.category = "radarr1080"
-        mock_arr_cls.return_value = mock_arr
+        mock_build.return_value = mock_arr
 
         qbit_manager = MagicMock()
         manager = ArrManager(qbit_manager)
         manager.build_arr_instances()
 
         self.assertIn("radarr1080", manager.managed_objects)
-        mock_arr_cls.assert_called_once()
+        mock_build.assert_called_once()
+        self.assertIsInstance(manager.managed_objects["radarr1080"], MagicMock)
 
     @patch("qBitrr.arss.manager.CONFIG")
     @patch("qBitrr.arss.manager.get_free_space_guard_settings", return_value=("-1", None))
@@ -146,7 +158,7 @@ class TestBuildArrInstances(unittest.TestCase):
         qbit_manager = MagicMock()
         manager = ArrManager(qbit_manager)
 
-        with patch("qBitrr.arss.manager.Arr", side_effect=SkipException):
+        with patch("qBitrr.arss.manager.build_arr_instance", side_effect=SkipException):
             manager.build_arr_instances()
 
         self.assertEqual(manager.groups, set())

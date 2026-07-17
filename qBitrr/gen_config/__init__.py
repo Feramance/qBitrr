@@ -3,6 +3,12 @@
 from __future__ import annotations
 
 from qBitrr.gen_config.config_class import MyConfig
+from qBitrr.gen_config.fields import (
+    QBIT_FIELDS,
+    SETTINGS_FIELDS,
+    WEBUI_FIELDS,
+    build_config_schema,
+)
 from qBitrr.gen_config.migrations import (
     _migrate_hnr_settings,
     _migrate_hnr_single_key,
@@ -25,6 +31,9 @@ from qBitrr.gen_config.validate import (
 __all__ = [
     "ARR_SECTION_PREFIXES",
     "MyConfig",
+    "QBIT_FIELDS",
+    "SETTINGS_FIELDS",
+    "WEBUI_FIELDS",
     "_migrate_hnr_settings",
     "_migrate_hnr_single_key",
     "_migrate_process_restart_settings",
@@ -38,6 +47,7 @@ __all__ = [
     "_validate_and_fill_config",
     "_write_config_file",
     "apply_config_migrations",
+    "build_config_schema",
     "generate_doc",
     "iter_arr_sections",
 ]

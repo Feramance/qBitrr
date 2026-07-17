@@ -16,7 +16,7 @@ from qBitrr.arss._shared import (
 )
 
 if TYPE_CHECKING:
-    from qBitrr.arss.arr import Arr
+    from qBitrr.arss.base import ArrBase as Arr
 
 
 def maybe_do_search(
