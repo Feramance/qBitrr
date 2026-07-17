@@ -109,7 +109,7 @@ docker rm qbitrr-test
 
 ## Live smoke (compose)
 
-Use the **test-only** stack in [`docker-compose.test.yml`](../../docker-compose.test.yml) (linuxserver qBittorrent + Radarr + qBitrr built from this branch). Data lands under `.compose-test/` (gitignored). Do not use this compose for production.
+Use the **test-only** stack in [`docker-compose.test.yml`](https://github.com/Feramance/qBitrr/blob/master/docker-compose.test.yml) (linuxserver qBittorrent + Radarr + qBitrr built from this branch). Data lands under `.compose-test/` (gitignored). Do not use this compose for production.
 
 Host ports (to avoid clashing with local Arr/qBit installs):
 
