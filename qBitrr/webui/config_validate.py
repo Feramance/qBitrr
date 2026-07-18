@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from typing import Any
 
 from qBitrr.gen_config.fields import QBIT_FIELDS, SETTINGS_FIELDS, WEBUI_FIELDS, ConfigField
@@ -190,6 +191,20 @@ def _section_needs_invariant_check(section: str, changed_keys: set[str]) -> bool
     return False
 
 
+def _config_has_section(config: Any, section: str) -> bool:
+    """Return True when ``section`` still exists in the in-memory config."""
+    sections = getattr(config, "sections", None)
+    if callable(sections):
+        try:
+            return section in sections()
+        except Exception:
+            pass
+    cfg = getattr(config, "config", None)
+    if isinstance(cfg, Mapping):
+        return section in cfg
+    return False
+
+
 def validate_config_update(config: Any, changes: dict[str, Any]) -> list[dict[str, str]]:
     """Validate ``changes`` against the in-memory config after they were applied.
 
@@ -227,6 +242,9 @@ def validate_config_update(config: Any, changes: dict[str, Any]) -> list[dict[st
             errors.append({"path": key, "message": message})
 
     for section in sorted(touched_sections):
+        # Renames/deletes null out old leaves; skip invariants when the section is gone.
+        if not _config_has_section(config, section):
+            continue
         if _section_needs_invariant_check(section, changed_keys):
             errors.extend(_validate_section_invariants(config, section))
 

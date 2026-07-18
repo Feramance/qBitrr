@@ -182,13 +182,24 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   const [serverValidationErrors, setServerValidationErrors] = useState<ValidationError[]>([]);
 
   const mergeValidationErrors = useCallback(
-    (clientErrors: ValidationError[]): ValidationError[] => {
+    (clientErrors: ValidationError[], sectionKey: string): ValidationError[] => {
       if (!serverValidationErrors.length) {
         return clientErrors;
+      }
+      const allowedRoots = new Set<string>([sectionKey]);
+      for (const [oldName, newName] of pendingRenames) {
+        if (oldName === sectionKey || newName === sectionKey) {
+          allowedRoots.add(oldName);
+          allowedRoots.add(newName);
+        }
       }
       const seen = new Set(clientErrors.map((error) => error.path.join(".")));
       const merged = [...clientErrors];
       for (const error of serverValidationErrors) {
+        const root = error.path[0];
+        if (!root || !allowedRoots.has(root)) {
+          continue;
+        }
         const key = error.path.join(".");
         if (!seen.has(key)) {
           merged.push(error);
@@ -197,7 +208,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       }
       return merged;
     },
-    [serverValidationErrors]
+    [serverValidationErrors, pendingRenames]
   );
 
   const sectionSaveGate = useCallback(
@@ -214,7 +225,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
         originalConfig,
         false
       );
-      const errors = mergeValidationErrors(clientErrors);
+      const errors = mergeValidationErrors(clientErrors, sectionKey);
       if (!errors.length) {
         return { saveDisabled: false, validationErrors: [] };
       }

@@ -665,6 +665,7 @@ QBIT_FIELDS: tuple[ConfigField, ...] = (
         "Download rate limit per torrent in KB/s (-1 = disabled)",
         label="Download Rate Limit Per Torrent",
         kind="number",
+        allow_negative=True,
     ),
     ConfigField(
         ("CategorySeeding", "UploadRateLimitPerTorrent"),
@@ -672,6 +673,7 @@ QBIT_FIELDS: tuple[ConfigField, ...] = (
         "Upload rate limit per torrent in KB/s (-1 = disabled)",
         label="Upload Rate Limit Per Torrent",
         kind="number",
+        allow_negative=True,
     ),
     ConfigField(
         ("CategorySeeding", "MaxUploadRatio"),
@@ -679,6 +681,7 @@ QBIT_FIELDS: tuple[ConfigField, ...] = (
         "Maximum upload ratio (-1 = disabled, e.g. 2.0 for 200%)",
         label="Max Upload Ratio",
         kind="number",
+        allow_negative=True,
     ),
     ConfigField(
         ("CategorySeeding", "MaxSeedingTime"),

@@ -16,6 +16,7 @@ from qBitrr.webui.config_toml import (
     _is_sensitive_dotted_key,
     _toml_delete,
     _toml_set,
+    materialize_redacted_rename_secrets,
 )
 
 if TYPE_CHECKING:
@@ -109,6 +110,9 @@ def register_config_routes(
                     jsonify({"error": f"Cannot modify protected configuration key: {key}"}),
                     403,
                 )
+
+        # Preserve secrets across section renames before deletes remove the old path.
+        changes = materialize_redacted_rename_secrets(_webui_mod().CONFIG, changes)
 
         # Analyze changes to determine reload strategy
         plan = classify_config_changes(changes)

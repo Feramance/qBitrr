@@ -70,6 +70,44 @@ def _is_sensitive_dotted_key(dotted_key: str) -> bool:
     return bool(_SENSITIVE_KEY_PATTERNS.search(dotted_key.split(".")[-1]))
 
 
+def materialize_redacted_rename_secrets(config: Any, changes: dict[str, Any]) -> dict[str, Any]:
+    """Fill ``[redacted]`` secrets on new section paths from deleted matching old paths.
+
+    When renaming Arr/qBit sections, the client sends the redaction placeholder for
+    secrets on the new name and ``null`` deletes for the old name. Applying that
+    naively would skip the redacted write and then delete the only stored secret.
+    """
+    if not changes:
+        return changes
+
+    out = dict(changes)
+    get = getattr(config, "get", None)
+
+    for key, val in changes.items():
+        if val is None or not isinstance(key, str) or "." not in key:
+            continue
+        if not (_is_sensitive_dotted_key(key) and str(val).strip() == REDACTED_PLACEHOLDER):
+            continue
+        new_section, relative = key.split(".", 1)
+        for del_key, del_val in changes.items():
+            if del_val is not None or not isinstance(del_key, str) or "." not in del_key:
+                continue
+            old_section, del_relative = del_key.split(".", 1)
+            if old_section == new_section or del_relative != relative:
+                continue
+            stored = None
+            if callable(get):
+                stored = get(del_key, fallback=None)
+            if (
+                stored is not None
+                and str(stored).strip()
+                and str(stored).strip() != REDACTED_PLACEHOLDER
+            ):
+                out[key] = stored
+            break
+    return out
+
+
 def _strip_sensitive_keys(obj: Any, _parent_key: str = "") -> Any:
     """Recursively redact values whose keys look like secrets."""
     if isinstance(obj, dict):

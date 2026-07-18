@@ -227,6 +227,14 @@ export const QBIT_FIELD_OVERLAYS: Record<string, FieldOverlay> = {
   },
   "CategorySeeding.MaxUploadRatio": {
     placeholder: "-1 (disabled), or positive number",
+    allowNegative: true,
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < -1) {
+        return "Max Upload Ratio must be -1 or greater.";
+      }
+      return undefined;
+    },
   },
   "CategorySeeding.MaxSeedingTime": {
     placeholder: "-1 (disabled), or positive duration",
@@ -246,11 +254,27 @@ export const QBIT_FIELD_OVERLAYS: Record<string, FieldOverlay> = {
   },
   "CategorySeeding.DownloadRateLimitPerTorrent": {
     label: "Download Rate Limit Per Torrent (KB/s)",
-    placeholder: "-1 (unlimited), 0 (disabled), or positive number",
+    placeholder: "-1 (disabled), or positive number",
+    allowNegative: true,
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < -1) {
+        return "Download Rate Limit must be -1 or greater.";
+      }
+      return undefined;
+    },
   },
   "CategorySeeding.UploadRateLimitPerTorrent": {
     label: "Upload Rate Limit Per Torrent (KB/s)",
-    placeholder: "-1 (unlimited), 0 (disabled), or positive number",
+    placeholder: "-1 (disabled), or positive number",
+    allowNegative: true,
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < -1) {
+        return "Upload Rate Limit must be -1 or greater.";
+      }
+      return undefined;
+    },
   },
   "CategorySeeding.HitAndRunMode": {
     options: ["and", "or", "disabled"],

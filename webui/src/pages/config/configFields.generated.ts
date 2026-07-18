@@ -295,16 +295,19 @@ export const GENERATED_QBIT_FIELDS: FieldDefinition[] = [
     label: "Download Rate Limit Per Torrent",
     path: ["CategorySeeding", "DownloadRateLimitPerTorrent"],
     type: "number",
+    allowNegative: true,
   },
   {
     label: "Upload Rate Limit Per Torrent",
     path: ["CategorySeeding", "UploadRateLimitPerTorrent"],
     type: "number",
+    allowNegative: true,
   },
   {
     label: "Max Upload Ratio",
     path: ["CategorySeeding", "MaxUploadRatio"],
     type: "number",
+    allowNegative: true,
   },
   {
     label: "Max Seeding Time",
