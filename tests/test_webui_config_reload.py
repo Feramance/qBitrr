@@ -114,6 +114,10 @@ class TestWebUIConfigReload(_WebUIClientTestCase):
         self.manager.arr_manager.managed_objects = {"movies": arr}
         self.manager.qbit_category_configs = {}
         self.manager.qbit_category_managers = {}
+        self.manager.clients = {}
+        self.manager.qbit_versions = {}
+        self.manager.instance_metadata = {}
+        self.manager.instance_health = {}
 
         # Exercise real _reload_all so delete_arr_dbs=False is observable on disk.
         self.reload_all_patcher.stop()
@@ -122,6 +126,7 @@ class TestWebUIConfigReload(_WebUIClientTestCase):
             rebuilt_manager.managed_objects = {"movies": arr}
             with (
                 patch("qBitrr.arss.ArrManager") as arr_manager_cls,
+                patch.object(self.manager, "_initialize_qbit_instances"),
                 patch.object(self.manager, "_reload_qbit_category_configs"),
                 patch.object(self.manager, "_initialize_qbit_category_managers"),
                 patch.object(self.manager, "_spawn_qbit_category_workers"),

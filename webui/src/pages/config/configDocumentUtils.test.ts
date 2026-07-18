@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildSectionDeleteChanges,
   fieldErrorDataPath,
   findFieldErrorMessage,
   formatValidationErrors,
+  resolveSectionDiskKey,
   validationErrorsFromApi,
 } from "./configDocumentUtils";
 import type { ValidationError } from "./configTypes";
@@ -63,5 +65,45 @@ describe("configDocumentUtils validation helpers", () => {
     expect(
       fieldErrorDataPath(["URI"], { sectionKey: "Lidarr-Music", basePath: [] })
     ).toBe("Lidarr-Music.URI");
+  });
+});
+
+describe("buildSectionDeleteChanges", () => {
+  it("returns section null for an existing qBit instance", () => {
+    const original = {
+      "qBit-Bad": { Host: "localhost", Port: 8080 },
+      Settings: { LoopSleepTimer: 60 },
+    };
+    expect(buildSectionDeleteChanges("qBit-Bad", original, new Map())).toEqual({
+      "qBit-Bad": null,
+    });
+  });
+
+  it("returns null for an unsaved new section", () => {
+    const original = { Settings: { LoopSleepTimer: 60 } };
+    expect(buildSectionDeleteChanges("qBit-2", original, new Map())).toBeNull();
+  });
+
+  it("uses the old disk key after a pending rename", () => {
+    const original = {
+      qBit: { Host: "localhost", Port: 8080 },
+    };
+    const pending = new Map([["qBit", "qBit-General"]]);
+    expect(resolveSectionDiskKey("qBit-General", pending)).toBe("qBit");
+    expect(buildSectionDeleteChanges("qBit-General", original, pending)).toEqual({
+      qBit: null,
+    });
+  });
+
+  it("nulls both keys when rename target also exists on disk", () => {
+    const original = {
+      qBit: { Host: "a" },
+      "qBit-General": { Host: "b" },
+    };
+    const pending = new Map([["qBit", "qBit-General"]]);
+    expect(buildSectionDeleteChanges("qBit-General", original, pending)).toEqual({
+      qBit: null,
+      "qBit-General": null,
+    });
   });
 });

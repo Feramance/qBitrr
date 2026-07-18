@@ -342,7 +342,6 @@ export function ArrInstanceModal({
               type="button"
               onClick={safeClick(() => {
                 onDelete();
-                onClose();
               })}
             >
               <IconImage src={DeleteIcon} />
@@ -513,7 +512,6 @@ export function QbitInstanceModal({
               type="button"
               onClick={safeClick(() => {
                 onDelete();
-                onClose();
               })}
             >
               <IconImage src={DeleteIcon} />

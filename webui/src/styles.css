@@ -2340,6 +2340,11 @@ svg[height] {
     animation: fadeIn 0.2s ease;
 }
 
+/* Confirm dialogs must sit above portaled Config/Arr modals (also z-index 120). */
+.modal-backdrop--confirm {
+    z-index: 140;
+}
+
 [data-theme="dark"] .modal-backdrop {
     background: rgba(0, 0, 0, 0.75);
 }

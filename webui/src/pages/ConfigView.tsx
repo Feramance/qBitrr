@@ -12,6 +12,7 @@ import { useToast } from "../context/ToastContext";
 import {
   getCategoryOverlapWarnings,
 } from "../config/categoryConfigValidation";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { IconImage } from "../components/IconImage";
 import ConfigureIcon from "../icons/gear.svg";
 import AddIcon from "../icons/plus.svg";
@@ -22,12 +23,14 @@ import {
 } from "./config/configFields";
 import {
   buildSectionChanges,
+  buildSectionDeleteChanges,
   ensureArrDefaults,
   flatten,
   focusFirstValidationError,
   formatValidationErrors,
   getValue,
   prunePendingRenames,
+  resolveSectionDiskKey,
   sectionKeysFromChanges,
   setValue,
   validationErrorsFromApi,
@@ -57,6 +60,11 @@ interface ConfigViewProps {
   onDirtyChange?: (dirty: boolean) => void;
 }
 
+type PendingSectionDelete = {
+  kind: "qbit" | "arr";
+  key: string;
+};
+
 export function ConfigView(props?: ConfigViewProps): JSX.Element {
   const { onDirtyChange } = props ?? {};
   const { push } = useToast();
@@ -67,6 +75,10 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   const [loading, setLoading] = useState(false);
   const [, setSavingSection] = useState<string | null>(null);
   const [pendingRenames, setPendingRenames] = useState<Map<string, string>>(new Map());
+  const [pendingDelete, setPendingDelete] = useState<PendingSectionDelete | null>(
+    null
+  );
+  const [deletingSection, setDeletingSection] = useState(false);
 
   const loadConfig = useCallback(async () => {
     setLoading(true);
@@ -404,33 +416,20 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
     },
     [formState]
   );
-  const deleteArrInstance = useCallback(
+  const requestDeleteArrInstance = useCallback(
     (key: string) => {
-      if (!formState) return;
+      if (!formState || !(key in formState)) return;
       const keyLower = key.toLowerCase();
-      if (!keyLower.startsWith("radarr") && !keyLower.startsWith("sonarr") && !keyLower.startsWith("lidarr")) {
+      if (
+        !keyLower.startsWith("radarr") &&
+        !keyLower.startsWith("sonarr") &&
+        !keyLower.startsWith("lidarr")
+      ) {
         return;
       }
-      const confirmed = window.confirm(
-        `Delete ${key}? This action cannot be undone.`
-      );
-      if (!confirmed) {
-        return;
-      }
-      if (!(key in formState)) {
-        return;
-      }
-      setFormState(
-        produce(formState, (draft) => {
-          delete draft[key];
-        })
-      );
-      if (activeArrKey === key) {
-        setActiveArrKey(null);
-      }
-      push(`${key} removed`, "success");
+      setPendingDelete({ kind: "arr", key });
     },
-    [formState, activeArrKey, push]
+    [formState]
   );
 
   const addQbitInstance = useCallback(() => {
@@ -474,29 +473,12 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
     setActiveQbitKey(key);
   }, [formState]);
 
-  const deleteQbitInstance = useCallback(
+  const requestDeleteQbitInstance = useCallback(
     (key: string) => {
-      if (!formState) return;
-      const confirmed = window.confirm(
-        `Remove ${key}? This will remove this qBittorrent instance from the config file.`
-      );
-      if (!confirmed) {
-        return;
-      }
-      if (!(key in formState)) {
-        return;
-      }
-      setFormState(
-        produce(formState, (draft) => {
-          delete draft[key];
-        })
-      );
-      if (activeQbitKey === key) {
-        setActiveQbitKey(null);
-      }
-      push(`${key} removed`, "success");
+      if (!formState || !(key in formState)) return;
+      setPendingDelete({ kind: "qbit", key });
     },
-    [formState, activeQbitKey, push]
+    [formState]
   );
 
   const handleRenameSection = useCallback(
@@ -598,6 +580,81 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
     },
     [loadConfig, push]
   );
+
+  const persistPendingDelete = useCallback(async () => {
+    if (!pendingDelete || !formState || deletingSection) {
+      return;
+    }
+    const { kind, key } = pendingDelete;
+    if (!(key in formState)) {
+      setPendingDelete(null);
+      return;
+    }
+
+    setDeletingSection(true);
+    try {
+      const changes = buildSectionDeleteChanges(key, originalConfig, pendingRenames);
+      if (changes === null) {
+        const diskKey = resolveSectionDiskKey(key, pendingRenames);
+        setFormState(
+          produce(formState, (draft) => {
+            delete draft[key];
+          })
+        );
+        setPendingRenames((prev) => prunePendingRenames(prev, [key, diskKey]));
+        if (kind === "qbit") {
+          setActiveQbitKey(null);
+        } else {
+          setActiveArrKey(null);
+        }
+        setPendingDelete(null);
+        push(`${key} removed`, "success");
+        return;
+      }
+
+      const { configReloaded, reloadType, affectedInstances } = await updateConfig({
+        changes,
+      });
+      setServerValidationErrors([]);
+      if (kind === "qbit") {
+        setActiveQbitKey(null);
+      } else {
+        setActiveArrKey(null);
+      }
+      setPendingDelete(null);
+      const savedKeys = sectionKeysFromChanges(changes);
+      savedKeys.push(key, resolveSectionDiskKey(key, pendingRenames));
+      await applyConfigSaveResult(
+        configReloaded,
+        reloadType,
+        affectedInstances,
+        savedKeys,
+        Object.keys(changes)
+      );
+    } catch (error) {
+      setPendingDelete(null);
+      if (error instanceof ConfigApiError && error.validationErrors.length) {
+        const apiErrors = validationErrorsFromApi(error.validationErrors);
+        setServerValidationErrors(apiErrors);
+        push(error.message, "error");
+        return;
+      }
+      push(
+        error instanceof Error ? error.message : "Failed to delete configuration section",
+        "error"
+      );
+    } finally {
+      setDeletingSection(false);
+    }
+  }, [
+    pendingDelete,
+    formState,
+    deletingSection,
+    originalConfig,
+    pendingRenames,
+    push,
+    applyConfigSaveResult,
+  ]);
 
   const saveSection = useCallback(
     async (sectionKey: string): Promise<boolean> => {
@@ -837,7 +894,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           onSave={() => saveSection(activeArrKey)}
           onDelete={
             /^(radarr|sonarr|lidarr)/i.test(activeArrKey)
-              ? () => deleteArrInstance(activeArrKey)
+              ? () => requestDeleteArrInstance(activeArrKey)
               : undefined
           }
           overlapWarnings={categoryOverlapWarnings}
@@ -901,11 +958,34 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           onRename={handleRenameQbitSection}
           onClose={() => setActiveQbitKey(null)}
           onSave={() => saveSection(activeQbitKey)}
-          onDelete={() => deleteQbitInstance(activeQbitKey)}
+          onDelete={() => requestDeleteQbitInstance(activeQbitKey)}
           overlapWarnings={categoryOverlapWarnings}
           saveDisabled={qbitSaveGate.saveDisabled}
           saveBlockedReason={qbitSaveGate.saveBlockedReason}
           validationErrors={qbitSaveGate.validationErrors}
+        />
+      ) : null}
+      {pendingDelete ? (
+        <ConfirmDialog
+          title={`Remove ${pendingDelete.key}?`}
+          message={
+            pendingDelete.kind === "qbit"
+              ? `This removes ${pendingDelete.key} from the config file and cannot be undone.`
+              : `Delete ${pendingDelete.key}? This action cannot be undone.`
+          }
+          confirmLabel={deletingSection ? "Removing…" : "Remove"}
+          cancelLabel="Cancel"
+          danger
+          onConfirm={() => {
+            if (!deletingSection) {
+              void persistPendingDelete();
+            }
+          }}
+          onCancel={() => {
+            if (!deletingSection) {
+              setPendingDelete(null);
+            }
+          }}
         />
       ) : null}
     </>

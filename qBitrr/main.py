@@ -670,23 +670,83 @@ class qBitManager(ProcessLifecycleMixin):
         if QBIT_DISABLED or SEARCH_ONLY:
             return
 
+        rebuilt: dict[str, dict] = {}
         for section in qbit_sections(CONFIG):
             managed_categories = CONFIG.get(f"{section}.ManagedCategories", fallback=[])
             if not managed_categories:
                 continue
             seeding = load_qbit_seeding_config(section)
-            self.qbit_category_configs[section] = {
+            rebuilt[section] = {
                 "managed_categories": managed_categories,
                 **seeding,
             }
+        self.qbit_category_configs.clear()
+        self.qbit_category_configs.update(rebuilt)
 
         self.logger.info(
             "Reloaded qBit category configs: %d instances", len(self.qbit_category_configs)
         )
 
+    def _stop_qbit_category_worker(self, instance_name: str) -> None:
+        """Kill and unregister the category_manager worker for a qBit instance."""
+        to_remove = [
+            proc
+            for proc, meta in list(self._process_registry.items())
+            if meta.get("role") == "category_manager" and meta.get("instance") == instance_name
+        ]
+        for proc in to_remove:
+            try:
+                proc.kill()
+            except Exception:
+                self.logger.debug(
+                    "Hot prune: kill failed for qBit category worker '%s'",
+                    instance_name,
+                    exc_info=True,
+                )
+            try:
+                proc.terminate()
+            except Exception:
+                self.logger.debug(
+                    "Hot prune: terminate failed for qBit category worker '%s'",
+                    instance_name,
+                    exc_info=True,
+                )
+            try:
+                self.child_processes.remove(proc)
+            except Exception:
+                self.logger.debug(
+                    "Hot prune: child_processes.remove failed for '%s'",
+                    instance_name,
+                    exc_info=True,
+                )
+            self._process_registry.pop(proc, None)
+
+    def _prune_stale_qbit_runtime(self) -> None:
+        """Drop clients/managers/registry entries for qBit sections no longer in config."""
+        if QBIT_DISABLED or SEARCH_ONLY:
+            valid: set[str] = set()
+        else:
+            valid = set(qbit_sections(CONFIG))
+
+        for store_name in ("clients", "qbit_versions", "instance_metadata", "instance_health"):
+            store = getattr(self, store_name, None)
+            if not isinstance(store, dict):
+                continue
+            for name in list(store.keys()):
+                if name not in valid:
+                    store.pop(name, None)
+
+        for name in list(self.qbit_category_managers.keys()):
+            if name in self.qbit_category_configs:
+                continue
+            self._stop_qbit_category_worker(name)
+            self.qbit_category_managers.pop(name, None)
+            self.logger.info("Pruned stale qBit category manager '%s' (hot reload)", name)
+
     def refresh_qbit_hot(self) -> None:
         """Refresh qBit category configs and in-memory managers without respawning workers."""
         self._reload_qbit_category_configs()
+        self._prune_stale_qbit_runtime()
         for instance_name, config in self.qbit_category_configs.items():
             manager = self.qbit_category_managers.get(instance_name)
             if manager is not None:

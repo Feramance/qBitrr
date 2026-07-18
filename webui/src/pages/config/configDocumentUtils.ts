@@ -81,6 +81,43 @@ export function prunePendingRenames(
   return next;
 }
 
+/**
+ * Resolve the on-disk section name for a form section key.
+ * When the section was renamed locally but not saved, disk still uses the old name.
+ */
+export function resolveSectionDiskKey(
+  sectionKey: string,
+  pendingRenames: Map<string, string>
+): string {
+  for (const [oldName, newName] of pendingRenames) {
+    if (newName === sectionKey) {
+      return oldName;
+    }
+  }
+  return sectionKey;
+}
+
+/**
+ * Build a config API payload that deletes a section from disk.
+ * Returns null when the section only exists in local form state (never saved).
+ */
+export function buildSectionDeleteChanges(
+  sectionKey: string,
+  originalConfig: ConfigDocument | null,
+  pendingRenames: Map<string, string>
+): Record<string, null> | null {
+  const original = originalConfig ?? {};
+  const diskKey = resolveSectionDiskKey(sectionKey, pendingRenames);
+  const changes: Record<string, null> = {};
+  if (diskKey in original) {
+    changes[diskKey] = null;
+  }
+  if (sectionKey !== diskKey && sectionKey in original) {
+    changes[sectionKey] = null;
+  }
+  return Object.keys(changes).length > 0 ? changes : null;
+}
+
 export function sectionKeysFromChanges(changes: Record<string, unknown>): string[] {
   const sections = new Set<string>();
   for (const key of Object.keys(changes)) {

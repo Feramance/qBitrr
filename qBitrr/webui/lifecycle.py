@@ -220,12 +220,20 @@ class LifecycleMixin:
                 for p in procs:
                     try:
                         p.start()
+                        self._register_arr_process(arr, p)
                     except Exception:
                         self.logger.debug(
                             "Reload: failed to start process for %s",
                             getattr(arr, "_name", ""),
                             exc_info=True,
                         )
+
+            # Reconcile qBit clients so status/Processes match config after renames
+            self.manager.clients.clear()
+            self.manager.qbit_versions.clear()
+            self.manager.instance_metadata.clear()
+            self.manager.instance_health.clear()
+            self.manager._initialize_qbit_instances()
 
             # Rebuild qBit category managers from fresh config
             self.manager.qbit_category_configs.clear()
@@ -341,6 +349,22 @@ class LifecycleMixin:
                 exc_info=True,
             )
 
+    def _register_arr_process(self, arr, process) -> None:
+        """Register an Arr worker process in the manager process registry."""
+        if process is None:
+            return
+        if (
+            not hasattr(self.manager, "_process_registry")
+            or self.manager._process_registry is None
+        ):
+            self.manager._process_registry = {}
+        role = "search" if getattr(arr, "process_search_loop", None) is process else "torrent"
+        self.manager._process_registry[process] = {
+            "category": getattr(arr, "category", ""),
+            "name": getattr(arr, "_name", getattr(arr, "category", "")),
+            "role": role or "worker",
+        }
+
     def _stop_arr_instance(self, arr, category: str, *, delete_db: bool = True):
         """Stop and cleanup a single Arr instance."""
         self.logger.info("Stopping Arr instance: %s", category)
@@ -377,6 +401,9 @@ class LifecycleMixin:
                         loop_kind,
                         exc_info=True,
                     )
+                registry = getattr(self.manager, "_process_registry", None)
+                if isinstance(registry, dict):
+                    registry.pop(process, None)
                 self.logger.debug("Stopped %s process for %s", loop_kind, category)
 
         # Delete database files (optional — skipped for preserve-db reloads)
@@ -438,6 +465,7 @@ class LifecycleMixin:
             for p in procs:
                 try:
                     p.start()
+                    self._register_arr_process(new_arr, p)
                     self.logger.debug("Started process (PID: %s) for %s", p.pid, instance_name)
                 except Exception as e:
                     self.logger.error("Failed to start process for %s: %s", instance_name, e)
@@ -452,6 +480,22 @@ class LifecycleMixin:
             self.logger.error(
                 "Failed to start Arr instance %s: %s", instance_name, e, exc_info=True
             )
+
+    def _reload_arr_instances_ordered(
+        self, instance_names: list[str], *, reset_instances: set[str]
+    ) -> None:
+        """Reload Arr instances, stopping removed names before starting/updating others.
+
+        Rename batches can include both the old (deleted) and new section names. Processing
+        deletions first avoids overwriting ``managed_objects[category]`` while old workers
+        are still running.
+        """
+        config_sections = set(_config().sections())
+        stops = [name for name in instance_names if name not in config_sections]
+        others = [name for name in instance_names if name in config_sections]
+        for instance_name in stops + others:
+            preserve_db = instance_name not in reset_instances
+            self._reload_arr_instance(instance_name, preserve_db=preserve_db)
 
     def _reload_arr_instance(self, instance_name: str, *, preserve_db: bool = False):
         """Reload a single Arr instance without affecting others."""

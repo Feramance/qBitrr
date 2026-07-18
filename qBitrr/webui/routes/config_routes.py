@@ -194,9 +194,7 @@ def register_config_routes(
                     len(all_reload),
                     ", ".join(all_reload),
                 )
-                for instance_name in all_reload:
-                    preserve_db = instance_name not in reset_instances
-                    webui._reload_arr_instance(instance_name, preserve_db=preserve_db)
+                webui._reload_arr_instances_ordered(all_reload, reset_instances=reset_instances)
 
             if plan.arr_live_instances:
                 webui.logger.notice(

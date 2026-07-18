@@ -63,13 +63,19 @@ function pathIncludesWebLogs(pathname) {
 }
 
 function isStaticAssetPath(pathname) {
-  // Cache-first only for static assets; never for /web/* or /api/* JSON endpoints.
+  // Cache-first only for hashed assets; never for /web/* or /api/* JSON endpoints.
   if (pathIncludesWeb(pathname) || pathIncludesApi(pathname)) {
     return false;
   }
-  return /\.(?:js|css|mjs|map|woff2?|ttf|otf|eot|png|jpe?g|gif|svg|webp|ico|wasm|json)$/i.test(pathname)
-    || pathname.includes('/assets/')
-    || pathname.includes('/static/');
+  // HTML shells must stay network-first — they reference deploy-hashed JS/CSS.
+  if (pathname.endsWith(".html") || pathname.endsWith("/")) {
+    return false;
+  }
+  return (
+    /\.(?:js|css|mjs|map|woff2?|ttf|otf|eot|png|jpe?g|gif|svg|webp|ico|wasm|json)$/i.test(
+      pathname
+    ) || pathname.includes("/assets/")
+  );
 }
 
 async function networkFirstNoStore(request) {

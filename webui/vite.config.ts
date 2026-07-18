@@ -36,9 +36,7 @@ function resolveCacheVersion(): string {
 }
 
 function injectServiceWorkerCacheVersion(): Plugin {
-  const cacheVersion = resolveCacheVersion();
-
-  const rewriteSw = (filePath: string): void => {
+  const rewriteSw = (filePath: string, cacheVersion: string): void => {
     if (!existsSync(filePath)) {
       return;
     }
@@ -53,7 +51,19 @@ function injectServiceWorkerCacheVersion(): Plugin {
     name: "inject-sw-cache-version",
     apply: "build",
     closeBundle() {
-      rewriteSw(resolve(__dirname, "../qBitrr/static/sw.js"));
+      // Prefer a content hash of the built HTML so each deploy invalidates SW caches.
+      // Fall back to env/package stamp when index.html is missing.
+      const indexPath = resolve(__dirname, "../qBitrr/static/index.html");
+      let cacheVersion = resolveCacheVersion();
+      if (existsSync(indexPath)) {
+        const packageVersion = cacheVersion.split("-")[0] || "0.0.0";
+        const contentHash = createHash("sha256")
+          .update(readFileSync(indexPath))
+          .digest("hex")
+          .slice(0, 10);
+        cacheVersion = `${packageVersion}-${contentHash}`;
+      }
+      rewriteSw(resolve(__dirname, "../qBitrr/static/sw.js"), cacheVersion);
     },
   };
 }
