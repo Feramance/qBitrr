@@ -87,6 +87,63 @@ export interface QbitCategoriesResponse {
   ready: boolean;
 }
 
+/** Per-torrent payload from GET /web/qbit/overview (VueTorrent RawTorrent-aligned). */
+export interface QbitTorrentOverview {
+  hash: string;
+  name: string;
+  category: string;
+  tags: string[];
+  state: string;
+  progress: number;
+  priority: number;
+  eta: number;
+  availability: number;
+  size: number;
+  totalSize: number;
+  downloaded: number;
+  uploaded: number;
+  amountLeft: number;
+  ratio: number;
+  dlspeed: number;
+  upspeed: number;
+  numSeeds: number;
+  numLeechs: number;
+  numComplete: number;
+  numIncomplete: number;
+  addedOn: number;
+  completionOn: number;
+  seedingTime: number;
+  timeActive: number;
+  lastActivity: number;
+  savePath: string;
+  contentPath: string;
+  tracker: string;
+  ratioLimit: number;
+  seedingTimeLimit: number;
+  dlLimit: number;
+  upLimit: number;
+}
+
+export interface QbitOverviewCategory {
+  category: string;
+  qbitInstance: string;
+  managedBy: "qbit" | "arr";
+  arrName: string | null;
+  torrentCount: number;
+  seedingCount: number;
+  totalSize: number;
+  avgRatio: number;
+  avgSeedingTime: number;
+  seedingConfig: QbitCategorySeedingConfig;
+  torrents: QbitTorrentOverview[];
+}
+
+export interface QbitOverviewResponse {
+  instances: string[];
+  categories: QbitOverviewCategory[];
+  ready: boolean;
+}
+
 export interface StatusResponse {
   qbit: QbitStatus;  // Legacy single-instance (default) for backward compatibility
   qbitInstances: { [instanceName: string]: QbitInstance };  // Multi-instance info

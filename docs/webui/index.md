@@ -290,30 +290,40 @@ Browse and manage your media libraries directly from qBitrr.
 
 ---
 
-### 📦 qBittorrent Categories
+### 📦 qBittorrent Overview
 
-View and monitor all qBittorrent categories — both qBit-managed and Arr-managed — from a unified dashboard.
+Monitored-category torrent overview for qBit-managed and Arr-managed categories — not a full qBittorrent client.
 
 **Features:**
 
+- **Layout**
+  - Same card shell as Arr/Processes (`card` header + sidebar/pane split)
+  - Summary counts and Refresh live in the right pane (Arr catalog body chrome)
+
+- **Instance picker**
+  - Select a qBittorrent client or **All qBittorrent** (when more than one is configured)
+  - Same sidebar / mobile select pattern as the Arr catalog views
+
+- **Search**
+  - Filter categories and torrents by name/tags (client-side), cleared when switching instance
+
 - **Category Overview**
-  - Total category count across all qBittorrent instances
+  - Total category count for the selected (or filtered) scope
   - Breakdown of qBit-managed vs. Arr-managed categories
   - Aggregate torrent count, seeding count, and total size
 
-- **Category Table**
-  - Category name
-  - Managed By indicator (qBit or Arr badge)
-  - Instance name (for multi-instance setups)
-  - Torrent count and seeding count
-  - Total size
-  - Average ratio and average seeding time
-  - Configured max ratio and max seeding time
-  - Removal mode (Never, On Ratio, On Time, Ratio OR Time, Ratio AND Time)
+- **Collapsible category sections**
+  - Category name, managed-by badge, qBit instance (in All view)
+  - Torrent / seeding counts, total size, and seeding-policy summary
+  - Expand a section to list torrents currently in that category
+
+- **Torrent list rows** (VueTorrent List-inspired)
+  - State-colored left border, torrent name, wrapping labeled metrics
+  - Progress bar, speeds, size/transfer, peers/seeds, state, ratio, tags, and more
+  - Read-only overview — no pause/delete/add actions
 
 - **Live Updates**
-  - Auto-refresh every 1 second when "Live Arr" is enabled
-  - Auto-refresh every 30 seconds otherwise
+  - Auto-refresh every 5 seconds when "Live Arr" is enabled and the tab is active
   - Manual refresh button
 
 **Use Cases:**
@@ -440,7 +450,7 @@ The WebUI uses a tab-based navigation system:
 | **Radarr** | 🎬 | Radarr movie library views |
 | **Sonarr** | 📺 | Sonarr TV series views |
 | **Lidarr** | 🎵 | Lidarr music library views |
-| **qBittorrent** | 📦 | qBit category management and seeding stats |
+| **qBittorrent** | 📦 | Monitored-category torrent overview by instance |
 | **Config** | ⚙️ | Configuration editor |
 | **API** | 🔌 | API documentation and testing |
 

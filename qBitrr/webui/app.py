@@ -136,6 +136,7 @@ class WebUI(CatalogMixin, LifecycleMixin):
             if request.path in (
                 "/static/index.html",
                 "/ui",
+                "/ui/",
                 "/static/sw.js",
                 "/sw.js",
             ):

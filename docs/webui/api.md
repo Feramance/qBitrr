@@ -621,7 +621,66 @@ Get qBittorrent categories managed by qBitrr (qBit-managed and Arr-managed) with
 - `torrentCount`, `seedingCount`, `totalSize`, `avgRatio`, `avgSeedingTime`
 - `seedingConfig` - Per-category seeding limits (e.g. `maxRatio`, `maxTime`, `removeMode`, `downloadLimit`, `uploadLimit`)
 
-**Use Case**: Category management UI, seeding stats display.
+**Use Case**: Category management UI, seeding stats display (Processes chips).
+
+---
+
+### Get qBit Overview
+
+Get monitored qBittorrent categories (qBit-managed and Arr-managed) with per-torrent transfer details for the WebUI overview tab.
+
+**Endpoint**:
+- `GET /web/qbit/overview` (public only; no `/api/` variant)
+
+**Authentication**: None (public endpoint). Uses the same WebUI token gate as other `/web/*` routes when a token is configured.
+
+**Query Parameters**:
+- `instance` (optional) - qBittorrent instance name (e.g. `qBit`). Omit or pass `all` to include every configured client.
+
+**Response**:
+```json
+{
+  "instances": ["qBit"],
+  "categories": [
+    {
+      "category": "movies",
+      "qbitInstance": "qBit",
+      "managedBy": "arr",
+      "arrName": "Radarr",
+      "torrentCount": 2,
+      "seedingCount": 1,
+      "totalSize": 123456789,
+      "avgRatio": 1.2,
+      "avgSeedingTime": 3600,
+      "seedingConfig": {
+        "maxRatio": -1,
+        "maxTime": -1,
+        "removeMode": -1,
+        "downloadLimit": -1,
+        "uploadLimit": -1
+      },
+      "torrents": [
+        {
+          "hash": "…",
+          "name": "Example",
+          "state": "uploading",
+          "progress": 1.0,
+          "size": 1000,
+          "dlspeed": 0,
+          "upspeed": 50,
+          "ratio": 1.5,
+          "tags": ["qbitrr"]
+        }
+      ]
+    }
+  ],
+  "ready": true
+}
+```
+
+Each category is scoped to a single qBit client (`qbitInstance`). Arr-managed categories appear under each client that is in scope (with an empty torrent list when that client has none). Torrent objects use camelCase fields aligned with qBittorrent `torrents/info` (hash, name, state, progress, speeds, peers, paths, limits, etc.).
+
+**Use Case**: qBittorrent WebUI tab — instance picker + collapsible category sections with List-style torrent rows.
 
 ---
 

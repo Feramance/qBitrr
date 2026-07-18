@@ -372,7 +372,7 @@ Visited tabs stay mounted and are hidden (`display: none`) on switch so Arr brow
 |---------|----------|------|
 | Processes | 2s | Tab active |
 | Logs (live updates) | 2s | Tab active and live toggle on |
-| qBittorrent categories | 5s | Tab active and `WebUI.LiveArr` |
+| qBittorrent overview | 5s | Tab active and `WebUI.LiveArr` |
 | Arr catalog (instance + aggregate) | 15s | Tab active and `WebUI.LiveArr` (and no blocking global search) |
 | AppShell `/web/status` (Arr tab visibility) | 15s | Always while shell is open |
 | AppShell meta (quiet) | 5 min | Soft refresh; forced on visibility |

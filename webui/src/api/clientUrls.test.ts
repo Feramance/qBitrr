@@ -31,6 +31,16 @@ describe("api client URL helpers", () => {
     );
   });
 
+  it("builds qBit overview paths with optional instance filter", async () => {
+    const { getQbitOverviewPath } = await loadClient();
+    expect(getQbitOverviewPath()).toBe("/web/qbit/overview");
+    expect(getQbitOverviewPath("all")).toBe("/web/qbit/overview");
+    expect(getQbitOverviewPath("aggregate")).toBe("/web/qbit/overview");
+    expect(getQbitOverviewPath("qBit-Seedbox")).toBe(
+      "/web/qbit/overview?instance=qBit-Seedbox",
+    );
+  });
+
   it("builds Arr open-item URLs for each kind", async () => {
     const {
       getArrOpenItemUrl,

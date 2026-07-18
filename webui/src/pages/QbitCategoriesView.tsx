@@ -1,15 +1,19 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from "react";
-import { getQbitCategories } from "../api/client";
-import type { QbitCategory } from "../api/types";
-import { useToast } from "../context/ToastContext";
-import { useInterval } from "../hooks/useInterval";
-import { useWebUI } from "../context/WebUIContext";
-import { StableTable } from "../components/StableTable";
 import {
-  type ColumnDef,
-} from "@tanstack/react-table";
-import { IconImage } from "../components/IconImage";
-import RefreshIcon from "../icons/refresh-arrow.svg";
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type JSX,
+} from "react";
+import { getQbitOverview, getStatus } from "../api/client";
+import type { QbitOverviewCategory, QbitTorrentOverview } from "../api/types";
+import { QbitTorrentListRow } from "../components/QbitTorrentListRow";
+import { useToast } from "../context/ToastContext";
+import { useWebUI } from "../context/WebUIContext";
+import { useInterval } from "../hooks/useInterval";
+import { ArrCatalogBodyChrome } from "./arrCatalog/ArrCatalogBodyChrome";
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";
@@ -54,26 +58,90 @@ function getRemoveModeText(mode: number): string {
   }
 }
 
-function areCategoriesEqual(a: QbitCategory[], b: QbitCategory[]): boolean {
-  if (a === b) return true;
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i += 1) {
-    const catA = a[i];
-    const catB = b[i];
-    if (
-      catA.category !== catB.category ||
-      catA.instance !== catB.instance ||
-      catA.torrentCount !== catB.torrentCount ||
-      catA.seedingCount !== catB.seedingCount ||
-      catA.totalSize !== catB.totalSize ||
-      catA.avgRatio !== catB.avgRatio ||
-      catA.avgSeedingTime !== catB.avgSeedingTime ||
-      catA.managedBy !== catB.managedBy
-    ) {
-      return false;
-    }
+function reconcileQbitSelection(
+  instances: string[],
+  current: string | "aggregate" | ""
+): string | "aggregate" {
+  if (!instances.length) {
+    return "aggregate";
   }
-  return true;
+  if (instances.length === 1) {
+    return instances[0]!;
+  }
+  if (current === "" || current === "aggregate") {
+    return "aggregate";
+  }
+  if (!instances.includes(current)) {
+    return "aggregate";
+  }
+  return current;
+}
+
+function categorySectionKey(cat: QbitOverviewCategory): string {
+  return `${cat.qbitInstance}:${cat.category}:${cat.managedBy}`;
+}
+
+function seedingSummary(cat: QbitOverviewCategory): string {
+  const { maxRatio, maxTime, removeMode } = cat.seedingConfig;
+  const ratio =
+    maxRatio === -1 ? "ratio off" : `max ratio ${maxRatio.toFixed(2)}`;
+  const time = maxTime === -1 ? "time off" : `max time ${formatTime(maxTime)}`;
+  return `${ratio} · ${time} · ${getRemoveModeText(removeMode)}`;
+}
+
+function torrentMatchesQuery(torrent: QbitTorrentOverview, q: string): boolean {
+  if (torrent.name.toLowerCase().includes(q)) {
+    return true;
+  }
+  return torrent.tags.some((tag) => tag.toLowerCase().includes(q));
+}
+
+interface FilteredCategory extends QbitOverviewCategory {
+  /** Torrents after search filter (same as torrents when no search). */
+  visibleTorrents: QbitTorrentOverview[];
+}
+
+function filterCategories(
+  categories: QbitOverviewCategory[],
+  search: string
+): FilteredCategory[] {
+  const q = search.trim().toLowerCase();
+  const sorted = [...categories].sort((a, b) => {
+    const inst = a.qbitInstance.localeCompare(b.qbitInstance);
+    if (inst !== 0) return inst;
+    return a.category.localeCompare(b.category);
+  });
+
+  if (!q) {
+    return sorted.map((cat) => ({ ...cat, visibleTorrents: cat.torrents }));
+  }
+
+  const filtered: FilteredCategory[] = [];
+  for (const cat of sorted) {
+    const categoryHit =
+      cat.category.toLowerCase().includes(q) ||
+      (cat.arrName?.toLowerCase().includes(q) ?? false) ||
+      cat.qbitInstance.toLowerCase().includes(q);
+    const matchingTorrents = cat.torrents.filter((t) =>
+      torrentMatchesQuery(t, q)
+    );
+    if (!categoryHit && matchingTorrents.length === 0) {
+      continue;
+    }
+    const visibleTorrents = categoryHit ? cat.torrents : matchingTorrents;
+    const seedingCount = visibleTorrents.filter((t) =>
+      ["uploading", "stalledUP", "forcedUP"].includes(t.state)
+    ).length;
+    const totalSize = visibleTorrents.reduce((sum, t) => sum + t.size, 0);
+    filtered.push({
+      ...cat,
+      torrentCount: visibleTorrents.length,
+      seedingCount,
+      totalSize,
+      visibleTorrents,
+    });
+  }
+  return filtered;
 }
 
 interface QbitCategoriesViewProps {
@@ -81,15 +149,37 @@ interface QbitCategoriesViewProps {
 }
 
 export function QbitCategoriesView({ active }: QbitCategoriesViewProps): JSX.Element {
-  const [categories, setCategories] = useState<QbitCategory[]>([]);
+  const [instances, setInstances] = useState<string[]>([]);
+  const [selection, setSelection] = useState<string | "aggregate" | "">("");
+  const [categories, setCategories] = useState<QbitOverviewCategory[]>([]);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const { push } = useToast();
   const { liveArr } = useWebUI();
   const isFetching = useRef(false);
 
-  const load = useCallback(
+  const isAggregate = selection === "aggregate";
+
+  const loadInstances = useCallback(async () => {
+    try {
+      const status = await getStatus();
+      const names = Object.keys(status.qbitInstances ?? {}).sort((a, b) =>
+        a.localeCompare(b)
+      );
+      setInstances(names);
+      setSelection((prev) => reconcileQbitSelection(names, prev));
+    } catch (error) {
+      push(
+        error instanceof Error ? error.message : "Failed to load qBit instances",
+        "error"
+      );
+    }
+  }, [push]);
+
+  const loadOverview = useCallback(
     async (showLoading = true) => {
-      if (isFetching.current) {
+      if (isFetching.current || !selection) {
         return;
       }
       isFetching.current = true;
@@ -97,15 +187,26 @@ export function QbitCategoriesView({ active }: QbitCategoriesViewProps): JSX.Ele
         setLoading(true);
       }
       try {
-        const data = await getQbitCategories();
-        setCategories((prev) =>
-          areCategoriesEqual(prev, data.categories) ? prev : data.categories
-        );
+        const instanceArg =
+          selection === "aggregate" ? undefined : selection;
+        const data = await getQbitOverview(instanceArg);
+        setCategories(data.categories);
+        if (data.instances.length) {
+          setInstances((prev) => {
+            const merged = Array.from(
+              new Set([...prev, ...data.instances])
+            ).sort((a, b) => a.localeCompare(b));
+            return merged.length === prev.length &&
+              merged.every((name, i) => name === prev[i])
+              ? prev
+              : merged;
+          });
+        }
       } catch (error) {
         push(
           error instanceof Error
             ? error.message
-            : "Failed to load qBit categories",
+            : "Failed to load qBit overview",
           "error"
         );
       } finally {
@@ -115,36 +216,81 @@ export function QbitCategoriesView({ active }: QbitCategoriesViewProps): JSX.Ele
         }
       }
     },
-    [push]
+    [push, selection]
   );
 
   useEffect(() => {
-    if (active) {
-      const id = window.setTimeout(() => {
-        void load();
-      }, 0);
-      return () => window.clearTimeout(id);
+    if (!active) {
+      return;
     }
-  }, [active, load]);
+    const id = window.setTimeout(() => {
+      void loadInstances();
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [active, loadInstances]);
+
+  useEffect(() => {
+    if (!active || !selection) {
+      return;
+    }
+    const id = window.setTimeout(() => {
+      void loadOverview();
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [active, selection, loadOverview]);
 
   useInterval(
     () => {
-      void load(false);
+      void loadOverview(false);
     },
-    active && liveArr ? 5000 : null
+    active && liveArr && selection ? 5000 : null
   );
 
   const handleRefresh = useCallback(() => {
-    void load();
-  }, [load]);
+    void loadInstances();
+    void loadOverview();
+  }, [loadInstances, loadOverview]);
 
-  // Calculate summary stats
+  const selectInstance = useCallback((value: string | "aggregate") => {
+    setSelection(value);
+    setSearch("");
+  }, []);
+
+  const handleInstanceSelection = useCallback(
+    (event: ChangeEvent<HTMLSelectElement>) => {
+      selectInstance(event.target.value as string | "aggregate");
+    },
+    [selectInstance]
+  );
+
+  const toggleSection = useCallback((key: string) => {
+    setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
+  }, []);
+
+  const filteredCategories = useMemo(
+    () => filterCategories(categories, search),
+    [categories, search]
+  );
+
   const summary = useMemo(() => {
-    const totalTorrents = categories.reduce((sum, cat) => sum + cat.torrentCount, 0);
-    const totalSeeding = categories.reduce((sum, cat) => sum + cat.seedingCount, 0);
-    const totalSize = categories.reduce((sum, cat) => sum + cat.totalSize, 0);
-    const qbitCount = categories.filter((cat) => cat.managedBy === "qbit").length;
-    const arrCount = categories.filter((cat) => cat.managedBy === "arr").length;
+    const totalTorrents = filteredCategories.reduce(
+      (sum, cat) => sum + cat.torrentCount,
+      0
+    );
+    const totalSeeding = filteredCategories.reduce(
+      (sum, cat) => sum + cat.seedingCount,
+      0
+    );
+    const totalSize = filteredCategories.reduce(
+      (sum, cat) => sum + cat.totalSize,
+      0
+    );
+    const qbitCount = filteredCategories.filter(
+      (cat) => cat.managedBy === "qbit"
+    ).length;
+    const arrCount = filteredCategories.filter(
+      (cat) => cat.managedBy === "arr"
+    ).length;
 
     return {
       totalTorrents,
@@ -152,136 +298,197 @@ export function QbitCategoriesView({ active }: QbitCategoriesViewProps): JSX.Ele
       totalSize,
       qbitCount,
       arrCount,
-      categoryCount: categories.length,
+      categoryCount: filteredCategories.length,
     };
-  }, [categories]);
+  }, [filteredCategories]);
 
-  // Define table columns
-  const columns = useMemo<ColumnDef<QbitCategory>[]>(
-    () => [
-      {
-        accessorKey: "category",
-        header: "Category",
-        cell: (info) => info.getValue(),
-        size: 150,
-      },
-      {
-        accessorKey: "managedBy",
-        header: "Managed By",
-        cell: (info) => {
-          const managedBy = info.getValue() as "qbit" | "arr";
-          return managedBy === "qbit" ? (
-            <span className="badge badge-qbit">qBit</span>
-          ) : (
-            <span className="badge badge-arr">Arr</span>
-          );
-        },
-        size: 120,
-      },
-      {
-        accessorKey: "instance",
-        header: "Instance",
-        cell: (info) => info.getValue(),
-        size: 150,
-      },
-      {
-        accessorKey: "torrentCount",
-        header: "Torrents",
-        cell: (info) => (info.getValue() as number).toLocaleString(),
-        size: 100,
-      },
-      {
-        accessorKey: "seedingCount",
-        header: "Seeding",
-        cell: (info) => (info.getValue() as number).toLocaleString(),
-        size: 100,
-      },
-      {
-        accessorKey: "totalSize",
-        header: "Total Size",
-        cell: (info) => formatBytes(info.getValue() as number),
-        size: 120,
-      },
-      {
-        accessorKey: "avgRatio",
-        header: "Avg Ratio",
-        cell: (info) => (info.getValue() as number).toFixed(2),
-        size: 100,
-      },
-      {
-        accessorKey: "avgSeedingTime",
-        header: "Avg Seed Time",
-        cell: (info) => formatTime(Math.round(info.getValue() as number)),
-        size: 140,
-      },
-      {
-        id: "maxRatio",
-        header: "Max Ratio",
-        accessorFn: (row) => row.seedingConfig.maxRatio,
-        cell: (info) => {
-          const val = info.getValue() as number;
-          return val === -1 ? "Disabled" : val.toFixed(2);
-        },
-        size: 100,
-      },
-      {
-        id: "maxTime",
-        header: "Max Time",
-        accessorFn: (row) => row.seedingConfig.maxTime,
-        cell: (info) => {
-          const val = info.getValue() as number;
-          return val === -1 ? "Disabled" : formatTime(val);
-        },
-        size: 120,
-      },
-      {
-        id: "removeMode",
-        header: "Remove Mode",
-        accessorFn: (row) => row.seedingConfig.removeMode,
-        cell: (info) => getRemoveModeText(info.getValue() as number),
-        size: 150,
-      },
-    ],
-    []
+  const summaryLine = (
+    <>
+      Monitored-category torrent overview
+      {selection && selection !== "aggregate"
+        ? ` · ${selection}`
+        : instances.length > 1
+          ? " · All qBittorrent"
+          : ""}
+      <br />
+      <strong>Categories:</strong> {summary.categoryCount} •{" "}
+      <strong>qBit-managed:</strong> {summary.qbitCount} •{" "}
+      <strong>Arr-managed:</strong> {summary.arrCount} •{" "}
+      <strong>Total Torrents:</strong> {summary.totalTorrents.toLocaleString()}{" "}
+      • <strong>Seeding:</strong> {summary.totalSeeding.toLocaleString()} •{" "}
+      <strong>Total Size:</strong> {formatBytes(summary.totalSize)}
+    </>
   );
 
-  return (
-    <div className="stack animate-fade-in">
-      <div className="row" style={{ justifyContent: "space-between" }}>
-        <div className="hint">
-          Category overview across all instances
-          <br />
-          <strong>Categories:</strong> {summary.categoryCount} •{" "}
-          <strong>qBit-managed:</strong> {summary.qbitCount} •{" "}
-          <strong>Arr-managed:</strong> {summary.arrCount} •{" "}
-          <strong>Total Torrents:</strong>{" "}
-          {summary.totalTorrents.toLocaleString()} •{" "}
-          <strong>Seeding:</strong> {summary.totalSeeding.toLocaleString()} •{" "}
-          <strong>Total Size:</strong> {formatBytes(summary.totalSize)}
-        </div>
-        <button className="btn ghost" onClick={handleRefresh} disabled={loading}>
-          {loading && <span className="spinner" />}
-          <IconImage src={RefreshIcon} />
-          {loading ? "Refreshing..." : "Refresh"}
-        </button>
-      </div>
+  const showInitialLoading = loading && categories.length === 0;
 
-      {loading && categories.length === 0 ? (
-        <div className="loading">
-          <span className="spinner" /> Loading categories…
+  let body: JSX.Element;
+  if (!instances.length) {
+    body = (
+      <div className="hint">
+        No qBittorrent instances found. Configure a `[qBit]` section to use this
+        view.
+      </div>
+    );
+  } else if (categories.length === 0) {
+    body = (
+      <div className="hint">
+        No monitored categories found. Configure ManagedCategories in your qBit
+        config sections or add Arr instances.
+      </div>
+    );
+  } else if (filteredCategories.length === 0) {
+    body = (
+      <div className="hint">No categories or torrents match your search.</div>
+    );
+  } else {
+    body = (
+      <div className="qbit-category-sections">
+        {filteredCategories.map((cat) => {
+          const key = categorySectionKey(cat);
+          const isOpen = Boolean(expanded[key]);
+          return (
+            <section key={key} className="qbit-category-section">
+              <button
+                type="button"
+                className="qbit-category-section__header"
+                aria-expanded={isOpen}
+                onClick={() => toggleSection(key)}
+              >
+                <span
+                  className={`qbit-category-section__chevron${
+                    isOpen ? " is-open" : ""
+                  }`}
+                  aria-hidden
+                />
+                <span className="qbit-category-section__title">
+                  <span className="qbit-category-section__name">
+                    {cat.category}
+                  </span>
+                  {cat.managedBy === "qbit" ? (
+                    <span className="badge badge-qbit">qBit</span>
+                  ) : (
+                    <span className="badge badge-arr">
+                      Arr
+                      {cat.arrName ? ` · ${cat.arrName}` : ""}
+                    </span>
+                  )}
+                  {isAggregate && (
+                    <span className="badge">{cat.qbitInstance}</span>
+                  )}
+                </span>
+                <span className="qbit-category-section__meta">
+                  {cat.torrentCount.toLocaleString()} torrents ·{" "}
+                  {cat.seedingCount.toLocaleString()} seeding ·{" "}
+                  {formatBytes(cat.totalSize)}
+                </span>
+                <span className="qbit-category-section__policy hint">
+                  {seedingSummary(cat)}
+                </span>
+              </button>
+              {isOpen && (
+                <div className="qbit-category-section__body">
+                  {cat.visibleTorrents.length === 0 ? (
+                    <div className="hint">
+                      No torrents in this category on {cat.qbitInstance}.
+                    </div>
+                  ) : (
+                    <div className="qbit-torrent-list">
+                      {cat.visibleTorrents.map((torrent) => (
+                        <QbitTorrentListRow
+                          key={torrent.hash || torrent.name}
+                          torrent={torrent}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+          );
+        })}
+      </div>
+    );
+  }
+
+  return (
+    <section className="card">
+      <div className="card-header">qBittorrent</div>
+      <div className="card-body">
+        <div className="split">
+          <aside className="pane sidebar">
+            {instances.length > 1 && (
+              <button
+                type="button"
+                className={`btn ${isAggregate ? "active" : ""}`}
+                onClick={() => selectInstance("aggregate")}
+              >
+                All qBittorrent
+              </button>
+            )}
+            {instances.map((name) => (
+              <button
+                type="button"
+                key={name}
+                className={`btn ghost ${selection === name ? "active" : ""}`}
+                onClick={() => selectInstance(name)}
+              >
+                {name}
+              </button>
+            ))}
+          </aside>
+
+          <div className="pane">
+            <div className="field mobile-instance-select">
+              <label htmlFor="qbit-instance-select">Instance</label>
+              <select
+                id="qbit-instance-select"
+                value={selection || "aggregate"}
+                onChange={handleInstanceSelection}
+                disabled={!instances.length}
+              >
+                {instances.length > 1 && (
+                  <option value="aggregate">All qBittorrent</option>
+                )}
+                {instances.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div
+              className="row"
+              style={{
+                alignItems: "flex-end",
+                gap: "12px",
+                flexWrap: "wrap",
+              }}
+            >
+              <div className="col field" style={{ flex: "1 1 200px" }}>
+                <label htmlFor="qbit-search">Search</label>
+                <input
+                  id="qbit-search"
+                  placeholder="Filter categories or torrents…"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  disabled={!instances.length}
+                />
+              </div>
+            </div>
+
+            <ArrCatalogBodyChrome
+              summaryLine={summaryLine}
+              onRefresh={handleRefresh}
+              loading={showInitialLoading}
+              loadingHint="Loading overview…"
+            >
+              {body}
+            </ArrCatalogBodyChrome>
+          </div>
         </div>
-      ) : categories.length === 0 ? (
-        <div className="hint">
-          No categories found. Configure ManagedCategories in your qBit config sections or
-          add Arr instances to see categories.
-        </div>
-      ) : (
-        <StableTable
-          data={categories}
-          columns={columns}
-          getRowKey={(cat) => `${cat.instance}-${cat.category}-${cat.managedBy}`}
-        />
-      )}
-    </div>
+      </div>
+    </section>
   );
 }

@@ -209,10 +209,8 @@ def register_routes(webui: WebUI) -> None:
     def swagger_docs():
         return _swagger_docs_response()
 
-    @app.get("/ui")
-    def ui_index():
+    def _ui_index_redirect():
         # Serve UI without requiring a token; API remains protected
-        # Add cache-busting parameter based on config reload timestamp
         from flask import make_response
 
         response = make_response(redirect(_public_url("/static/index.html")))
@@ -221,6 +219,11 @@ def register_routes(webui: WebUI) -> None:
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
         return response
+
+    @app.get("/ui")
+    @app.get("/ui/")
+    def ui_index():
+        return _ui_index_redirect()
 
     @app.get("/sw.js")
     def service_worker():

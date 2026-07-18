@@ -11,6 +11,7 @@ import type {
   LogTailPayload,
   ProcessesResponse,
   QbitCategoriesResponse,
+  QbitOverviewResponse,
   RadarrMoviesResponse,
   RestartResponse,
   SetPasswordRequest,
@@ -290,6 +291,21 @@ export async function getStatus(): Promise<StatusResponse> {
 
 export async function getQbitCategories(): Promise<QbitCategoriesResponse> {
   return fetchJson<QbitCategoriesResponse>("/web/qbit/categories");
+}
+
+/** Build path for GET /web/qbit/overview (optional instance filter). */
+export function getQbitOverviewPath(instance?: string): string {
+  if (!instance || instance === "all" || instance === "aggregate") {
+    return "/web/qbit/overview";
+  }
+  const params = new URLSearchParams({ instance });
+  return `/web/qbit/overview?${params.toString()}`;
+}
+
+export async function getQbitOverview(
+  instance?: string
+): Promise<QbitOverviewResponse> {
+  return fetchJson<QbitOverviewResponse>(getQbitOverviewPath(instance));
 }
 
 export async function getProcesses(): Promise<ProcessesResponse> {

@@ -1790,6 +1790,21 @@
         ]
       }
     },
+    "/ui/": {
+      "get": {
+        "operationId": "ui_trailing_slash",
+        "responses": {
+          "302": {
+            "description": "Redirect"
+          }
+        },
+        "security": [],
+        "summary": "WebUI entry with trailing slash (redirect)",
+        "tags": [
+          "System"
+        ]
+      }
+    },
     "/web/arr": {
       "get": {
         "operationId": "web_arr_list",
@@ -3072,6 +3087,47 @@
           }
         ],
         "summary": "qBittorrent categories and seeding stats (/web only)",
+        "tags": [
+          "WebUI"
+        ]
+      }
+    },
+    "/web/qbit/overview": {
+      "get": {
+        "operationId": "web_qbit_overview",
+        "parameters": [
+          {
+            "description": "qBittorrent instance name, or omit/`all` for every instance",
+            "in": "query",
+            "name": "instance",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Monitored qBittorrent categories with torrent list (/web only)",
         "tags": [
           "WebUI"
         ]

@@ -149,6 +149,22 @@ def register_status_routes(
 
         return jsonify({"categories": categories_data, "ready": True})
 
+    @app.get("/web/qbit/overview")
+    def web_qbit_overview():
+        """Get monitored categories with per-torrent details, optionally filtered by qBit instance."""
+        if (resp := require_token()) is not None:
+            return resp
+        from qBitrr.webui.routes.category_stats import build_qbit_overview
+
+        instance = (request.args.get("instance") or "").strip() or None
+        arr_manager = getattr(webui.manager, "arr_manager", None)
+        payload = build_qbit_overview(
+            webui.manager,
+            instance_filter=instance,
+            arr_manager=arr_manager,
+        )
+        return jsonify(payload)
+
     @app.get("/api/meta")
     def api_meta():
         if (resp := require_token()) is not None:
