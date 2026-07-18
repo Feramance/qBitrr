@@ -12,6 +12,7 @@ import requests
 from qBitrr.arss._shared import (
     _ARR_RETRY_EXCEPTIONS,
     UnhandledError,
+    _is_media_available,
     _is_media_processing,
     _normalize_media_status,
     with_retry,
