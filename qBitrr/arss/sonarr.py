@@ -15,6 +15,7 @@ from qBitrr.arss._shared import (
     TAGLESS,
     EpisodeFilesModel,
     EpisodeQueueModel,
+    JsonObject,
     PyarrResourceNotFound,
     SeriesFilesModel,
     Sonarr,
@@ -24,6 +25,8 @@ from qBitrr.arss._shared import (
 )
 from qBitrr.arss.arr_type_config import collect_years_for_search as _collect_years_for_search
 from qBitrr.arss.base import ArrBase
+from qBitrr.arss.db_update_handlers import update_sonarr_episode, update_sonarr_series
+from qBitrr.arss.search_handlers import search_sonarr
 
 if TYPE_CHECKING:
     from qBitrr.arss.manager import ArrManager
@@ -276,3 +279,52 @@ class SonarrArr(ArrBase):
                         self.persistent_queue.insert(
                             EntryId=object_id, ArrInstance=self._name
                         ).on_conflict_ignore()
+
+    def _db_update_single_entry(
+        self,
+        db_entry: JsonObject,
+        *,
+        request: bool = False,
+        series: bool = False,
+        artist: bool = False,
+    ) -> None:
+        del artist
+        if not series:
+            update_sonarr_episode(self, db_entry, request=request)
+        else:
+            update_sonarr_series(self, db_entry)
+
+    def _log_db_update_json_error(
+        self, db_entry: JsonObject, *, series: bool = False, artist: bool = False
+    ) -> None:
+        del artist
+        if self.series_search or series:
+            self.logger.warning(
+                "Error getting series info: [%s][%s]", db_entry["id"], db_entry.get("title")
+            )
+        else:
+            self.logger.warning(
+                "Error getting episode info: [%s][%s]", db_entry["id"], db_entry.get("title")
+            )
+
+    def _maybe_do_search_impl(
+        self,
+        file_model,
+        *,
+        request_tag: str,
+        request: bool,
+        todays: bool,
+        bypass_limit: bool,
+        series_search: bool,
+        commands: int,
+    ):
+        return search_sonarr(
+            self,
+            file_model,
+            request_tag=request_tag,
+            request=request,
+            todays=todays,
+            bypass_limit=bypass_limit,
+            series_search=series_search,
+            commands=commands,
+        )

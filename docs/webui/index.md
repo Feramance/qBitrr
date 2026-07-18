@@ -358,9 +358,9 @@ Edit your qBitrr configuration without leaving the browser.
   - Download configuration file
 
 - **Apply Changes**
-  - Per-instance save for each qBittorrent and Arr instance
-  - Save all changed sections with **Save + Live Reload**
-  - Restart qBitrr with new config
+  - Per-instance / modal Save for Settings, WebUI, qBittorrent, and each Arr instance
+  - Intelligent live reload after save (`live`, `qbit_hot`, Arr preserve/reset, or full restart)
+  - Restart qBitrr with new config when a full restart is required
   - Restart specific Arr instances only
   - Rollback on failure
 

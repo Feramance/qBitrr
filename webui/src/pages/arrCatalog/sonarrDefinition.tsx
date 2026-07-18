@@ -791,7 +791,7 @@ function SonarrAggregateBody({
       hasRows={total > 0}
       catalogEmptyMessage="No episodes found in the database."
       noMatchMessage="No series found."
-      showPagination={total > 0}
+      showPagination={totalPages > 1}
       page={page}
       totalPages={totalPages}
       total={total}

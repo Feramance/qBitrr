@@ -330,13 +330,3 @@ def _gen_default_tracker_tables(category: str, torrent_table: Table):
         )
     )
     torrent_table.add("Trackers", [])
-
-
-def _gen_default_line(table, comments, field, value):
-    if isinstance(comments, list):
-        for c in comments:
-            table.add(comment(c))
-    else:
-        table.add(comment(comments))
-    table.add(field, value)
-    table.add(nl())

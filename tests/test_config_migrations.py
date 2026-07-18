@@ -228,6 +228,22 @@ class TestMigrateWebuiConfigEdgeCases(unittest.TestCase):
         )
         self.assertFalse(_migrate_webui_config(cfg))
 
+    def test_removes_obsolete_group_sonarr_lidarr_keys(self) -> None:
+        cfg = _config_from_toml(
+            """
+            [Settings]
+            Host = "127.0.0.1"
+            [WebUI]
+            Host = "0.0.0.0"
+            GroupSonarr = true
+            GroupLidarr = false
+            """
+        )
+        self.assertTrue(_migrate_webui_config(cfg))
+        webui = cfg.get("WebUI")
+        self.assertNotIn("GroupSonarr", webui)
+        self.assertNotIn("GroupLidarr", webui)
+
 
 class TestMigrateHnrSingleKeyEdgeCases(unittest.TestCase):
     def test_noop_when_mode_already_string(self) -> None:

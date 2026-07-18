@@ -73,13 +73,13 @@ export const GENERATED_SETTINGS_FIELDS: FieldDefinition[] = [
     label: "Failed Category",
     path: ["Settings", "FailedCategory"],
     type: "text",
-    applyLive: true,
+    requiresRestart: true,
   },
   {
     label: "Recheck Category",
     path: ["Settings", "RecheckCategory"],
     type: "text",
-    applyLive: true,
+    requiresRestart: true,
   },
   {
     label: "Tagless",
@@ -277,6 +277,11 @@ export const GENERATED_QBIT_FIELDS: FieldDefinition[] = [
     secure: true,
   },
   {
+    label: "Skip TLS Verify",
+    path: ["SkipTLSVerify"],
+    type: "checkbox",
+  },
+  {
     label: "Managed Categories",
     path: ["ManagedCategories"],
     type: "tags",
@@ -378,6 +383,11 @@ export const GENERATED_ARR_FIELDS: FieldDefinition[] = [
     type: "password",
     required: true,
     secure: true,
+  },
+  {
+    label: "Skip TLS Verify",
+    path: ["SkipTLSVerify"],
+    type: "checkbox",
   },
   {
     label: "Category",
@@ -532,6 +542,11 @@ export const GENERATED_ARR_FIELDS: FieldDefinition[] = [
     type: "checkbox",
   },
   {
+    label: "Ombi Skip TLS Verify",
+    path: ["EntrySearch", "Ombi", "SkipTLSVerify"],
+    type: "checkbox",
+  },
+  {
     label: "Search Overseerr Requests",
     path: ["EntrySearch", "Overseerr", "SearchOverseerrRequests"],
     type: "checkbox",
@@ -550,6 +565,11 @@ export const GENERATED_ARR_FIELDS: FieldDefinition[] = [
   {
     label: "Overseerr Approved Only",
     path: ["EntrySearch", "Overseerr", "ApprovedOnly"],
+    type: "checkbox",
+  },
+  {
+    label: "Overseerr Skip TLS Verify",
+    path: ["EntrySearch", "Overseerr", "SkipTLSVerify"],
     type: "checkbox",
   },
   {

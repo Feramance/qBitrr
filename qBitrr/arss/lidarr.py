@@ -16,6 +16,7 @@ from qBitrr.arss._shared import (
     AlbumFilesModel,
     AlbumQueueModel,
     ArtistFilesModel,
+    JsonObject,
     Lidarr,
     PyarrResourceNotFound,
     TorrentLibrary,
@@ -24,6 +25,8 @@ from qBitrr.arss._shared import (
     with_retry,
 )
 from qBitrr.arss.base import ArrBase
+from qBitrr.arss.db_update_handlers import update_lidarr_album, update_lidarr_artist
+from qBitrr.arss.search_handlers import search_lidarr
 
 if TYPE_CHECKING:
     from qBitrr.arss.manager import ArrManager
@@ -158,3 +161,45 @@ class LidarrArr(ArrBase):
                 self.persistent_queue.insert(
                     EntryId=object_id, ArrInstance=self._name
                 ).on_conflict_ignore()
+
+    def _db_update_single_entry(
+        self,
+        db_entry: JsonObject,
+        *,
+        request: bool = False,
+        series: bool = False,
+        artist: bool = False,
+    ) -> None:
+        del series
+        if not artist:
+            update_lidarr_album(self, db_entry, request=request)
+        else:
+            update_lidarr_artist(self, db_entry)
+
+    def _log_db_update_json_error(
+        self, db_entry: JsonObject, *, series: bool = False, artist: bool = False
+    ) -> None:
+        # Historical behavior: Lidarr had no JSONDecodeError warning branch.
+        del db_entry, series, artist
+
+    def _maybe_do_search_impl(
+        self,
+        file_model,
+        *,
+        request_tag: str,
+        request: bool,
+        todays: bool,
+        bypass_limit: bool,
+        series_search: bool,
+        commands: int,
+    ):
+        return search_lidarr(
+            self,
+            file_model,
+            request_tag=request_tag,
+            request=request,
+            todays=todays,
+            bypass_limit=bypass_limit,
+            series_search=series_search,
+            commands=commands,
+        )

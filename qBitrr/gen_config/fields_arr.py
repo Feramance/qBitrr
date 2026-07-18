@@ -68,7 +68,6 @@ ARR_FIELDS: tuple[ConfigField, ...] = (
         ),
         label="Skip TLS Verify",
         kind="checkbox",
-        ui_expose=False,
     ),
     ConfigField(
         ("Category",),
@@ -317,7 +316,6 @@ ARR_FIELDS: tuple[ConfigField, ...] = (
         ("If true, do not verify TLS for Ombi HTTPS (self-signed). Disables MITM protection.",),
         label="Ombi Skip TLS Verify",
         kind="checkbox",
-        ui_expose=False,
         arr_kinds=_NOT_LIDARR,
     ),
     ConfigField(
@@ -363,7 +361,6 @@ ARR_FIELDS: tuple[ConfigField, ...] = (
         ),
         label="Overseerr Skip TLS Verify",
         kind="checkbox",
-        ui_expose=False,
         arr_kinds=_NOT_LIDARR,
     ),
     ConfigField(

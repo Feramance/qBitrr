@@ -12,6 +12,7 @@ from qBitrr.arss._shared import (
     _ARR_RETRY_EXCEPTIONS,
     _ARR_RETRY_EXCEPTIONS_EXTENDED,
     TAGLESS,
+    JsonObject,
     MovieQueueModel,
     MoviesFilesModel,
     PyarrResourceNotFound,
@@ -22,6 +23,8 @@ from qBitrr.arss._shared import (
 )
 from qBitrr.arss.arr_type_config import collect_years_for_search as _collect_years_for_search
 from qBitrr.arss.base import ArrBase
+from qBitrr.arss.db_update_handlers import update_radarr_entry
+from qBitrr.arss.search_handlers import search_radarr
 
 if TYPE_CHECKING:
     from qBitrr.arss.manager import ArrManager
@@ -128,3 +131,44 @@ class RadarrArr(ArrBase):
                 self.persistent_queue.insert(
                     EntryId=object_id, ArrInstance=self._name
                 ).on_conflict_ignore()
+
+    def _db_update_single_entry(
+        self,
+        db_entry: JsonObject,
+        *,
+        request: bool = False,
+        series: bool = False,
+        artist: bool = False,
+    ) -> None:
+        del series, artist
+        update_radarr_entry(self, db_entry, request=request)
+
+    def _log_db_update_json_error(
+        self, db_entry: JsonObject, *, series: bool = False, artist: bool = False
+    ) -> None:
+        del series, artist
+        self.logger.warning(
+            "Error getting movie info: [%s][%s]", db_entry["id"], db_entry.get("path")
+        )
+
+    def _maybe_do_search_impl(
+        self,
+        file_model,
+        *,
+        request_tag: str,
+        request: bool,
+        todays: bool,
+        bypass_limit: bool,
+        series_search: bool,
+        commands: int,
+    ):
+        return search_radarr(
+            self,
+            file_model,
+            request_tag=request_tag,
+            request=request,
+            todays=todays,
+            bypass_limit=bypass_limit,
+            series_search=series_search,
+            commands=commands,
+        )

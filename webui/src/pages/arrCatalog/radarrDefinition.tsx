@@ -407,7 +407,7 @@ function RadarrAggregateBody({
       hasRows={total > 0}
       catalogEmptyMessage="No movies found in the local catalog."
       noMatchMessage="No movies found."
-      showPagination={total > 0}
+      showPagination={totalPages > 1}
       page={page}
       totalPages={totalPages}
       total={total}

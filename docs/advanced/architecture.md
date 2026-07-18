@@ -10,7 +10,7 @@ qBitrr uses a multi-process architecture designed for reliability, scalability, 
 graph TB
     Main["🎛️ Main Process<br/>(qBitrr/main.py)"]
 
-    Main -->|starts| WebUI["🌐 WebUI Thread<br/>(qBitrr/webui.py)"]
+    Main -->|starts| WebUI["🌐 WebUI Thread<br/>(qBitrr/webui/)"]
     Main -->|spawns| Radarr["📽️ Arr Manager<br/>(Radarr-4K)"]
     Main -->|spawns| Sonarr["📺 Arr Manager<br/>(Sonarr-TV)"]
     Main -->|spawns| Lidarr["🎵 Arr Manager<br/>(Lidarr-Music)"]
@@ -79,9 +79,9 @@ Responsibilities:
 - Coordinates cross-process communication via shared queue
 
 #### WebUI Thread
-**File:** `qBitrr/webui.py`
+**Package:** `qBitrr/webui/`
 
-The WebUI runs as a **daemon thread** in the main process (not a separate process).
+The WebUI runs as a **daemon thread** in the main process (not a separate process). Flask app factory, route registrars, and catalog queries live under this package.
 
 Responsibilities:
 - Serves Flask REST API on `/api/*` routes
@@ -91,9 +91,9 @@ Responsibilities:
 - Exposes health check endpoint for monitoring
 
 #### Arr Manager Processes
-**File:** `qBitrr/arss.py`
+**Package:** `qBitrr/arss/`
 
-Each configured Arr instance (Radarr/Sonarr/Lidarr) runs in an isolated process:
+Per-type workers are `RadarrArr` / `SonarrArr` / `LidarrArr` subclasses of `ArrBase` (built via `qBitrr/arss/factory.py`). Each configured Arr instance runs in an isolated process:
 
 Responsibilities:
 - Runs independent event loop checking qBittorrent every N seconds
@@ -266,13 +266,13 @@ flowchart TD
 
 1. **Environment Variables** (`QBITRR_*`) - Highest priority
 2. **TOML File** (`config.toml`) - Standard configuration
-3. **Defaults** (in `gen_config.py`) - Fallback values
+3. **Defaults** (in `qBitrr/gen_config/`) - Fallback values
 
 **Key Files:**
 
 - `qBitrr/config.py` - Config parsing, validation, migrations
 - `qBitrr/env_config.py` - Environment variable overrides
-- `qBitrr/gen_config.py` - Default values and config generation
+- `qBitrr/gen_config/` - Default values and config generation
 
 ### API Request Flow
 
@@ -464,7 +464,7 @@ When schema changes:
 
 ### Event Loop Architecture
 
-**File:** `qBitrr/arss.py:ArrManagerBase.run_loop()`
+**File:** `qBitrr/arss/base.py` (`ArrBase` event loop)
 
 Each Arr instance runs this loop:
 
@@ -647,17 +647,16 @@ Port = 6969
 
 ### Adding New Arr Types
 
-1. Subclass `ArrManagerBase` in `arss.py`
-2. Implement `_process_failed_individual()` method
-3. Register in `main.py:start_arr_manager()`
-4. Add config section to `gen_config.py:MyConfig`
+1. Subclass `ArrBase` under `qBitrr/arss/` (type-specific models, `db_update`, search)
+2. Register the section → class mapping in `qBitrr/arss/factory.py` / `ArrManager.build_arr_instances()`
+3. Add config section builders under `qBitrr/gen_config/`
 
 ### Custom Healthcheck Logic
 
 Override in subclass:
 
 ```python
-class CustomRadarrManager(RadarrManager):
+class CustomRadarrArr(RadarrArr):
     def _is_torrent_healthy(self, torrent):
         # Custom logic here
         return super()._is_torrent_healthy(torrent)
@@ -900,12 +899,15 @@ Each Arr manager's event loop runs six phases per iteration:
 
 ### Main Loop Implementation
 
-**File:** `qBitrr/arss.py:ArrManagerBase.run_loop()`
+**File:** `qBitrr/arss/base.py` (`ArrBase` event loop)
 
 ```python
 def run_loop(self):
     while not self.shutdown_event.is_set():
         try:
+            # LIVE config: re-read disk + apply attrs each iteration
+            self._sync_loop_settings_from_config()  # → _apply_arr_live_attrs_from_config()
+
             # Phase 1: Fetch torrents
             torrents = self._fetch_torrents_from_qbittorrent()
 

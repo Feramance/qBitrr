@@ -634,7 +634,6 @@ QBIT_FIELDS: tuple[ConfigField, ...] = (
         ),
         label="Skip TLS Verify",
         kind="checkbox",
-        ui_expose=False,
     ),
     ConfigField(
         ("ManagedCategories",),

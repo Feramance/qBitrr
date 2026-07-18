@@ -83,13 +83,13 @@ from qBitrr.arss._shared import (
     with_database_retry,
     with_retry,
 )
+from qBitrr.arss.db_queries import db_get_files as _db_get_files_fn
+from qBitrr.arss.db_queries import db_get_request_files as _db_get_request_files_fn
 from qBitrr.arss.db_queries import (
-    db_get_files,
-    db_get_request_files,
-    db_maybe_reset_entry_searched_state,
+    db_maybe_reset_entry_searched_state as _db_maybe_reset_entry_searched_state_fn,
 )
-from qBitrr.arss.request_providers import db_request_update
-from qBitrr.arss.search_handlers import maybe_do_search
+from qBitrr.arss.request_providers import db_request_update as _db_request_update_fn
+from qBitrr.arss.search_handlers import maybe_do_search as _maybe_do_search_fn
 from qBitrr.arss.torrent_batch_mixin import TorrentBatchMixin
 from qBitrr.arss.torrent_dispatcher_mixin import TorrentDispatcherMixin
 from qBitrr.arss.torrent_inspector_mixin import TorrentInspectorMixin
@@ -1196,8 +1196,18 @@ class ArrBase(
         )
 
     def _sync_loop_settings_from_config(self) -> None:
-        """Refresh high-traffic loop settings from CONFIG (call from worker loops)."""
+        """Refresh Arr LIVE settings from CONFIG (call from worker loops each iteration).
+
+        Covers timers/ETA/stalled delay and Arr LIVE attrs such as ``search_missing``,
+        ``auto_delete``, tracker indexes, and related EntrySearch/Torrent flags so
+        child processes pick up WebUI live saves without a respawn.
+        """
         sync_config_from_disk()
+        self._apply_arr_live_attrs_from_config()
+
+    def _apply_arr_live_attrs_from_config(self) -> None:
+        """Apply Arr LIVE in-memory attrs from the current CONFIG snapshot."""
+        name = self._name
         ignore_seconds = self._get_ignore_torrents_younger_than()
         if ignore_seconds != self.ignore_torrents_younger_than:
             self.ignore_torrents_younger_than = ignore_seconds
@@ -1209,29 +1219,11 @@ class ArrBase(
         self.rss_sync_timer = self._get_rss_sync_timer()
         self.refresh_downloads_timer = self._get_refresh_downloads_timer()
         self.stalled_delay = CONFIG.get_duration(
-            f"{self._name}.Torrent.StalledDelay", fallback=15, unit="minutes"
+            f"{name}.Torrent.StalledDelay", fallback=15, unit="minutes"
         )
         self.allowed_stalled = self.stalled_delay != -1
-
-    def apply_config_refresh(self, preserve_db: bool = True) -> None:
-        """Refresh in-memory Arr settings from CONFIG without deleting the search DB.
-
-        Worker processes re-read CONFIG each loop via ``_sync_loop_settings_from_config``.
-        When ``preserve_db`` is False the caller must reset the search DB and respawn workers.
-        """
-        name = self._name
         self.managed = CONFIG.get(f"{name}.Managed", fallback=False)
-        new_uri = CONFIG.get_or_raise(f"{name}.URI")
-        new_apikey = CONFIG.get_or_raise(f"{name}.APIKey")
         self.skip_tls_verify_servarr = CONFIG.get(f"{name}.SkipTLSVerify", fallback=False)
-        if new_uri != self.uri or new_apikey != self.apikey:
-            self.uri = new_uri
-            self.apikey = new_apikey
-            self.client = self._client_builder(
-                self.uri,
-                self.apikey,
-                verify_ssl=not self.skip_tls_verify_servarr,
-            )
         self.re_search = CONFIG.get(f"{name}.ReSearch", fallback=False)
         self.import_mode = CONFIG.get(f"{name}.importMode", fallback="Auto")
         if self.import_mode == "Hardlink":
@@ -1246,8 +1238,6 @@ class ArrBase(
         self.search_missing = CONFIG.get(f"{name}.EntrySearch.SearchMissing", fallback=False)
         if PROCESS_ONLY:
             self.search_missing = False
-        self.search_command_limit = self._get_search_command_limit()
-        self._sync_loop_settings_from_config()
         qbit_trackers = CONFIG.get("qBit.Trackers", fallback=[])
         arr_trackers = CONFIG.get(f"{name}.Torrent.Trackers", fallback=[])
         self.monitored_trackers = self._merge_trackers(qbit_trackers, arr_trackers)
@@ -1257,6 +1247,28 @@ class ArrBase(
                 bad_tracker_messages=self.seeding_mode_global_bad_tracker_msg,
             )
         )
+
+    def apply_config_refresh(self, preserve_db: bool = True) -> None:
+        """Refresh in-memory Arr settings from CONFIG without deleting the search DB.
+
+        Main-process managed objects call this on Arr LIVE saves. Worker processes
+        apply the same LIVE attrs each loop via ``_sync_loop_settings_from_config``.
+        When ``preserve_db`` is False the caller must reset the search DB and respawn workers.
+        """
+        name = self._name
+        new_uri = CONFIG.get_or_raise(f"{name}.URI")
+        new_apikey = CONFIG.get_or_raise(f"{name}.APIKey")
+        self.skip_tls_verify_servarr = CONFIG.get(f"{name}.SkipTLSVerify", fallback=False)
+        if new_uri != self.uri or new_apikey != self.apikey:
+            self.uri = new_uri
+            self.apikey = new_apikey
+            self.client = self._client_builder(
+                self.uri,
+                self.apikey,
+                verify_ssl=not self.skip_tls_verify_servarr,
+            )
+        sync_config_from_disk()
+        self._apply_arr_live_attrs_from_config()
         self.logger.info(
             "Applied in-place config refresh for %s (preserve_db=%s)", name, preserve_db
         )
@@ -1570,16 +1582,10 @@ class ArrBase(
     ) -> Iterable[
         tuple[MoviesFilesModel | EpisodeFilesModel | SeriesFilesModel, bool, bool, bool, int]
     ]:
-        from qBitrr.arss.db_queries import db_get_files as _db_get_files
-
-        return _db_get_files(self)
+        return _db_get_files_fn(self)
 
     def db_maybe_reset_entry_searched_state(self):
-        from qBitrr.arss.db_queries import (
-            db_maybe_reset_entry_searched_state as _db_maybe_reset_entry_searched_state,
-        )
-
-        return _db_maybe_reset_entry_searched_state(self)
+        return _db_maybe_reset_entry_searched_state_fn(self)
 
     def db_reset__series_searched_state(self):
         from qBitrr.arss.db_queries import (
@@ -1632,14 +1638,10 @@ class ArrBase(
         return _db_get_files_movies(self)
 
     def db_get_request_files(self) -> Iterable[tuple[MoviesFilesModel | EpisodeFilesModel, int]]:
-        from qBitrr.arss.db_queries import db_get_request_files as _db_get_request_files
-
-        return _db_get_request_files(self)
+        return _db_get_request_files_fn(self)
 
     def db_request_update(self):
-        from qBitrr.arss.request_providers import db_request_update as _db_request_update
-
-        return _db_request_update(self)
+        return _db_request_update_fn(self)
 
     def _db_request_update(self, request_ids: dict[str, set[int | str]]):
         from qBitrr.arss.request_providers import _db_request_update as __db_request_update
@@ -1724,6 +1726,41 @@ class ArrBase(
         )
 
         return _db_update_single_series(self, db_entry, request, series, artist)
+
+    def _db_update_single_entry(
+        self,
+        db_entry: JsonObject,
+        *,
+        request: bool = False,
+        series: bool = False,
+        artist: bool = False,
+    ) -> None:
+        """Type-specific DB row update; implemented on RadarrArr / SonarrArr / LidarrArr."""
+        raise UnhandledError(f"{type(self).__name__} must implement _db_update_single_entry")
+
+    def _log_db_update_json_error(
+        self, db_entry: JsonObject, *, series: bool = False, artist: bool = False
+    ) -> None:
+        """Log a JSONDecodeError during DB update (overridden per Arr type)."""
+        self.logger.warning(
+            "Error getting media info: [%s][%s]",
+            db_entry.get("id"),
+            db_entry.get("title", db_entry.get("path", "?")),
+        )
+
+    def _maybe_do_search_impl(
+        self,
+        file_model: EpisodeFilesModel | MoviesFilesModel | SeriesFilesModel,
+        *,
+        request_tag: str,
+        request: bool,
+        todays: bool,
+        bypass_limit: bool,
+        series_search: bool,
+        commands: int,
+    ):
+        """Type-specific search command path; implemented on concrete Arr classes."""
+        raise UnhandledError(f"{type(self).__name__} must implement _maybe_do_search_impl")
 
     def delete_from_queue(self, id_, remove_from_client=True, blacklist=True):
         try:
@@ -2852,20 +2889,18 @@ class ArrBase(
         reset_count = 0
 
         try:
-            # Get all items from Arr instance
-            if self._name.lower().startswith("radarr"):
+            # Get all items from Arr instance (use arr_type, not section-name prefix)
+            if self.type == "radarr":
                 items = self.client.movie.get()
                 item_type = "movie"
-            elif self._name.lower().startswith("sonarr") or self._name.lower().startswith(
-                "animarr"
-            ):
+            elif self.type == "sonarr":
                 items = self.client.series.get()
                 item_type = "series"
-            elif self._name.lower().startswith("lidarr"):
+            elif self.type == "lidarr":
                 items = self.client.artist.get()
                 item_type = "artist"
             else:
-                self.logger.warning("Unknown Arr type for temp profile reset: %s", self._name)
+                self.logger.warning("Unknown Arr type for temp profile reset: %s", self.type)
                 return
 
             self.logger.info("Checking %d %ss for temp profile resets...", len(items), item_type)
@@ -2919,16 +2954,14 @@ class ArrBase(
             # Query database for items with expired temp profiles
             db1, db2, db3, db4, db5 = self._get_models()
 
-            # Determine which model to use
-            if self._name.lower().startswith("radarr"):
+            # Determine which model to use (arr_type, not section-name prefix)
+            if self.type == "radarr":
                 model = self.movies_file_model
                 item_type = "movie"
-            elif self._name.lower().startswith("sonarr") or self._name.lower().startswith(
-                "animarr"
-            ):
+            elif self.type == "sonarr":
                 model = self.model_file  # episodes
                 item_type = "episode"
-            elif self._name.lower().startswith("lidarr"):
+            elif self.type == "lidarr":
                 model = self.artists_file_model
                 item_type = "artist"
             else:
@@ -3081,9 +3114,7 @@ class ArrBase(
         series_search: bool = False,
         commands: int = 0,
     ):
-        from qBitrr.arss.search_handlers import maybe_do_search as _maybe_do_search
-
-        return _maybe_do_search(
+        return _maybe_do_search_fn(
             self,
             file_model,
             request=request,
@@ -3110,9 +3141,9 @@ class ArrBase(
             loop_delay = get_search_loop_delay_effective()
         try:
             event = self.manager.qbit_manager.shutdown_event
-            db_request_update(self)
+            _db_request_update_fn(self)
             try:
-                for entry, commands in db_get_request_files(self):
+                for entry, commands in _db_get_request_files_fn(self):
                     if totcommands == -1:
                         totcommands = commands
                         self.logger.info("Starting request search for %s items", totcommands)
@@ -3123,7 +3154,7 @@ class ArrBase(
                     else:
                         loop_delay = get_search_loop_delay_effective()
                     while (not event.is_set()) and (
-                        not maybe_do_search(
+                        not _maybe_do_search_fn(
                             self,
                             entry,
                             request=True,
@@ -3209,7 +3240,7 @@ class ArrBase(
                             self.search_current_year = years[: years_index + 1]
                     self.logger.debug("Current year %s", self.search_current_year)
                 try:
-                    db_maybe_reset_entry_searched_state(self)
+                    _db_maybe_reset_entry_searched_state_fn(self)
                     self.refresh_download_queue()
                     self.db_update()
                     # Reset the loop timer after db_update() so that the time
@@ -3257,7 +3288,7 @@ class ArrBase(
                             limit_bypass,
                             series_search,
                             commands,
-                        ) in db_get_files(self):
+                        ) in _db_get_files_fn(self):
                             any_commands = True
                             if totcommands == -1:
                                 totcommands = commands
@@ -3267,7 +3298,7 @@ class ArrBase(
                             else:
                                 loop_delay = get_search_loop_delay_effective()
                             while (not event.is_set()) and (
-                                not maybe_do_search(
+                                not _maybe_do_search_fn(
                                     self,
                                     entry,
                                     todays=todays,

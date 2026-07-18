@@ -458,12 +458,16 @@ The `setup.py` copies `webui/dist/` to `qBitrr/static/` during package build.
 
 ## Testing
 
-**Currently:** Manual testing via browser
+**Automated (Vitest):**
 
-**Planned:** Automated testing with:
-- **Vitest** - Unit tests
-- **Testing Library** - Component tests
-- **Playwright** - E2E tests
+```bash
+cd webui
+npm test
+```
+
+Unit/component tests live next to source as `*.test.ts` / `*.test.tsx` (e.g. config validation, catalog utils, API URL helpers).
+
+**Manual:** Still exercise the UI in a browser against a running backend for integration confidence. Browser E2E (e.g. Playwright) is optional and not required for the live-smoke checklist.
 
 ## Debugging
 

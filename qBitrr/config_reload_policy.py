@@ -51,8 +51,6 @@ SETTINGS_LIVE_KEYS = frozenset(
         "Settings.LoopSleepTimer",
         "Settings.SearchLoopDelay",
         "Settings.NoInternetSleepTimer",
-        "Settings.FailedCategory",
-        "Settings.RecheckCategory",
         "Settings.CompletedDownloadFolder",
         "Settings.AutoPauseResume",
         "Settings.PingURLS",
@@ -69,6 +67,10 @@ SETTINGS_FULL_RESTART_KEYS = frozenset(
     {
         "Settings.Logging",
         "Settings.Tagless",
+        # PlaceHolderArr registers failed/recheck category names at ArrManager init;
+        # renames require a full rebuild so workers track the new category strings.
+        "Settings.FailedCategory",
+        "Settings.RecheckCategory",
         "Settings.AutoRestartProcesses",
         "Settings.MaxProcessRestarts",
         "Settings.ProcessRestartWindow",
@@ -201,10 +203,13 @@ def _arr_instance_for_key(key: str) -> tuple[str, str] | None:
 
 
 def _classify_arr_suffix(suffix: str) -> ReloadCategory:
-    if suffix in ARR_RESPAWN_PRESERVE_DB_SUFFIXES:
-        return ReloadCategory.ARR_PRESERVE_DB
+    lowered = suffix.casefold()
+    for preserve in ARR_RESPAWN_PRESERVE_DB_SUFFIXES:
+        if lowered == preserve.casefold():
+            return ReloadCategory.ARR_PRESERVE_DB
     for reset_suffix in ARR_RESET_DB_SUFFIXES:
-        if suffix == reset_suffix or suffix.startswith(f"{reset_suffix}."):
+        reset_lower = reset_suffix.casefold()
+        if lowered == reset_lower or lowered.startswith(f"{reset_lower}."):
             return ReloadCategory.ARR_RESET_DB
     return ReloadCategory.LIVE
 
@@ -214,24 +219,37 @@ def _classify_qbit_key(key: str) -> ReloadCategory:
     if section is None:
         return ReloadCategory.FULL_RESTART
     suffix = key.split(".", 1)[1] if "." in key else ""
-    if suffix in QBIT_CONNECTION_SUFFIXES:
+    lowered = suffix.casefold()
+    if any(lowered == conn.casefold() for conn in QBIT_CONNECTION_SUFFIXES):
         return ReloadCategory.FULL_RESTART
     for hot in QBIT_HOT_SUFFIXES:
-        if suffix == hot or suffix.startswith(f"{hot}."):
+        hot_lower = hot.casefold()
+        if lowered == hot_lower or lowered.startswith(f"{hot_lower}."):
             return ReloadCategory.QBIT_HOT
     return ReloadCategory.FULL_RESTART
 
 
+def _frozenset_member(key: str, members: frozenset[str]) -> str | None:
+    """Return the canonical frozenset member for ``key`` (case-insensitive)."""
+    if key in members:
+        return key
+    lowered = key.casefold()
+    for member in members:
+        if member.casefold() == lowered:
+            return member
+    return None
+
+
 def classify_config_key(key: str) -> ReloadCategory:
     """Classify a dotted config key into a reload category."""
-    if key in FRONTEND_ONLY_KEYS:
+    if _frozenset_member(key, FRONTEND_ONLY_KEYS):
         return ReloadCategory.FRONTEND_ONLY
-    if key in WEBUI_RESTART_KEYS:
+    if _frozenset_member(key, WEBUI_RESTART_KEYS):
         return ReloadCategory.WEBUI_RESTART
-    if key.startswith("WebUI."):
+    if key.casefold().startswith("webui."):
         return ReloadCategory.WEBUI_RESTART
-    if key.startswith("Settings."):
-        if key in SETTINGS_LIVE_KEYS:
+    if key.casefold().startswith("settings."):
+        if _frozenset_member(key, SETTINGS_LIVE_KEYS):
             return ReloadCategory.LIVE
         return ReloadCategory.FULL_RESTART
 
@@ -242,7 +260,7 @@ def classify_config_key(key: str) -> ReloadCategory:
     arr_match = _arr_instance_for_key(key)
     if arr_match is not None:
         instance, suffix = arr_match
-        if not instance.startswith(ARR_SECTION_PREFIXES):
+        if not any(instance.casefold().startswith(p.casefold()) for p in ARR_SECTION_PREFIXES):
             return ReloadCategory.FULL_RESTART
         return _classify_arr_suffix(suffix)
 

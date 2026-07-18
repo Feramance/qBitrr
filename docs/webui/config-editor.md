@@ -641,39 +641,40 @@ Radarr-4K.URI: URI must be set to a valid URL when the instance is managed.
 
 ## Save Behavior and Live Reload
 
-### Per-Instance Save
+### Modal-only Save
 
-Each qBittorrent instance (`qBit`, `qBit-1`, …) and each Arr instance (`Radarr-4K`, `Sonarr-TV`, `Lidarr-Music`, …) has its own **Save** button on the instance card and inside the configure modal. Use this to persist one instance without validating or saving unrelated instances.
+Saving is done from each configure modal (and per-instance **Save** on Arr/qBit cards). There is no page-footer **Save + Live Reload** control — core blocks (**Settings**, **Web Settings**, **Authentication**) and each Arr/qBit instance are saved from their own modal.
 
-- **Per-instance Save** validates only that instance (skipped when Arr `Managed = false` or qBit `Disabled = true`)
-- **Save + Live Reload** at the bottom saves all changed sections and validates only sections with pending changes
-
-Core blocks (**Settings**, **Web Settings**, **Authentication**) are included in **Save + Live Reload** only.
+- **Per-instance / modal Save** validates only that section (skipped when Arr `Managed = false` or qBit `Disabled = true`)
+- Closing a modal without Save discards unsaved edits for that modal
 
 ### Save Process
 
-When you click **Save** on an instance card or **Save + Live Reload**:
+When you click **Save** in a configure modal (or on an instance card):
 
-1. **Client-Side Validation**: Only the target instance (or changed sections for global save) is validated; save blocked if errors exist
+1. **Client-Side Validation**: Only the target section is validated; save blocked if errors exist
 2. **Change Detection**: Compares current form state vs. original config
-3. **Diff Calculation**: Generates minimal change set (only modified fields for that instance or all dirty keys)
+3. **Diff Calculation**: Generates minimal change set (only modified fields for that section)
 4. **API Request**: `POST /api/config` with `{"changes": {...}}`
 5. **Server-Side Validation**: Backend validates and persists to `config.toml`
-6. **Reload Detection**: Server determines which components need reloading
-7. **Reload Execution**: Server reloads affected components
+6. **Reload Detection**: Server classifies keys via `qBitrr/config_reload_policy.py`
+7. **Reload Execution**: Server applies the lightest safe reload
 8. **Response**: Success message with reload type
 
 ### Reload Strategies
 
-The backend uses **intelligent reload detection** to minimize disruption:
+The backend uses **intelligent reload detection** to minimize disruption (aligned with [Config file → Live config reload](../configuration/config-file.md#live-config-reload-webui-saves) and [API → Update Configuration](api.md#update-configuration)):
 
 | Change Type | Reload Type | Behavior |
 |-------------|-------------|----------|
 | **Frontend-only** (`WebUI.Theme`, `WebUI.LiveArr`, `WebUI.ViewDensity`) | `frontend` | No backend reload (Theme applies immediately; ViewDensity applies on next load) |
-| **WebUI Server** (`WebUI.Host`, `WebUI.Port`, `WebUI.Token`) | `webui` | Restart WebUI server (brief downtime) |
-| **Single Arr Instance** (e.g., `Radarr-4K.*`) | `single_arr` | Reload only that Arr instance |
-| **Multiple Arr Instances** (e.g., `Radarr-4K.*` + `Sonarr-TV.*`) | `multi_arr` | Reload each affected instance sequentially |
-| **Global Settings** (`Settings.*`, `qBit.*`) | `full` | Reload all components (entire manager) |
+| **Live** (`Settings.LoopSleepTimer`, `FreeSpace`, most Arr `Torrent.*` / `EntrySearch.*` flags, …) | `live` | No worker restart; Arr LIVE workers sync via `_sync_loop_settings_from_config` → `_apply_arr_live_attrs_from_config` |
+| **qBit hot** (`qBit.ManagedCategories`, `CategorySeeding.*`, `Trackers`, …) | `qbit_hot` | Refresh in-memory qBit category managers without respawn |
+| **WebUI Server** (`WebUI.Host`, `WebUI.Port`, `WebUI.Token`, OIDC, …) | `webui` | Restart WebUI server (brief downtime) |
+| **Arr preserve DB** (`URI`, `APIKey`, `Category`, `Managed`, `importMode`, …) | `single_arr` / `multi_arr` | Respawn affected Arr workers; **keep** search DB |
+| **Arr reset DB** (quality-profile / temp-profile mapping keys under `EntrySearch.*`) | `single_arr` / `multi_arr` | Respawn affected Arr workers; **reset** search DB |
+| **Full restart** (qBit connection, `Logging`, `Tagless`, process-restart gates, …) | `full` | Reload all components |
+| **PlaceHolder rebuild** (`Settings.FailedCategory`, `Settings.RecheckCategory`) | `full` | Full restart required — category names are registered at ArrManager init |
 
 ### API Response
 
@@ -925,28 +926,25 @@ Test connection to Arr instance without saving configuration.
     - Set **API Key** (copy from Radarr Settings → General → Security)
     - Set **Category** (e.g., `radarr-4k`)
 6. Configure optional settings (Entry Search, Torrent, Seeding, Trackers)
-7. Close modal
-8. Click **Save + Live Reload**
-9. New Radarr instance starts managing downloads
+7. Click **Save** in the modal
+8. New Radarr instance starts managing downloads
 
 ### Changing Global Loop Timer
 
 1. Navigate to **Config** page
 2. Click **Configure** on **Settings** card
 3. Change **Loop Sleep Timer (s)** (e.g., `30` → `60`)
-4. Close modal
-5. Click **Save + Live Reload**
-6. Backend performs **full reload** (all instances restart)
+4. Click **Save** in the modal
+5. Backend applies a **live** reload (no worker restart)
 
 ### Updating WebUI Port
 
 1. Navigate to **Config** page
 2. Click **Configure** on **Web Settings** card
 3. Change **WebUI Port** (e.g., `6969` → `8080`)
-4. Close modal
-5. Click **Save + Live Reload**
-6. WebUI server restarts on new port
-7. Browser redirects to `http://<host>:8080/ui`
+4. Click **Save** in the modal
+5. WebUI server restarts on new port
+6. Browser redirects to `http://<host>:8080/ui`
 
 ### Switching Theme
 
@@ -954,8 +952,8 @@ Test connection to Arr instance without saving configuration.
 2. Click **Configure** on **Web Settings** card
 3. Change **Theme** dropdown (`Light` / `Dark`)
 4. Theme applies **immediately** (no save required)
-5. Close modal
-6. Optional: Click **Save + Live Reload** to persist theme preference
+5. Optional: Click **Save** in the modal to persist theme preference
+6. Close modal
 
 ### Configuring Ombi Integration
 
@@ -966,9 +964,8 @@ Test connection to Arr instance without saving configuration.
 5. Set **Ombi API Key** (copy from Ombi Settings → API)
 6. Enable **Approved Only** (recommended)
 7. Set **Is 4K Instance** (if applicable)
-8. Close modal
-9. Click **Save + Live Reload**
-10. qBitrr begins polling Ombi for pending requests
+8. Click **Save** in the modal
+9. qBitrr begins polling Ombi for pending requests
 
 ### Adding Custom Tracker Rules
 
@@ -983,9 +980,8 @@ Test connection to Arr instance without saving configuration.
     - **Max Upload Ratio**: `2.0`
     - **Add Tags**: `ipt`
 6. Repeat for additional trackers
-7. Close modal
-8. Click **Save + Live Reload**
-9. Tracker rules apply to matching torrents
+7. Click **Save** in the modal
+8. Tracker rules apply to matching torrents
 
 ---
 

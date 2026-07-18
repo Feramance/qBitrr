@@ -1087,19 +1087,8 @@ def db_update_single_series(
     ):
         return
     try:
-        if arr.type == "sonarr":
-            if not series:
-                update_sonarr_episode(arr, db_entry, request=request)
-            else:
-                update_sonarr_series(arr, db_entry)
-        elif arr.type == "radarr":
-            update_radarr_entry(arr, db_entry, request=request)
-        elif arr.type == "lidarr":
-            if not artist:
-                update_lidarr_album(arr, db_entry, request=request)
-            else:
-                update_lidarr_artist(arr, db_entry)
-
+        # Type ownership lives on RadarrArr / SonarrArr / LidarrArr.
+        arr._db_update_single_entry(db_entry, request=request, series=series, artist=artist)
         refresh_rollups_after_db_update(arr, db_entry, series=series, artist=artist)
 
     except requests.exceptions.ConnectionError as e:
@@ -1107,24 +1096,12 @@ def db_update_single_series(
             "Max retries exceeded for %s [%s][%s]",
             arr._name,
             db_entry["id"],
-            db_entry["title"],
+            db_entry.get("title", db_entry.get("path", "?")),
             exc_info=e,
         )
         raise DelayLoopException(length=300, error_type=arr._name)
     except JSONDecodeError:
-        if arr.type == "sonarr":
-            if arr.series_search:
-                arr.logger.warning(
-                    "Error getting series info: [%s][%s]", db_entry["id"], db_entry["title"]
-                )
-            else:
-                arr.logger.warning(
-                    "Error getting episode info: [%s][%s]", db_entry["id"], db_entry["title"]
-                )
-        elif arr.type == "radarr":
-            arr.logger.warning(
-                "Error getting movie info: [%s][%s]", db_entry["id"], db_entry["path"]
-            )
+        arr._log_db_update_json_error(db_entry, series=series, artist=artist)
     except Exception as e:
         if isinstance(e, (OperationalError, sqlite3.DatabaseError)):
             raise

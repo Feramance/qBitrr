@@ -179,7 +179,7 @@ def _collect_album_ids(arr):
     )
     for artist in artists:
         albums = with_retry(
-            lambda a=artist: arr.client.album.get(artist_id=a["id"]),
+            lambda a=artist: arr.client.album.get(artist_id=a["id"], all_artist_albums=True),
             retries=5,
             backoff=0.5,
             max_backoff=5,

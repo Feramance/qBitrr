@@ -13,11 +13,6 @@ WebUI.LiveArr
 WebUI.PasswordHash
 # Custom QualityProfileMappings editor (not a FieldDefinition path).
 Arr.EntrySearch.QualityProfileMappings
-# TLS toggles exist in defaults but are not yet exposed as FE fields.
-qBit.SkipTLSVerify
-Arr.SkipTLSVerify
-Arr.EntrySearch.Ombi.SkipTLSVerify
-Arr.EntrySearch.Overseerr.SkipTLSVerify
 
 # --- FE only / missing in gen_config ---
 # Optional Arr override of qBit MatchSubcategories (not emitted by generate_doc).

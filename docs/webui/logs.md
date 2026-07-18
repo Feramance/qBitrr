@@ -372,7 +372,7 @@ ConsoleLevel = "DEBUG"  # Show all DEBUG and higher messages
 1. Navigate to **Config** tab
 2. Open **Settings** section
 3. Change **Console Level** dropdown
-4. Click **Save + Live Reload**
+4. Click **Save** in the modal
 
 **Or via API**:
 ```bash

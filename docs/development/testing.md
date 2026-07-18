@@ -1,12 +1,30 @@
 # Testing
 
-qBitrr testing strategies and guidelines. Currently, qBitrr relies on manual testing with plans for automated testing in the future.
+qBitrr testing strategies and guidelines. Automated coverage exists for config reload policy, package layout, WebUI routes, and frontend units; live smoke against real qBit + Arr remains the integration checklist.
 
 ## Current Testing Approach
 
-### Manual Testing
+### Automated tests
 
-qBitrr uses manual testing against real services:
+**Python (`unittest`):**
+
+```bash
+python -m unittest discover -s tests -v
+# Or a single module:
+python -m unittest tests.test_config_reload_policy -v
+```
+
+Notable modules under `tests/`: config first-boot, live-reload characterization, `config_reload_policy`, Arr factory/startup, WebUI routes/reload, package layout.
+
+**WebUI (Vitest):**
+
+```bash
+cd webui && npm test
+```
+
+### Manual / live smoke
+
+Use manual testing against real services for end-to-end confidence:
 
 **Requirements:**
 - qBittorrent instance (v4.3+ or v5.0+)
@@ -132,7 +150,7 @@ Record results in the PR description (or review notes). Do **not** add a permane
 1. **Cold start / first-boot (Phase A)** — empty data dir generates `config.toml` and exits cleanly (no `NameError`).
 2. **Configured start** — WebUI up; qBit + Arr connected.
 3. **Live: `Settings.AutoPauseResume`** — WebUI save changes pause/resume behavior without a full process restart.
-4. **Live: Arr LIVE key** — e.g. `EntrySearch.SearchMissing`; worker picks up via live refresh.
+4. **Live: Arr LIVE key** — e.g. `EntrySearch.SearchMissing`; LIVE workers sync via `_sync_loop_settings_from_config` → `_apply_arr_live_attrs_from_config` (no respawn).
 5. **Live: FreeSpace** — WebUI save; policy loop reflects the new threshold.
 6. **Torrent path (optional fixtures)** — detect / failed or recheck category handling if you can add a torrent.
 7. **`RadarrArr` spawn** — after the per-type hierarchy, manager builds `RadarrArr` (and Sonarr/Lidarr if configured).
@@ -242,70 +260,28 @@ docker compose -f docker-compose.test.yml down
 
 Run Phase A via `tests/test_config_first_boot.py`, run live-reload characterization tests under `tests/`, and exercise the checklist against any existing local qBit + Arr instances. Note in the PR which checklist rows could not be live-smoked.
 
-## Future: Automated Testing
+## Expanding automated coverage
 
-**Planned for v6.0:**
+Unit and characterization tests already live under `tests/` (stdlib `unittest`) and `webui/` (Vitest). Prefer adding focused tests next to the module under change rather than large E2E harnesses.
 
-### Unit Tests
+### End-to-End / live smoke
 
-Test individual functions and classes:
+Prefer the manual finite checklist under [Live smoke (compose)](#live-smoke-compose) with `docker-compose.test.yml`. Automated browser E2E is not required for the confidence-hardening smoke.
 
-```python
-# tests/test_torrent_processing.py
-import pytest
-from qBitrr.arss import RadarrManager
-
-def test_torrent_health_check():
-    manager = RadarrManager(test_config)
-
-    # Test healthy torrent
-    healthy_torrent = {'eta': 1800, 'progress': 0.5}
-    assert manager.check_health(healthy_torrent) == 'healthy'
-
-    # Test stalled torrent
-    stalled_torrent = {'eta': 7200, 'progress': 0.1}
-    assert manager.check_health(stalled_torrent) == 'stalled'
-```
-
-**Run with pytest:**
-
-```bash
-pytest tests/ -v
-pytest tests/test_torrent_processing.py::test_torrent_health_check
-```
-
-### Integration Tests
-
-Test components working together:
+### Example unittest pattern
 
 ```python
-# tests/integration/test_import_flow.py
-def test_full_import_flow(qbit_mock, radarr_mock):
-    """Test complete torrent → import → seeding flow."""
-    # 1. Add torrent to qBittorrent (mock)
-    torrent = qbit_mock.add_torrent(movie_torrent)
+# tests/test_config_reload_policy.py
+import unittest
+from qBitrr.config_reload_policy import classify_config_changes
 
-    # 2. Wait for completion
-    qbit_mock.complete_torrent(torrent.hash)
-
-    # 3. Run qBitrr event loop
-    manager.run_once()
-
-    # 4. Verify import triggered
-    assert radarr_mock.import_called_with(torrent.hash)
-
-    # 5. Verify database updated
-    db_entry = DownloadsModel.get(hash=torrent.hash)
-    assert db_entry.state == 'imported'
+class TestFailedCategoryRequiresFullRestart(unittest.TestCase):
+    def test_failed_category_is_full_restart(self):
+        plan = classify_config_changes({"Settings.FailedCategory": "failed-new"})
+        self.assertTrue(plan.needs_full_restart)
 ```
 
-### End-to-End Tests
-
-Prefer the manual finite checklist under [Live smoke (compose)](#live-smoke-compose) with `docker-compose.test.yml`. Automated E2E scripts under `tests/e2e/` are not required for the confidence-hardening smoke.
-
-### Performance Tests
-
-Test performance under load:
+### Performance Tests (optional)
 
 ```python
 # tests/performance/test_event_loop.py
@@ -318,33 +294,6 @@ def test_event_loop_with_many_torrents():
     duration = time.time() - start
 
     assert duration < 10.0, f"Event loop took {duration}s (expected < 10s)"
-```
-
-### CI/CD Integration
-
-**GitHub Actions workflow (planned):**
-
-```yaml
-# .github/workflows/test.yml
-name: Tests
-
-on: [push, pull_request]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.12'
-      - name: Install dependencies
-        run: |
-          pip install -e ".[test]"
-      - name: Run unit tests
-        run: pytest tests/unit -v
-      - name: Run integration tests
-        run: pytest tests/integration -v
 ```
 
 ## Test Data
@@ -391,36 +340,19 @@ SAMPLE_TORRENTS = {
 ### Enable Debug Logging
 
 ```python
-# conftest.py
 import logging
-
-@pytest.fixture(autouse=True)
-def enable_debug_logging():
-    logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG)
 ```
 
 ### Run Single Test
 
 ```bash
-# Run specific test
-pytest tests/test_torrent.py::test_health_check -v
+# Python — one module or test method
+python -m unittest tests.test_config_reload_policy -v
+python -m unittest tests.test_arss_startup.TestArrFactory.test_arr_class_for_section -v
 
-# Run with print statements
-pytest tests/test_torrent.py::test_health_check -v -s
-
-# Stop on first failure
-pytest tests/ -x
-```
-
-### Test Coverage
-
-```bash
-# Run tests with coverage
-pytest --cov=qBitrr tests/
-
-# Generate HTML coverage report
-pytest --cov=qBitrr --cov-report=html tests/
-open htmlcov/index.html
+# WebUI Vitest
+cd webui && npm test
 ```
 
 ## Manual Test Scenarios

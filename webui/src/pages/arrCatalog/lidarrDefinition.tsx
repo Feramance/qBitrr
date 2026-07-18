@@ -575,7 +575,7 @@ function LidarrAggregateBody({
       hasRows={total > 0}
       catalogEmptyMessage="No artists found in the local catalog."
       noMatchMessage="No artists match the current filters."
-      showPagination={total > 0}
+      showPagination={totalPages > 1}
       page={page}
       totalPages={totalPages}
       total={total}

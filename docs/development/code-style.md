@@ -51,7 +51,7 @@ known_third_party = ["requests", "peewee", "flask", ...]
 |---------|------------|---------|
 | Variables | `snake_case` | `torrent_hash`, `arr_instance` |
 | Functions | `snake_case` | `process_torrent()`, `check_health()` |
-| Classes | `PascalCase` | `ArrManager`, `RadarrManager` |
+| Classes | `PascalCase` | `ArrManager`, `ArrBase`, `RadarrArr` |
 | Constants | `SCREAMING_SNAKE_CASE` | `MAX_RETRIES`, `DEFAULT_TIMEOUT` |
 | Private methods | `_snake_case` | `_internal_helper()` |
 | Module names | `snake_case` | `arr_manager.py`, `config.py` |

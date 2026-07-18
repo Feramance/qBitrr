@@ -37,15 +37,16 @@ qBitrr/
 ├── qBitrr/          # Python backend
 │   ├── __init__.py
 │   ├── main.py      # Entry point
-│   ├── arss.py      # Arr managers
+│   ├── arss/        # Arr package (ArrBase, RadarrArr/SonarrArr/LidarrArr, factory)
 │   ├── config.py    # Configuration
-│   └── webui.py     # Flask API
+│   ├── gen_config/  # Config schema builders / migrations
+│   └── webui/       # Flask API package (routes, catalog)
 ├── webui/           # React frontend
 │   ├── src/
 │   ├── public/
 │   └── package.json
 ├── docs/            # MkDocs documentation
-├── tests/           # Test suite (manual testing currently)
+├── tests/           # unittest suite (+ WebUI Vitest under webui/)
 ├── setup.py         # Package setup
 ├── Makefile         # Build commands
 └── pyproject.toml   # Project metadata
@@ -172,9 +173,15 @@ docs: Update installation guide for Docker
 
 ## Testing
 
-### Manual Testing
+See [Testing](testing.md) for the full guide. Summary:
 
-Currently, qBitrr uses manual testing:
+- **Python:** `python -m unittest` under `tests/` (config reload, package layout, WebUI routes, etc.)
+- **WebUI:** `npm test` (Vitest) under `webui/`
+- **Live smoke:** optional compose checklist against real qBit + Arr
+
+### Manual / live smoke
+
+Still useful for integration confidence:
 
 1. **Set up test environment:**
    - qBittorrent instance
@@ -185,16 +192,7 @@ Currently, qBitrr uses manual testing:
    - Torrent import
    - Health monitoring
    - Failed download handling
-   - Configuration changes
-
-### Future: Automated Testing
-
-Planned additions:
-
-- Unit tests with pytest
-- Integration tests
-- E2E tests for WebUI
-- CI/CD test automation
+   - Configuration live-reload (Arr LIVE keys sync via `_sync_loop_settings_from_config` → `_apply_arr_live_attrs_from_config`)
 
 ## Building
 
@@ -702,7 +700,7 @@ except InvalidTorrentError:
 
 2. **Add config options:**
    ```python
-   # qBitrr/gen_config.py
+   # qBitrr/gen_config/ (section builders)
    class MyConfig:
        class Notifications:
            Enabled: bool = False
@@ -714,7 +712,7 @@ except InvalidTorrentError:
 
 3. **Integrate into event loop:**
    ```python
-   # qBitrr/arss.py
+   # qBitrr/arss/base.py (or a concrete Arr subclass)
    def process_completed_torrents(self):
        for torrent in completed:
            # ... existing import logic ...
@@ -748,12 +746,11 @@ except InvalidTorrentError:
 
 **Example: Add Whisparr support**
 
-1. **Create Arr manager class:**
+1. **Create Arr class:**
    ```python
-   # qBitrr/arss.py
-   class WhisparrManager(ArrManagerBase):
-       arr_type = "Whisparr"
-       arr_label = "whisparr-movies"
+   # qBitrr/arss/whisparr.py
+   class WhisparrArr(ArrBase):
+       type = "whisparr"
 
        def _process_failed_individual(self, torrent):
            # Whisparr-specific failure handling
@@ -767,27 +764,19 @@ except InvalidTorrentError:
 
 2. **Add config section:**
    ```python
-   # qBitrr/gen_config.py
+   # qBitrr/gen_config/ (section builders)
    class Whisparr:
-       URL: str = "http://localhost:6969"
+       URI: str = "http://localhost:6969"
        APIKey: str = ""
        Managed: bool = True
        Category: str = "whisparr-movies"
        # ... rest of Arr config options
    ```
 
-3. **Register in main:**
+3. **Register in factory / ArrManager:**
    ```python
-   # qBitrr/main.py
-   def start_arr_managers():
-       managers = []
-
-       for whisparr_name, whisparr_config in CONFIG.Whisparr.items():
-           if whisparr_config.Managed:
-               manager = WhisparrManager(whisparr_name, whisparr_config)
-               managers.append(manager)
-
-       # ... start managers
+   # qBitrr/arss/factory.py — map section name → WhisparrArr
+   # ArrManager.build_arr_instances() wires the concrete class
    ```
 
 4. **Add WebUI view:**
@@ -844,7 +833,7 @@ except InvalidTorrentError:
 
 4. **Use new fields:**
    ```python
-   # qBitrr/arss.py
+   # qBitrr/arss/radarr.py (or shared helper)
    def check_custom_format_score(self, movie):
        movie_db = MoviesFilesModel.get(EntryId=movie.id)
 
@@ -859,9 +848,8 @@ except InvalidTorrentError:
 
 1. **Create API endpoint:**
    ```python
-   # qBitrr/webui.py
-   @app.route("/api/stats/speeds", methods=["GET"])
-   @token_required
+   # qBitrr/webui/routes/register.py (or a dedicated route module)
+   @_dual_route("/stats/speeds")
    def get_torrent_speeds():
        speeds = []
        torrents = qbit_client.torrents_info()
@@ -933,7 +921,7 @@ except InvalidTorrentError:
 
 3. **Add debug statements:**
    ```python
-   # qBitrr/arss.py
+   # qBitrr/arss/base.py
    def process_completed_torrents(self):
        logger.debug(f"Found {len(completed)} completed torrents")
 
@@ -1041,38 +1029,21 @@ for movie in self.get_missing_movies():
 
 ## Testing Strategies
 
-### Unit Testing (Future)
+### Unit Testing
+
+Python tests use the stdlib `unittest` runner (see `tests/`). Example pattern:
 
 ```python
-# tests/test_torrent_health.py
-import pytest
-from qBitrr.arss import RadarrManager
+# tests/test_arss_startup.py
+import unittest
+from qBitrr.arss.factory import arr_class_for_section
 
-def test_stalled_detection():
-    """Test that stalled torrents are detected"""
-    manager = RadarrManager("test", config)
-
-    torrent = MockTorrent(
-        hash="abc123",
-        progress=0.5,
-        eta=999999,  # Very high ETA
-        dlspeed=0
-    )
-
-    result = manager.check_torrent_health(torrent)
-    assert result == "stalled"
-
-def test_ffprobe_validation():
-    """Test FFprobe validates valid files"""
-    manager = RadarrManager("test", config)
-
-    # Mock FFprobe response
-    with patch('qBitrr.ffprobe.validate') as mock_ffprobe:
-        mock_ffprobe.return_value = True
-
-        result = manager.validate_files("/path/to/movie.mkv")
-        assert result is True
+class TestArrFactory(unittest.TestCase):
+    def test_arr_class_for_section(self):
+        self.assertEqual(arr_class_for_section("Radarr-Movies").__name__, "RadarrArr")
 ```
+
+WebUI unit tests use Vitest (`cd webui && npm test`).
 
 ### Integration Testing
 

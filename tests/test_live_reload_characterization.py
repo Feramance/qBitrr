@@ -78,7 +78,12 @@ class TestArrApplyConfigRefresh(unittest.TestCase):
         with (
             patch("qBitrr.arss.base.CONFIG") as mock_config,
             patch("qBitrr.arss.base.PROCESS_ONLY", False),
-            patch.object(arr, "_sync_loop_settings_from_config"),
+            patch("qBitrr.arss.base.sync_config_from_disk"),
+            patch.object(arr, "_get_ignore_torrents_younger_than", return_value=180),
+            patch.object(arr, "_get_maximum_eta", return_value=86400),
+            patch.object(arr, "_get_search_command_limit", return_value=9),
+            patch.object(arr, "_get_rss_sync_timer", return_value=15),
+            patch.object(arr, "_get_refresh_downloads_timer", return_value=1),
             patch.object(arr, "_merge_trackers", return_value=tracker_rows) as merge,
             patch.object(arr, "_install_tracker_index") as install,
             patch("qBitrr.arss.base.build_tracker_index", return_value=MagicMock()) as build_idx,
@@ -96,6 +101,49 @@ class TestArrApplyConfigRefresh(unittest.TestCase):
         merge.assert_called_once_with([], tracker_rows)
         build_idx.assert_called_once()
         install.assert_called_once()
+
+    def test_worker_loop_sync_updates_search_missing_and_auto_delete(self) -> None:
+        """Worker loops must apply Arr LIVE attrs (not only timers)."""
+        arr = _bare_arr_for_refresh()
+        tracker_rows = [{"Name": "worker-tracker", "URI": "http://tracker.example/announce"}]
+
+        def config_get(key: str, fallback=None):
+            values = {
+                "Radarr.Main.Managed": True,
+                "Radarr.Main.SkipTLSVerify": False,
+                "Radarr.Main.ReSearch": True,
+                "Radarr.Main.importMode": "Auto",
+                "Radarr.Main.ArrErrorCodesToBlocklist": [],
+                "Radarr.Main.Torrent.CaseSensitiveMatches": True,
+                "Radarr.Main.Torrent.AutoDelete": True,
+                "Radarr.Main.EntrySearch.SearchMissing": True,
+                "qBit.Trackers": [],
+                "Radarr.Main.Torrent.Trackers": tracker_rows,
+            }
+            return values.get(key, fallback)
+
+        with (
+            patch("qBitrr.arss.base.CONFIG") as mock_config,
+            patch("qBitrr.arss.base.PROCESS_ONLY", False),
+            patch("qBitrr.arss.base.sync_config_from_disk") as sync_disk,
+            patch.object(arr, "_get_ignore_torrents_younger_than", return_value=180),
+            patch.object(arr, "_get_maximum_eta", return_value=86400),
+            patch.object(arr, "_get_search_command_limit", return_value=5),
+            patch.object(arr, "_get_rss_sync_timer", return_value=15),
+            patch.object(arr, "_get_refresh_downloads_timer", return_value=1),
+            patch.object(arr, "_merge_trackers", return_value=tracker_rows),
+            patch.object(arr, "_install_tracker_index"),
+            patch("qBitrr.arss.base.build_tracker_index", return_value=MagicMock()),
+        ):
+            mock_config.get.side_effect = config_get
+            mock_config.get_duration.side_effect = lambda key, fallback=0, unit=None: fallback
+            arr._sync_loop_settings_from_config()
+
+        sync_disk.assert_called_once()
+        self.assertTrue(arr.search_missing)
+        self.assertTrue(arr.auto_delete)
+        self.assertTrue(arr.re_search)
+        self.assertEqual(arr.monitored_trackers, tracker_rows)
 
     def test_lifecycle_live_refresh_invokes_apply_config_refresh(self) -> None:
         arr = MagicMock()

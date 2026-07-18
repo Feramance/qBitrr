@@ -1233,41 +1233,27 @@ def register_routes(webui: WebUI) -> None:
                         )
                         continue
 
-        # Add Arr-managed categories
+        # Add Arr-managed categories (aggregate torrents across all qBit instances)
         if hasattr(webui.manager, "arr_manager") and webui.manager.arr_manager:
+            from qBitrr.webui.routes.category_stats import (
+                collect_torrents_for_category,
+                summarize_category_torrents,
+            )
+
             for arr in webui.manager.arr_manager.managed_objects.values():
                 if isinstance(arr, (PlaceHolderArr, TorrentPolicyManager)):
                     continue
                 try:
-                    # Get the qBit instance for this Arr (use default for now)
-                    client = webui.manager.client
-                    if not client:
-                        continue
-
                     category = arr.category
-                    torrents = client.torrents_info(category=category)
-
-                    # Calculate statistics
-                    total_count = len(torrents)
-                    seeding_count = len(
-                        [t for t in torrents if t.state in ("uploading", "stalledUP")]
-                    )
-                    total_size = sum(t.size for t in torrents)
-                    avg_ratio = sum(t.ratio for t in torrents) / total_count if total_count else 0
-                    avg_seeding_time = (
-                        sum(t.seeding_time for t in torrents) / total_count if total_count else 0
-                    )
+                    torrents = collect_torrents_for_category(webui.manager, category)
+                    stats = summarize_category_torrents(torrents)
 
                     categories_data.append(
                         {
                             "category": category,
                             "instance": arr._name,
                             "managedBy": "arr",
-                            "torrentCount": total_count,
-                            "seedingCount": seeding_count,
-                            "totalSize": total_size,
-                            "avgRatio": round(avg_ratio, 2),
-                            "avgSeedingTime": avg_seeding_time,
+                            **stats,
                             "seedingConfig": {
                                 "maxRatio": arr.seeding_mode_global_max_upload_ratio,
                                 "maxTime": arr.seeding_mode_global_max_seeding_time,

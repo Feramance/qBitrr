@@ -42,13 +42,13 @@ The base spec is maintained in the repository at `qBitrr/openapi.json` (also shi
 
 ### Keeping the spec aligned with the runtime
 
-Every Flask route registered in `qBitrr/webui.py` should appear under `paths` in `qBitrr/openapi.json` (and vice versa). A static drift check is provided so the two files cannot diverge silently:
+Every Flask route registered under `qBitrr/webui/` should appear under `paths` in `qBitrr/openapi.json` (and vice versa). A static drift check is provided so the two files cannot diverge silently:
 
 ```bash
 make openapi-check          # or: python scripts/openapi_check.py
 ```
 
-The check is also wired into pre-commit (local hook `openapi-check`). It parses the `@app.<method>("/path")` decorators in `qBitrr/webui.py`, walks `paths` in `qBitrr/openapi.json`, and fails on any route that exists in one file but not the other. Path *shape* is what matters; cosmetic parameter renames (e.g. `{id}` ↔ `{entry_id}`) are tolerated.
+The check is also wired into pre-commit (local hook `openapi-check`). It scans `@app.<method>("/path")` and `@_dual_route("/path")` decorators across `qBitrr/webui/**/*.py`, walks `paths` in `qBitrr/openapi.json`, and fails on any route that exists in one place but not the other. Path *shape* is what matters; cosmetic parameter renames (e.g. `{id}` ↔ `{entry_id}`) are tolerated.
 
 If you add or remove an endpoint, update `qBitrr/openapi.json` in the same commit.
 
@@ -947,10 +947,9 @@ The `missing` and `reason` filters are applied at the album level via an `EXISTS
 
 Browse Lidarr album library from cached database.
 
-**Endpoints**:
-- `GET /web/lidarr/<category>/albums` (public)
-
-**Note**: There is no `/api/lidarr/<category>/albums` endpoint. Use `/web/lidarr/<category>/albums` instead.
+**Endpoints** (`dual_route` — `/api` and `/web` mirrors; behavior is identical):
+- `GET /api/lidarr/<category>/albums` (requires auth)
+- `GET /web/lidarr/<category>/albums` (public / session)
 
 **Path Parameters**:
 
@@ -1174,17 +1173,17 @@ Apply changes to configuration and trigger reload.
 }
 ```
 
-**Reload Types**:
+**Reload Types** (classified by `qBitrr/config_reload_policy.py`; see also [Config file → Live config reload](../configuration/config-file.md#live-config-reload-webui-saves) and [Config editor](config-editor.md#reload-strategies)):
 
 | Type | Description | Behavior |
 |------|-------------|----------|
 | `frontend` | Frontend-only changes | No reload (e.g., `WebUI.Theme`) |
-| `live` | Global or Arr loop settings | No worker restart; settings picked up on next loop |
+| `live` | Global or Arr loop settings | No worker restart; Arr LIVE attrs applied via `_sync_loop_settings_from_config` → `_apply_arr_live_attrs_from_config` |
 | `qbit_hot` | qBit category seeding | Refresh in-memory qBit category managers without respawn |
 | `webui` | WebUI server settings | Restart WebUI server |
-| `single_arr` | One Arr instance | Reload that instance only |
-| `multi_arr` | Multiple Arr instances | Reload each instance sequentially |
-| `full` | Global settings | Reload all components |
+| `single_arr` | One Arr instance | Respawn that instance (preserve or reset search DB depending on keys) |
+| `multi_arr` | Multiple Arr instances | Respawn each affected instance sequentially |
+| `full` | Global / PlaceHolder rebuild | Reload all components — includes `Settings.FailedCategory` / `Settings.RecheckCategory` (PlaceHolder rebuild) |
 
 **Response** (Validation Error):
 ```json

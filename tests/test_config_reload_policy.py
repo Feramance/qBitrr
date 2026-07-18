@@ -86,16 +86,40 @@ class TestConfigReloadPolicy(unittest.TestCase):
         plan = classify_config_changes(
             {
                 "Settings.LoopSleepTimer": 10,
-                "Settings.FailedCategory": "failed",
+                "Settings.AutoPauseResume": True,
             }
         )
         self.assertEqual(plan.primary_reload_type(), "live")
         self.assertFalse(plan.needs_full_restart)
         self.assertEqual(
             plan.live_keys,
-            ["Settings.LoopSleepTimer", "Settings.FailedCategory"],
+            ["Settings.LoopSleepTimer", "Settings.AutoPauseResume"],
         )
         self.assertFalse(plan.arr_live_instances)
+
+    def test_failed_recheck_category_requires_full_restart(self) -> None:
+        from qBitrr.config_reload_policy import ReloadCategory, classify_config_key
+
+        self.assertEqual(
+            classify_config_key("Settings.FailedCategory"),
+            ReloadCategory.FULL_RESTART,
+        )
+        self.assertEqual(
+            classify_config_key("Settings.RecheckCategory"),
+            ReloadCategory.FULL_RESTART,
+        )
+
+    def test_classify_key_case_insensitive(self) -> None:
+        from qBitrr.config_reload_policy import ReloadCategory, classify_config_key
+
+        self.assertEqual(
+            classify_config_key("settings.loopsleeptimer"),
+            ReloadCategory.LIVE,
+        )
+        self.assertEqual(
+            classify_config_key("radarr.main.uri"),
+            ReloadCategory.ARR_PRESERVE_DB,
+        )
 
     def test_classify_changes_arr_live_populates_arr_live_instances(self) -> None:
         from qBitrr.config_reload_policy import classify_config_changes

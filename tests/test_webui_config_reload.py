@@ -92,7 +92,7 @@ class TestWebUIConfigReload(_WebUIClientTestCase):
         with patch.object(WebUI, "_apply_arr_live_refresh") as live_refresh:
             response = self.client.post(
                 "/web/config",
-                json={"changes": {"Settings.FailedCategory": "failed-live"}},
+                json={"changes": {"Settings.AutoPauseResume": True}},
                 content_type="application/json",
             )
 
@@ -102,6 +102,17 @@ class TestWebUIConfigReload(_WebUIClientTestCase):
         live_refresh.assert_not_called()
         self.assertTrue(db_file.exists(), "live Settings save must not delete search DB")
         db_file.unlink(missing_ok=True)
+
+    def test_failed_category_rename_triggers_full_restart(self) -> None:
+        response = self.client.post(
+            "/web/config",
+            json={"changes": {"Settings.FailedCategory": "failed-renamed"}},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["reloadType"], "full")
+        self.reload_all_mock.assert_called_once()
 
     def test_arr_live_key_save_calls_apply_arr_live_refresh(self) -> None:
         arr = MagicMock()

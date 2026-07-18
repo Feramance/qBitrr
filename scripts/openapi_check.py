@@ -3,10 +3,10 @@
 Static drift check between Flask routes registered in :mod:`qBitrr.webui` and the
 OpenAPI document at ``qBitrr/openapi.json``.
 
-The check is intentionally text-based: it parses ``qBitrr/webui.py`` for every
-``@app.<method>("/path")`` decorator and walks the OpenAPI ``paths`` object once.
-That keeps it fast and side-effect free (no need to import the WebUI, no DB or
-config dependency, no Flask runtime).
+The check is intentionally text-based: it parses ``qBitrr/webui/`` package sources
+for every ``@app.<method>("/path")`` / ``@_dual_route`` decorator and walks the
+OpenAPI ``paths`` object once. That keeps it fast and side-effect free (no need
+to import the WebUI, no DB or config dependency, no Flask runtime).
 
 Drift directions reported (each is a non-zero exit):
 

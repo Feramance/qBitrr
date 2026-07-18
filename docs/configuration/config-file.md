@@ -1238,7 +1238,7 @@ qBitrr uses infinite retry loops in specific scenarios for reliability:
 
 #### Quality Profile Fetching (Startup)
 
-**Location:** `arss.py`
+**Location:** `qBitrr/arss/` (concrete Arr classes)
 **Behavior:** Retries forever until Arr responds with quality profiles
 
 **Retry Strategy:**
@@ -1253,7 +1253,7 @@ qBitrr uses infinite retry loops in specific scenarios for reliability:
 
 #### Search Command Posting
 
-**Location:** `arss.py`
+**Location:** `qBitrr/arss/` (search handlers)
 **Behavior:** Retries search API call until network succeeds
 
 **Retry Strategy:**
@@ -1281,8 +1281,10 @@ These take effect on the next loop without killing Arr or qBit workers:
 
 | Key prefix | Examples |
 |------------|----------|
-| `Settings.*` | `ConsoleLevel`, `LoopSleepTimer`, `SearchLoopDelay`, `NoInternetSleepTimer`, `FailedCategory`, `RecheckCategory`, `CompletedDownloadFolder`, `AutoPauseResume`, `PingURLS`, `IgnoreTorrentsYoungerThan`, `FFprobeAutoUpdate`, `AutoUpdateEnabled`, `AutoUpdateCron`, `FreeSpace`, `FreeSpaceFolder` |
+| `Settings.*` | `ConsoleLevel`, `LoopSleepTimer`, `SearchLoopDelay`, `NoInternetSleepTimer`, `CompletedDownloadFolder`, `AutoPauseResume`, `PingURLS`, `IgnoreTorrentsYoungerThan`, `FFprobeAutoUpdate`, `AutoUpdateEnabled`, `AutoUpdateCron`, `FreeSpace`, `FreeSpaceFolder` |
 | Arr instance (most keys) | `*.Torrent.*`, `*.EntrySearch.SearchMissing`, `*.EntrySearch.SearchLimit`, timers, seeding limits, etc. |
+
+Arr LIVE workers re-read disk each loop via `_sync_loop_settings_from_config()` → `_apply_arr_live_attrs_from_config()`.
 
 API response: `"reloadType": "live"`, `"configReloaded": true`.
 
@@ -1322,6 +1324,7 @@ Same API response as preserve-db reload; database files are deleted before respa
 |----------|----------|
 | qBit connection | `qBit.Disabled`, `Host`, `Port`, `UserName`, `Password`, `SkipTLSVerify` |
 | Settings (logging / process gates) | `Logging`, `Tagless`, `AutoRestartProcesses`, restart limit/window/delay |
+| PlaceHolder categories | `Settings.FailedCategory`, `Settings.RecheckCategory` — registered at ArrManager init; renames need a full rebuild so PlaceHolder workers track the new category strings |
 | Unknown keys | Any unrecognized top-level section |
 
 API response: `"reloadType": "full"` — all workers are stopped and search DBs may be deleted (legacy behavior).
