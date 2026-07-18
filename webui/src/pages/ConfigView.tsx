@@ -1,7 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState, type JSX } from "react";
 import { produce } from "immer";
 import equal from "fast-deep-equal";
-import { getConfig, refreshUrlBaseFromMeta, updateConfig } from "../api/client";
+import {
+  ConfigApiError,
+  getConfig,
+  refreshUrlBaseFromMeta,
+  updateConfig,
+} from "../api/client";
 import type { ConfigDocument } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import {
@@ -19,11 +24,13 @@ import {
   buildSectionChanges,
   ensureArrDefaults,
   flatten,
+  focusFirstValidationError,
   formatValidationErrors,
   getValue,
   prunePendingRenames,
   sectionKeysFromChanges,
   setValue,
+  validationErrorsFromApi,
 } from "./config/configDocumentUtils";
 import {
   validateSectionsForSave,
@@ -32,6 +39,7 @@ import {
   QBIT_SECTION_REGEX,
   SERVARR_SECTION_REGEX,
   type FieldDefinition,
+  type ValidationError,
 } from "./config/configTypes";
 import {
   ArrInstanceModal,
@@ -171,45 +179,86 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   const [isAuthSettingsOpen, setAuthSettingsOpen] = useState(false);
   const [isSetPasswordOpen, setSetPasswordOpen] = useState(false);
   const [isDirty, setDirty] = useState(false);
+  const [serverValidationErrors, setServerValidationErrors] = useState<ValidationError[]>([]);
+
+  const mergeValidationErrors = useCallback(
+    (clientErrors: ValidationError[]): ValidationError[] => {
+      if (!serverValidationErrors.length) {
+        return clientErrors;
+      }
+      const seen = new Set(clientErrors.map((error) => error.path.join(".")));
+      const merged = [...clientErrors];
+      for (const error of serverValidationErrors) {
+        const key = error.path.join(".");
+        if (!seen.has(key)) {
+          merged.push(error);
+          seen.add(key);
+        }
+      }
+      return merged;
+    },
+    [serverValidationErrors]
+  );
 
   const sectionSaveGate = useCallback(
-    (sectionKey: string): { saveDisabled: boolean; saveBlockedReason?: string } => {
-      const errors = validateSectionsForSave(
+    (
+      sectionKey: string
+    ): {
+      saveDisabled: boolean;
+      saveBlockedReason?: string;
+      validationErrors: ValidationError[];
+    } => {
+      const clientErrors = validateSectionsForSave(
         formState,
         [sectionKey],
         originalConfig,
         false
       );
+      const errors = mergeValidationErrors(clientErrors);
       if (!errors.length) {
-        return { saveDisabled: false };
+        return { saveDisabled: false, validationErrors: [] };
       }
       return {
         saveDisabled: true,
         saveBlockedReason: formatValidationErrors(errors),
+        validationErrors: errors,
       };
     },
-    [formState, originalConfig]
+    [formState, originalConfig, mergeValidationErrors]
   );
 
   const arrSaveGate = useMemo(
-    () => (activeArrKey ? sectionSaveGate(activeArrKey) : { saveDisabled: false }),
+    () =>
+      activeArrKey
+        ? sectionSaveGate(activeArrKey)
+        : { saveDisabled: false, validationErrors: [] as ValidationError[] },
     [activeArrKey, sectionSaveGate]
   );
   const qbitSaveGate = useMemo(
-    () => (activeQbitKey ? sectionSaveGate(activeQbitKey) : { saveDisabled: false }),
+    () =>
+      activeQbitKey
+        ? sectionSaveGate(activeQbitKey)
+        : { saveDisabled: false, validationErrors: [] as ValidationError[] },
     [activeQbitKey, sectionSaveGate]
   );
   const settingsSaveGate = useMemo(
-    () => (isSettingsOpen ? sectionSaveGate("Settings") : { saveDisabled: false }),
+    () =>
+      isSettingsOpen
+        ? sectionSaveGate("Settings")
+        : { saveDisabled: false, validationErrors: [] as ValidationError[] },
     [isSettingsOpen, sectionSaveGate]
   );
   const webSaveGate = useMemo(
     () =>
       isWebSettingsOpen || isAuthSettingsOpen
         ? sectionSaveGate("WebUI")
-        : { saveDisabled: false },
+        : { saveDisabled: false, validationErrors: [] as ValidationError[] },
     [isWebSettingsOpen, isAuthSettingsOpen, sectionSaveGate]
   );
+
+  useEffect(() => {
+    setServerValidationErrors([]);
+  }, [formState]);
 
   useEffect(() => {
     if (!formState || !originalConfig) {
@@ -552,6 +601,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
         );
         if (validationErrors.length) {
           push(formatValidationErrors(validationErrors), "error");
+          focusFirstValidationError(validationErrors);
           return false;
         }
 
@@ -567,6 +617,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
         }
 
         const { configReloaded, reloadType, affectedInstances } = await updateConfig({ changes });
+        setServerValidationErrors([]);
         const savedKeys = sectionKeysFromChanges(changes);
         for (const [oldName, newName] of pendingRenames) {
           if (oldName === sectionKey || newName === sectionKey) {
@@ -582,6 +633,13 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
         );
         return true;
       } catch (error) {
+        if (error instanceof ConfigApiError && error.validationErrors.length) {
+          const apiErrors = validationErrorsFromApi(error.validationErrors);
+          setServerValidationErrors(apiErrors);
+          push(error.message, "error");
+          focusFirstValidationError(apiErrors);
+          return false;
+        }
         push(
           error instanceof Error ? error.message : "Failed to update configuration",
           "error"
@@ -774,6 +832,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           overlapWarnings={categoryOverlapWarnings}
           saveDisabled={arrSaveGate.saveDisabled}
           saveBlockedReason={arrSaveGate.saveBlockedReason}
+          validationErrors={arrSaveGate.validationErrors}
         />
       ) : null}
       {isSettingsOpen ? (
@@ -787,6 +846,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           onSave={() => saveSection("Settings")}
           saveDisabled={settingsSaveGate.saveDisabled}
           saveBlockedReason={settingsSaveGate.saveBlockedReason}
+          validationErrors={settingsSaveGate.validationErrors}
         />
       ) : null}
       {isWebSettingsOpen ? (
@@ -801,6 +861,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           showLiveSettings={true}
           saveDisabled={webSaveGate.saveDisabled}
           saveBlockedReason={webSaveGate.saveBlockedReason}
+          validationErrors={webSaveGate.validationErrors}
         />
       ) : null}
       {isAuthSettingsOpen ? (
@@ -815,6 +876,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           onSetPassword={() => setSetPasswordOpen(true)}
           saveDisabled={webSaveGate.saveDisabled}
           saveBlockedReason={webSaveGate.saveBlockedReason}
+          validationErrors={webSaveGate.validationErrors}
         />
       ) : null}
       {isSetPasswordOpen ? (
@@ -832,6 +894,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           overlapWarnings={categoryOverlapWarnings}
           saveDisabled={qbitSaveGate.saveDisabled}
           saveBlockedReason={qbitSaveGate.saveBlockedReason}
+          validationErrors={qbitSaveGate.validationErrors}
         />
       ) : null}
     </>

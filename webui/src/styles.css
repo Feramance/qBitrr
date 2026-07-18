@@ -1151,6 +1151,8 @@ pre::-webkit-scrollbar-thumb:hover {
     border-radius: 10px;
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
     min-width: 260px;
+    max-width: min(420px, calc(100vw - 32px));
+    white-space: pre-line;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
     animation: slideIn 0.2s ease;
 }
@@ -2422,6 +2424,21 @@ svg[height] {
     font-size: 13px;
     color: var(--danger, #e57373);
     line-height: 1.4;
+    white-space: pre-line;
+}
+.field--invalid input,
+.field--invalid select,
+.field--invalid textarea,
+.field--invalid .react-select__control,
+.checkbox-field.field--invalid {
+    border-color: var(--danger, #e57373) !important;
+    box-shadow: 0 0 0 1px rgba(229, 115, 115, 0.35);
+}
+.field-error {
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--danger, #e57373);
+    line-height: 1.35;
 }
 .changelog-modal__body {
     gap: 12px;

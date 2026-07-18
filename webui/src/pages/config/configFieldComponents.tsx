@@ -21,12 +21,28 @@ import DeleteIcon from "../../icons/trash.svg";
 import RefreshIcon from "../../icons/refresh-arrow.svg";
 import VisibilityIcon from "../../icons/visibility.svg";
 import { extractTooltipSummary } from "./configFields";
-import { getValue } from "./configDocumentUtils";
+import {
+  fieldErrorDataPath,
+  findFieldErrorMessage,
+  getValue,
+} from "./configDocumentUtils";
 import {
   QBIT_SECTION_REGEX,
   SERVARR_SECTION_REGEX,
   type FieldDefinition,
+  type ValidationError,
 } from "./configTypes";
+
+function FieldErrorText({ message }: { message?: string }): JSX.Element | null {
+  if (!message) {
+    return null;
+  }
+  return (
+    <div className="field-error" role="alert">
+      {message}
+    </div>
+  );
+}
 
 function renderReloadHint(field: FieldDefinition): JSX.Element | null {
   if (field.applyLive) {
@@ -49,6 +65,8 @@ export interface FieldGroupProps {
   qualityProfiles?: Array<{ id: number; name: string }>;
   sectionKey?: string;
   qbitTrackers?: boolean;
+  /** Full-path validation errors for the open config section/modal. */
+  validationErrors?: ValidationError[];
 }
 
 /** Regex for valid in-progress numeric input: empty, "-", or a valid number string */
@@ -256,10 +274,19 @@ export function FieldGroup({
   qualityProfiles = [],
   sectionKey,
   qbitTrackers = false,
+  validationErrors = [],
 }: FieldGroupProps): JSX.Element {
   const { theme } = useWebUI();
   const selectStyles = useMemo(() => getSelectStyles(theme === 'dark'), [theme]);
   const sectionName = sectionKey ?? basePath[0] ?? "";
+  const errorOpts = { sectionKey, basePath };
+  const groupHasErrors = fields.some((field) => {
+    const pathSegments = field.path ?? [];
+    if (!pathSegments.length) {
+      return false;
+    }
+    return Boolean(findFieldErrorMessage(validationErrors, pathSegments, errorOpts));
+  });
 
   if (title === "Quality Profile Mappings") {
     const mappings = (getValue(state as ConfigDocument, ["EntrySearch", "QualityProfileMappings"]) ?? {}) as Record<string, string>;
@@ -512,7 +539,14 @@ export function FieldGroup({
       (basePath.length > 0 && SERVARR_SECTION_REGEX.test(basePath[0] ?? "")) ||
       (!!sectionName && SERVARR_SECTION_REGEX.test(sectionName));
     const isArrApiKey = isArrInstance && (field.path?.[field.path.length - 1] ?? "") === "APIKey";
-    const fieldClassName = field.fullWidth ? "field field--full-width" : "field";
+    const errorMessage = findFieldErrorMessage(validationErrors, pathSegments, errorOpts);
+    const dataPath = fieldErrorDataPath(pathSegments, errorOpts);
+    const fieldClassName = [
+      field.fullWidth ? "field field--full-width" : "field",
+      errorMessage ? "field--invalid" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
 
     if (field.secure) {
       return (
@@ -525,6 +559,8 @@ export function FieldGroup({
           placeholder={field.placeholder}
           canRefresh={!isArrApiKey}
           onChange={(val) => onChange(path, field, val)}
+          errorMessage={errorMessage}
+          dataFieldPath={dataPath}
         />
       );
     }
@@ -533,17 +569,23 @@ export function FieldGroup({
 
     if (field.type === "checkbox") {
       return (
-        <div key={key} className="checkbox-field">
+        <div
+          key={key}
+          className={`checkbox-field${errorMessage ? " field--invalid" : ""}`}
+          data-field-path={dataPath}
+        >
           <label title={tooltip}>
             <input
               type="checkbox"
               checked={Boolean(formatted)}
               onChange={(event) => onChange(path, field, event.target.checked)}
+              aria-invalid={errorMessage ? true : undefined}
             />
             {field.label}
           </label>
           {description && <div className="field-description">{description}</div>}
           {renderReloadHint(field)}
+          <FieldErrorText message={errorMessage} />
         </div>
       );
     }
@@ -566,7 +608,7 @@ export function FieldGroup({
       }
 
       return (
-        <div key={key} className={fieldClassName}>
+        <div key={key} className={fieldClassName} data-field-path={dataPath}>
           <label title={tooltip}>{field.label}</label>
           <Select
             options={(field.options ?? []).map(o => ({ value: o, label: o }))}
@@ -583,6 +625,7 @@ export function FieldGroup({
               }
             }}
             styles={selectStyles}
+            aria-invalid={errorMessage ? true : undefined}
           />
           {description && <div className="field-description">{description}</div>}
           {isThemeField ? (
@@ -590,12 +633,13 @@ export function FieldGroup({
           ) : (
             renderReloadHint(field)
           )}
+          <FieldErrorText message={errorMessage} />
         </div>
       );
     }
     if (field.type === "number") {
       return (
-        <div key={key} className={fieldClassName}>
+        <div key={key} className={fieldClassName} data-field-path={dataPath}>
           <label title={tooltip}>{field.label}</label>
           <NumberInput
             value={formatted}
@@ -604,12 +648,13 @@ export function FieldGroup({
           />
           {description && <div className="field-description">{description}</div>}
           {renderReloadHint(field)}
+          <FieldErrorText message={errorMessage} />
         </div>
       );
     }
     if (field.type === "duration") {
       return (
-        <div key={key} className={fieldClassName}>
+        <div key={key} className={fieldClassName} data-field-path={dataPath}>
           <label title={tooltip}>{field.label}</label>
           <DurationInput
             value={rawValue}
@@ -620,20 +665,23 @@ export function FieldGroup({
           />
           {description && <div className="field-description">{description}</div>}
           {renderReloadHint(field)}
+          <FieldErrorText message={errorMessage} />
         </div>
       );
     }
     if (field.type === "password") {
       return (
-        <div key={key} className={fieldClassName}>
+        <div key={key} className={fieldClassName} data-field-path={dataPath}>
           <label title={tooltip}>{field.label}</label>
           <input
             type="password"
             value={String(formatted)}
             onChange={(event) => onChange(path, field, event.target.value)}
             placeholder={field.placeholder}
+            aria-invalid={errorMessage ? true : undefined}
           />
           {description && <div className="field-description">{description}</div>}
+          <FieldErrorText message={errorMessage} />
         </div>
       );
     }
@@ -652,7 +700,7 @@ export function FieldGroup({
       }
 
       return (
-        <div key={key} className={fieldClassName}>
+        <div key={key} className={fieldClassName} data-field-path={dataPath}>
           <label title={tooltip}>{field.label}</label>
           <TagInput
             value={tags}
@@ -663,27 +711,30 @@ export function FieldGroup({
           />
           {description && <div className="field-description">{description}</div>}
           {renderReloadHint(field)}
+          <FieldErrorText message={errorMessage} />
         </div>
       );
     }
     return (
-      <div key={key} className={fieldClassName}>
+      <div key={key} className={fieldClassName} data-field-path={dataPath}>
         <label title={tooltip}>{field.label}</label>
         <input
           type="text"
           value={String(formatted)}
           onChange={(event) => onChange(path, field, event.target.value)}
           placeholder={field.placeholder}
+          aria-invalid={errorMessage ? true : undefined}
         />
         {description && <div className="field-description">{description}</div>}
         {renderReloadHint(field)}
+        <FieldErrorText message={errorMessage} />
       </div>
     );
   });
 
   if (title) {
     return (
-      <details className="config-section" open={defaultOpen}>
+      <details className="config-section" open={defaultOpen || groupHasErrors || undefined}>
         <summary>{title}</summary>
         <div className="config-section__body field-grid">{renderedFields}</div>
       </details>
@@ -849,6 +900,8 @@ export interface SecureFieldProps {
   description?: string;
   canRefresh?: boolean;
   onChange: (value: string) => void;
+  errorMessage?: string;
+  dataFieldPath?: string;
 }
 
 export function SecureField({
@@ -859,6 +912,8 @@ export function SecureField({
   description,
   canRefresh = true,
   onChange,
+  errorMessage,
+  dataFieldPath,
 }: SecureFieldProps): JSX.Element {
   const [showValue, setShowValue] = useState(false);
 
@@ -872,7 +927,10 @@ export function SecureField({
   };
 
   return (
-    <div className="field secure-field">
+    <div
+      className={`field secure-field${errorMessage ? " field--invalid" : ""}`}
+      data-field-path={dataFieldPath}
+    >
       <label title={tooltip}>{label}</label>
       <div className="secure-field__input-group">
         <input
@@ -880,6 +938,7 @@ export function SecureField({
           value={value}
           placeholder={placeholder}
           onChange={(event) => onChange(event.target.value)}
+          aria-invalid={errorMessage ? true : undefined}
         />
         <button type="button" className="btn ghost" onClick={() => setShowValue(!showValue)}>
           <IconImage src={VisibilityIcon} />
@@ -891,6 +950,7 @@ export function SecureField({
         )}
       </div>
       {description && <div className="field-description">{description}</div>}
+      <FieldErrorText message={errorMessage} />
     </div>
   );
 }

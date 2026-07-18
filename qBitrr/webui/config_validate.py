@@ -89,6 +89,13 @@ def _validate_value(field: ConfigField, value: Any) -> str | None:
         return f"{label} must be true or false"
 
     if kind == "select":
+        # Numeric enums stored in TOML (e.g. RemoveTorrent -1/1/2/3/4)
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            if field.options:
+                as_str = str(int(value)) if float(value).is_integer() else str(value)
+                if as_str not in field.options and str(value) not in field.options:
+                    return f"{label} must be one of: {', '.join(field.options)}"
+            return None
         if not isinstance(value, str) or not value.strip():
             return f"{label} is required" if field.required else f"{label} must be a string"
         if field.options and value not in field.options:

@@ -31,6 +31,52 @@ export class AuthError extends Error {
   }
 }
 
+/** API field validation error from config save (path is dotted, e.g. Lidarr.URI). */
+export interface ConfigApiValidationError {
+  path: string;
+  message: string;
+}
+
+/** Thrown when config update fails validation; preserves per-field errors for UI. */
+export class ConfigApiError extends Error {
+  validationErrors: ConfigApiValidationError[];
+
+  constructor(message: string, validationErrors: ConfigApiValidationError[] = []) {
+    super(message);
+    this.name = "ConfigApiError";
+    this.validationErrors = validationErrors;
+  }
+}
+
+function parseConfigApiValidationErrors(detail: unknown): ConfigApiValidationError[] {
+  if (!detail || typeof detail !== "object") {
+    return [];
+  }
+  const raw = (detail as Record<string, unknown>).validationErrors;
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  const errors: ConfigApiValidationError[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") {
+      continue;
+    }
+    const path = (item as Record<string, unknown>).path;
+    const message = (item as Record<string, unknown>).message;
+    if (typeof path === "string" && path.trim() && typeof message === "string" && message.trim()) {
+      errors.push({ path: path.trim(), message: message.trim() });
+    }
+  }
+  return errors;
+}
+
+function formatConfigApiValidationErrors(errors: ConfigApiValidationError[]): string {
+  const formatted = errors.map((error) => `${error.path}: ${error.message}`).join("\n");
+  return errors.length === 1
+    ? formatted
+    : `Please resolve the following issues:\n${formatted}`;
+}
+
 const JSON_HEADERS = { "Content-Type": "application/json" } as const;
 const TOKEN_STORAGE_KEYS = ["token", "webui-token", "webui_token"] as const;
 const MAX_AUTH_RETRIES = 1;
@@ -255,6 +301,10 @@ async function handleJson<T>(res: Response): Promise<T> {
       if (errorText.trim()) {
         message = errorText;
       }
+    }
+    const validationErrors = parseConfigApiValidationErrors(detail);
+    if (validationErrors.length) {
+      throw new ConfigApiError(formatConfigApiValidationErrors(validationErrors), validationErrors);
     }
     throw new Error(message);
   }

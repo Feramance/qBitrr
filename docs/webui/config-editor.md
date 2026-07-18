@@ -629,11 +629,13 @@ The editor validates fields **on change** and **before save**, displaying inline
 
 Validation errors are displayed:
 
-1. **Inline**: Below affected field with red text
-2. **On Save**: Modal alert with all errors listed
+1. **Inline**: Affected fields are highlighted and show the error message under the control (sections with errors auto-expand)
+2. **Footer note**: Modal footer lists all current blocking issues while editing
+3. **On Save**: Error toast lists every invalid path and message (client-side and server-side validation)
 
 **Example Error**:
 ```
+Please resolve the following issues:
 WebUI.Port: WebUI Port must be between 1 and 65535.
 Radarr-4K.URI: URI must be set to a valid URL when the instance is managed.
 ```

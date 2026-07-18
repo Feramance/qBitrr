@@ -141,6 +141,64 @@ export function formatValidationErrors(validationErrors: ValidationError[]): str
     : `Please resolve the following issues:\n${formatted}`;
 }
 
+/** Convert API dotted-path validation errors into FE ValidationError[]. */
+export function validationErrorsFromApi(
+  apiErrors: ReadonlyArray<{ path: string; message: string }>
+): ValidationError[] {
+  return apiErrors.map((error) => ({
+    path: error.path.split(".").filter(Boolean),
+    message: error.message,
+  }));
+}
+
+/** Resolve the message for a field given section/base path conventions used by modals. */
+export function findFieldErrorMessage(
+  errors: ValidationError[],
+  fieldPath: string[],
+  options?: { sectionKey?: string; basePath?: string[] }
+): string | undefined {
+  if (!errors.length || !fieldPath.length) {
+    return undefined;
+  }
+  const basePath = options?.basePath ?? [];
+  const sectionKey = options?.sectionKey;
+  const candidates = new Set<string>([
+    [...basePath, ...fieldPath].join("."),
+    fieldPath.join("."),
+  ]);
+  if (sectionKey) {
+    candidates.add([sectionKey, ...fieldPath].join("."));
+  }
+  const match = errors.find((error) => candidates.has(error.path.join(".")));
+  return match?.message;
+}
+
+/** Full dotted path used for data-field-path / scroll-into-view. */
+export function fieldErrorDataPath(
+  fieldPath: string[],
+  options?: { sectionKey?: string; basePath?: string[] }
+): string {
+  const basePath = options?.basePath ?? [];
+  if (basePath.length) {
+    return [...basePath, ...fieldPath].join(".");
+  }
+  if (options?.sectionKey) {
+    return [options.sectionKey, ...fieldPath].join(".");
+  }
+  return fieldPath.join(".");
+}
+
+export function focusFirstValidationError(errors: ValidationError[]): void {
+  if (!errors.length || typeof document === "undefined") {
+    return;
+  }
+  const path = errors[0].path.join(".");
+  const el = document.querySelector<HTMLElement>(`[data-field-path="${CSS.escape(path)}"]`);
+  el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  const focusable = el?.querySelector<HTMLElement>("input, select, textarea, button");
+  focusable?.focus({ preventScroll: true });
+}
+
 export function getValue(doc: ConfigDocument | null, path: string[]): unknown {
   if (!doc) return undefined;
   return get(doc, path);

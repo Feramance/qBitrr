@@ -641,16 +641,19 @@ export const GENERATED_ARR_FIELDS: FieldDefinition[] = [
     label: "Download Rate Limit",
     path: ["Torrent", "SeedingMode", "DownloadRateLimitPerTorrent"],
     type: "number",
+    allowNegative: true,
   },
   {
     label: "Upload Rate Limit",
     path: ["Torrent", "SeedingMode", "UploadRateLimitPerTorrent"],
     type: "number",
+    allowNegative: true,
   },
   {
     label: "Max Upload Ratio",
     path: ["Torrent", "SeedingMode", "MaxUploadRatio"],
     type: "number",
+    allowNegative: true,
   },
   {
     label: "Max Seeding Time",

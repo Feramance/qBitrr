@@ -84,6 +84,61 @@ class TestValidateConfigUpdate(unittest.TestCase):
         errors = validate_config_update(cfg, {"Radarr.Managed": False})
         self.assertEqual(errors, [])
 
+    def test_accepts_numeric_remove_torrent_on_max_seeding_time(self) -> None:
+        cfg = _config_from_toml(
+            """
+            [Lidarr]
+            Managed = true
+            URI = "http://localhost:8686"
+            APIKey = "key"
+            Category = "music"
+            """
+        )
+        errors = validate_config_update(
+            cfg,
+            {
+                "Lidarr.Torrent.SeedingMode.RemoveTorrent": 2,
+                "Lidarr.Torrent.SeedingMode.MaxSeedingTime": 86400,
+                "Lidarr.Torrent.AutoDelete": True,
+            },
+        )
+        self.assertEqual(errors, [])
+
+    def test_accepts_negative_one_arr_seeding_rate_limits(self) -> None:
+        cfg = _config_from_toml(
+            """
+            [Lidarr]
+            Managed = true
+            URI = "http://localhost:8686"
+            APIKey = "key"
+            Category = "music"
+            """
+        )
+        errors = validate_config_update(
+            cfg,
+            {
+                "Lidarr.Torrent.SeedingMode.DownloadRateLimitPerTorrent": -1,
+                "Lidarr.Torrent.SeedingMode.UploadRateLimitPerTorrent": -1,
+                "Lidarr.Torrent.SeedingMode.MaxUploadRatio": -1,
+            },
+        )
+        self.assertEqual(errors, [])
+
+    def test_rejects_invalid_remove_torrent_select_string(self) -> None:
+        cfg = _config_from_toml(
+            """
+            [Lidarr]
+            Managed = true
+            URI = "http://localhost:8686"
+            APIKey = "key"
+            Category = "music"
+            """
+        )
+        errors = validate_config_update(cfg, {"Lidarr.Torrent.SeedingMode.RemoveTorrent": ""})
+        self.assertTrue(
+            any(e["path"] == "Lidarr.Torrent.SeedingMode.RemoveTorrent" for e in errors)
+        )
+
 
 class TestConfigUpdateRouteValidation(unittest.TestCase):
     """Smoke: invalid updates must not call save/reload helpers."""

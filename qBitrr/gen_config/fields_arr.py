@@ -474,6 +474,7 @@ ARR_FIELDS: tuple[ConfigField, ...] = (
         ),
         label="Download Rate Limit",
         kind="number",
+        allow_negative=True,
     ),
     ConfigField(
         ("Torrent", "SeedingMode", "UploadRateLimitPerTorrent"),
@@ -485,6 +486,7 @@ ARR_FIELDS: tuple[ConfigField, ...] = (
         ),
         label="Upload Rate Limit",
         kind="number",
+        allow_negative=True,
     ),
     ConfigField(
         ("Torrent", "SeedingMode", "MaxUploadRatio"),
@@ -496,6 +498,7 @@ ARR_FIELDS: tuple[ConfigField, ...] = (
         ),
         label="Max Upload Ratio",
         kind="number",
+        allow_negative=True,
     ),
     ConfigField(
         ("Torrent", "SeedingMode", "MaxSeedingTime"),

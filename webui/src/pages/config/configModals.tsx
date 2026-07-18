@@ -29,8 +29,12 @@ import {
   CategoryOverlapAlert,
   FieldGroup,
 } from "./configFieldComponents";
+import {
+  focusFirstValidationError,
+  formatValidationErrors,
+} from "./configDocumentUtils";
 import { REDACTED_PLACEHOLDER } from "./configTypes";
-import type { FieldDefinition } from "./configTypes";
+import type { FieldDefinition, ValidationError } from "./configTypes";
 
 export function ConfigModalPortal({ children }: { children: React.ReactNode }): JSX.Element {
   return createPortal(children, document.body);
@@ -47,6 +51,7 @@ export interface ArrInstanceModalProps {
   overlapWarnings: string[];
   saveDisabled?: boolean;
   saveBlockedReason?: string;
+  validationErrors?: ValidationError[];
 }
 
 export function ArrInstanceModal({
@@ -60,6 +65,7 @@ export function ArrInstanceModal({
   overlapWarnings,
   saveDisabled = false,
   saveBlockedReason,
+  validationErrors = [],
 }: ArrInstanceModalProps): JSX.Element {
   const { generalFields, entryFields, entryOmbiFields, entryOverseerrFields, torrentFields, seedingFields, trackerFields } =
     getArrFieldSets(keyName);
@@ -162,7 +168,16 @@ export function ArrInstanceModal({
   }
 
   const handleSave = async () => {
-    if (savingModal || saveDisabled) return;
+    if (savingModal) return;
+    if (validationErrors.length || saveDisabled) {
+      const message =
+        saveBlockedReason ||
+        formatValidationErrors(validationErrors) ||
+        "Fix validation errors to save";
+      push(message, "error");
+      focusFirstValidationError(validationErrors);
+      return;
+    }
     setSavingModal(true);
     try {
       const uri = getValue(["URI"]) as string;
@@ -216,6 +231,7 @@ export function ArrInstanceModal({
             onRenameSection={onRename}
             sectionKey={keyName}
             defaultOpen
+            validationErrors={validationErrors}
           />
           {testState.result && (
             <div
@@ -256,6 +272,7 @@ export function ArrInstanceModal({
             onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
             sectionKey={keyName}
             defaultOpen
+            validationErrors={validationErrors}
           />
           <FieldGroup
             title="Quality Profile Mappings"
@@ -266,6 +283,7 @@ export function ArrInstanceModal({
             sectionKey={keyName}
             defaultOpen
             qualityProfiles={qualityProfiles}
+            validationErrors={validationErrors}
           />
           {entryOmbiFields.length > 0 && (
             <FieldGroup
@@ -275,6 +293,7 @@ export function ArrInstanceModal({
               basePath={[]}
               onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
               sectionKey={keyName}
+              validationErrors={validationErrors}
             />
           )}
           {entryOverseerrFields.length > 0 && (
@@ -285,6 +304,7 @@ export function ArrInstanceModal({
               basePath={[]}
               onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
               sectionKey={keyName}
+              validationErrors={validationErrors}
             />
           )}
           <FieldGroup
@@ -294,6 +314,7 @@ export function ArrInstanceModal({
             basePath={[]}
             onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
             sectionKey={keyName}
+            validationErrors={validationErrors}
           />
           <FieldGroup
             title="Seeding"
@@ -302,6 +323,7 @@ export function ArrInstanceModal({
             basePath={[]}
             onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
             sectionKey={keyName}
+            validationErrors={validationErrors}
           />
           <FieldGroup
             title="Trackers"
@@ -310,6 +332,7 @@ export function ArrInstanceModal({
             basePath={[]}
             onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
             sectionKey={keyName}
+            validationErrors={validationErrors}
           />
         </div>
         <div className="modal-footer">
@@ -345,14 +368,18 @@ export function ArrInstanceModal({
             className="btn primary"
             type="button"
             onClick={() => void handleSave()}
-            disabled={savingModal || testState.testing || saveDisabled}
-            title={saveDisabled ? saveBlockedReason || "Fix validation errors to save" : undefined}
+            disabled={savingModal || testState.testing}
+            title={
+              validationErrors.length || saveDisabled
+                ? saveBlockedReason || "Fix validation errors to save"
+                : undefined
+            }
           >
             <IconImage src={SaveIcon} />
             {savingModal ? "Saving..." : "Save"}
           </button>
         </div>
-        {saveDisabled && saveBlockedReason ? (
+        {(validationErrors.length || saveDisabled) && saveBlockedReason ? (
           <div className="modal-footer-note" role="status">
             {saveBlockedReason}
           </div>
@@ -393,6 +420,7 @@ export interface QbitInstanceModalProps {
   overlapWarnings: string[];
   saveDisabled?: boolean;
   saveBlockedReason?: string;
+  validationErrors?: ValidationError[];
 }
 
 export function QbitInstanceModal({
@@ -406,11 +434,22 @@ export function QbitInstanceModal({
   overlapWarnings,
   saveDisabled = false,
   saveBlockedReason,
+  validationErrors = [],
 }: QbitInstanceModalProps): JSX.Element {
+  const { push } = useToast();
   const [savingModal, setSavingModal] = useState(false);
 
   const handleDone = async () => {
-    if (savingModal || saveDisabled) return;
+    if (savingModal) return;
+    if (validationErrors.length || saveDisabled) {
+      const message =
+        saveBlockedReason ||
+        formatValidationErrors(validationErrors) ||
+        "Fix validation errors to save";
+      push(message, "error");
+      focusFirstValidationError(validationErrors);
+      return;
+    }
     setSavingModal(true);
     try {
       const saved = await onSave();
@@ -453,6 +492,7 @@ export function QbitInstanceModal({
             onRenameSection={onRename}
             sectionKey={keyName}
             defaultOpen
+            validationErrors={validationErrors}
           />
           <FieldGroup
             title="Trackers"
@@ -462,6 +502,8 @@ export function QbitInstanceModal({
             onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
             defaultOpen={false}
             qbitTrackers
+            sectionKey={keyName}
+            validationErrors={validationErrors}
           />
         </div>
         <div className="modal-footer">
@@ -482,14 +524,18 @@ export function QbitInstanceModal({
             className="btn primary"
             type="button"
             onClick={() => void handleDone()}
-            disabled={savingModal || saveDisabled}
-            title={saveDisabled ? saveBlockedReason || "Fix validation errors to save" : undefined}
+            disabled={savingModal}
+            title={
+              validationErrors.length || saveDisabled
+                ? saveBlockedReason || "Fix validation errors to save"
+                : undefined
+            }
           >
             <IconImage src={SaveIcon} />
             {savingModal ? "Saving..." : "Save"}
           </button>
         </div>
-        {saveDisabled && saveBlockedReason ? (
+        {(validationErrors.length || saveDisabled) && saveBlockedReason ? (
           <div className="modal-footer-note" role="status">
             {saveBlockedReason}
           </div>
@@ -512,6 +558,7 @@ export interface SimpleConfigModalProps {
   onSetPassword?: () => void;
   saveDisabled?: boolean;
   saveBlockedReason?: string;
+  validationErrors?: ValidationError[];
 }
 
 export function SimpleConfigModal({
@@ -526,12 +573,23 @@ export function SimpleConfigModal({
   onSetPassword,
   saveDisabled = false,
   saveBlockedReason,
+  validationErrors = [],
 }: SimpleConfigModalProps): JSX.Element | null {
   const webUI = useWebUI();
+  const { push } = useToast();
   const [savingModal, setSavingModal] = useState(false);
 
   const handleSave = async () => {
-    if (!onSave || savingModal || saveDisabled) return;
+    if (!onSave || savingModal) return;
+    if (validationErrors.length || saveDisabled) {
+      const message =
+        saveBlockedReason ||
+        formatValidationErrors(validationErrors) ||
+        "Fix validation errors to save";
+      push(message, "error");
+      focusFirstValidationError(validationErrors);
+      return;
+    }
     setSavingModal(true);
     try {
       const saved = await onSave();
@@ -569,6 +627,7 @@ export function SimpleConfigModal({
             basePath={basePath}
             onChange={onChange}
             defaultOpen
+            validationErrors={validationErrors}
           />
           {showLiveSettings && webUI && (
             <div className="field-group">
@@ -622,8 +681,12 @@ export function SimpleConfigModal({
               className="btn primary"
               type="button"
               onClick={() => void handleSave()}
-              disabled={savingModal || saveDisabled}
-              title={saveDisabled ? saveBlockedReason || "Fix validation errors to save" : undefined}
+              disabled={savingModal}
+              title={
+                validationErrors.length || saveDisabled
+                  ? saveBlockedReason || "Fix validation errors to save"
+                  : undefined
+              }
             >
               <IconImage src={SaveIcon} />
               {savingModal ? "Saving..." : "Save"}
@@ -635,7 +698,7 @@ export function SimpleConfigModal({
             </button>
           )}
         </div>
-        {saveDisabled && saveBlockedReason ? (
+        {(validationErrors.length || saveDisabled) && saveBlockedReason ? (
           <div className="modal-footer-note" role="status">
             {saveBlockedReason}
           </div>
