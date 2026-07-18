@@ -86,14 +86,16 @@ function AppShell({
   const [visitedTabs, setVisitedTabs] = useState<ReadonlySet<Tab>>(
     () => new Set<Tab>(["processes"]),
   );
-  const [configuredArrTabs, setConfiguredArrTabs] = useState<{
+  const [configuredTabs, setConfiguredTabs] = useState<{
     radarr: boolean;
     sonarr: boolean;
     lidarr: boolean;
+    qbittorrent: boolean;
   }>({
     radarr: false,
     sonarr: false,
     lidarr: false,
+    qbittorrent: false,
   });
   const [configDirty, setConfigDirty] = useState(false);
   const [configKey, setConfigKey] = useState(0);
@@ -272,10 +274,10 @@ function AppShell({
         const tabIds: Tab[] = [
           "processes",
           "logs",
-          ...(configuredArrTabs.radarr ? (["radarr"] as Tab[]) : []),
-          ...(configuredArrTabs.sonarr ? (["sonarr"] as Tab[]) : []),
-          ...(configuredArrTabs.lidarr ? (["lidarr"] as Tab[]) : []),
-          "qbittorrent",
+          ...(configuredTabs.radarr ? (["radarr"] as Tab[]) : []),
+          ...(configuredTabs.sonarr ? (["sonarr"] as Tab[]) : []),
+          ...(configuredTabs.lidarr ? (["lidarr"] as Tab[]) : []),
+          ...(configuredTabs.qbittorrent ? (["qbittorrent"] as Tab[]) : []),
           "config",
         ];
         if (tabIndex < tabIds.length) {
@@ -287,7 +289,7 @@ function AppShell({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [setSearchValue, configuredArrTabs, switchTab]);
+  }, [setSearchValue, configuredTabs, switchTab]);
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -300,15 +302,18 @@ function AppShell({
     try {
       const status = await getStatus();
       const arrs: ArrInfo[] = Array.isArray(status.arrs) ? status.arrs : [];
+      const qbitInstances = status.qbitInstances ?? {};
       const nextTabs = {
         radarr: arrs.some((arr) => arr.type === "radarr"),
         sonarr: arrs.some((arr) => arr.type === "sonarr"),
         lidarr: arrs.some((arr) => arr.type === "lidarr"),
+        qbittorrent: Object.keys(qbitInstances).length > 0,
       };
-      setConfiguredArrTabs((prev) =>
+      setConfiguredTabs((prev) =>
         prev.radarr === nextTabs.radarr &&
         prev.sonarr === nextTabs.sonarr &&
-        prev.lidarr === nextTabs.lidarr
+        prev.lidarr === nextTabs.lidarr &&
+        prev.qbittorrent === nextTabs.qbittorrent
           ? prev
           : nextTabs
       );
@@ -345,7 +350,7 @@ function AppShell({
     }, 0);
     const id = window.setInterval(() => {
       void refreshStatus();
-    }, 15 * 1000); // Refresh Arr tab visibility; client TTL covers status overlap
+    }, 15 * 1000); // Refresh Arr/qBit tab visibility; client TTL covers status overlap
     return () => {
       window.clearTimeout(initialId);
       window.clearInterval(id);
@@ -473,21 +478,21 @@ function AppShell({
       { id: "processes", label: "Processes", icon: ProcessesIcon },
       { id: "logs", label: "Logs", icon: LogsIcon },
     ];
-    if (configuredArrTabs.radarr) {
+    if (configuredTabs.radarr) {
       nextTabs.push({ id: "radarr", label: "Radarr", icon: RadarrIcon });
     }
-    if (configuredArrTabs.sonarr) {
+    if (configuredTabs.sonarr) {
       nextTabs.push({ id: "sonarr", label: "Sonarr", icon: SonarrIcon });
     }
-    if (configuredArrTabs.lidarr) {
+    if (configuredTabs.lidarr) {
       nextTabs.push({ id: "lidarr", label: "Lidarr", icon: LidarrIcon });
     }
-    nextTabs.push(
-      { id: "qbittorrent", label: "qBittorrent", icon: QbitIcon },
-      { id: "config", label: "Config", icon: ConfigIcon }
-    );
+    if (configuredTabs.qbittorrent) {
+      nextTabs.push({ id: "qbittorrent", label: "qBittorrent", icon: QbitIcon });
+    }
+    nextTabs.push({ id: "config", label: "Config", icon: ConfigIcon });
     return nextTabs;
-  }, [configuredArrTabs]);
+  }, [configuredTabs]);
   const visibleTabIds = useMemo(() => new Set<Tab>(tabs.map((tab) => tab.id)), [tabs]);
 
   const repositoryUrl = meta?.repository_url ?? "https://github.com/Feramance/qBitrr";
@@ -718,7 +723,7 @@ function AppShell({
                 <ArrCatalogView kind="lidarr" active={activeTab === "lidarr"} />
               </div>
             ) : null}
-            {visitedTabs.has("qbittorrent") ? (
+            {visitedTabs.has("qbittorrent") && visibleTabIds.has("qbittorrent") ? (
               <div hidden={activeTab !== "qbittorrent"}>
                 <QbitCategoriesView
                   key={`qbittorrent-${reloadKey}`}

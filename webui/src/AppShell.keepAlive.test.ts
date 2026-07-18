@@ -18,4 +18,17 @@ describe("AppShell keep-alive policy", () => {
   it("documents Arr tabs staying mounted across visibility changes", () => {
     expect(source).toMatch(/Arr tabs stay mounted|visibilitychange/i);
   });
+
+  it("shows Arr and qBittorrent nav tabs only when configured", () => {
+    expect(source).toMatch(/configuredTabs\.radarr/);
+    expect(source).toMatch(/configuredTabs\.sonarr/);
+    expect(source).toMatch(/configuredTabs\.lidarr/);
+    expect(source).toMatch(/configuredTabs\.qbittorrent/);
+    expect(source).toMatch(
+      /qbittorrent:\s*Object\.keys\(qbitInstances\)\.length\s*>\s*0/,
+    );
+    expect(source).toMatch(
+      /visitedTabs\.has\("qbittorrent"\)\s*&&\s*visibleTabIds\.has\("qbittorrent"\)/,
+    );
+  });
 });

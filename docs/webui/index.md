@@ -294,6 +294,8 @@ Browse and manage your media libraries directly from qBitrr.
 
 Monitored-category torrent overview for qBit-managed and Arr-managed categories — not a full qBittorrent client.
 
+The **qBittorrent** nav tab appears only when at least one qBittorrent instance is configured and enabled (same pattern as the Radarr/Sonarr/Lidarr tabs).
+
 **Features:**
 
 - **Layout**
@@ -447,10 +449,10 @@ The WebUI uses a tab-based navigation system:
 |-----|------|---------|
 | **Processes** | 🔄 | Process management and control |
 | **Logs** | 📋 | Live log viewer with filtering |
-| **Radarr** | 🎬 | Radarr movie library views |
-| **Sonarr** | 📺 | Sonarr TV series views |
-| **Lidarr** | 🎵 | Lidarr music library views |
-| **qBittorrent** | 📦 | Monitored-category torrent overview by instance |
+| **Radarr** | 🎬 | Radarr movie library views (when a Radarr instance is configured) |
+| **Sonarr** | 📺 | Sonarr TV series views (when a Sonarr instance is configured) |
+| **Lidarr** | 🎵 | Lidarr music library views (when a Lidarr instance is configured) |
+| **qBittorrent** | 📦 | Monitored-category torrent overview (when a qBit instance is configured) |
 | **Config** | ⚙️ | Configuration editor |
 | **API** | 🔌 | API documentation and testing |
 
