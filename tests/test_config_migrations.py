@@ -10,6 +10,7 @@ from tomlkit import parse
 
 from qBitrr.gen_config import (
     MyConfig,
+    _migrate_animarr_sections,
     _migrate_hnr_settings,
     _migrate_hnr_single_key,
     _migrate_process_restart_settings,
@@ -243,6 +244,39 @@ class TestMigrateWebuiConfigEdgeCases(unittest.TestCase):
         webui = cfg.get("WebUI")
         self.assertNotIn("GroupSonarr", webui)
         self.assertNotIn("GroupLidarr", webui)
+
+
+class TestMigrateAnimarrSections(unittest.TestCase):
+    def test_renames_animarr_to_sonarr_with_collision(self) -> None:
+        cfg = _config_from_toml(
+            """
+            [Animarr]
+            URI = "http://anime.local"
+            [Animarr.EntrySearch]
+            SearchMissing = true
+            [Animarr-Extra]
+            URI = "http://anime2.local"
+            [Sonarr]
+            URI = "http://tv.local"
+            """
+        )
+        self.assertTrue(_migrate_animarr_sections(cfg))
+        self.assertNotIn("Animarr", cfg.config)
+        self.assertNotIn("Animarr-Extra", cfg.config)
+        self.assertIn("Sonarr-Animarr", cfg.config)
+        self.assertIn("Sonarr-Extra", cfg.config)
+        self.assertEqual(cfg.get("Sonarr-Animarr.URI"), "http://anime.local")
+        self.assertTrue(cfg.get("Sonarr-Animarr.EntrySearch.SearchMissing"))
+        self.assertEqual(cfg.get("Sonarr-Extra.URI"), "http://anime2.local")
+
+    def test_noop_when_no_animarr(self) -> None:
+        cfg = _config_from_toml(
+            """
+            [Sonarr]
+            URI = "http://tv.local"
+            """
+        )
+        self.assertFalse(_migrate_animarr_sections(cfg))
 
 
 class TestMigrateHnrSingleKeyEdgeCases(unittest.TestCase):

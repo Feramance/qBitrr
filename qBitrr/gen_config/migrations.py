@@ -16,6 +16,57 @@ from qBitrr.gen_config.validate import (
 )
 
 
+def _animarr_to_sonarr_name(section_name: str, existing: set[str]) -> str:
+    """Map an Animarr* section name to a non-colliding Sonarr* name."""
+    if section_name.lower() == "animarr":
+        candidate = "Sonarr"
+    elif section_name.startswith("Animarr-"):
+        candidate = "Sonarr-" + section_name[len("Animarr-") :]
+    elif section_name.startswith("Animarr."):
+        candidate = "Sonarr." + section_name[len("Animarr.") :]
+    elif section_name.lower().startswith("animarr-"):
+        candidate = "Sonarr-" + section_name[len("animarr-") :]
+    elif section_name.lower().startswith("animarr."):
+        candidate = "Sonarr." + section_name[len("animarr.") :]
+    else:
+        candidate = "Sonarr-Animarr"
+
+    if candidate not in existing:
+        return candidate
+    base = "Sonarr-Animarr" if candidate == "Sonarr" else f"{candidate}-migrated"
+    if base not in existing:
+        return base
+    suffix = 2
+    while f"{base}-{suffix}" in existing:
+        suffix += 1
+    return f"{base}-{suffix}"
+
+
+def _migrate_animarr_sections(config: MyConfig) -> bool:
+    """Rename obsolete ``[Animarr*]`` sections to ``[Sonarr*]`` (idempotent).
+
+    Animarr was an unsupported alias of Sonarr. Existing configs are migrated on
+    load so workers and the WebUI only see Radarr/Sonarr/Lidarr section types.
+    """
+    migrated = False
+    keys = [str(k) for k in list(config.config.keys())]
+    existing = set(keys)
+    animarr_keys = [k for k in keys if k == "Animarr" or k.lower().startswith("animarr")]
+    # Rename longest names first so nested-looking top-level keys are stable
+    for old_name in sorted(animarr_keys, key=len, reverse=True):
+        if old_name not in config.config:
+            continue
+        new_name = _animarr_to_sonarr_name(old_name, existing - {old_name})
+        body = config.config[old_name]
+        del config.config[old_name]
+        config.config[new_name] = body
+        existing.discard(old_name)
+        existing.add(new_name)
+        migrated = True
+        print(f"Migrated obsolete config section [{old_name}] → [{new_name}]")
+    return migrated
+
+
 def _migrate_webui_config(config: MyConfig) -> bool:
     """
     Migrate WebUI configuration from old location (Settings section) to new location (WebUI section).
@@ -595,6 +646,10 @@ def apply_config_migrations(config: MyConfig) -> None:
 
     # Apply migrations in order
     if _migrate_webui_config(config):
+        changes_made = True
+
+    # Rename obsolete Animarr* sections to Sonarr* (idempotent)
+    if _migrate_animarr_sections(config):
         changes_made = True
 
     # Migrate quality profile mappings from list to dict format (< 0.0.2)

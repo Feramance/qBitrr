@@ -99,8 +99,14 @@ class TestArrFactory(unittest.TestCase):
     def test_arr_class_for_section(self) -> None:
         self.assertIs(arr_class_for_section("Radarr.Main"), RadarrArr)
         self.assertIs(arr_class_for_section("Sonarr-TV"), SonarrArr)
-        self.assertIs(arr_class_for_section("Animarr"), SonarrArr)
         self.assertIs(arr_class_for_section("Lidarr.Music"), LidarrArr)
+
+    def test_animarr_section_rejected(self) -> None:
+        with self.assertRaises(ValueError) as ctx:
+            arr_class_for_section("Animarr")
+        self.assertIn("Animarr", str(ctx.exception))
+        with self.assertRaises(ValueError):
+            arr_class_for_section("Animarr-Extra")
 
 
 class TestBuildArrInstances(unittest.TestCase):

@@ -647,7 +647,9 @@ Radarr-4K.URI: URI must be set to a valid URL when the instance is managed.
 Saving is done from each configure modal (and per-instance **Save** on Arr/qBit cards). There is no page-footer **Save + Live Reload** control — core blocks (**Settings**, **Web Settings**, **Authentication**) and each Arr/qBit instance are saved from their own modal.
 
 - **Per-instance / modal Save** validates only that section (skipped when Arr `Managed = false` or qBit `Disabled = true`)
+- **Save is disabled** while the open section has validation errors; qBit/Arr live reload runs only after a successful Save
 - Closing a modal without Save discards unsaved edits for that modal
+- The API also rejects invalid updates with HTTP 400 (no persist, no reload) so clients cannot bypass the WebUI gate
 
 ### Save Process
 

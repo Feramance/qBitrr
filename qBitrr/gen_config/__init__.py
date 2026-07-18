@@ -10,6 +10,7 @@ from qBitrr.gen_config.fields import (
     build_config_schema,
 )
 from qBitrr.gen_config.migrations import (
+    _migrate_animarr_sections,
     _migrate_hnr_settings,
     _migrate_hnr_single_key,
     _migrate_process_restart_settings,
@@ -34,6 +35,7 @@ __all__ = [
     "QBIT_FIELDS",
     "SETTINGS_FIELDS",
     "WEBUI_FIELDS",
+    "_migrate_animarr_sections",
     "_migrate_hnr_settings",
     "_migrate_hnr_single_key",
     "_migrate_process_restart_settings",

@@ -2417,6 +2417,12 @@ svg[height] {
     background: rgba(255, 255, 255, 0.01);
     border-radius: 0 0 16px 16px;
 }
+.modal-footer-note {
+    padding: 0 24px 16px;
+    font-size: 13px;
+    color: var(--danger, #e57373);
+    line-height: 1.4;
+}
 .changelog-modal__body {
     gap: 12px;
 }

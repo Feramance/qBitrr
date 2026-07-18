@@ -178,6 +178,36 @@ class TestWebUIConfigReload(_WebUIClientTestCase):
         plan = live_refresh.call_args.args[0]
         self.assertIn("Radarr.Main", plan.arr_live_instances)
 
+    def test_invalid_config_save_returns_400_without_reload(self) -> None:
+        """Validation failures must not persist or trigger Arr/qBit reload."""
+        with patch.object(WebUI, "_apply_arr_live_refresh") as live_refresh:
+            response = self.client.post(
+                "/web/config",
+                json={"changes": {"WebUI.Port": "not-a-number"}},
+                content_type="application/json",
+            )
+
+        self.assertEqual(response.status_code, 400)
+        payload = response.get_json()
+        self.assertEqual(payload["error"], "Configuration validation failed")
+        self.assertTrue(payload.get("validationErrors"))
+        self.assertTrue(any(e.get("path") == "WebUI.Port" for e in payload["validationErrors"]))
+        self.reload_all_mock.assert_not_called()
+        live_refresh.assert_not_called()
+
+    def test_animarr_config_save_rejected(self) -> None:
+        response = self.client.post(
+            "/web/config",
+            json={"changes": {"Animarr.URI": "http://localhost:8989"}},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+        payload = response.get_json()
+        self.assertTrue(
+            any("Animarr" in e.get("message", "") for e in payload.get("validationErrors", []))
+        )
+        self.reload_all_mock.assert_not_called()
+
     def test_preserve_db_reload_skips_db_deletion(self) -> None:
         db_file = Path("/tmp/qbitrr-preserve-db-test.db")
         db_file.write_text("stub", encoding="utf-8")

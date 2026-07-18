@@ -92,9 +92,20 @@ class TestNormalizeEnumGoldenMaster(unittest.TestCase):
 class TestIterArrSections(unittest.TestCase):
     def test_yields_arr_instance_sections(self) -> None:
         config = mock.MagicMock()
-        config.sections.return_value = ["Settings", "Radarr-Movies", "Sonarr-TV", "qBit"]
-        self.assertEqual(list(iter_arr_sections(config)), ["Radarr-Movies", "Sonarr-TV"])
-        self.assertEqual(len(ARR_SECTION_PREFIXES), 4)
+        config.sections.return_value = [
+            "Settings",
+            "Radarr-Movies",
+            "Sonarr-TV",
+            "Lidarr",
+            "Animarr",  # obsolete — must not be treated as an Arr section
+            "qBit",
+        ]
+        self.assertEqual(
+            list(iter_arr_sections(config)),
+            ["Radarr-Movies", "Sonarr-TV", "Lidarr"],
+        )
+        self.assertEqual(ARR_SECTION_PREFIXES, ("Radarr", "Sonarr", "Lidarr"))
+        self.assertEqual(len(ARR_SECTION_PREFIXES), 3)
 
 
 SHARED_ARR_FILE_FIELDS = (

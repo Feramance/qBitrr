@@ -22,16 +22,21 @@ from qBitrr.arss.sonarr import SonarrArr
 if TYPE_CHECKING:
     from qBitrr.arss.manager import ArrManager
 
-_ARR_SECTION_RE = re.compile(r"^(rad|son|anim|lid)arr", re.IGNORECASE)
+_ARR_SECTION_RE = re.compile(r"^(rad|son|lid)arr", re.IGNORECASE)
 
 
 def arr_class_for_section(section_name: str) -> type[ArrBase]:
     """Return the concrete Arr class for a config section name."""
+    if re.match(r"^animarr", section_name, re.IGNORECASE):
+        raise ValueError(
+            f"Animarr sections are no longer supported ({section_name!r}); "
+            "migrate to a Sonarr section (config migration renames Animarr* → Sonarr*)"
+        )
     match = _ARR_SECTION_RE.match(section_name)
     if not match:
         raise ValueError(f"Unknown Arr section: {section_name}")
     prefix = match.group(1).lower()
-    if prefix in ("son", "anim"):
+    if prefix == "son":
         return SonarrArr
     if prefix == "rad":
         return RadarrArr
@@ -44,11 +49,16 @@ def client_builder_for_section(
     section_name: str,
 ) -> Callable[..., Radarr | Sonarr | Lidarr]:
     """Return the pyarr client builder for a config section name."""
+    if re.match(r"^animarr", section_name, re.IGNORECASE):
+        raise ValueError(
+            f"Animarr sections are no longer supported ({section_name!r}); "
+            "migrate to a Sonarr section"
+        )
     match = _ARR_SECTION_RE.match(section_name)
     if not match:
         raise ValueError(f"Unknown Arr section: {section_name}")
     prefix = match.group(1).lower()
-    if prefix in ("son", "anim"):
+    if prefix == "son":
         return build_sonarr_client
     if prefix == "rad":
         return build_radarr_client

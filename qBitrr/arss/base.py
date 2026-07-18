@@ -918,7 +918,7 @@ class ArrBase(
         ]
         arr_trackers: list[dict] = []
         for section in CONFIG.sections():
-            if not re.match(r"(rad|son|anim|lid)arr.*", section, re.IGNORECASE):
+            if not re.match(r"(rad|son|lid)arr.*", section, re.IGNORECASE):
                 continue
             for tracker in CONFIG.get(f"{section}.Torrent.Trackers", fallback=[]):
                 if isinstance(tracker, dict):
@@ -978,7 +978,7 @@ class ArrBase(
     def global_remove_dead_trackers_union() -> bool:
         """True if any Arr section enables ``RemoveDeadTrackers`` (for priority sorting)."""
         for section in CONFIG.sections():
-            if not re.match(r"(rad|son|anim|lid)arr.*", section, re.IGNORECASE):
+            if not re.match(r"(rad|son|lid)arr.*", section, re.IGNORECASE):
                 continue
             if CONFIG.get(f"{section}.Torrent.SeedingMode.RemoveDeadTrackers", fallback=False):
                 return True
@@ -990,7 +990,7 @@ class ArrBase(
         seen: set[str] = set()
         out: list[str] = []
         for section in CONFIG.sections():
-            if not re.match(r"(rad|son|anim|lid)arr.*", section, re.IGNORECASE):
+            if not re.match(r"(rad|son|lid)arr.*", section, re.IGNORECASE):
                 continue
             raw = CONFIG.get(
                 f"{section}.Torrent.SeedingMode.RemoveTrackerWithMessage", fallback=[]

@@ -7,6 +7,18 @@ export type TorrentStateFamily =
   | "checking"
   | "unknown";
 
+/** States counted as seeding in overview/category aggregates (keep in sync with backend). */
+export const SEEDING_STATES = [
+  "uploading",
+  "stalledUP",
+  "forcedUP",
+  "queuedUP",
+] as const;
+
+export function isSeedingState(state: string): boolean {
+  return (SEEDING_STATES as readonly string[]).includes(state);
+}
+
 export function torrentStateFamily(state: string): TorrentStateFamily {
   switch (state) {
     case "downloading":

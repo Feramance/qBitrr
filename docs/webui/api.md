@@ -612,7 +612,7 @@ Get qBittorrent categories managed by qBitrr (qBit-managed and Arr-managed) with
 **Endpoint**:
 - `GET /web/qbit/categories` (public only; no `/api/` variant)
 
-**Authentication**: None (public endpoint).
+**Authentication**: Requires Bearer token or WebUI session when authentication is enabled (`WebUI.AuthDisabled = false`). Same token gate as other protected `/web/*` routes.
 
 **Response**: Array of category objects, each including:
 - `category` - Category name
@@ -632,7 +632,7 @@ Get monitored qBittorrent categories (qBit-managed and Arr-managed) with per-tor
 **Endpoint**:
 - `GET /web/qbit/overview` (public only; no `/api/` variant)
 
-**Authentication**: None (public endpoint). Uses the same WebUI token gate as other `/web/*` routes when a token is configured.
+**Authentication**: Requires Bearer token or WebUI session when authentication is enabled (`WebUI.AuthDisabled = false`). Same token gate as other protected `/web/*` routes.
 
 **Query Parameters**:
 - `instance` (optional) - qBittorrent instance name (e.g. `qBit`). Omit or pass `all` to include every configured client.
@@ -678,7 +678,7 @@ Get monitored qBittorrent categories (qBit-managed and Arr-managed) with per-tor
 }
 ```
 
-Each category is scoped to a single qBit client (`qbitInstance`). Arr-managed categories appear under each client that is in scope (with an empty torrent list when that client has none). Torrent objects use camelCase fields aligned with qBittorrent `torrents/info` (hash, name, state, progress, speeds, peers, paths, limits, etc.).
+qBit-managed categories are scoped to a single qBit client (`qbitInstance`). Arr-managed categories appear **once per Arr** (torrents aggregated across the in-scope client(s); `qbitInstance` is the selected client, or `"all"` when viewing every client). Each category may include `torrentsTruncated: true` when the torrent list was capped server-side. Torrent objects use camelCase fields aligned with qBittorrent `torrents/info` (hash, name, state, progress, speeds, peers, limits, etc.). Path and tracker fields are omitted from this payload.
 
 **Use Case**: qBittorrent WebUI tab — instance picker + collapsible category sections with List-style torrent rows.
 

@@ -115,9 +115,6 @@ export interface QbitTorrentOverview {
   seedingTime: number;
   timeActive: number;
   lastActivity: number;
-  savePath: string;
-  contentPath: string;
-  tracker: string;
   ratioLimit: number;
   seedingTimeLimit: number;
   dlLimit: number;
@@ -136,6 +133,8 @@ export interface QbitOverviewCategory {
   avgSeedingTime: number;
   seedingConfig: QbitCategorySeedingConfig;
   torrents: QbitTorrentOverview[];
+  /** True when the server capped the torrent list for this category. */
+  torrentsTruncated?: boolean;
 }
 
 export interface QbitOverviewResponse {

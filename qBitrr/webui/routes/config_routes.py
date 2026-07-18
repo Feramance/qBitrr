@@ -113,7 +113,9 @@ def register_config_routes(
         # Analyze changes to determine reload strategy
         plan = classify_config_changes(changes)
 
-        # Apply all changes to config
+        previous_token = webui.token
+
+        # Apply all changes to in-memory config first (not persisted until validated)
         for key, val in changes.items():
             if val is None:
                 _toml_delete(_webui_mod().CONFIG.config, key)
@@ -127,8 +129,28 @@ def register_config_routes(
                 val = normalize_url_base(str(val) if val is not None else "")
             _toml_set(_webui_mod().CONFIG.config, key, val)
             if key == "WebUI.Token":
-                # Update in-memory token immediately
+                # Update in-memory token for validation context only
                 webui.token = str(val) if val is not None else ""
+
+        from qBitrr.webui.config_validate import validate_config_update
+
+        validation_errors = validate_config_update(_webui_mod().CONFIG, changes)
+        if validation_errors:
+            # Roll back in-memory edits; do not persist or reload
+            try:
+                _webui_mod().CONFIG.load()
+            except Exception:
+                webui.logger.debug("CONFIG.load failed during validation rollback", exc_info=True)
+            webui.token = previous_token
+            return (
+                jsonify(
+                    {
+                        "error": "Configuration validation failed",
+                        "validationErrors": validation_errors,
+                    }
+                ),
+                400,
+            )
 
         # Persist config
         try:

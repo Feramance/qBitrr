@@ -58,22 +58,10 @@ def register_status_routes(
 
                 for category in manager.managed_categories:
                     try:
-                        torrents = client.torrents_info(category=category)
+                        from qBitrr.webui.routes.category_stats import summarize_category_torrents
 
-                        # Calculate statistics
-                        total_count = len(torrents)
-                        seeding_count = len(
-                            [t for t in torrents if t.state in ("uploading", "stalledUP")]
-                        )
-                        total_size = sum(t.size for t in torrents)
-                        avg_ratio = (
-                            sum(t.ratio for t in torrents) / total_count if total_count else 0
-                        )
-                        avg_seeding_time = (
-                            sum(t.seeding_time for t in torrents) / total_count
-                            if total_count
-                            else 0
-                        )
+                        torrents = client.torrents_info(category=category)
+                        stats = summarize_category_torrents(list(torrents))
 
                         # Get seeding config for this category
                         seeding_config = manager.get_seeding_config(category)
@@ -83,11 +71,7 @@ def register_status_routes(
                                 "category": category,
                                 "instance": instance_name,
                                 "managedBy": "qbit",
-                                "torrentCount": total_count,
-                                "seedingCount": seeding_count,
-                                "totalSize": total_size,
-                                "avgRatio": round(avg_ratio, 2),
-                                "avgSeedingTime": avg_seeding_time,
+                                **stats,
                                 "seedingConfig": {
                                     "maxRatio": seeding_config.get("MaxUploadRatio", -1),
                                     "maxTime": seeding_config.get("MaxSeedingTime", -1),

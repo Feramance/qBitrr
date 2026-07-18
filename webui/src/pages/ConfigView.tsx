@@ -172,6 +172,45 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   const [isSetPasswordOpen, setSetPasswordOpen] = useState(false);
   const [isDirty, setDirty] = useState(false);
 
+  const sectionSaveGate = useCallback(
+    (sectionKey: string): { saveDisabled: boolean; saveBlockedReason?: string } => {
+      const errors = validateSectionsForSave(
+        formState,
+        [sectionKey],
+        originalConfig,
+        false
+      );
+      if (!errors.length) {
+        return { saveDisabled: false };
+      }
+      return {
+        saveDisabled: true,
+        saveBlockedReason: formatValidationErrors(errors),
+      };
+    },
+    [formState, originalConfig]
+  );
+
+  const arrSaveGate = useMemo(
+    () => (activeArrKey ? sectionSaveGate(activeArrKey) : { saveDisabled: false }),
+    [activeArrKey, sectionSaveGate]
+  );
+  const qbitSaveGate = useMemo(
+    () => (activeQbitKey ? sectionSaveGate(activeQbitKey) : { saveDisabled: false }),
+    [activeQbitKey, sectionSaveGate]
+  );
+  const settingsSaveGate = useMemo(
+    () => (isSettingsOpen ? sectionSaveGate("Settings") : { saveDisabled: false }),
+    [isSettingsOpen, sectionSaveGate]
+  );
+  const webSaveGate = useMemo(
+    () =>
+      isWebSettingsOpen || isAuthSettingsOpen
+        ? sectionSaveGate("WebUI")
+        : { saveDisabled: false },
+    [isWebSettingsOpen, isAuthSettingsOpen, sectionSaveGate]
+  );
+
   useEffect(() => {
     if (!formState || !originalConfig) {
       const id = window.setTimeout(() => {
@@ -733,6 +772,8 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
               : undefined
           }
           overlapWarnings={categoryOverlapWarnings}
+          saveDisabled={arrSaveGate.saveDisabled}
+          saveBlockedReason={arrSaveGate.saveBlockedReason}
         />
       ) : null}
       {isSettingsOpen ? (
@@ -744,6 +785,8 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           onChange={handleFieldChange}
           onClose={() => setSettingsOpen(false)}
           onSave={() => saveSection("Settings")}
+          saveDisabled={settingsSaveGate.saveDisabled}
+          saveBlockedReason={settingsSaveGate.saveBlockedReason}
         />
       ) : null}
       {isWebSettingsOpen ? (
@@ -756,6 +799,8 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           onClose={() => setWebSettingsOpen(false)}
           onSave={() => saveSection("WebUI")}
           showLiveSettings={true}
+          saveDisabled={webSaveGate.saveDisabled}
+          saveBlockedReason={webSaveGate.saveBlockedReason}
         />
       ) : null}
       {isAuthSettingsOpen ? (
@@ -768,6 +813,8 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           onClose={() => setAuthSettingsOpen(false)}
           onSave={() => saveSection("WebUI")}
           onSetPassword={() => setSetPasswordOpen(true)}
+          saveDisabled={webSaveGate.saveDisabled}
+          saveBlockedReason={webSaveGate.saveBlockedReason}
         />
       ) : null}
       {isSetPasswordOpen ? (
@@ -783,6 +830,8 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           onSave={() => saveSection(activeQbitKey)}
           onDelete={() => deleteQbitInstance(activeQbitKey)}
           overlapWarnings={categoryOverlapWarnings}
+          saveDisabled={qbitSaveGate.saveDisabled}
+          saveBlockedReason={qbitSaveGate.saveBlockedReason}
         />
       ) : null}
     </>

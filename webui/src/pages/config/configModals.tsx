@@ -45,6 +45,8 @@ export interface ArrInstanceModalProps {
   onSave: () => Promise<boolean>;
   onDelete?: () => void;
   overlapWarnings: string[];
+  saveDisabled?: boolean;
+  saveBlockedReason?: string;
 }
 
 export function ArrInstanceModal({
@@ -56,6 +58,8 @@ export function ArrInstanceModal({
   onSave,
   onDelete,
   overlapWarnings,
+  saveDisabled = false,
+  saveBlockedReason,
 }: ArrInstanceModalProps): JSX.Element {
   const { generalFields, entryFields, entryOmbiFields, entryOverseerrFields, torrentFields, seedingFields, trackerFields } =
     getArrFieldSets(keyName);
@@ -158,7 +162,7 @@ export function ArrInstanceModal({
   }
 
   const handleSave = async () => {
-    if (savingModal) return;
+    if (savingModal || saveDisabled) return;
     setSavingModal(true);
     try {
       const uri = getValue(["URI"]) as string;
@@ -341,12 +345,18 @@ export function ArrInstanceModal({
             className="btn primary"
             type="button"
             onClick={() => void handleSave()}
-            disabled={savingModal || testState.testing}
+            disabled={savingModal || testState.testing || saveDisabled}
+            title={saveDisabled ? saveBlockedReason || "Fix validation errors to save" : undefined}
           >
             <IconImage src={SaveIcon} />
             {savingModal ? "Saving..." : "Save"}
           </button>
         </div>
+        {saveDisabled && saveBlockedReason ? (
+          <div className="modal-footer-note" role="status">
+            {saveBlockedReason}
+          </div>
+        ) : null}
       </div>
     </div>
     </ConfigModalPortal>
@@ -381,6 +391,8 @@ export interface QbitInstanceModalProps {
   onSave: () => Promise<boolean>;
   onDelete?: () => void;
   overlapWarnings: string[];
+  saveDisabled?: boolean;
+  saveBlockedReason?: string;
 }
 
 export function QbitInstanceModal({
@@ -392,11 +404,13 @@ export function QbitInstanceModal({
   onSave,
   onDelete,
   overlapWarnings,
+  saveDisabled = false,
+  saveBlockedReason,
 }: QbitInstanceModalProps): JSX.Element {
   const [savingModal, setSavingModal] = useState(false);
 
   const handleDone = async () => {
-    if (savingModal) return;
+    if (savingModal || saveDisabled) return;
     setSavingModal(true);
     try {
       const saved = await onSave();
@@ -468,12 +482,18 @@ export function QbitInstanceModal({
             className="btn primary"
             type="button"
             onClick={() => void handleDone()}
-            disabled={savingModal}
+            disabled={savingModal || saveDisabled}
+            title={saveDisabled ? saveBlockedReason || "Fix validation errors to save" : undefined}
           >
             <IconImage src={SaveIcon} />
             {savingModal ? "Saving..." : "Save"}
           </button>
         </div>
+        {saveDisabled && saveBlockedReason ? (
+          <div className="modal-footer-note" role="status">
+            {saveBlockedReason}
+          </div>
+        ) : null}
       </div>
     </div>
     </ConfigModalPortal>
@@ -490,6 +510,8 @@ export interface SimpleConfigModalProps {
   onSave?: () => Promise<boolean>;
   showLiveSettings?: boolean;
   onSetPassword?: () => void;
+  saveDisabled?: boolean;
+  saveBlockedReason?: string;
 }
 
 export function SimpleConfigModal({
@@ -502,12 +524,14 @@ export function SimpleConfigModal({
   onSave,
   showLiveSettings = false,
   onSetPassword,
+  saveDisabled = false,
+  saveBlockedReason,
 }: SimpleConfigModalProps): JSX.Element | null {
   const webUI = useWebUI();
   const [savingModal, setSavingModal] = useState(false);
 
   const handleSave = async () => {
-    if (!onSave || savingModal) return;
+    if (!onSave || savingModal || saveDisabled) return;
     setSavingModal(true);
     try {
       const saved = await onSave();
@@ -598,7 +622,8 @@ export function SimpleConfigModal({
               className="btn primary"
               type="button"
               onClick={() => void handleSave()}
-              disabled={savingModal}
+              disabled={savingModal || saveDisabled}
+              title={saveDisabled ? saveBlockedReason || "Fix validation errors to save" : undefined}
             >
               <IconImage src={SaveIcon} />
               {savingModal ? "Saving..." : "Save"}
@@ -610,6 +635,11 @@ export function SimpleConfigModal({
             </button>
           )}
         </div>
+        {saveDisabled && saveBlockedReason ? (
+          <div className="modal-footer-note" role="status">
+            {saveBlockedReason}
+          </div>
+        ) : null}
       </div>
     </div>
     </ConfigModalPortal>

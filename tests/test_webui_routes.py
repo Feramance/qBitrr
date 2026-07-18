@@ -222,6 +222,59 @@ class TestDivergentRoutePairs(_WebUIClientTestCase):
         self.assertEqual(api.get_json(), {"token": "test-token"})
         self.assertEqual(web.get_json(), {"token": "test-token"})
 
+    def test_qbit_overview_requires_auth_when_enabled(self) -> None:
+        # Avoid MagicMock auto-attrs (client/default_instance) poisoning overview JSON.
+        self.manager.get_all_instances.return_value = []
+        self.manager.client = None
+        self.manager.default_instance = None
+        self.manager.get_client = None
+        self.manager.qbit_category_managers = {}
+        self.manager.arr_manager = None
+        with patch(
+            "qBitrr.webui.CONFIG.get",
+            side_effect=lambda key, fallback=None: {
+                "WebUI.AuthDisabled": False,
+                "WebUI.Token": "test-token",
+                "WebUI.BehindHttpsProxy": False,
+                "WebUI.LocalAuthEnabled": True,
+                "WebUI.PasswordHash": "x",
+                "WebUI.Username": "u",
+                "WebUI.OIDC.CallbackPath": "/signin-oidc",
+            }.get(key, fallback),
+        ):
+            webui = WebUI(self.manager)
+            client = webui.app.test_client()
+            unauthorized = client.get("/web/qbit/overview")
+            authorized = client.get(
+                "/web/qbit/overview",
+                headers={"Authorization": "Bearer test-token"},
+            )
+        self.assertEqual(unauthorized.status_code, 401)
+        self.assertEqual(authorized.status_code, 200)
+        payload = authorized.get_json()
+        self.assertEqual(payload["instances"], [])
+        self.assertEqual(payload["categories"], [])
+
+    def test_qbit_categories_requires_auth_when_enabled(self) -> None:
+        self.manager.qbit_category_managers = {}
+        self.manager.arr_manager = None
+        with patch(
+            "qBitrr.webui.CONFIG.get",
+            side_effect=lambda key, fallback=None: {
+                "WebUI.AuthDisabled": False,
+                "WebUI.Token": "test-token",
+                "WebUI.BehindHttpsProxy": False,
+                "WebUI.LocalAuthEnabled": True,
+                "WebUI.PasswordHash": "x",
+                "WebUI.Username": "u",
+                "WebUI.OIDC.CallbackPath": "/signin-oidc",
+            }.get(key, fallback),
+        ):
+            webui = WebUI(self.manager)
+            client = webui.app.test_client()
+            unauthorized = client.get("/web/qbit/categories")
+        self.assertEqual(unauthorized.status_code, 401)
+
 
 class TestParseCatalogFilters(unittest.TestCase):
     def test_parses_page_and_missing_only(self) -> None:

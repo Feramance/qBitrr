@@ -17,11 +17,11 @@ from qBitrr.gen_config.fields import (
 from qBitrr.gen_config.fields_arr import ARR_FIELDS
 from qBitrr.home_path import HOME_PATH
 
-ARR_SECTION_PREFIXES = ("Radarr", "Sonarr", "Lidarr", "Animarr")
+ARR_SECTION_PREFIXES = ("Radarr", "Sonarr", "Lidarr")
 
 
 def iter_arr_sections(config: Any):
-    """Yield config section names for Radarr/Sonarr/Lidarr/Animarr instances."""
+    """Yield config section names for Radarr/Sonarr/Lidarr instances."""
     keys = config.sections() if hasattr(config, "sections") else config.config.keys()
     for section in keys:
         name = str(section)

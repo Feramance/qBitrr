@@ -89,7 +89,7 @@ Select file → GET JSON tail (lines=2000)
 }
 ```
 
-- SSE events: `append`, `rotated`, `ping` (~15s), `reconnect` (~5 minutes — client reconnects with the last cursor).
+- SSE events: `append`, `rotated`, `ping` (~15s), `reconnect` (~2 minutes — client reconnects with the last cursor). Lifetime is capped so Waitress worker threads are not held indefinitely under concurrent tails.
 - Client ring buffer caps at **20,000** lines while live (oldest dropped).
 - **Auth**: EventSource uses the `/web/*` session cookie (cannot set `Authorization`). Prefer `/web/logs/.../stream` for the SPA.
 

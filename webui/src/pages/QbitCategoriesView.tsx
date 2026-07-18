@@ -13,6 +13,7 @@ import { QbitTorrentListRow } from "../components/QbitTorrentListRow";
 import { useToast } from "../context/ToastContext";
 import { useWebUI } from "../context/WebUIContext";
 import { useInterval } from "../hooks/useInterval";
+import { isSeedingState } from "../utils/qbitTorrentDisplay";
 import { ArrCatalogBodyChrome } from "./arrCatalog/ArrCatalogBodyChrome";
 
 function formatBytes(bytes: number): string {
@@ -78,7 +79,8 @@ function reconcileQbitSelection(
 }
 
 function categorySectionKey(cat: QbitOverviewCategory): string {
-  return `${cat.qbitInstance}:${cat.category}:${cat.managedBy}`;
+  const arrPart = cat.arrName ?? "";
+  return `${cat.qbitInstance}:${cat.category}:${cat.managedBy}:${arrPart}`;
 }
 
 function seedingSummary(cat: QbitOverviewCategory): string {
@@ -129,9 +131,7 @@ function filterCategories(
       continue;
     }
     const visibleTorrents = categoryHit ? cat.torrents : matchingTorrents;
-    const seedingCount = visibleTorrents.filter((t) =>
-      ["uploading", "stalledUP", "forcedUP"].includes(t.state)
-    ).length;
+    const seedingCount = visibleTorrents.filter((t) => isSeedingState(t.state)).length;
     const totalSize = visibleTorrents.reduce((sum, t) => sum + t.size, 0);
     filtered.push({
       ...cat,
@@ -394,6 +394,12 @@ export function QbitCategoriesView({ active }: QbitCategoriesViewProps): JSX.Ele
                     </div>
                   ) : (
                     <div className="qbit-torrent-list">
+                      {cat.torrentsTruncated ? (
+                        <div className="hint">
+                          Showing first {cat.visibleTorrents.length.toLocaleString()}{" "}
+                          of {cat.torrentCount.toLocaleString()} torrents.
+                        </div>
+                      ) : null}
                       {cat.visibleTorrents.map((torrent) => (
                         <QbitTorrentListRow
                           key={torrent.hash || torrent.name}

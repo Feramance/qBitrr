@@ -153,4 +153,21 @@ describe("validateSection golden-master", () => {
     );
     expect(themeField).toBeUndefined();
   });
+
+  it("save gate: managed Arr with empty URI blocks section save validation", () => {
+    const formState: ConfigDocument = {
+      Radarr: managedRadarrSection({ URI: "" }),
+    };
+    const errors = validateSectionsForSave(formState, ["Radarr"], null, false);
+    expect(errors.some((e) => e.path.join(".").includes("URI"))).toBe(true);
+  });
+
+  it("save gate: valid managed Arr section passes save validation", () => {
+    const formState: ConfigDocument = {
+      Radarr: managedRadarrSection(),
+    };
+    const errors = validateSectionsForSave(formState, ["Radarr"], null, false);
+    const uriErrors = errors.filter((e) => e.path.join(".").includes("URI"));
+    expect(uriErrors).toHaveLength(0);
+  });
 });

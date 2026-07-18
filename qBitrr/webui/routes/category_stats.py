@@ -2,7 +2,23 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
+
+logger = logging.getLogger("qBitrr.WebUI")
+
+# Active / queued seeding states shown as "seeding" in the WebUI overview.
+SEEDING_STATES = frozenset(
+    {
+        "uploading",
+        "stalledUP",
+        "forcedUP",
+        "queuedUP",
+    }
+)
+
+# Cap per-category torrent payloads to keep overview responses bounded.
+OVERVIEW_MAX_TORRENTS_PER_CATEGORY = 500
 
 
 def collect_torrents_for_category(qbit_manager: Any, category: str) -> list[Any]:
@@ -55,12 +71,29 @@ def collect_torrents_for_category_on_instance(
         return []
 
 
+def collect_torrents_for_category_on_instances(
+    qbit_manager: Any, instance_names: list[str], category: str
+) -> list[Any]:
+    """Return torrents in ``category`` across the given qBit instance names."""
+    if len(instance_names) == 1:
+        return collect_torrents_for_category_on_instance(qbit_manager, instance_names[0], category)
+    torrents: list[Any] = []
+    for instance_name in instance_names:
+        torrents.extend(
+            collect_torrents_for_category_on_instance(qbit_manager, instance_name, category)
+        )
+    return torrents
+
+
+def is_seeding_state(state: Any) -> bool:
+    """Return True when ``state`` counts as seeding for WebUI aggregates."""
+    return state in SEEDING_STATES
+
+
 def summarize_category_torrents(torrents: list[Any]) -> dict[str, Any]:
     """Compute count/size/ratio aggregates for a torrent list."""
     total_count = len(torrents)
-    seeding_count = len(
-        [t for t in torrents if getattr(t, "state", None) in ("uploading", "stalledUP")]
-    )
+    seeding_count = len([t for t in torrents if is_seeding_state(getattr(t, "state", None))])
     total_size = sum(getattr(t, "size", 0) for t in torrents)
     avg_ratio = sum(getattr(t, "ratio", 0) for t in torrents) / total_count if total_count else 0
     avg_seeding_time = (
@@ -90,7 +123,11 @@ def _attr(torrent: Any, name: str, default: Any) -> Any:
 
 
 def serialize_torrent(torrent: Any) -> dict[str, Any]:
-    """Map a qbittorrent-api torrent object to VueTorrent-aligned camelCase JSON."""
+    """Map a qbittorrent-api torrent object to VueTorrent-aligned camelCase JSON.
+
+    Path and tracker fields are omitted from the overview payload (defense-in-depth;
+    the WebUI row does not display them).
+    """
     hash_value = getattr(torrent, "hash", None) or getattr(torrent, "infohash_v1", "") or ""
     return {
         "hash": str(hash_value),
@@ -119,14 +156,37 @@ def serialize_torrent(torrent: Any) -> dict[str, Any]:
         "seedingTime": int(_attr(torrent, "seeding_time", 0)),
         "timeActive": int(_attr(torrent, "time_active", 0)),
         "lastActivity": int(_attr(torrent, "last_activity", 0)),
-        "savePath": str(_attr(torrent, "save_path", "")),
-        "contentPath": str(_attr(torrent, "content_path", "")),
-        "tracker": str(_attr(torrent, "tracker", "")),
         "ratioLimit": float(_attr(torrent, "ratio_limit", -1)),
         "seedingTimeLimit": int(_attr(torrent, "seeding_time_limit", -1)),
         "dlLimit": int(_attr(torrent, "dl_limit", -1)),
         "upLimit": int(_attr(torrent, "up_limit", -1)),
     }
+
+
+def _serialize_torrents_safe(torrents: list[Any]) -> tuple[list[dict[str, Any]], bool]:
+    """Serialize torrents, skipping failures and capping list length.
+
+    Returns
+    -------
+    tuple[list[dict], bool]
+        Serialized torrents and whether the list was truncated to the cap.
+    """
+    serialized: list[dict[str, Any]] = []
+    truncated = len(torrents) > OVERVIEW_MAX_TORRENTS_PER_CATEGORY
+    for torrent in torrents[:OVERVIEW_MAX_TORRENTS_PER_CATEGORY]:
+        try:
+            serialized.append(serialize_torrent(torrent))
+        except Exception:
+            logger.debug("Skipping malformed torrent in overview serialize", exc_info=True)
+            continue
+    return serialized, truncated
+
+
+def _arr_qbit_instance_label(instances: list[str]) -> str:
+    """Label for Arr-managed rows: single client name, or ``all`` when aggregated."""
+    if len(instances) == 1:
+        return instances[0]
+    return "all"
 
 
 def build_qbit_overview(
@@ -146,6 +206,12 @@ def build_qbit_overview(
         ``None`` / empty / ``\"all\"`` includes every configured instance.
     arr_manager:
         Optional Arr manager used to discover Arr-managed categories.
+
+    Notes
+    -----
+    qBit-managed categories are emitted per qBit client. Arr-managed categories are
+    emitted once per Arr (aligned with ``/web/qbit/categories``), with torrents
+    collected from the in-scope client(s) rather than fanned across every instance.
     """
     if qbit_manager is None:
         return {"instances": [], "categories": [], "ready": True}
@@ -171,8 +237,10 @@ def build_qbit_overview(
 
     for instance_name in instances:
         manager = category_managers.get(instance_name)
-        if manager is not None:
-            for category in getattr(manager, "managed_categories", []) or []:
+        if manager is None:
+            continue
+        for category in getattr(manager, "managed_categories", []) or []:
+            try:
                 torrents = collect_torrents_for_category_on_instance(
                     qbit_manager, instance_name, category
                 )
@@ -181,6 +249,7 @@ def build_qbit_overview(
                 get_cfg = getattr(manager, "get_seeding_config", None)
                 if callable(get_cfg):
                     seeding_config = get_cfg(category) or {}
+                torrent_payloads, truncated = _serialize_torrents_safe(torrents)
                 categories_data.append(
                     {
                         "category": category,
@@ -195,13 +264,23 @@ def build_qbit_overview(
                             "downloadLimit": seeding_config.get("DownloadRateLimitPerTorrent", -1),
                             "uploadLimit": seeding_config.get("UploadRateLimitPerTorrent", -1),
                         },
-                        "torrents": [serialize_torrent(t) for t in torrents],
+                        "torrents": torrent_payloads,
+                        "torrentsTruncated": truncated,
                     }
                 )
+            except Exception:
+                logger.debug(
+                    "Error building qBit overview for category '%s' on '%s'",
+                    category,
+                    instance_name,
+                    exc_info=True,
+                )
+                continue
 
-        if arr_manager is None:
-            continue
+    # Arr-managed categories: one row per Arr (not one row per qBit client).
+    if arr_manager is not None and instances:
         managed_objects = getattr(arr_manager, "managed_objects", None) or {}
+        arr_instance_label = _arr_qbit_instance_label(instances)
         for arr in managed_objects.values():
             arr_type = getattr(arr, "type", None)
             if arr_type not in ("radarr", "sonarr", "lidarr"):
@@ -209,26 +288,39 @@ def build_qbit_overview(
             category = getattr(arr, "category", None)
             if not category:
                 continue
-            torrents = collect_torrents_for_category_on_instance(
-                qbit_manager, instance_name, category
-            )
-            stats = summarize_category_torrents(torrents)
-            categories_data.append(
-                {
-                    "category": category,
-                    "qbitInstance": instance_name,
-                    "managedBy": "arr",
-                    "arrName": getattr(arr, "_name", None),
-                    **stats,
-                    "seedingConfig": {
-                        "maxRatio": getattr(arr, "seeding_mode_global_max_upload_ratio", -1),
-                        "maxTime": getattr(arr, "seeding_mode_global_max_seeding_time", -1),
-                        "removeMode": getattr(arr, "seeding_mode_global_remove_torrent", -1),
-                        "downloadLimit": getattr(arr, "seeding_mode_global_download_limit", -1),
-                        "uploadLimit": getattr(arr, "seeding_mode_global_upload_limit", -1),
-                    },
-                    "torrents": [serialize_torrent(t) for t in torrents],
-                }
-            )
+            try:
+                torrents = collect_torrents_for_category_on_instances(
+                    qbit_manager, instances, category
+                )
+                stats = summarize_category_torrents(torrents)
+                torrent_payloads, truncated = _serialize_torrents_safe(torrents)
+                categories_data.append(
+                    {
+                        "category": category,
+                        "qbitInstance": arr_instance_label,
+                        "managedBy": "arr",
+                        "arrName": getattr(arr, "_name", None),
+                        **stats,
+                        "seedingConfig": {
+                            "maxRatio": getattr(arr, "seeding_mode_global_max_upload_ratio", -1),
+                            "maxTime": getattr(arr, "seeding_mode_global_max_seeding_time", -1),
+                            "removeMode": getattr(arr, "seeding_mode_global_remove_torrent", -1),
+                            "downloadLimit": getattr(
+                                arr, "seeding_mode_global_download_limit", -1
+                            ),
+                            "uploadLimit": getattr(arr, "seeding_mode_global_upload_limit", -1),
+                        },
+                        "torrents": torrent_payloads,
+                        "torrentsTruncated": truncated,
+                    }
+                )
+            except Exception:
+                logger.debug(
+                    "Error building Arr overview for category '%s' (%s)",
+                    category,
+                    getattr(arr, "_name", "?"),
+                    exc_info=True,
+                )
+                continue
 
     return {"instances": instances, "categories": categories_data, "ready": True}
