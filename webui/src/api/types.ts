@@ -103,6 +103,31 @@ export interface LogsListResponse {
   files: string[];
 }
 
+/** JSON payload for log tail / delta / SSE events. */
+export interface LogTailPayload {
+  content: string;
+  next_bytes: number;
+  size: number;
+  inode: number;
+  rotated: boolean;
+  truncated: boolean;
+}
+
+export interface LogSearchMatch {
+  file: string;
+  line: number;
+  text: string;
+  context_before: string[];
+  context_after: string[];
+}
+
+export interface LogSearchResponse {
+  query: string;
+  truncated: boolean;
+  matches: LogSearchMatch[];
+  files_searched?: string[];
+}
+
 export interface RadarrCounts {
   available: number;
   monitored: number;

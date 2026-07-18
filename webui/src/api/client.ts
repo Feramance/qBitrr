@@ -7,6 +7,8 @@ import type {
   LoginRequest,
   MetaResponse,
   LogsListResponse,
+  LogSearchResponse,
+  LogTailPayload,
   ProcessesResponse,
   QbitCategoriesResponse,
   RadarrMoviesResponse,
@@ -341,8 +343,106 @@ export async function getLogTail(
   return fetchTextResponse(`${base}?${params.toString()}`);
 }
 
+export interface GetLogTailJsonOptions {
+  lines?: number;
+  offset?: number;
+  sinceBytes?: number;
+  inode?: number;
+  aroundLine?: number;
+}
+
+/** Fetch log content as JSON (initial tail, older window, or byte-offset delta). */
+export async function getLogTailJson(
+  name: string,
+  options: GetLogTailJsonOptions = {}
+): Promise<LogTailPayload> {
+  const base = `/web/logs/${encodeURIComponent(name)}`;
+  const params = new URLSearchParams({ format: "json" });
+  if (options.lines != null && options.lines > 0) {
+    params.set("lines", String(options.lines));
+  }
+  if (options.offset != null && options.offset > 0) {
+    params.set("offset", String(options.offset));
+  }
+  if (options.sinceBytes != null) {
+    params.set("since_bytes", String(options.sinceBytes));
+  }
+  if (options.inode != null && options.inode > 0) {
+    params.set("inode", String(options.inode));
+  }
+  if (options.aroundLine != null && options.aroundLine > 0) {
+    params.set("around_line", String(options.aroundLine));
+  }
+  return fetchJson<LogTailPayload>(`${base}?${params.toString()}`);
+}
+
+/** Alias for delta polling. */
+export async function getLogDelta(
+  name: string,
+  sinceBytes: number,
+  inode?: number,
+  lines?: number
+): Promise<LogTailPayload> {
+  return getLogTailJson(name, { sinceBytes, inode, lines });
+}
+
+export interface LogSearchOptions {
+  q: string;
+  caseSensitive?: boolean;
+  regex?: boolean;
+  maxMatches?: number;
+  context?: number;
+  includeRotated?: boolean;
+}
+
+export async function searchLogs(
+  name: string,
+  options: LogSearchOptions
+): Promise<LogSearchResponse> {
+  const params = new URLSearchParams({ q: options.q });
+  if (options.caseSensitive) {
+    params.set("case", "1");
+  }
+  if (options.regex) {
+    params.set("regex", "1");
+  }
+  if (options.maxMatches != null) {
+    params.set("max_matches", String(options.maxMatches));
+  }
+  if (options.context != null) {
+    params.set("context", String(options.context));
+  }
+  if (options.includeRotated === false) {
+    params.set("include_rotated", "0");
+  }
+  return fetchJson<LogSearchResponse>(
+    `/web/logs/${encodeURIComponent(name)}/search?${params.toString()}`
+  );
+}
+
 export function getLogDownloadUrl(name: string): string {
   return webPath(`/web/logs/${encodeURIComponent(name)}/download`);
+}
+
+/** Session-cookie EventSource URL for live log SSE (use /web/*, not Bearer). */
+export function getLogStreamUrl(
+  name: string,
+  sinceBytes: number,
+  inode?: number,
+  lines?: number
+): string {
+  const params = new URLSearchParams({
+    since_bytes: String(sinceBytes),
+  });
+  if (inode != null && inode > 0) {
+    params.set("inode", String(inode));
+  }
+  if (lines != null && lines > 0) {
+    params.set("lines", String(lines));
+  }
+  return webPath(
+    `/web/logs/${encodeURIComponent(name)}/stream?${params.toString()}`
+  );
 }
 
 export type ArrOpenItemKind = "movie" | "series" | "artist";

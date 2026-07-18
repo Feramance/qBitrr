@@ -24,6 +24,13 @@ describe("api client URL helpers", () => {
     );
   });
 
+  it("builds log SSE stream URLs with cursor params", async () => {
+    const { getLogStreamUrl } = await loadClient();
+    expect(getLogStreamUrl("Main.log", 100, 42, 2000)).toBe(
+      "/qbitrr/web/logs/Main.log/stream?since_bytes=100&inode=42&lines=2000",
+    );
+  });
+
   it("builds Arr open-item URLs for each kind", async () => {
     const {
       getArrOpenItemUrl,

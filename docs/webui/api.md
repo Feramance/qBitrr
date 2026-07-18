@@ -660,84 +660,92 @@ Get torrent distribution statistics across all categories.
 
 ## Log Endpoints
 
+All log routes require authentication when WebUI auth is enabled (`/api/*` Bearer or `/web/*` session). See [Logs View](logs.md) for UI behavior.
+
 ### List Log Files
 
-Get all available log files.
-
-**Endpoints**:
-- `GET /api/logs` (requires auth)
-- `GET /web/logs` (public)
+**Endpoints**: `GET /api/logs`, `GET /web/logs`
 
 **Response**:
 ```json
 {
-  "files": ["Main.log", "WebUI.log"]
+  "files": ["All.log", "Main.log", "WebUI.log", "Main.log.old"]
 }
 ```
 
-**Fields**:
-
-- `files` - Array of log filenames (use with `/api/logs/<filename>` to get content)
-
-**Log Rotation**: Log files rotate at 10 MB, keeping 5 backups. Older backups appear as `Main.log.1`, `Main.log.2`, etc.
+On restart, active logs are renamed to `*.log.old` (not size-based numbered rotation).
 
 ---
 
-### Get Log Content
+### Get Log Content (tail / delta)
 
-Stream log file content as plain text.
+**Endpoints**: `GET /api/logs/<name>`, `GET /web/logs/<name>`
 
-**Endpoints**:
-- `GET /api/logs/<name>` (requires auth)
-- `GET /web/logs/<name>` (public)
+**Query parameters**:
 
-**Path Parameters**:
+| Param | Description |
+|-------|-------------|
+| `format=json` | Return JSON `LogTailPayload` |
+| `lines` | Tail window (default 2000, max 50000) |
+| `offset` | Skip N lines from end (older chunks) |
+| `since_bytes` | Incremental append from byte offset (implies JSON) |
+| `inode` | Detect rotation when inode changes |
+| `around_line` | Window centered on 1-based line number |
 
-- `name` (string, required) - Log filename (e.g., `Main.log`)
-
-**Response**: Plain text (MIME type: `text/plain; charset=utf-8`)
-
-**Headers**:
-```http
-Cache-Control: no-cache
-Content-Type: text/plain; charset=utf-8
+**JSON response** (`format=json` or `since_bytes`):
+```json
+{
+  "content": "...",
+  "next_bytes": 123456,
+  "size": 123456,
+  "inode": 42,
+  "rotated": false,
+  "truncated": false
+}
 ```
+
+Legacy callers without `format=json` still receive `text/plain` (full file or `lines`/`offset` tail).
 
 **Example**:
 ```bash
-curl http://localhost:6969/web/logs/Main.log
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:6969/api/logs/Main.log?format=json&lines=2000"
 ```
 
-**Behavior**:
+---
 
-- Reads entire log file into memory
-- Returns full content (supports dynamic loading in LazyLog component)
-- Invalid UTF-8 sequences ignored (errors="ignore")
+### Live log SSE stream
+
+**Endpoints**: `GET /api/logs/<name>/stream`, `GET /web/logs/<name>/stream`
+
+**Query**: `since_bytes`, `inode`, `lines`
+
+**Response**: `text/event-stream` with events `append`, `rotated`, `ping`, `reconnect`.
+
+Browsers should use `/web/logs/<name>/stream` with a session cookie (`EventSource` cannot set `Authorization`). Connections auto-close after ~5 minutes with a `reconnect` event; the client reconnects with the last cursor.
+
+---
+
+### Search log file
+
+**Endpoints**: `GET /api/logs/<name>/search`, `GET /web/logs/<name>/search`
+
+**Query**: `q` (required), `case`, `regex`, `max_matches`, `context`, `include_rotated`
+
+Scans the selected file and optional rotated siblings (`name*`) line-by-line with match/byte/time caps.
 
 ---
 
 ### Download Log File
 
-Download log file as attachment.
+**Endpoints**: `GET /api/logs/<name>/download`, `GET /web/logs/<name>/download`
 
-**Endpoints**:
-- `GET /api/logs/<name>/download` (requires auth)
-- `GET /web/logs/<name>/download` (public)
-
-**Path Parameters**:
-
-- `name` (string, required) - Log filename
-
-**Response**: File attachment (MIME type: `application/octet-stream`)
-
-**Headers**:
-```http
-Content-Disposition: attachment; filename="Main.log"
-```
+**Response**: File attachment (`Content-Disposition: attachment`).
 
 **Example**:
 ```bash
-curl -O http://localhost:6969/web/logs/Main.log/download
+curl -H "Authorization: Bearer $TOKEN" \
+  -O http://localhost:6969/api/logs/Main.log/download
 ```
 
 ---

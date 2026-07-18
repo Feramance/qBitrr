@@ -16,7 +16,8 @@ from qBitrr.webui import (
     resolve_arr_handler,
 )
 
-# 26 identical /api + /web pairs registered via @_dual_route (3 divergent pairs tested separately).
+# 27 JSON-identical /api + /web pairs via @_dual_route (SSE stream tested separately;
+# 3 divergent pairs tested in TestDivergentRoutePairs). Total dual_route registrations: 28.
 IDENTICAL_ROUTE_PAIRS: list[tuple[str, str, str]] = [
     ("get", "/openapi.json", ""),
     ("get", "/docs", ""),
@@ -27,6 +28,7 @@ IDENTICAL_ROUTE_PAIRS: list[tuple[str, str, str]] = [
     ("post", "/arr/rebuild", ""),
     ("get", "/logs", ""),
     ("get", "/logs/test.log", ""),
+    ("get", "/logs/test.log/search?q=test", ""),
     ("get", "/logs/test.log/download", ""),
     ("get", "/radarr/movies/movies", ""),
     ("get", "/radarr/movies/movie/1/thumbnail", ""),
@@ -124,18 +126,18 @@ class TestEmptyCatalogPayload(unittest.TestCase):
 
 
 class TestDualRouteRegistration(unittest.TestCase):
-    def test_webui_declares_twenty_six_dual_route_pairs(self) -> None:
+    def test_webui_declares_twenty_eight_dual_route_pairs(self) -> None:
         webui_pkg = Path(__file__).resolve().parents[1].joinpath("qBitrr", "webui")
         source = "\n".join(
             path.read_text(encoding="utf-8") for path in sorted(webui_pkg.rglob("*.py"))
         )
         paths = [match.group("path") for match in _DUAL_ROUTE_RE.finditer(source)]
-        self.assertEqual(len(paths), 26, msg=f"dual_route paths: {paths}")
+        self.assertEqual(len(paths), 28, msg=f"dual_route paths: {paths}")
 
 
 class TestIdenticalRoutePairs(_WebUIClientTestCase):
-    def test_all_twenty_six_pairs_match(self) -> None:
-        self.assertEqual(len(IDENTICAL_ROUTE_PAIRS), 26)
+    def test_all_identical_json_pairs_match(self) -> None:
+        self.assertEqual(len(IDENTICAL_ROUTE_PAIRS), 27)
         for method, path, body in IDENTICAL_ROUTE_PAIRS:
             with self.subTest(method=method, path=path):
                 api_resp = getattr(self.client, method)(
@@ -146,6 +148,27 @@ class TestIdenticalRoutePairs(_WebUIClientTestCase):
                 )
                 self.assertEqual(api_resp.status_code, web_resp.status_code)
                 self.assertEqual(api_resp.get_json(), web_resp.get_json())
+
+    def test_log_stream_pair_matches_headers(self) -> None:
+        """SSE pairs match on status/mimetype; body is a long-lived stream."""
+        import qBitrr.webui.routes.log_routes as log_routes
+
+        original_max = log_routes._SSE_MAX_SECONDS
+        original_sleep = log_routes.time.sleep
+        log_routes._SSE_MAX_SECONDS = 0.0
+        log_routes.time.sleep = lambda _s: None
+        try:
+            api_resp = self.client.get("/api/logs/test.log/stream?since_bytes=0")
+            web_resp = self.client.get("/web/logs/test.log/stream?since_bytes=0")
+            self.assertEqual(api_resp.status_code, web_resp.status_code)
+            self.assertEqual(api_resp.mimetype, web_resp.mimetype)
+            self.assertTrue(
+                (api_resp.mimetype or "").startswith("text/event-stream")
+                or api_resp.status_code == 404
+            )
+        finally:
+            log_routes._SSE_MAX_SECONDS = original_max
+            log_routes.time.sleep = original_sleep
 
 
 class TestDivergentRoutePairs(_WebUIClientTestCase):
