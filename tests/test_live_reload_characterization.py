@@ -295,16 +295,115 @@ class TestArrApplyConfigRefresh(unittest.TestCase):
     def test_lifecycle_live_refresh_invokes_apply_config_refresh(self) -> None:
         arr = MagicMock()
         arr._name = "Radarr.Main"
+        # Keep reconcile from spawning: search already "alive"
+        arr.search_missing = True
+        arr.process_search_loop = MagicMock()
+        arr.process_search_loop.is_alive.return_value = True
         plan = classify_config_changes({"Radarr.Main.EntrySearch.SearchMissing": True})
         self.assertIn("Radarr.Main", plan.arr_live_instances)
 
         webui = LifecycleMixin()
+        webui.logger = MagicMock()
         webui.manager = MagicMock()
         webui.manager.arr_manager = MagicMock()
         webui.manager.arr_manager.managed_objects = {"movies": arr}
+        webui.manager.child_processes = []
+        webui.manager._process_registry = {}
 
         webui._apply_arr_live_refresh(plan)
         arr.apply_config_refresh.assert_called_once_with(preserve_db=True)
+
+
+class TestArrLiveSearchWorkerReconcile(unittest.TestCase):
+    """LIVE refresh must start/stop the search worker when SearchMissing changes."""
+
+    def _webui_with_arr(self, arr) -> LifecycleMixin:
+        webui = LifecycleMixin()
+        webui.logger = MagicMock()
+        webui.manager = MagicMock()
+        webui.manager.arr_manager = MagicMock()
+        webui.manager.arr_manager.managed_objects = {"movies": arr}
+        webui.manager.child_processes = []
+        webui.manager._process_registry = {}
+        return webui
+
+    def test_live_refresh_spawns_search_when_missing_enabled(self) -> None:
+        arr = MagicMock()
+        arr._name = "Radarr.Main"
+        arr.category = "movies"
+        arr.search_missing = True
+        arr.process_search_loop = None
+        arr.run_search_loop = MagicMock(name="run_search_loop")
+        plan = classify_config_changes({"Radarr.Main.EntrySearch.SearchMissing": True})
+
+        webui = self._webui_with_arr(arr)
+        new_proc = MagicMock(name="search_proc")
+        new_proc.pid = 4242
+
+        with patch("pathos.helpers.mp.Process", return_value=new_proc) as process_cls:
+            webui._apply_arr_live_refresh(plan)
+
+        arr.apply_config_refresh.assert_called_once_with(preserve_db=True)
+        process_cls.assert_called_once_with(target=arr.run_search_loop, daemon=False)
+        new_proc.start.assert_called_once()
+        self.assertIs(arr.process_search_loop, new_proc)
+        self.assertIn(new_proc, webui.manager.child_processes)
+        self.assertEqual(
+            webui.manager._process_registry[new_proc],
+            {"category": "movies", "name": "Radarr.Main", "role": "search"},
+        )
+
+    def test_live_refresh_stops_search_when_missing_disabled(self) -> None:
+        existing = MagicMock(name="existing_search")
+        existing.is_alive.return_value = True
+        arr = MagicMock()
+        arr._name = "Radarr.Main"
+        arr.category = "movies"
+        arr.search_missing = False
+        arr.process_search_loop = existing
+        plan = classify_config_changes({"Radarr.Main.EntrySearch.SearchMissing": False})
+
+        webui = self._webui_with_arr(arr)
+        webui.manager.child_processes = [existing]
+        webui.manager._process_registry = {
+            existing: {"category": "movies", "name": "Radarr.Main", "role": "search"}
+        }
+
+        with patch("pathos.helpers.mp.Process") as process_cls:
+            webui._apply_arr_live_refresh(plan)
+
+        process_cls.assert_not_called()
+        existing.kill.assert_called_once()
+        existing.terminate.assert_called_once()
+        self.assertIsNone(arr.process_search_loop)
+        self.assertNotIn(existing, webui.manager.child_processes)
+        self.assertNotIn(existing, webui.manager._process_registry)
+
+    def test_live_refresh_idempotent_when_search_already_alive(self) -> None:
+        existing = MagicMock(name="existing_search")
+        existing.is_alive.return_value = True
+        arr = MagicMock()
+        arr._name = "Radarr.Main"
+        arr.category = "movies"
+        arr.search_missing = True
+        arr.process_search_loop = existing
+        plan = classify_config_changes({"Radarr.Main.EntrySearch.SearchMissing": True})
+
+        webui = self._webui_with_arr(arr)
+        webui.manager.child_processes = [existing]
+        webui.manager._process_registry = {
+            existing: {"category": "movies", "name": "Radarr.Main", "role": "search"}
+        }
+
+        with patch("pathos.helpers.mp.Process") as process_cls:
+            webui._apply_arr_live_refresh(plan)
+
+        process_cls.assert_not_called()
+        existing.kill.assert_not_called()
+        existing.terminate.assert_not_called()
+        existing.start.assert_not_called()
+        self.assertIs(arr.process_search_loop, existing)
+        self.assertEqual(webui.manager.child_processes, [existing])
 
 
 class TestAutoPauseResumeLiveGate(unittest.TestCase):

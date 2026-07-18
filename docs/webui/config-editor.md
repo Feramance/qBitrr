@@ -669,7 +669,7 @@ The backend uses **intelligent reload detection** to minimize disruption (aligne
 | Change Type | Reload Type | Behavior |
 |-------------|-------------|----------|
 | **Frontend-only** (`WebUI.Theme`, `WebUI.LiveArr`, `WebUI.ViewDensity`) | `frontend` | No backend reload (Theme applies immediately; ViewDensity applies on next load) |
-| **Live** (`Settings.LoopSleepTimer`, `FreeSpace`, most Arr `Torrent.*` / `EntrySearch.*` flags, …) | `live` | No worker restart; Arr LIVE workers sync via `_sync_loop_settings_from_config` → `_apply_arr_live_attrs_from_config` |
+| **Live** (`Settings.LoopSleepTimer`, `FreeSpace`, most Arr `Torrent.*` / `EntrySearch.*` flags, …) | `live` | No full Arr respawn/DB wipe; workers sync via `_sync_loop_settings_from_config` → `_apply_arr_live_attrs_from_config`; supervisor may start/stop the search worker when `SearchMissing` changes |
 | **qBit hot** (`qBit.ManagedCategories`, `CategorySeeding.*`, `Trackers`, …) | `qbit_hot` | Refresh in-memory qBit category managers without respawn |
 | **WebUI Server** (`WebUI.Host`, `WebUI.Port`, OIDC, …) | `webui` | Rebind Waitress on Host/Port; Token/UrlBase soft-apply without rebind when possible |
 | **Arr preserve DB** (`URI`, `APIKey`, `Category`, `Managed`, `importMode`, …) | `single_arr` / `multi_arr` | Respawn affected Arr workers; **keep** search DB |

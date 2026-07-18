@@ -1287,7 +1287,7 @@ These take effect on the next loop without killing Arr or qBit workers:
 | Arr `EntrySearch.*` (LIVE) | `SearchMissing`, `DoUpgradeSearch`, `QualityUnmetSearch`, `CustomFormatUnmetSearch`, `ForceMinimumCustomFormat`, `AlsoSearchSpecials`, `Unmonitored`, `SearchByYear`, `SearchInReverse`, `SearchLimit`, `SearchBySeries`, `SearchAgainOnSearchCompletion`, `PrioritizeTodaysReleases`, `SearchRequestsEvery`, Ombi/Overseerr enable+URI+key+`ApprovedOnly`+`Is4K`+request-provider `SkipTLSVerify` |
 | Arr other LIVE | `ReSearch`, `ArrErrorCodesToBlocklist` |
 
-Arr LIVE workers re-read disk each loop via `_sync_loop_settings_from_config()` → `_apply_arr_live_attrs_from_config()`. Main-process managed objects apply the same LIVE attrs via `apply_config_refresh()` on WebUI live saves (dual ownership).
+Arr LIVE workers re-read disk each loop via `_sync_loop_settings_from_config()` → `_apply_arr_live_attrs_from_config()`. Main-process managed objects apply the same LIVE attrs via `apply_config_refresh()` on WebUI live saves (dual ownership). LIVE still avoids a full Arr respawn / DB wipe; when `SearchMissing` changes, the supervisor may start or stop that instance's search worker only.
 
 **Not** applied live (require Arr respawn — see preserve-db below): `URI`, `APIKey`, servarr `SkipTLSVerify`, `Category`, `Managed`, `importMode`. Quality-profile / temp-profile keys require reset-db respawn.
 

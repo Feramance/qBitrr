@@ -152,7 +152,7 @@ Record results in the PR description (or review notes). Do **not** add a permane
 1. **Cold start / first-boot (Phase A)** — empty data dir generates `config.toml` and exits cleanly (no `NameError`).
 2. **Configured start** — WebUI up; qBit + Arr connected.
 3. **Live: `Settings.AutoPauseResume`** — WebUI save changes pause/resume behavior without a full process restart.
-4. **Live: Arr LIVE key** — e.g. `EntrySearch.SearchMissing`; LIVE workers sync via `_sync_loop_settings_from_config` → `_apply_arr_live_attrs_from_config` (no respawn).
+4. **Live: Arr LIVE key** — e.g. `EntrySearch.SearchMissing`; LIVE workers sync via `_sync_loop_settings_from_config` → `_apply_arr_live_attrs_from_config` (no full Arr respawn; supervisor may start/stop the search worker when `SearchMissing` flips).
 5. **Live: FreeSpace** — WebUI save; policy loop reflects the new threshold.
 6. **Torrent path (optional fixtures)** — detect / failed or recheck category handling if you can add a torrent.
 7. **`RadarrArr` spawn** — after the per-type hierarchy, manager builds `RadarrArr` (and Sonarr/Lidarr if configured).

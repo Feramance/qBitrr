@@ -45,7 +45,118 @@ class LifecycleMixin:
                     continue
                 if hasattr(arr, "apply_config_refresh"):
                     arr.apply_config_refresh(preserve_db=True)
+                self._reconcile_arr_search_worker(arr)
                 break
+
+    def _reconcile_arr_search_worker(self, arr) -> None:
+        """Start or stop the Arr search worker to match ``search_missing``.
+
+        LIVE refresh updates attrs on the supervisor Arr object, but the search
+        process is only created at spawn time when ``search_missing`` is true.
+        This reconciles topology after a WebUI LIVE save without a full Arr respawn.
+        """
+        search_missing = bool(getattr(arr, "search_missing", False))
+        process = getattr(arr, "process_search_loop", None)
+        alive = False
+        if process is not None:
+            try:
+                alive = bool(process.is_alive())
+            except Exception:
+                alive = False
+                self.logger.debug(
+                    "LIVE search reconcile: is_alive failed for %s",
+                    getattr(arr, "_name", ""),
+                    exc_info=True,
+                )
+
+        if search_missing and alive:
+            return
+
+        if process is not None:
+            try:
+                process.kill()
+            except Exception:
+                self.logger.debug(
+                    "LIVE search reconcile: kill failed for %s",
+                    getattr(arr, "_name", ""),
+                    exc_info=True,
+                )
+            try:
+                process.terminate()
+            except Exception:
+                self.logger.debug(
+                    "LIVE search reconcile: terminate failed for %s",
+                    getattr(arr, "_name", ""),
+                    exc_info=True,
+                )
+            try:
+                self.manager.child_processes.remove(process)
+            except Exception:
+                self.logger.debug(
+                    "LIVE search reconcile: child_processes.remove failed for %s",
+                    getattr(arr, "_name", ""),
+                    exc_info=True,
+                )
+            registry = getattr(self.manager, "_process_registry", None)
+            if isinstance(registry, dict):
+                registry.pop(process, None)
+            arr.process_search_loop = None
+
+        if not search_missing:
+            if process is not None:
+                self.logger.info(
+                    "Stopped search worker for %s after SearchMissing disabled",
+                    getattr(arr, "_name", ""),
+                )
+            return
+
+        target = getattr(arr, "run_search_loop", None)
+        if target is None:
+            self.logger.warning(
+                "Cannot spawn search worker for %s: run_search_loop missing",
+                getattr(arr, "_name", ""),
+            )
+            return
+
+        import pathos
+
+        new_process = pathos.helpers.mp.Process(target=target, daemon=False)
+        arr.process_search_loop = new_process
+        self.manager.child_processes.append(new_process)
+        if (
+            not hasattr(self.manager, "_process_registry")
+            or self.manager._process_registry is None
+        ):
+            self.manager._process_registry = {}
+        self.manager._process_registry[new_process] = {
+            "category": getattr(arr, "category", ""),
+            "name": getattr(arr, "_name", getattr(arr, "category", "")),
+            "role": "search",
+        }
+        try:
+            new_process.start()
+            self.logger.info(
+                "Started search worker for %s after SearchMissing enabled (PID: %s)",
+                getattr(arr, "_name", ""),
+                getattr(new_process, "pid", None),
+            )
+        except Exception as exc:
+            self.logger.error(
+                "Failed to start search worker for %s: %s",
+                getattr(arr, "_name", ""),
+                exc,
+                exc_info=True,
+            )
+            try:
+                self.manager.child_processes.remove(new_process)
+            except Exception:
+                self.logger.debug(
+                    "LIVE search reconcile: cleanup child_processes failed for %s",
+                    getattr(arr, "_name", ""),
+                    exc_info=True,
+                )
+            self.manager._process_registry.pop(new_process, None)
+            arr.process_search_loop = None
 
     def _reload_all(self, *, delete_arr_dbs: bool = True):
         # Set rebuilding flag
