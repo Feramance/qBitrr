@@ -11,20 +11,14 @@ import requests
 from peewee import OperationalError
 from ujson import JSONDecodeError
 
+from qBitrr.arr_client import JsonObject, PyarrResourceNotFound
 from qBitrr.arss._shared import (
     _ARR_RETRY_EXCEPTIONS,
-    AlbumFilesModel,
-    ArtistFilesModel,
-    DelayLoopException,
-    EpisodeFilesModel,
-    JsonObject,
-    MoviesFilesModel,
-    PyarrResourceNotFound,
-    SeriesFilesModel,
     _lidarr_track_duration_seconds,
-    refresh_rollups_after_db_update,
     with_retry,
 )
+from qBitrr.catalog_rollups import refresh_rollups_after_db_update
+from qBitrr.errors import DelayLoopException
 from qBitrr.quality_profile_helpers import (
     arr_with_retry,
     compute_quality_met,
@@ -37,6 +31,13 @@ from qBitrr.quality_profile_helpers import (
     should_mark_searched,
 )
 from qBitrr.radarr_availability import minimum_availability_check
+from qBitrr.tables import (
+    AlbumFilesModel,
+    ArtistFilesModel,
+    EpisodeFilesModel,
+    MoviesFilesModel,
+    SeriesFilesModel,
+)
 
 if TYPE_CHECKING:
     from qBitrr.arss.base import ArrBase as Arr

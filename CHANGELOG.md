@@ -165,7 +165,6 @@
 - [Build(deps-dev): Bump eslint from 10.3.0 to 10.4.0 in /webui (#424)](https://github.com/Feramance/qBitrr/commit/27fa7de74f3d0ebaef922380f9b07f83d36bbf3e) - @Feramance
 - [Build(deps-dev): Bump postcss from 8.5.14 to 8.5.15 in /webui (#425)](https://github.com/Feramance/qBitrr/commit/8db6050fda6fecef85112f4d02cda5a5a22fc49b) - @Feramance
 - [Build(deps): Bump @mantine/dates from 9.2.0 to 9.2.1 in /webui (#423)](https://github.com/Feramance/qBitrr/commit/0cedfca03693e68f906076451b4b2a617518ff38) - @Feramance
-- [Added docs for future work on Questarr integration](https://github.com/Feramance/qBitrr/commit/7dae48ee1c30c8c42586c4901dfa1b8c67730ff7) - @Feramance
 
 ---
 

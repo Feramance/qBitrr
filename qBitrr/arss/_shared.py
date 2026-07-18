@@ -1,3 +1,19 @@
+"""Shared Arr-package helpers and a transitional import barrel.
+
+Prefer importing from the real owners when writing or touching leaf modules:
+
+- :mod:`qBitrr.arr_client` — Radarr/Sonarr/Lidarr clients, ``JsonObject``, builders
+- :mod:`qBitrr.tables` — Peewee models
+- :mod:`qBitrr.config` — ``CONFIG``, feature flags, effective getters
+- :mod:`qBitrr.errors` — Arr/qBit control-flow exceptions
+- :mod:`qBitrr.db_lock` / :mod:`qBitrr.utils` — locking and retry helpers
+
+This module still re-exports those symbols for older Arr workers/mixins so
+imports do not break mid-migration. Prefer not to grow ``__all__``; new shared
+Arr-only helpers (retry exception tuples, tracker/tag utilities, Overseerr
+status helpers) belong here.
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any

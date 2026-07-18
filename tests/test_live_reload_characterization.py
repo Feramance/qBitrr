@@ -14,7 +14,7 @@ from qBitrr.webui.lifecycle import LifecycleMixin
 
 
 def _bare_arr_for_refresh() -> Arr:
-    """Minimal Arr for ``apply_config_refresh`` (no full ``__init__``)."""
+    """Minimal Arr for ``apply_config_refresh`` / LIVE sync (no full ``__init__``)."""
     arr = Arr.__new__(Arr)
     arr._name = "Radarr.Main"
     arr.uri = "http://old:7878"
@@ -27,8 +27,49 @@ def _bare_arr_for_refresh() -> Arr:
     arr.import_mode = "Auto"
     arr.arr_error_codes_to_blocklist = []
     arr.case_sensitive_matches = False
+    arr.folder_exclusion_regex = None
+    arr.file_name_exclusion_regex = None
+    arr.file_extension_allowlist = None
+    arr.folder_exclusion_regex_re = None
+    arr.file_name_exclusion_regex_re = None
+    arr.file_extension_allowlist_re = None
     arr.auto_delete = False
+    arr.maximum_deletable_percentage = 0.95
+    arr.do_not_remove_slow = False
+    arr.re_search_stalled = False
+    arr.remove_dead_trackers = False
+    arr.seeding_mode_global_download_limit = -1
+    arr.seeding_mode_global_upload_limit = -1
+    arr.seeding_mode_global_max_upload_ratio = -1
+    arr.seeding_mode_global_max_seeding_time = -1
+    arr.seeding_mode_global_remove_torrent = -1
+    arr.seeding_mode_global_bad_tracker_msg = []
     arr.search_missing = False
+    arr.reset_on_completion = False
+    arr.do_upgrade_search = False
+    arr.quality_unmet_search = False
+    arr.custom_format_unmet_search = False
+    arr.force_minimum_custom_format = False
+    arr.search_specials = False
+    arr.search_unmonitored = False
+    arr.search_by_year = True
+    arr.search_in_reverse = False
+    arr._delta = -1
+    arr.prioritize_todays_release = True
+    arr.series_search = False
+    arr.ombi_search_requests = False
+    arr.overseerr_requests = False
+    arr.ombi_uri = None
+    arr.ombi_api_key = None
+    arr.overseerr_uri = None
+    arr.overseerr_api_key = None
+    arr.overseerr_is_4k = False
+    arr.ombi_approved_only = True
+    arr.overseerr_approved_only = True
+    arr.skip_tls_verify_overseerr = False
+    arr.skip_tls_verify_ombi = False
+    arr.search_requests_every_x_seconds = 300
+    arr.request_search_timer = None
     arr.search_command_limit = 5
     arr.ignore_torrents_younger_than = 180
     arr.maximum_eta = 86400
@@ -37,12 +78,70 @@ def _bare_arr_for_refresh() -> Arr:
     arr.stalled_delay = 15
     arr.allowed_stalled = True
     arr.monitored_trackers = []
-    arr.seeding_mode_global_bad_tracker_msg = []
+    arr.completed_folder = Path("/tmp/completed/movies")
     arr.logger = MagicMock()
     arr.timed_ignore_cache = MagicMock()
     arr.timed_ignore_cache_2 = MagicMock()
     arr.timed_skip = MagicMock()
     return arr
+
+
+def _live_config_get(key: str, fallback=None):
+    """CONFIG.get values representing a post-save LIVE snapshot."""
+    values = {
+        "Radarr.Main.ReSearch": True,
+        "Radarr.Main.ArrErrorCodesToBlocklist": ["DownloadFailed"],
+        "Radarr.Main.Torrent.CaseSensitiveMatches": True,
+        "Radarr.Main.Torrent.FolderExclusionRegex": ["sample"],
+        "Radarr.Main.Torrent.FileNameExclusionRegex": ["trailer"],
+        "Radarr.Main.Torrent.FileExtensionAllowlist": [".mkv"],
+        "Radarr.Main.Torrent.AutoDelete": True,
+        "Radarr.Main.Torrent.MaximumDeletablePercentage": 0.8,
+        "Radarr.Main.Torrent.DoNotRemoveSlow": True,
+        "Radarr.Main.Torrent.ReSearchStalled": True,
+        "Radarr.Main.Torrent.StalledDelay": 20,
+        "Radarr.Main.Torrent.SeedingMode.RemoveDeadTrackers": True,
+        "Radarr.Main.Torrent.SeedingMode.DownloadRateLimitPerTorrent": 100,
+        "Radarr.Main.Torrent.SeedingMode.UploadRateLimitPerTorrent": 50,
+        "Radarr.Main.Torrent.SeedingMode.MaxUploadRatio": 2.0,
+        "Radarr.Main.Torrent.SeedingMode.MaxSeedingTime": 3600,
+        "Radarr.Main.Torrent.SeedingMode.RemoveTorrent": True,
+        "Radarr.Main.Torrent.SeedingMode.RemoveTrackerWithMessage": ["unregistered"],
+        "Radarr.Main.EntrySearch.SearchMissing": True,
+        "Radarr.Main.EntrySearch.SearchAgainOnSearchCompletion": True,
+        "Radarr.Main.EntrySearch.DoUpgradeSearch": True,
+        "Radarr.Main.EntrySearch.QualityUnmetSearch": True,
+        "Radarr.Main.EntrySearch.CustomFormatUnmetSearch": True,
+        "Radarr.Main.EntrySearch.ForceMinimumCustomFormat": True,
+        "Radarr.Main.EntrySearch.AlsoSearchSpecials": True,
+        "Radarr.Main.EntrySearch.Unmonitored": True,
+        "Radarr.Main.EntrySearch.SearchByYear": False,
+        "Radarr.Main.EntrySearch.SearchInReverse": True,
+        "Radarr.Main.EntrySearch.SearchLimit": 9,
+        "Radarr.Main.EntrySearch.PrioritizeTodaysReleases": False,
+        "Radarr.Main.EntrySearch.SearchBySeries": "smart",
+        "Radarr.Main.EntrySearch.Ombi.SearchOmbiRequests": True,
+        "Radarr.Main.EntrySearch.Ombi.OmbiURI": "http://ombi:3579",
+        "Radarr.Main.EntrySearch.Ombi.OmbiAPIKey": "ombi-key",
+        "Radarr.Main.EntrySearch.Ombi.ApprovedOnly": False,
+        "Radarr.Main.EntrySearch.Ombi.SkipTLSVerify": True,
+        "Radarr.Main.EntrySearch.Overseerr.SearchOverseerrRequests": True,
+        "Radarr.Main.EntrySearch.Overseerr.OverseerrURI": "http://overseerr:5055",
+        "Radarr.Main.EntrySearch.Overseerr.OverseerrAPIKey": "os-key",
+        "Radarr.Main.EntrySearch.Overseerr.ApprovedOnly": False,
+        "Radarr.Main.EntrySearch.Overseerr.Is4K": True,
+        "Radarr.Main.EntrySearch.Overseerr.SkipTLSVerify": True,
+        "Radarr.Main.EntrySearch.SearchRequestsEvery": 120,
+        "qBit.Trackers": [],
+        "Radarr.Main.Torrent.Trackers": [
+            {"Name": "live-tracker", "URI": "http://tracker.example/announce"}
+        ],
+        # ARR_PRESERVE_DB — must NOT be applied by worker LIVE sync
+        "Radarr.Main.Managed": False,
+        "Radarr.Main.SkipTLSVerify": True,
+        "Radarr.Main.importMode": "Copy",
+    }
+    return values.get(key, fallback)
 
 
 class TestArrApplyConfigRefresh(unittest.TestCase):
@@ -51,23 +150,6 @@ class TestArrApplyConfigRefresh(unittest.TestCase):
     def test_apply_config_refresh_updates_search_missing_auto_delete_trackers(self) -> None:
         arr = _bare_arr_for_refresh()
         tracker_rows = [{"Name": "live-tracker", "URI": "http://tracker.example/announce"}]
-
-        def config_get(key: str, fallback=None):
-            values = {
-                "Radarr.Main.Managed": True,
-                "Radarr.Main.SkipTLSVerify": False,
-                "Radarr.Main.ReSearch": True,
-                "Radarr.Main.importMode": "Auto",
-                "Radarr.Main.ArrErrorCodesToBlocklist": [],
-                "Radarr.Main.Torrent.CaseSensitiveMatches": True,
-                "Radarr.Main.Torrent.AutoDelete": True,
-                "Radarr.Main.EntrySearch.SearchMissing": True,
-                "Radarr.Main.EntrySearch.SearchLimit": 9,
-                "qBit.Trackers": [],
-                "Radarr.Main.Torrent.Trackers": tracker_rows,
-                "Radarr.Main.Torrent.StalledDelay": 20,
-            }
-            return values.get(key, fallback)
 
         def config_get_or_raise(key: str):
             return {
@@ -78,6 +160,7 @@ class TestArrApplyConfigRefresh(unittest.TestCase):
         with (
             patch("qBitrr.arss.base.CONFIG") as mock_config,
             patch("qBitrr.arss.base.PROCESS_ONLY", False),
+            patch("qBitrr.arss.base.SEARCH_ONLY", True),
             patch("qBitrr.arss.base.sync_config_from_disk"),
             patch.object(arr, "_get_ignore_torrents_younger_than", return_value=180),
             patch.object(arr, "_get_maximum_eta", return_value=86400),
@@ -88,9 +171,13 @@ class TestArrApplyConfigRefresh(unittest.TestCase):
             patch.object(arr, "_install_tracker_index") as install,
             patch("qBitrr.arss.base.build_tracker_index", return_value=MagicMock()) as build_idx,
         ):
-            mock_config.get.side_effect = config_get
+            mock_config.get.side_effect = _live_config_get
             mock_config.get_or_raise.side_effect = config_get_or_raise
-            mock_config.get_duration.side_effect = lambda key, fallback=0, unit=None: fallback
+            mock_config.get_duration.side_effect = lambda key, fallback=0, unit=None: {
+                "Radarr.Main.Torrent.StalledDelay": 20,
+                "Radarr.Main.Torrent.SeedingMode.MaxSeedingTime": 3600,
+                "Radarr.Main.EntrySearch.SearchRequestsEvery": 120,
+            }.get(key, fallback)
             arr.apply_config_refresh(preserve_db=True)
 
         self.assertTrue(arr.search_missing)
@@ -101,49 +188,109 @@ class TestArrApplyConfigRefresh(unittest.TestCase):
         merge.assert_called_once_with([], tracker_rows)
         build_idx.assert_called_once()
         install.assert_called_once()
+        # Main-process may refresh SkipTLSVerify; Managed/importMode stay as-is (respawn path)
+        self.assertTrue(arr.skip_tls_verify_servarr)
+        self.assertTrue(arr.managed)
+        self.assertEqual(arr.import_mode, "Auto")
 
-    def test_worker_loop_sync_updates_search_missing_and_auto_delete(self) -> None:
-        """Worker loops must apply Arr LIVE attrs (not only timers)."""
+    def test_worker_loop_sync_live_attr_matrix(self) -> None:
+        """Worker loops must apply the full Arr LIVE attr set (not only timers)."""
         arr = _bare_arr_for_refresh()
-        tracker_rows = [{"Name": "worker-tracker", "URI": "http://tracker.example/announce"}]
-
-        def config_get(key: str, fallback=None):
-            values = {
-                "Radarr.Main.Managed": True,
-                "Radarr.Main.SkipTLSVerify": False,
-                "Radarr.Main.ReSearch": True,
-                "Radarr.Main.importMode": "Auto",
-                "Radarr.Main.ArrErrorCodesToBlocklist": [],
-                "Radarr.Main.Torrent.CaseSensitiveMatches": True,
-                "Radarr.Main.Torrent.AutoDelete": True,
-                "Radarr.Main.EntrySearch.SearchMissing": True,
-                "qBit.Trackers": [],
-                "Radarr.Main.Torrent.Trackers": tracker_rows,
-            }
-            return values.get(key, fallback)
+        tracker_rows = [{"Name": "live-tracker", "URI": "http://tracker.example/announce"}]
+        # Preserve-db identity must remain untouched by worker sync
+        arr.managed = True
+        arr.skip_tls_verify_servarr = False
+        arr.import_mode = "Auto"
 
         with (
             patch("qBitrr.arss.base.CONFIG") as mock_config,
             patch("qBitrr.arss.base.PROCESS_ONLY", False),
+            patch("qBitrr.arss.base.SEARCH_ONLY", True),
             patch("qBitrr.arss.base.sync_config_from_disk") as sync_disk,
-            patch.object(arr, "_get_ignore_torrents_younger_than", return_value=180),
-            patch.object(arr, "_get_maximum_eta", return_value=86400),
-            patch.object(arr, "_get_search_command_limit", return_value=5),
-            patch.object(arr, "_get_rss_sync_timer", return_value=15),
-            patch.object(arr, "_get_refresh_downloads_timer", return_value=1),
+            patch.object(arr, "_get_ignore_torrents_younger_than", return_value=600),
+            patch.object(arr, "_get_maximum_eta", return_value=43200),
+            patch.object(arr, "_get_search_command_limit", return_value=9),
+            patch.object(arr, "_get_rss_sync_timer", return_value=30),
+            patch.object(arr, "_get_refresh_downloads_timer", return_value=5),
             patch.object(arr, "_merge_trackers", return_value=tracker_rows),
             patch.object(arr, "_install_tracker_index"),
             patch("qBitrr.arss.base.build_tracker_index", return_value=MagicMock()),
+            patch("qBitrr.arss.base.ExpiringSet") as expiring,
         ):
-            mock_config.get.side_effect = config_get
-            mock_config.get_duration.side_effect = lambda key, fallback=0, unit=None: fallback
+            mock_config.get.side_effect = _live_config_get
+            mock_config.get_duration.side_effect = lambda key, fallback=0, unit=None: {
+                "Radarr.Main.Torrent.StalledDelay": 20,
+                "Radarr.Main.Torrent.SeedingMode.MaxSeedingTime": 3600,
+                "Radarr.Main.EntrySearch.SearchRequestsEvery": 120,
+            }.get(key, fallback)
             arr._sync_loop_settings_from_config()
 
         sync_disk.assert_called_once()
-        self.assertTrue(arr.search_missing)
+        self.assertEqual(expiring.call_count, 3)  # ignore-younger caches rebuilt
+
+        # Timers / ETA / ignore-younger
+        self.assertEqual(arr.ignore_torrents_younger_than, 600)
+        self.assertEqual(arr.maximum_eta, 43200)
+        self.assertEqual(arr.search_command_limit, 9)
+        self.assertEqual(arr.rss_sync_timer, 30)
+        self.assertEqual(arr.refresh_downloads_timer, 5)
+        self.assertEqual(arr.stalled_delay, 20)
+        self.assertTrue(arr.allowed_stalled)
+
+        # Torrent LIVE
+        self.assertTrue(arr.case_sensitive_matches)
+        self.assertEqual(arr.folder_exclusion_regex, ["sample"])
+        self.assertEqual(arr.file_name_exclusion_regex, ["trailer"])
+        self.assertIsNotNone(arr.folder_exclusion_regex_re)
         self.assertTrue(arr.auto_delete)
-        self.assertTrue(arr.re_search)
+        self.assertEqual(arr.maximum_deletable_percentage, 0.8)
+        self.assertTrue(arr.do_not_remove_slow)
+        self.assertTrue(arr.re_search_stalled)
+        self.assertTrue(arr.remove_dead_trackers)
+        self.assertEqual(arr.seeding_mode_global_download_limit, 100)
+        self.assertEqual(arr.seeding_mode_global_upload_limit, 50)
+        self.assertEqual(arr.seeding_mode_global_max_upload_ratio, 2.0)
+        self.assertEqual(arr.seeding_mode_global_max_seeding_time, 3600)
+        self.assertTrue(arr.seeding_mode_global_remove_torrent)
+        self.assertEqual(arr.seeding_mode_global_bad_tracker_msg, ["unregistered"])
         self.assertEqual(arr.monitored_trackers, tracker_rows)
+
+        # EntrySearch LIVE
+        self.assertTrue(arr.search_missing)
+        self.assertTrue(arr.reset_on_completion)
+        self.assertTrue(arr.do_upgrade_search)
+        self.assertTrue(arr.quality_unmet_search)
+        self.assertTrue(arr.custom_format_unmet_search)
+        self.assertTrue(arr.force_minimum_custom_format)
+        self.assertTrue(arr.search_specials)
+        self.assertTrue(arr.search_unmonitored)
+        self.assertFalse(arr.search_by_year)
+        self.assertTrue(arr.search_in_reverse)
+        self.assertEqual(arr._delta, 1)
+        self.assertFalse(arr.prioritize_todays_release)
+        self.assertEqual(arr.series_search, "smart")
+        self.assertTrue(arr.re_search)
+        self.assertEqual(arr.arr_error_codes_to_blocklist, ["DownloadFailed"])
+
+        # Ombi / Overseerr LIVE
+        self.assertTrue(arr.ombi_search_requests)
+        self.assertTrue(arr.overseerr_requests)
+        self.assertEqual(arr.ombi_uri, "http://ombi:3579")
+        self.assertEqual(arr.ombi_api_key, "ombi-key")
+        self.assertEqual(arr.overseerr_uri, "http://overseerr:5055")
+        self.assertEqual(arr.overseerr_api_key, "os-key")
+        self.assertFalse(arr.ombi_approved_only)
+        self.assertFalse(arr.overseerr_approved_only)
+        self.assertTrue(arr.overseerr_is_4k)
+        self.assertTrue(arr.skip_tls_verify_ombi)
+        self.assertTrue(arr.skip_tls_verify_overseerr)
+        self.assertEqual(arr.search_requests_every_x_seconds, 120)
+        self.assertEqual(arr.request_search_timer, 0)
+
+        # ARR_PRESERVE_DB identity — worker LIVE must not touch these
+        self.assertTrue(arr.managed)
+        self.assertFalse(arr.skip_tls_verify_servarr)
+        self.assertEqual(arr.import_mode, "Auto")
 
     def test_lifecycle_live_refresh_invokes_apply_config_refresh(self) -> None:
         arr = MagicMock()

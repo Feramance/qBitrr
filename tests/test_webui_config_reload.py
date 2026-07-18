@@ -103,16 +103,58 @@ class TestWebUIConfigReload(_WebUIClientTestCase):
         self.assertTrue(db_file.exists(), "live Settings save must not delete search DB")
         db_file.unlink(missing_ok=True)
 
-    def test_failed_category_rename_triggers_full_restart(self) -> None:
+    def test_failed_category_rename_triggers_full_restart_without_db_wipe(self) -> None:
+        db_file = Path("/tmp/qbitrr-failed-category-search.db")
+        db_file.write_text("stub", encoding="utf-8")
+        arr = MagicMock()
+        arr._name = "Radarr.Main"
+        arr.search_db_file = db_file
+        arr.spawn_child_processes.return_value = (None, [])
+        self.manager.arr_manager = MagicMock()
+        self.manager.arr_manager.managed_objects = {"movies": arr}
+        self.manager.qbit_category_configs = {}
+        self.manager.qbit_category_managers = {}
+
+        # Exercise real _reload_all so delete_arr_dbs=False is observable on disk.
+        self.reload_all_patcher.stop()
+        try:
+            rebuilt_manager = MagicMock()
+            rebuilt_manager.managed_objects = {"movies": arr}
+            with (
+                patch("qBitrr.arss.ArrManager") as arr_manager_cls,
+                patch.object(self.manager, "_reload_qbit_category_configs"),
+                patch.object(self.manager, "_initialize_qbit_category_managers"),
+                patch.object(self.manager, "_spawn_qbit_category_workers"),
+            ):
+                arr_manager_cls.return_value.build_arr_instances.return_value = rebuilt_manager
+                response = self.client.post(
+                    "/web/config",
+                    json={"changes": {"Settings.FailedCategory": "failed-renamed"}},
+                    content_type="application/json",
+                )
+        finally:
+            self.reload_all_mock = self.reload_all_patcher.start()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["reloadType"], "full")
+        self.assertTrue(
+            db_file.exists(),
+            "FailedCategory rename full reload must keep Arr search_db_file",
+        )
+        db_file.unlink(missing_ok=True)
+
+    def test_tagless_full_restart_still_wipes_arr_db(self) -> None:
         response = self.client.post(
             "/web/config",
-            json={"changes": {"Settings.FailedCategory": "failed-renamed"}},
+            json={"changes": {"Settings.Tagless": True}},
             content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json()["reloadType"], "full")
         self.reload_all_mock.assert_called_once()
+        kwargs = self.reload_all_mock.call_args.kwargs
+        self.assertTrue(kwargs.get("delete_arr_dbs", True))
 
     def test_arr_live_key_save_calls_apply_arr_live_refresh(self) -> None:
         arr = MagicMock()

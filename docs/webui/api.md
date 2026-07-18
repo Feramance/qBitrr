@@ -1180,10 +1180,10 @@ Apply changes to configuration and trigger reload.
 | `frontend` | Frontend-only changes | No reload (e.g., `WebUI.Theme`) |
 | `live` | Global or Arr loop settings | No worker restart; Arr LIVE attrs applied via `_sync_loop_settings_from_config` → `_apply_arr_live_attrs_from_config` |
 | `qbit_hot` | qBit category seeding | Refresh in-memory qBit category managers without respawn |
-| `webui` | WebUI server settings | Restart WebUI server |
+| `webui` | WebUI server settings | Host/Port rebind Waitress; Token/UrlBase soft-apply when possible |
 | `single_arr` | One Arr instance | Respawn that instance (preserve or reset search DB depending on keys) |
 | `multi_arr` | Multiple Arr instances | Respawn each affected instance sequentially |
-| `full` | Global / PlaceHolder rebuild | Reload all components — includes `Settings.FailedCategory` / `Settings.RecheckCategory` (PlaceHolder rebuild) |
+| `full` | Global / PlaceHolder rebuild | Reload all components — PlaceHolder renames (`FailedCategory` / `RecheckCategory`) preserve Arr search DBs; other full keys wipe them |
 
 **Response** (Validation Error):
 ```json

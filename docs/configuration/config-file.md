@@ -1282,9 +1282,14 @@ These take effect on the next loop without killing Arr or qBit workers:
 | Key prefix | Examples |
 |------------|----------|
 | `Settings.*` | `ConsoleLevel`, `LoopSleepTimer`, `SearchLoopDelay`, `NoInternetSleepTimer`, `CompletedDownloadFolder`, `AutoPauseResume`, `PingURLS`, `IgnoreTorrentsYoungerThan`, `FFprobeAutoUpdate`, `AutoUpdateEnabled`, `AutoUpdateCron`, `FreeSpace`, `FreeSpaceFolder` |
-| Arr instance (most keys) | `*.Torrent.*`, `*.EntrySearch.SearchMissing`, `*.EntrySearch.SearchLimit`, timers, seeding limits, etc. |
+| Arr timers / ETA | `*.RssSyncTimer`, `*.RefreshDownloadsTimer`, `*.Torrent.IgnoreTorrentsYoungerThan`, `*.Torrent.MaximumETA`, `*.Torrent.StalledDelay` |
+| Arr `Torrent.*` (LIVE) | `AutoDelete`, `CaseSensitiveMatches`, exclusion/allowlist regexes, `DoNotRemoveSlow`, `ReSearchStalled`, `MaximumDeletablePercentage`, `SeedingMode.*`, `Trackers` (merged with `qBit.Trackers`) |
+| Arr `EntrySearch.*` (LIVE) | `SearchMissing`, `DoUpgradeSearch`, `QualityUnmetSearch`, `CustomFormatUnmetSearch`, `ForceMinimumCustomFormat`, `AlsoSearchSpecials`, `Unmonitored`, `SearchByYear`, `SearchInReverse`, `SearchLimit`, `SearchBySeries`, `SearchAgainOnSearchCompletion`, `PrioritizeTodaysReleases`, `SearchRequestsEvery`, Ombi/Overseerr enable+URI+key+`ApprovedOnly`+`Is4K`+request-provider `SkipTLSVerify` |
+| Arr other LIVE | `ReSearch`, `ArrErrorCodesToBlocklist` |
 
-Arr LIVE workers re-read disk each loop via `_sync_loop_settings_from_config()` → `_apply_arr_live_attrs_from_config()`.
+Arr LIVE workers re-read disk each loop via `_sync_loop_settings_from_config()` → `_apply_arr_live_attrs_from_config()`. Main-process managed objects apply the same LIVE attrs via `apply_config_refresh()` on WebUI live saves (dual ownership).
+
+**Not** applied live (require Arr respawn — see preserve-db below): `URI`, `APIKey`, servarr `SkipTLSVerify`, `Category`, `Managed`, `importMode`. Quality-profile / temp-profile keys require reset-db respawn.
 
 API response: `"reloadType": "live"`, `"configReloaded": true`.
 
@@ -1324,17 +1329,18 @@ Same API response as preserve-db reload; database files are deleted before respa
 |----------|----------|
 | qBit connection | `qBit.Disabled`, `Host`, `Port`, `UserName`, `Password`, `SkipTLSVerify` |
 | Settings (logging / process gates) | `Logging`, `Tagless`, `AutoRestartProcesses`, restart limit/window/delay |
-| PlaceHolder categories | `Settings.FailedCategory`, `Settings.RecheckCategory` — registered at ArrManager init; renames need a full rebuild so PlaceHolder workers track the new category strings |
+| PlaceHolder categories | `Settings.FailedCategory`, `Settings.RecheckCategory` — registered at ArrManager init; renames need a full rebuild so PlaceHolder workers track the new category strings (**Arr search DBs are preserved**) |
 | Unknown keys | Any unrecognized top-level section |
 
-API response: `"reloadType": "full"` — all workers are stopped and search DBs may be deleted (legacy behavior).
+API response: `"reloadType": "full"` — all workers are stopped and respawned. Arr search DBs are wiped for Tagless/Logging/qBit connection/etc.; PlaceHolder-only renames preserve them.
 
 ### WebUI-only
 
 | Keys | Behavior |
 |------|----------|
 | `WebUI.Theme`, `WebUI.ViewDensity`, `WebUI.LiveArr`, … | `"reloadType": "frontend"` — no backend reload |
-| `WebUI.Host`, `WebUI.Port`, `WebUI.Token`, OIDC, … | `"reloadType": "webui"` — WebUI server restart |
+| `WebUI.Host`, `WebUI.Port` | `"reloadType": "webui"` — Waitress close/rebind on the new host/port |
+| `WebUI.Token`, `WebUI.UrlBase`, OIDC, … | `"reloadType": "webui"` — soft-apply when possible; OIDC/auth changes may still restart WebUI |
 
 ---
 

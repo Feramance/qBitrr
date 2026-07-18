@@ -18,6 +18,7 @@ test.py
 .pytest_cache/
 .coverage
 htmlcov/
+webui/coverage/
 .tox/
 .mypy_cache/
 .ruff_cache/

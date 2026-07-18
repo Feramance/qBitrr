@@ -1,17 +1,23 @@
 #!/usr/bin/env python3
 """
-Static drift check between ``qBitrr/gen_config/sections.py`` defaults and
+Static drift check between gen_config field inventory and
 ``webui/src/pages/config/configFields.ts`` field paths.
 
 Mirrors :mod:`scripts.openapi_check`: text/AST based, no Flask/WebUI runtime,
 and no import of ``qBitrr`` (avoids logger/HOME side effects).
 
+Inventory sources (union):
+
+- ``ConfigField`` registry paths in ``qBitrr/gen_config/fields.py`` /
+  ``fields_arr.py`` (primary)
+- Legacy ``sections.py`` AST defaults still scanned for residual keys
+
 Drift directions (non-zero exit unless allowlisted):
 
-1. **Missing in FE** — a leaf key emitted by ``_gen_default_line`` has no matching
-   path in ``configFields.ts``.
-2. **Missing in gen_config** — a FE field path has no matching default in
-   ``sections.py`` (except allowlisted extras such as tracker AoT schemas).
+1. **Missing in FE** — a gen_config inventory leaf has no matching path in
+   ``configFields.ts``.
+2. **Missing in gen_config** — a FE field path has no matching inventory entry
+   (except allowlisted extras such as tracker AoT schemas).
 
 Optional (``--check-reload``): compare FE ``applyLive`` / ``requiresRestart``
 hints against the static key sets in ``qBitrr/config_reload_policy.py``.
@@ -22,7 +28,6 @@ Usage::
     python scripts/config_fields_check.py --check-reload
     make config-fields-check
 """
-
 from __future__ import annotations
 
 import argparse
@@ -111,7 +116,7 @@ def _allowlisted(path: str, patterns: set[str]) -> bool:
 
 
 class _SectionsCollector(ast.NodeVisitor):
-    """Collect ``_gen_default_line`` fields and ``table.add`` nesting edges."""
+    """Collect legacy sections.py default-line fields and ``table.add`` edges."""
 
     def __init__(self) -> None:
         self.func: str | None = None
@@ -213,7 +218,7 @@ def inventory_registry_fields(source: str) -> set[str]:
 
 
 def inventory_gen_config(sections_source: str, *registry_sources: str) -> set[str]:
-    """Combine legacy ``_gen_default_line`` inventory with registry ``ConfigField`` paths."""
+    """Combine registry ``ConfigField`` paths with residual sections.py defaults."""
     keys = _inventory_sections_ast(sections_source)
     for source in registry_sources:
         if source:
@@ -222,7 +227,7 @@ def inventory_gen_config(sections_source: str, *registry_sources: str) -> set[st
 
 
 def _inventory_sections_ast(source: str) -> set[str]:
-    """Return dotted inventory paths from ``_gen_default_line`` calls in sections.py."""
+    """Return dotted inventory paths from legacy default-line calls in sections.py."""
     tree = ast.parse(source)
     collector = _SectionsCollector()
     collector.visit(tree)

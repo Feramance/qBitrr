@@ -2,31 +2,36 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 import requests
 from ujson import JSONDecodeError
 
-from qBitrr.arss._shared import (
-    _ARR_RETRY_EXCEPTIONS,
-    _ARR_RETRY_EXCEPTIONS_EXTENDED,
-    TAGLESS,
-    AlbumFilesModel,
-    AlbumQueueModel,
-    ArtistFilesModel,
+from qBitrr.arr_client import (
     JsonObject,
     Lidarr,
     PyarrResourceNotFound,
-    TorrentLibrary,
-    TrackFilesModel,
+    build_lidarr_client,
     execute_command,
+)
+from qBitrr.arss._shared import (
+    _ARR_RETRY_EXCEPTIONS,
+    _ARR_RETRY_EXCEPTIONS_EXTENDED,
     with_retry,
 )
 from qBitrr.arss.base import ArrBase
 from qBitrr.arss.db_update_handlers import update_lidarr_album, update_lidarr_artist
 from qBitrr.arss.search_handlers import search_lidarr
+from qBitrr.config import TAGLESS
+from qBitrr.tables import (
+    AlbumFilesModel,
+    AlbumQueueModel,
+    ArtistFilesModel,
+    TorrentLibrary,
+    TrackFilesModel,
+)
 
 if TYPE_CHECKING:
     from qBitrr.arss.manager import ArrManager
@@ -44,8 +49,6 @@ class LidarrArr(ArrBase):
         client_builder: Callable[..., Lidarr] | None = None,
     ):
         if client_builder is None:
-            from qBitrr.arss._shared import build_lidarr_client
-
             client_builder = build_lidarr_client
         super().__init__(name, manager, client_builder=client_builder)
 
@@ -57,6 +60,44 @@ class LidarrArr(ArrBase):
         self.ombi_api_key = None
         self.overseerr_uri = None
         self.overseerr_api_key = None
+
+    def _db_get_files_impl(
+        self,
+    ) -> Iterable[tuple[AlbumFilesModel, bool, bool, bool, int]]:
+        from qBitrr.arss.db_queries import db_get_files_albums
+
+        albumlist = db_get_files_albums(self)
+        if not albumlist:
+            return
+        for albums in albumlist:
+            yield albums[0], albums[1], albums[2], False, len(albumlist)
+
+    def _db_maybe_reset_searched_state_impl(self) -> None:
+        from qBitrr.arss.db_queries import db_reset__album_searched_state
+
+        db_reset__album_searched_state(self)
+
+    def _iter_temp_profile_items(self) -> list[dict]:
+        return self.client.artist.get()
+
+    def _temp_profile_item_label(self) -> str:
+        return "artist"
+
+    def _update_item_quality_profile(self, item: dict) -> bool:
+        return self._retry_profile_switch_update(
+            lambda: self.client.artist.update(data=item), "artist"
+        )
+
+    def _temp_profile_db_model(self):
+        return self.artists_file_model
+
+    def _temp_profile_timeout_entity_label(self) -> str:
+        return "artist"
+
+    def _reset_timed_out_temp_profile(self, db_item, original_profile: int) -> None:
+        artist = self.client.artist.get(item_id=db_item.EntryId)
+        artist["qualityProfileId"] = original_profile
+        self.client.artist.update(data=artist)
 
     def _db_update_media(self) -> None:
         artists = with_retry(
@@ -111,6 +152,14 @@ class LidarrArr(ArrBase):
 
     def _custom_format_queue_fields(self) -> tuple[str, str | None] | None:
         return "albumId", "AlbumFileId"
+
+    def build_queue_caches_from_queue(
+        self, queue: list[dict[str, Any]]
+    ) -> tuple[dict[Any, Any], set[Any]]:
+        field = "albumId"
+        requeue_map = {entry["id"]: entry[field] for entry in queue if entry.get(field)}
+        file_ids = {entry[field] for entry in queue if entry.get(field)}
+        return requeue_map, file_ids
 
     def _re_search_failed_media(self, object_id: Any) -> None:
         self.logger.trace("Requeue cache entry: %s", object_id)

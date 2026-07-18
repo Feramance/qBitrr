@@ -51,7 +51,8 @@
     "dev": "vite",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "type": "module",
   "version": "0.0.0"

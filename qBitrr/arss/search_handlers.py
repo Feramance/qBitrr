@@ -4,15 +4,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from qBitrr.arss._shared import (
-    _ARR_RETRY_EXCEPTIONS,
+from qBitrr.arr_client import execute_command
+from qBitrr.arss._shared import _ARR_RETRY_EXCEPTIONS, with_retry
+from qBitrr.errors import NoConnectionrException
+from qBitrr.tables import (
     AlbumFilesModel,
     EpisodeFilesModel,
     MoviesFilesModel,
-    NoConnectionrException,
     SeriesFilesModel,
-    execute_command,
-    with_retry,
 )
 
 if TYPE_CHECKING:

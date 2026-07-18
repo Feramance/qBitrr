@@ -6,7 +6,7 @@ import re
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from qBitrr.arss._shared import (
+from qBitrr.arr_client import (
     Lidarr,
     Radarr,
     Sonarr,

@@ -73,7 +73,10 @@ class TestOverseerrApprovedOnlyPaths(unittest.TestCase):
         arr.overseerr_api_key = "key"
         arr.skip_tls_verify_overseerr = False
         arr.overseerr_is_4k = False
-        arr.type = "radarr"
+        arr._overseerr_request_media_type.return_value = "movie"
+        arr._add_overseerr_type_ids.side_effect = lambda media, data: (
+            data["TmdbId"].add(media["tmdbId"]) if media.get("tmdbId") else None
+        )
         arr.logger = MagicMock()
         arr.overseerr_requests_release_cache = {}
         list_resp = MagicMock()
@@ -111,7 +114,10 @@ class TestOverseerrApprovedOnlyPaths(unittest.TestCase):
         arr.overseerr_api_key = "key"
         arr.skip_tls_verify_overseerr = False
         arr.overseerr_is_4k = False
-        arr.type = "radarr"
+        arr._overseerr_request_media_type.return_value = "movie"
+        arr._add_overseerr_type_ids.side_effect = lambda media, data: (
+            data["TmdbId"].add(media["tmdbId"]) if media.get("tmdbId") else None
+        )
         arr.logger = MagicMock()
         arr.overseerr_requests_release_cache = {}
         list_resp = MagicMock()
@@ -145,6 +151,67 @@ class TestOmbiUpdateCallable(unittest.TestCase):
         arr.ombi_search_requests = False
         # Early-return path when Ombi disabled should not raise.
         self.assertIsNone(db_ombi_update(arr))
+
+
+class TestSonarrOmbiPartialApprove(unittest.TestCase):
+    """Sonarr Ombi ApprovedOnly: partial approvals are searchable when any child is approved."""
+
+    def test_ombi_should_include_when_any_child_approved(self) -> None:
+        from qBitrr.arss.sonarr import SonarrArr
+
+        arr = MagicMock()
+        arr.ombi_approved_only = True
+        self.assertTrue(
+            SonarrArr._ombi_should_include_request(
+                arr,
+                {
+                    "childRequests": [
+                        {"denied": True},
+                        {"denied": False},
+                    ]
+                },
+            )
+        )
+
+    def test_ombi_should_exclude_when_all_children_denied(self) -> None:
+        from qBitrr.arss.sonarr import SonarrArr
+
+        arr = MagicMock()
+        arr.ombi_approved_only = True
+        self.assertFalse(
+            SonarrArr._ombi_should_include_request(
+                arr,
+                {"childRequests": [{"denied": True}, {"denied": True}]},
+            )
+        )
+
+    def test_process_ombi_requests_keeps_partial_approve(self) -> None:
+        from qBitrr.arss.request_providers import _process_ombi_requests
+        from qBitrr.arss.sonarr import SonarrArr
+
+        arr = MagicMock()
+        arr.ombi_approved_only = True
+        arr._ombi_should_include_request.side_effect = (
+            lambda request: SonarrArr._ombi_should_include_request(arr, request)
+        )
+        arr._add_ombi_request_ids.side_effect = lambda request, data: (
+            data["TvdbId"].add(request["tvDbId"]) if request.get("tvDbId") else None
+        )
+
+        with patch(
+            "qBitrr.arss.request_providers._get_ombi_requests",
+            return_value=[
+                {
+                    "imdbId": "tt123",
+                    "tvDbId": 42,
+                    "childRequests": [{"denied": True}, {"denied": False}],
+                }
+            ],
+        ):
+            result = _process_ombi_requests(arr)
+
+        self.assertIn("tt123", result.get("ImdbId", set()))
+        self.assertIn(42, result.get("TvdbId", set()))
 
 
 class TestPolymorphicDbUpdateDispatch(unittest.TestCase):

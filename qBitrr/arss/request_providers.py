@@ -1,26 +1,22 @@
-"""Ombi/Overseerr request fetch and DB update helpers (split from Arr)."""
+"""Ombi/Overseerr request fetch and DB update helpers (split from Arr).
+
+Shared orchestration lives here; Arr-type differences dispatch to concrete hooks
+(``_overseerr_request_media_type``, ``_add_overseerr_type_ids``, Ombi paths, etc.).
+"""
 
 from __future__ import annotations
 
 import sys
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING
 
 import requests
 
 from qBitrr.arss._shared import (
-    _ARR_RETRY_EXCEPTIONS,
-    UnhandledError,
     _is_media_available,
     _is_media_processing,
     _normalize_media_status,
-    with_retry,
 )
-from qBitrr.arss.db_update_handlers import db_update_single_series
-
-if TYPE_CHECKING:
-    pass
 
 
 def _get_oversee_requests_all(arr) -> dict[str, set]:
@@ -29,11 +25,10 @@ def _get_oversee_requests_all(arr) -> dict[str, set]:
         key = "approved" if arr.overseerr_approved_only else "unavailable"
         take = 100
         skip = 0
-        type_ = None
-        if arr.type == "radarr":
-            type_ = "movie"
-        elif arr.type == "sonarr":
-            type_ = "tv"
+        type_ = arr._overseerr_request_media_type()
+        if type_ is None:
+            arr._temp_overseer_request_cache = defaultdict(set)
+            return arr._temp_overseer_request_cache
         _now = datetime.now(timezone.utc)
         while True:
             response = arr.session.get(
@@ -132,10 +127,7 @@ def _get_oversee_requests_all(arr) -> dict[str, set]:
                 if media:
                     if imdbId := media.get("imdbId"):
                         data["ImdbId"].add(imdbId)
-                    if arr.type == "sonarr" and (tvdbId := media.get("tvdbId")):
-                        data["TvdbId"].add(tvdbId)
-                    elif arr.type == "radarr" and (tmdbId := media.get("tmdbId")):
-                        data["TmdbId"].add(tmdbId)
+                    arr._add_overseerr_type_ids(media, data)
             if len(results) < take:
                 break
             skip += take
@@ -158,26 +150,13 @@ def _get_oversee_requests_all(arr) -> dict[str, set]:
 
 def _get_overseerr_requests_count(arr) -> int:
     _get_oversee_requests_all(arr)
-    if arr.type == "sonarr":
-        return len(
-            arr._temp_overseer_request_cache.get("TvdbId", [])
-            or arr._temp_overseer_request_cache.get("ImdbId", [])
-        )
-    elif arr.type == "radarr":
-        return len(
-            arr._temp_overseer_request_cache.get("ImdbId", [])
-            or arr._temp_overseer_request_cache.get("TmdbId", [])
-        )
-    return 0
+    return arr._overseerr_request_count()
 
 
 def _get_ombi_request_count(arr) -> int:
-    if arr.type == "sonarr":
-        extras = "/api/v1/Request/tv/total"
-    elif arr.type == "radarr":
-        extras = "/api/v1/Request/movie/total"
-    else:
-        raise UnhandledError(f"Well you shouldn't have reached here, Arr.type={arr.type}")
+    extras = arr._ombi_request_total_path()
+    if extras is None:
+        return 0
     total = 0
     try:
         response = arr.session.get(
@@ -202,12 +181,9 @@ def _get_ombi_request_count(arr) -> int:
 
 
 def _get_ombi_requests(arr) -> list[dict]:
-    if arr.type == "sonarr":
-        extras = "/api/v1/Request/tvlite"
-    elif arr.type == "radarr":
-        extras = "/api/v1/Request/movie"
-    else:
-        raise UnhandledError(f"Well you shouldn't have reached here, Arr.type={arr.type}")
+    extras = arr._ombi_request_list_path()
+    if extras is None:
+        return []
     try:
         response = arr.session.get(
             url=f"{arr.ombi_uri}{extras}",
@@ -231,21 +207,14 @@ def _get_ombi_requests(arr) -> list[dict]:
 
 
 def _process_ombi_requests(arr) -> dict[str, set[str, int]]:
-    requests = _get_ombi_requests(arr)
+    requests_list = _get_ombi_requests(arr)
     data = defaultdict(set)
-    for request in requests:
-        if arr.type == "radarr" and arr.ombi_approved_only and request.get("denied") is True:
+    for request in requests_list:
+        if not arr._ombi_should_include_request(request):
             continue
-        elif arr.type == "sonarr" and arr.ombi_approved_only:
-            # This is me being lazy and not wanting to deal with partially approved requests.
-            if any(child.get("denied") is True for child in request.get("childRequests", [])):
-                continue
         if imdbId := request.get("imdbId"):
             data["ImdbId"].add(imdbId)
-        if arr.type == "radarr" and (theMovieDbId := request.get("theMovieDbId")):
-            data["TmdbId"].add(theMovieDbId)
-        if arr.type == "sonarr" and (tvDbId := request.get("tvDbId")):
-            data["TvdbId"].add(tvDbId)
+        arr._add_ombi_request_ids(request, data)
     return data
 
 
@@ -257,73 +226,8 @@ def db_request_update(arr):
 
 
 def _db_request_update(arr, request_ids: dict[str, set[int | str]]):
-    if arr.type == "sonarr" and any(i in request_ids for i in ["ImdbId", "TvdbId"]):
-        TvdbIds = request_ids.get("TvdbId")
-        ImdbIds = request_ids.get("ImdbId")
-        series = with_retry(
-            lambda: arr.client.series.get(),
-            retries=5,
-            backoff=0.5,
-            max_backoff=5,
-            exceptions=_ARR_RETRY_EXCEPTIONS,
-        )
-        for s in series:
-            episodes = with_retry(
-                lambda s=s: arr.client.episode.get(series_id=s["id"]),
-                retries=5,
-                backoff=0.5,
-                max_backoff=5,
-                exceptions=_ARR_RETRY_EXCEPTIONS,
-            )
-            for e in episodes:
-                if "airDateUtc" in e:
-                    if datetime.strptime(e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ").replace(
-                        tzinfo=timezone.utc
-                    ) > datetime.now(timezone.utc):
-                        continue
-                    if not arr.search_specials and e["seasonNumber"] == 0:
-                        continue
-                    if TvdbIds and ImdbIds and "tvdbId" in e and "imdbId" in e:
-                        if s["tvdbId"] not in TvdbIds or s["imdbId"] not in ImdbIds:
-                            continue
-                    if ImdbIds and "imdbId" in e:
-                        if s["imdbId"] not in ImdbIds:
-                            continue
-                    if TvdbIds and "tvdbId" in e:
-                        if s["tvdbId"] not in TvdbIds:
-                            continue
-                    if not e["monitored"]:
-                        continue
-                    if e["episodeFileId"] != 0:
-                        continue
-                    db_update_single_series(arr, db_entry=e, request=True)
-    elif arr.type == "radarr" and any(i in request_ids for i in ["ImdbId", "TmdbId"]):
-        ImdbIds = request_ids.get("ImdbId")
-        TmdbIds = request_ids.get("TmdbId")
-        movies = with_retry(
-            lambda: arr.client.movie.get(),
-            retries=5,
-            backoff=0.5,
-            max_backoff=5,
-            exceptions=_ARR_RETRY_EXCEPTIONS,
-        )
-        for m in movies:
-            if m["year"] > datetime.now().year or m["year"] == 0:
-                continue
-            if TmdbIds and ImdbIds and "tmdbId" in m and "imdbId" in m:
-                if m["tmdbId"] not in TmdbIds or m["imdbId"] not in ImdbIds:
-                    continue
-            if ImdbIds and "imdbId" in m:
-                if m["imdbId"] not in ImdbIds:
-                    continue
-            if TmdbIds and "tmdbId" in m:
-                if m["tmdbId"] not in TmdbIds:
-                    continue
-            if not m["monitored"]:
-                continue
-            if m["hasFile"]:
-                continue
-            db_update_single_series(arr, db_entry=m, request=True)
+    """Dispatch request-ID matching to the concrete Arr hook."""
+    arr._db_request_update_impl(request_ids)
 
 
 def db_overseerr_update(arr):

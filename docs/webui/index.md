@@ -225,10 +225,9 @@ Browse and manage your media libraries directly from qBitrr.
   - Next airing episode
   - Download progress
 
-- **Grouping**
-  - Group episodes by series (default)
-  - Flat view (all episodes)
-  - Group by season
+- **Browse shape**
+  - Series rows on the main table; seasons and episodes open in the detail modal
+  - Flat episode lists are not offered (permanently removed)
 
 - **Episode Filtering**
   - Missing episodes
@@ -263,9 +262,9 @@ Browse and manage your media libraries directly from qBitrr.
   - Quality (FLAC, MP3, etc.)
   - Download status
 
-- **Grouping**
-  - Group albums by artist (default)
-  - Flat view (all albums)
+- **Browse shape**
+  - Artist rows on the main table; albums and tracks open in the detail modal
+  - Flat album lists are not offered (permanently removed)
 
 - **Filtering**
   - By artist

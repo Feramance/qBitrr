@@ -16,7 +16,7 @@ qBitrr's Arr views offer:
 - **Request Tracking**: Identify items added via Overseerr/Ombi integration
 - **Pagination**: Handle large libraries with server-side pagination
 - **List and Icon**: Toolbar **View** control on each Arr page — **List** is a text-only table (no poster column in the browse surface); **Icon** is a responsive tile grid with cached posters or cover art. The choice is stored in `localStorage` (default: Icon).
-- **Detail modals**: Click a row/card to open a modal. Radarr shows a single movie payload. Sonarr groups **series → season → episode** in the modal. **Lidarr groups artist → albums → tracks** (each album is a section with track rows)—not nested tables on the main browse surface.
+- **Detail modals**: Click a row/card to open a modal. Radarr shows a single movie payload. Sonarr groups **series → season → episode** in the modal. **Lidarr groups artist → albums → tracks** (each album is a section with track rows)—not nested tables on the main browse surface. Flat episode-list / flat album-list browse modes are permanently removed; hierarchy is always series/artist on the table and seasons/episodes or albums/tracks in the detail modal.
 - **Posters**: Thumbnails are served by the WebUI (disk cache of ~250px WebP/JPEG tiles sourced from Arr `MediaCover`, falling back to entity image URLs on the same Arr host) at `/web/.../thumbnail` and mirrored under `/api/...` (see [WebUI API](api.md#arr-poster-thumbnails-cached)). Same-origin `<img>` requests use the session cookie (no `?token=` on poster URLs). Failed thumbnail loads retry up to 3 times (with short backoff) before showing the placeholder.
 
 Multi-level detail in the modal (browse row is the top level):

@@ -356,6 +356,7 @@ class WebUI(CatalogMixin, LifecycleMixin):
         self.logger.success("WebUI thread started (name=%s)", self._thread.name)
 
     def _serve(self):
+        server = None
         try:
             # Reset shutdown event at start
             self._shutdown_event.clear()
@@ -376,7 +377,7 @@ class WebUI(CatalogMixin, LifecycleMixin):
                 return
 
             try:
-                from waitress import serve as waitress_serve
+                from waitress import create_server
             except Exception:
                 self.logger.warning(
                     "Waitress is unavailable; falling back to Flask development server. "
@@ -389,27 +390,64 @@ class WebUI(CatalogMixin, LifecycleMixin):
                 "Using Waitress WSGI server for WebUI (threads=%s)", _WAITRESS_THREADS
             )
 
-            # For graceful restart capability, we need to use waitress_serve with channels
-            # However, for now we'll use the simpler approach and just run the server
-            # Restart capability will require stopping the entire process
-            # Use poll() instead of select() to avoid file descriptor limit issues
-            waitress_serve(
-                self.app,
-                host=self.host,
-                port=self.port,
-                ident="qBitrr-WebUI",
-                threads=_WAITRESS_THREADS,
-                asyncore_use_poll=True,
+            try:
+                # Use poll() instead of select() to avoid file descriptor limit issues.
+                # create_server (vs serve) keeps a handle we can close() for Host/Port rebind.
+                server = create_server(
+                    self.app,
+                    host=self.host,
+                    port=self.port,
+                    ident="qBitrr-WebUI",
+                    threads=_WAITRESS_THREADS,
+                    asyncore_use_poll=True,
+                )
+            except Exception as exc:
+                self.logger.error(
+                    "Failed to bind WebUI on %s:%s: %s. "
+                    "Restart the qBitrr process or fix WebUI.Host/WebUI.Port.",
+                    self.host,
+                    self.port,
+                    exc,
+                    exc_info=True,
+                )
+                return
+
+            self._server = server
+
+            def _close_on_shutdown() -> None:
+                self._shutdown_event.wait()
+                try:
+                    if self._server is server:
+                        server.close()
+                except Exception:
+                    self.logger.debug("Waitress close on shutdown failed", exc_info=True)
+
+            watcher = threading.Thread(
+                target=_close_on_shutdown, name="WebUIShutdownWatch", daemon=True
             )
+            watcher.start()
+
+            try:
+                server.run()
+            finally:
+                try:
+                    server.close()
+                except Exception:
+                    self.logger.debug("Waitress server.close() failed", exc_info=True)
+                try:
+                    server.task_dispatcher.shutdown(cancel_pending=True, timeout=5)
+                except Exception:
+                    self.logger.debug("Waitress task_dispatcher.shutdown failed", exc_info=True)
 
         except KeyboardInterrupt:
             self.logger.info("WebUI interrupted")
         except Exception:
             self.logger.exception("WebUI server terminated unexpectedly")
         finally:
-            self._server = None
+            if self._server is server:
+                self._server = None
 
-            # If restart was requested, start a new server
+            # Fallback restart path (primary rebind is owned by _restart_webui).
             if self._restart_requested:
                 self._restart_requested = False
                 self.logger.info("Restarting WebUI server...")

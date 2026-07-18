@@ -83,17 +83,47 @@ from qBitrr.arss._shared import (
     with_database_retry,
     with_retry,
 )
+from qBitrr.arss.db_queries import (
+    _db_search_quality_cf_condition as _db_search_quality_cf_condition_fn,
+)
 from qBitrr.arss.db_queries import db_get_files as _db_get_files_fn
+from qBitrr.arss.db_queries import db_get_files_albums as _db_get_files_albums_fn
+from qBitrr.arss.db_queries import db_get_files_episodes as _db_get_files_episodes_fn
+from qBitrr.arss.db_queries import db_get_files_movies as _db_get_files_movies_fn
+from qBitrr.arss.db_queries import db_get_files_series as _db_get_files_series_fn
 from qBitrr.arss.db_queries import db_get_request_files as _db_get_request_files_fn
 from qBitrr.arss.db_queries import (
     db_maybe_reset_entry_searched_state as _db_maybe_reset_entry_searched_state_fn,
 )
+from qBitrr.arss.db_queries import (
+    db_reset__album_searched_state as _db_reset__album_searched_state_fn,
+)
+from qBitrr.arss.db_queries import (
+    db_reset__episode_searched_state as _db_reset__episode_searched_state_fn,
+)
+from qBitrr.arss.db_queries import (
+    db_reset__movie_searched_state as _db_reset__movie_searched_state_fn,
+)
+from qBitrr.arss.db_queries import (
+    db_reset__series_searched_state as _db_reset__series_searched_state_fn,
+)
+from qBitrr.arss.db_update_handlers import db_update_single_series as _db_update_single_series_fn
+from qBitrr.arss.request_providers import _get_ombi_request_count as _get_ombi_request_count_fn
+from qBitrr.arss.request_providers import _get_ombi_requests as _get_ombi_requests_fn
+from qBitrr.arss.request_providers import _get_oversee_requests_all as _get_oversee_requests_all_fn
+from qBitrr.arss.request_providers import (
+    _get_overseerr_requests_count as _get_overseerr_requests_count_fn,
+)
+from qBitrr.arss.request_providers import _process_ombi_requests as _process_ombi_requests_fn
+from qBitrr.arss.request_providers import db_ombi_update as _db_ombi_update_fn
+from qBitrr.arss.request_providers import db_overseerr_update as _db_overseerr_update_fn
 from qBitrr.arss.request_providers import db_request_update as _db_request_update_fn
 from qBitrr.arss.search_handlers import maybe_do_search as _maybe_do_search_fn
 from qBitrr.arss.torrent_batch_mixin import TorrentBatchMixin
 from qBitrr.arss.torrent_dispatcher_mixin import TorrentDispatcherMixin
 from qBitrr.arss.torrent_inspector_mixin import TorrentInspectorMixin
 from qBitrr.arss.torrent_limits_mixin import TorrentLimitsMixin
+from qBitrr.radarr_availability import minimum_availability_check as _minimum_availability_check_fn
 
 if TYPE_CHECKING:
     from qBitrr.arss.manager import ArrManager
@@ -1201,13 +1231,32 @@ class ArrBase(
         Covers timers/ETA/stalled delay and Arr LIVE attrs such as ``search_missing``,
         ``auto_delete``, tracker indexes, and related EntrySearch/Torrent flags so
         child processes pick up WebUI live saves without a respawn.
+
+        Does **not** sync ARR_PRESERVE_DB identity keys (``Managed``, ``SkipTLSVerify``,
+        ``importMode``, ``URI``, ``APIKey``, ``Category``) — those require respawn.
         """
         sync_config_from_disk()
         self._apply_arr_live_attrs_from_config()
 
+    @staticmethod
+    def _parse_series_search_config(series_search_config: Any) -> bool | str:
+        """Normalize ``EntrySearch.SearchBySeries`` to ``True`` / ``False`` / ``\"smart\"``."""
+        if isinstance(series_search_config, str) and series_search_config.lower() == "smart":
+            return "smart"
+        if series_search_config in (True, "true", "True", "TRUE", 1):
+            return True
+        return False
+
     def _apply_arr_live_attrs_from_config(self) -> None:
-        """Apply Arr LIVE in-memory attrs from the current CONFIG snapshot."""
+        """Apply Arr LIVE in-memory attrs from the current CONFIG snapshot.
+
+        Syncs EntrySearch / Torrent / timer LIVE keys that ``__init__`` loads from CONFIG.
+        Excludes ARR_PRESERVE_DB keys (``Managed``, servarr ``SkipTLSVerify``, ``importMode``,
+        ``URI``, ``APIKey``, ``Category``) and ARR_RESET_DB quality-profile keys.
+        """
         name = self._name
+
+        # --- Timers / ETA / ignore-younger (always) ---
         ignore_seconds = self._get_ignore_torrents_younger_than()
         if ignore_seconds != self.ignore_torrents_younger_than:
             self.ignore_torrents_younger_than = ignore_seconds
@@ -1218,26 +1267,78 @@ class ArrBase(
         self.search_command_limit = self._get_search_command_limit()
         self.rss_sync_timer = self._get_rss_sync_timer()
         self.refresh_downloads_timer = self._get_refresh_downloads_timer()
+
+        # --- Arr connection LIVE (not preserve-db identity) ---
+        self.re_search = CONFIG.get(f"{name}.ReSearch", fallback=False)
+        self.arr_error_codes_to_blocklist = CONFIG.get(
+            f"{name}.ArrErrorCodesToBlocklist", fallback=[]
+        )
+
+        # --- Torrent match / exclusion / AutoDelete ---
+        self.case_sensitive_matches = CONFIG.get(
+            f"{name}.Torrent.CaseSensitiveMatches", fallback=False
+        )
+        self.folder_exclusion_regex = CONFIG.get(
+            f"{name}.Torrent.FolderExclusionRegex", fallback=None
+        )
+        self.file_name_exclusion_regex = CONFIG.get(
+            f"{name}.Torrent.FileNameExclusionRegex", fallback=None
+        )
+        self.file_extension_allowlist = CONFIG.get(
+            f"{name}.Torrent.FileExtensionAllowlist", fallback=None
+        )
+        if self.file_extension_allowlist:
+            self.file_extension_allowlist = [
+                rf"\{ext}" if ext[:1] != "\\" else ext for ext in self.file_extension_allowlist
+            ]
+        self.auto_delete = CONFIG.get(f"{name}.Torrent.AutoDelete", fallback=False)
+        self.maximum_deletable_percentage = CONFIG.get(
+            f"{name}.Torrent.MaximumDeletablePercentage", fallback=0.95
+        )
+        self.do_not_remove_slow = CONFIG.get(f"{name}.Torrent.DoNotRemoveSlow", fallback=False)
+        self.re_search_stalled = CONFIG.get(f"{name}.Torrent.ReSearchStalled", fallback=False)
         self.stalled_delay = CONFIG.get_duration(
             f"{name}.Torrent.StalledDelay", fallback=15, unit="minutes"
         )
         self.allowed_stalled = self.stalled_delay != -1
-        self.managed = CONFIG.get(f"{name}.Managed", fallback=False)
-        self.skip_tls_verify_servarr = CONFIG.get(f"{name}.SkipTLSVerify", fallback=False)
-        self.re_search = CONFIG.get(f"{name}.ReSearch", fallback=False)
-        self.import_mode = CONFIG.get(f"{name}.importMode", fallback="Auto")
-        if self.import_mode == "Hardlink":
-            self.import_mode = "Auto"
-        self.arr_error_codes_to_blocklist = CONFIG.get(
-            f"{name}.ArrErrorCodesToBlocklist", fallback=[]
+        self._init_exclusion_regexes()
+
+        # --- Seeding-mode globals + tracker merge/index ---
+        self.remove_dead_trackers = CONFIG.get(
+            f"{name}.Torrent.SeedingMode.RemoveDeadTrackers", fallback=False
         )
-        self.case_sensitive_matches = CONFIG.get(
-            f"{name}.Torrent.CaseSensitiveMatches", fallback=False
+        self.seeding_mode_global_download_limit = CONFIG.get(
+            f"{name}.Torrent.SeedingMode.DownloadRateLimitPerTorrent", fallback=-1
         )
-        self.auto_delete = CONFIG.get(f"{name}.Torrent.AutoDelete", fallback=False)
-        self.search_missing = CONFIG.get(f"{name}.EntrySearch.SearchMissing", fallback=False)
-        if PROCESS_ONLY:
-            self.search_missing = False
+        self.seeding_mode_global_upload_limit = CONFIG.get(
+            f"{name}.Torrent.SeedingMode.UploadRateLimitPerTorrent", fallback=-1
+        )
+        self.seeding_mode_global_max_upload_ratio = CONFIG.get(
+            f"{name}.Torrent.SeedingMode.MaxUploadRatio", fallback=-1
+        )
+        self.seeding_mode_global_max_seeding_time = CONFIG.get_duration(
+            f"{name}.Torrent.SeedingMode.MaxSeedingTime", fallback=-1
+        )
+        self.seeding_mode_global_remove_torrent = CONFIG.get(
+            f"{name}.Torrent.SeedingMode.RemoveTorrent", fallback=-1
+        )
+        bad_tracker_msg = CONFIG.get(
+            f"{name}.Torrent.SeedingMode.RemoveTrackerWithMessage", fallback=[]
+        )
+        if isinstance(bad_tracker_msg, str):
+            self.seeding_mode_global_bad_tracker_msg = [bad_tracker_msg]
+        else:
+            self.seeding_mode_global_bad_tracker_msg = list(bad_tracker_msg)
+
+        if (
+            self.auto_delete is True
+            and hasattr(self, "completed_folder")
+            and self.completed_folder is not None
+            and not self.completed_folder.parent.exists()
+            and not SEARCH_ONLY
+        ):
+            self.auto_delete = False
+
         qbit_trackers = CONFIG.get("qBit.Trackers", fallback=[])
         arr_trackers = CONFIG.get(f"{name}.Torrent.Trackers", fallback=[])
         self.monitored_trackers = self._merge_trackers(qbit_trackers, arr_trackers)
@@ -1248,11 +1349,83 @@ class ArrBase(
             )
         )
 
+        # --- EntrySearch flags ---
+        self.reset_on_completion = CONFIG.get(
+            f"{name}.EntrySearch.SearchAgainOnSearchCompletion", fallback=False
+        )
+        self.do_upgrade_search = CONFIG.get(f"{name}.EntrySearch.DoUpgradeSearch", fallback=False)
+        self.quality_unmet_search = CONFIG.get(
+            f"{name}.EntrySearch.QualityUnmetSearch", fallback=False
+        )
+        self.custom_format_unmet_search = CONFIG.get(
+            f"{name}.EntrySearch.CustomFormatUnmetSearch", fallback=False
+        )
+        self.force_minimum_custom_format = CONFIG.get(
+            f"{name}.EntrySearch.ForceMinimumCustomFormat", fallback=False
+        )
+        self.search_missing = CONFIG.get(f"{name}.EntrySearch.SearchMissing", fallback=False)
+        if PROCESS_ONLY:
+            self.search_missing = False
+        self.search_specials = CONFIG.get(f"{name}.EntrySearch.AlsoSearchSpecials", fallback=False)
+        self.search_unmonitored = CONFIG.get(f"{name}.EntrySearch.Unmonitored", fallback=False)
+        self.search_by_year = CONFIG.get(f"{name}.EntrySearch.SearchByYear", fallback=True)
+        self.search_in_reverse = CONFIG.get(f"{name}.EntrySearch.SearchInReverse", fallback=False)
+        self._delta = 1 if self.search_in_reverse else -1
+        self.prioritize_todays_release = CONFIG.get(
+            f"{name}.EntrySearch.PrioritizeTodaysReleases", fallback=True
+        )
+        self.series_search = self._parse_series_search_config(
+            CONFIG.get(f"{name}.EntrySearch.SearchBySeries", fallback=False)
+        )
+
+        # --- Ombi / Overseerr (enable + URI/key + flags + TLS + request timer) ---
+        self.ombi_search_requests = CONFIG.get(
+            f"{name}.EntrySearch.Ombi.SearchOmbiRequests", fallback=False
+        )
+        self.overseerr_requests = CONFIG.get(
+            f"{name}.EntrySearch.Overseerr.SearchOverseerrRequests", fallback=False
+        )
+        # Use get (not get_or_raise) so a partial live save cannot crash the worker loop.
+        self.ombi_uri = CONFIG.get(f"{name}.EntrySearch.Ombi.OmbiURI", fallback=None)
+        self.ombi_api_key = CONFIG.get(f"{name}.EntrySearch.Ombi.OmbiAPIKey", fallback=None)
+        self.overseerr_uri = CONFIG.get(
+            f"{name}.EntrySearch.Overseerr.OverseerrURI", fallback=None
+        )
+        self.overseerr_api_key = CONFIG.get(
+            f"{name}.EntrySearch.Overseerr.OverseerrAPIKey", fallback=None
+        )
+        self.overseerr_is_4k = CONFIG.get(f"{name}.EntrySearch.Overseerr.Is4K", fallback=False)
+        self.ombi_approved_only = CONFIG.get(
+            f"{name}.EntrySearch.Ombi.ApprovedOnly", fallback=True
+        )
+        self.overseerr_approved_only = CONFIG.get(
+            f"{name}.EntrySearch.Overseerr.ApprovedOnly", fallback=True
+        )
+        self.skip_tls_verify_overseerr = CONFIG.get(
+            f"{name}.EntrySearch.Overseerr.SkipTLSVerify", fallback=False
+        )
+        self.skip_tls_verify_ombi = CONFIG.get(
+            f"{name}.EntrySearch.Ombi.SkipTLSVerify", fallback=False
+        )
+        self.search_requests_every_x_seconds = CONFIG.get_duration(
+            f"{name}.EntrySearch.SearchRequestsEvery", fallback=300
+        )
+        if self.ombi_search_requests or self.overseerr_requests:
+            if getattr(self, "request_search_timer", None) is None:
+                self.request_search_timer = 0
+        else:
+            self.request_search_timer = None
+
     def apply_config_refresh(self, preserve_db: bool = True) -> None:
         """Refresh in-memory Arr settings from CONFIG without deleting the search DB.
 
         Main-process managed objects call this on Arr LIVE saves. Worker processes
         apply the same LIVE attrs each loop via ``_sync_loop_settings_from_config``.
+
+        ``Managed`` / servarr ``SkipTLSVerify`` / ``importMode`` are ARR_PRESERVE_DB
+        (respawn-only). This method may still refresh URI/APIKey/SkipTLSVerify on the
+        main-process object before a preserve-db respawn when those keys change;
+        LIVE worker sync never applies them.
         When ``preserve_db`` is False the caller must reset the search DB and respawn workers.
         """
         name = self._name
@@ -1515,36 +1688,52 @@ class ArrBase(
 
         return search_commands
 
-    def _get_oversee_requests_all(self) -> dict[str, set]:
-        from qBitrr.arss.request_providers import (
-            _get_oversee_requests_all as __get_oversee_requests_all,
-        )
+    def _overseerr_request_media_type(self) -> str | None:
+        """Overseerr media filter (``movie`` / ``tv``); None when unsupported."""
+        return None
 
-        return __get_oversee_requests_all(self)
+    def _add_overseerr_type_ids(self, media: dict, data: defaultdict) -> None:
+        """Add Arr-type external IDs from an Overseerr media blob into ``data``."""
+        return
+
+    def _overseerr_request_count(self) -> int:
+        """Count cached Overseerr request IDs relevant to this Arr type."""
+        return 0
+
+    def _ombi_request_total_path(self) -> str | None:
+        """Ombi total-count API path, or None when Ombi is unsupported."""
+        return None
+
+    def _ombi_request_list_path(self) -> str | None:
+        """Ombi request-list API path, or None when Ombi is unsupported."""
+        return None
+
+    def _ombi_should_include_request(self, request: dict) -> bool:
+        """Return True if an Ombi request should be treated as searchable."""
+        return False
+
+    def _add_ombi_request_ids(self, request: dict, data: defaultdict) -> None:
+        """Add Arr-type external IDs from an Ombi request into ``data``."""
+        return
+
+    def _db_request_update_impl(self, request_ids: dict[str, set[int | str]]) -> None:
+        """Match request IDs against Arr library and mark matching entries as requests."""
+        return
+
+    def _get_oversee_requests_all(self) -> dict[str, set]:
+        return _get_oversee_requests_all_fn(self)
 
     def _get_overseerr_requests_count(self) -> int:
-        from qBitrr.arss.request_providers import (
-            _get_overseerr_requests_count as __get_overseerr_requests_count,
-        )
-
-        return __get_overseerr_requests_count(self)
+        return _get_overseerr_requests_count_fn(self)
 
     def _get_ombi_request_count(self) -> int:
-        from qBitrr.arss.request_providers import (
-            _get_ombi_request_count as __get_ombi_request_count,
-        )
-
-        return __get_ombi_request_count(self)
+        return _get_ombi_request_count_fn(self)
 
     def _get_ombi_requests(self) -> list[dict]:
-        from qBitrr.arss.request_providers import _get_ombi_requests as __get_ombi_requests
-
-        return __get_ombi_requests(self)
+        return _get_ombi_requests_fn(self)
 
     def _process_ombi_requests(self) -> dict[str, set[str, int]]:
-        from qBitrr.arss.request_providers import _process_ombi_requests as __process_ombi_requests
-
-        return __process_ombi_requests(self)
+        return _process_ombi_requests_fn(self)
 
     def _search_todays(self, condition):
         if self.prioritize_todays_release:
@@ -1580,83 +1769,86 @@ class ArrBase(
     def db_get_files(
         self,
     ) -> Iterable[
-        tuple[MoviesFilesModel | EpisodeFilesModel | SeriesFilesModel, bool, bool, bool, int]
+        tuple[
+            MoviesFilesModel | EpisodeFilesModel | SeriesFilesModel | AlbumFilesModel,
+            bool,
+            bool,
+            bool,
+            int,
+        ]
     ]:
         return _db_get_files_fn(self)
+
+    def _db_get_files_impl(
+        self,
+    ) -> Iterable[
+        tuple[
+            MoviesFilesModel | EpisodeFilesModel | SeriesFilesModel | AlbumFilesModel,
+            bool,
+            bool,
+            bool,
+            int,
+        ]
+    ]:
+        """Yield search candidates; implemented on RadarrArr / SonarrArr / LidarrArr."""
+        raise UnhandledError(f"{type(self).__name__} must implement _db_get_files_impl")
 
     def db_maybe_reset_entry_searched_state(self):
         return _db_maybe_reset_entry_searched_state_fn(self)
 
-    def db_reset__series_searched_state(self):
-        from qBitrr.arss.db_queries import (
-            db_reset__series_searched_state as _db_reset__series_searched_state,
+    def _db_maybe_reset_searched_state_impl(self) -> None:
+        """Reset searched flags after a completed loop; implemented on concretes."""
+        raise UnhandledError(
+            f"{type(self).__name__} must implement _db_maybe_reset_searched_state_impl"
         )
 
-        return _db_reset__series_searched_state(self)
+    def db_reset__series_searched_state(self):
+        return _db_reset__series_searched_state_fn(self)
 
     def db_reset__episode_searched_state(self):
-        from qBitrr.arss.db_queries import (
-            db_reset__episode_searched_state as _db_reset__episode_searched_state,
-        )
-
-        return _db_reset__episode_searched_state(self)
+        return _db_reset__episode_searched_state_fn(self)
 
     def db_reset__movie_searched_state(self):
-        from qBitrr.arss.db_queries import (
-            db_reset__movie_searched_state as _db_reset__movie_searched_state,
-        )
-
-        return _db_reset__movie_searched_state(self)
+        return _db_reset__movie_searched_state_fn(self)
 
     def db_reset__album_searched_state(self):
-        from qBitrr.arss.db_queries import (
-            db_reset__album_searched_state as _db_reset__album_searched_state,
-        )
-
-        return _db_reset__album_searched_state(self)
+        return _db_reset__album_searched_state_fn(self)
 
     def _db_search_quality_cf_condition(self, *, missing_file_field):
-        from qBitrr.arss.db_queries import (
-            _db_search_quality_cf_condition as __db_search_quality_cf_condition,
-        )
-
-        return __db_search_quality_cf_condition(self, missing_file_field=missing_file_field)
+        return _db_search_quality_cf_condition_fn(self, missing_file_field=missing_file_field)
 
     def db_get_files_series(self) -> list[list[SeriesFilesModel, bool, bool]] | None:
-        from qBitrr.arss.db_queries import db_get_files_series as _db_get_files_series
-
-        return _db_get_files_series(self)
+        return _db_get_files_series_fn(self)
 
     def db_get_files_episodes(self) -> list[list[EpisodeFilesModel, bool, bool]] | None:
-        from qBitrr.arss.db_queries import db_get_files_episodes as _db_get_files_episodes
-
-        return _db_get_files_episodes(self)
+        return _db_get_files_episodes_fn(self)
 
     def db_get_files_movies(self) -> list[list[MoviesFilesModel, bool, bool]] | None:
-        from qBitrr.arss.db_queries import db_get_files_movies as _db_get_files_movies
+        return _db_get_files_movies_fn(self)
 
-        return _db_get_files_movies(self)
+    def db_get_files_albums(self) -> list[list[AlbumFilesModel, bool, bool]] | None:
+        return _db_get_files_albums_fn(self)
 
     def db_get_request_files(self) -> Iterable[tuple[MoviesFilesModel | EpisodeFilesModel, int]]:
         return _db_get_request_files_fn(self)
+
+    def _db_get_request_files_impl(
+        self,
+    ) -> Iterable[tuple[MoviesFilesModel | EpisodeFilesModel, int]]:
+        """Yield request-tagged rows; Radarr/Sonarr override, Lidarr yields nothing."""
+        return iter(())
 
     def db_request_update(self):
         return _db_request_update_fn(self)
 
     def _db_request_update(self, request_ids: dict[str, set[int | str]]):
-        from qBitrr.arss.request_providers import _db_request_update as __db_request_update
-
-        return __db_request_update(self, request_ids)
+        return self._db_request_update_impl(request_ids)
 
     def db_overseerr_update(self):
-        from qBitrr.arss.request_providers import db_overseerr_update as _db_overseerr_update
-
-        return _db_overseerr_update(self)
+        return _db_overseerr_update_fn(self)
 
     def db_ombi_update(self):
-        from qBitrr.arss.request_providers import db_ombi_update as _db_ombi_update
-
-        return _db_ombi_update(self)
+        return _db_ombi_update_fn(self)
 
     def db_update_todays_releases(self):
         if not self.prioritize_todays_release:
@@ -1708,11 +1900,7 @@ class ArrBase(
         raise UnhandledError(f"{type(self).__name__} must implement _db_update_media")
 
     def minimum_availability_check(self, db_entry: JsonObject) -> bool:
-        from qBitrr.radarr_availability import (
-            minimum_availability_check as _minimum_availability_check,
-        )
-
-        return _minimum_availability_check(self, db_entry)
+        return _minimum_availability_check_fn(self, db_entry)
 
     def db_update_single_series(
         self,
@@ -1721,11 +1909,7 @@ class ArrBase(
         series: bool = False,
         artist: bool = False,
     ):
-        from qBitrr.arss.db_update_handlers import (
-            db_update_single_series as _db_update_single_series,
-        )
-
-        return _db_update_single_series(self, db_entry, request, series, artist)
+        return _db_update_single_series_fn(self, db_entry, request, series, artist)
 
     def _db_update_single_entry(
         self,
@@ -2884,24 +3068,39 @@ class ArrBase(
 
         return temp_quality_profile_ids
 
+    def _iter_temp_profile_items(self) -> list[dict]:
+        """Return Arr library items considered for force temp-profile reset."""
+        raise UnhandledError(f"{type(self).__name__} must implement _iter_temp_profile_items")
+
+    def _temp_profile_item_label(self) -> str:
+        """Human-readable entity label for force-reset logs (movie/series/artist)."""
+        raise UnhandledError(f"{type(self).__name__} must implement _temp_profile_item_label")
+
+    def _update_item_quality_profile(self, item: dict) -> bool:
+        """Persist ``item`` qualityProfileId via Arr API; return True on success."""
+        raise UnhandledError(f"{type(self).__name__} must implement _update_item_quality_profile")
+
+    def _temp_profile_db_model(self):
+        """Peewee model used for temp-profile timeout tracking."""
+        raise UnhandledError(f"{type(self).__name__} must implement _temp_profile_db_model")
+
+    def _temp_profile_timeout_entity_label(self) -> str:
+        """Human-readable entity label for timeout logs (movie/episode/artist)."""
+        raise UnhandledError(
+            f"{type(self).__name__} must implement _temp_profile_timeout_entity_label"
+        )
+
+    def _reset_timed_out_temp_profile(self, db_item, original_profile: int) -> None:
+        """Reset a timed-out DB row's Arr entity back to ``original_profile``."""
+        raise UnhandledError(f"{type(self).__name__} must implement _reset_timed_out_temp_profile")
+
     def _reset_all_temp_profiles(self):
         """Reset all items using temp profiles back to their original main profiles on startup."""
         reset_count = 0
 
         try:
-            # Get all items from Arr instance (use arr_type, not section-name prefix)
-            if self.type == "radarr":
-                items = self.client.movie.get()
-                item_type = "movie"
-            elif self.type == "sonarr":
-                items = self.client.series.get()
-                item_type = "series"
-            elif self.type == "lidarr":
-                items = self.client.artist.get()
-                item_type = "artist"
-            else:
-                self.logger.warning("Unknown Arr type for temp profile reset: %s", self.type)
-                return
+            items = self._iter_temp_profile_items()
+            item_type = self._temp_profile_item_label()
 
             self.logger.info("Checking %d %ss for temp profile resets...", len(items), item_type)
 
@@ -2917,13 +3116,7 @@ class ArrBase(
                     from_profile_id = profile_id
                     to_profile_id = original_id
 
-                    if item_type == "movie":
-                        update_fn = lambda item=item: self.client.movie.update(data=item)
-                    elif item_type == "series":
-                        update_fn = lambda item=item: self.client.series.update(data=item)
-                    else:
-                        update_fn = lambda item=item: self.client.artist.update(data=item)
-                    if self._retry_profile_switch_update(update_fn, item_type):
+                    if self._update_item_quality_profile(item):
                         reset_count += 1
                         self.logger.info(
                             f"Reset {item_type} '{item_name}' "
@@ -2951,21 +3144,8 @@ class ArrBase(
         reset_count = 0
 
         try:
-            # Query database for items with expired temp profiles
-            db1, db2, db3, db4, db5 = self._get_models()
-
-            # Determine which model to use (arr_type, not section-name prefix)
-            if self.type == "radarr":
-                model = self.movies_file_model
-                item_type = "movie"
-            elif self.type == "sonarr":
-                model = self.model_file  # episodes
-                item_type = "episode"
-            elif self.type == "lidarr":
-                model = self.artists_file_model
-                item_type = "artist"
-            else:
-                return
+            model = self._temp_profile_db_model()
+            item_type = self._temp_profile_timeout_entity_label()
 
             # Find items with temp profiles that have exceeded timeout
             expired_items = model.select().where(
@@ -2993,20 +3173,7 @@ class ArrBase(
 
                 # Reset to original profile via Arr API
                 try:
-                    if item_type == "movie":
-                        item = self.client.movie.get(item_id=entry_id)
-                        item["qualityProfileId"] = original_profile
-                        self.client.movie.update(data=item)
-                    elif item_type == "episode":
-                        # For episodes, we need to update the series
-                        series_id = db_item.SeriesId
-                        series = self.client.series.get(item_id=series_id)
-                        series["qualityProfileId"] = original_profile
-                        self.client.series.update(data=series)
-                    elif item_type == "artist":
-                        artist = self.client.artist.get(item_id=entry_id)
-                        artist["qualityProfileId"] = original_profile
-                        self.client.artist.update(data=artist)
+                    self._reset_timed_out_temp_profile(db_item, original_profile)
 
                     # Clear tracking fields in database
                     model.update(
@@ -3098,12 +3265,11 @@ class ArrBase(
     def build_queue_caches_from_queue(
         self, queue: list[dict[str, Any]]
     ) -> tuple[dict[Any, Any], set[Any]]:
-        """Build requeue/file-id caches from a refreshed download queue."""
-        from qBitrr.arss.arr_type_config import build_queue_caches
+        """Build requeue/file-id caches from a refreshed download queue.
 
-        return build_queue_caches(
-            self.type, queue, series_search=bool(getattr(self, "series_search", False))
-        )
+        RadarrArr / SonarrArr / LidarrArr override with type-specific id fields.
+        """
+        return {}, set()
 
     def maybe_do_search(
         self,

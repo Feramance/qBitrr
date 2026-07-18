@@ -2,31 +2,42 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections import defaultdict
+from collections.abc import Callable, Iterable
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 import requests
 from ujson import JSONDecodeError
 
+from qBitrr.arr_client import (
+    JsonObject,
+    PyarrResourceNotFound,
+    Sonarr,
+    build_sonarr_client,
+    execute_command,
+)
 from qBitrr.arss._shared import (
     _ARR_RETRY_EXCEPTIONS,
     _ARR_RETRY_EXCEPTIONS_EXTENDED,
-    TAGLESS,
-    EpisodeFilesModel,
-    EpisodeQueueModel,
-    JsonObject,
-    PyarrResourceNotFound,
-    SeriesFilesModel,
-    Sonarr,
-    TorrentLibrary,
-    execute_command,
     with_retry,
 )
-from qBitrr.arss.arr_type_config import collect_years_for_search as _collect_years_for_search
+from qBitrr.arss.arr_type_config import sonarr_queue_id_field
 from qBitrr.arss.base import ArrBase
-from qBitrr.arss.db_update_handlers import update_sonarr_episode, update_sonarr_series
+from qBitrr.arss.db_update_handlers import (
+    db_update_single_series,
+    update_sonarr_episode,
+    update_sonarr_series,
+)
 from qBitrr.arss.search_handlers import search_sonarr
+from qBitrr.config import TAGLESS
+from qBitrr.tables import (
+    EpisodeFilesModel,
+    EpisodeQueueModel,
+    MoviesFilesModel,
+    SeriesFilesModel,
+    TorrentLibrary,
+)
 
 if TYPE_CHECKING:
     from qBitrr.arss.manager import ArrManager
@@ -44,10 +55,181 @@ class SonarrArr(ArrBase):
         client_builder: Callable[..., Sonarr] | None = None,
     ):
         if client_builder is None:
-            from qBitrr.arss._shared import build_sonarr_client
-
             client_builder = build_sonarr_client
         super().__init__(name, manager, client_builder=client_builder)
+
+    def _db_get_files_impl(
+        self,
+    ) -> Iterable[tuple[EpisodeFilesModel | SeriesFilesModel, bool, bool, bool, int]]:
+        from qBitrr.arss.db_queries import db_get_files_episodes, db_get_files_series
+
+        if self.series_search is True:
+            serieslist = db_get_files_series(self)
+            if not serieslist:
+                return
+            for series in serieslist:
+                yield series[0], series[1], series[2], series[2] is not True, len(serieslist)
+            return
+
+        if self.series_search == "smart":
+            # Smart mode: decide dynamically based on what needs to be searched
+            episodelist = db_get_files_episodes(self)
+            if not episodelist:
+                return
+            # Group episodes by series to determine if we should search by series or episode
+            series_episodes_map: dict[Any, list] = {}
+            for episode_entry in episodelist:
+                episode = episode_entry[0]
+                series_id = episode.SeriesId
+                if series_id not in series_episodes_map:
+                    series_episodes_map[series_id] = []
+                series_episodes_map[series_id].append(episode_entry)
+
+            for series_id, episodes in series_episodes_map.items():
+                if len(episodes) > 1:
+                    self.logger.info(
+                        "[SMART MODE] Using series search for %s episodes from series ID %s",
+                        len(episodes),
+                        series_id,
+                    )
+                    series_model = (
+                        self.series_file_model.select()
+                        .where(
+                            (self.series_file_model.EntryId == series_id)
+                            & (self.series_file_model.ArrInstance == self._name)
+                        )
+                        .first()
+                    )
+                    if series_model:
+                        yield series_model, episodes[0][1], episodes[0][2], True, len(episodelist)
+                else:
+                    episode = episodes[0][0]
+                    self.logger.info(
+                        "[SMART MODE] Using episode search for single episode: %s S%02dE%03d",
+                        episode.SeriesTitle,
+                        episode.SeasonNumber,
+                        episode.EpisodeNumber,
+                    )
+                    yield episodes[0][0], episodes[0][1], episodes[0][2], False, len(episodelist)
+            return
+
+        # series_search is False (episode search)
+        episodelist = db_get_files_episodes(self)
+        if not episodelist:
+            return
+        for episodes in episodelist:
+            yield episodes[0], episodes[1], episodes[2], False, len(episodelist)
+
+    def _db_maybe_reset_searched_state_impl(self) -> None:
+        from qBitrr.arss.db_queries import (
+            db_reset__episode_searched_state,
+            db_reset__series_searched_state,
+        )
+
+        db_reset__series_searched_state(self)
+        db_reset__episode_searched_state(self)
+
+    def _db_get_request_files_impl(
+        self,
+    ) -> Iterable[tuple[MoviesFilesModel | EpisodeFilesModel, int]]:
+        from qBitrr.arss.db_queries import db_get_request_files_sonarr
+
+        return db_get_request_files_sonarr(self)
+
+    def _overseerr_request_media_type(self) -> str | None:
+        return "tv"
+
+    def _add_overseerr_type_ids(self, media: dict, data: defaultdict) -> None:
+        if tvdbId := media.get("tvdbId"):
+            data["TvdbId"].add(tvdbId)
+
+    def _overseerr_request_count(self) -> int:
+        return len(
+            self._temp_overseer_request_cache.get("TvdbId", [])
+            or self._temp_overseer_request_cache.get("ImdbId", [])
+        )
+
+    def _ombi_request_total_path(self) -> str | None:
+        return "/api/v1/Request/tv/total"
+
+    def _ombi_request_list_path(self) -> str | None:
+        return "/api/v1/Request/tvlite"
+
+    def _ombi_should_include_request(self, request: dict) -> bool:
+        if not self.ombi_approved_only:
+            return True
+        # Partial approvals are searchable when any child request is approved.
+        children = request.get("childRequests") or []
+        return any(child.get("denied") is not True for child in children)
+
+    def _add_ombi_request_ids(self, request: dict, data: defaultdict) -> None:
+        if tvDbId := request.get("tvDbId"):
+            data["TvdbId"].add(tvDbId)
+
+    def _db_request_update_impl(self, request_ids: dict[str, set[int | str]]) -> None:
+        if not any(i in request_ids for i in ["ImdbId", "TvdbId"]):
+            return
+        TvdbIds = request_ids.get("TvdbId")
+        ImdbIds = request_ids.get("ImdbId")
+        series = with_retry(
+            lambda: self.client.series.get(),
+            retries=5,
+            backoff=0.5,
+            max_backoff=5,
+            exceptions=_ARR_RETRY_EXCEPTIONS,
+        )
+        for s in series:
+            episodes = with_retry(
+                lambda s=s: self.client.episode.get(series_id=s["id"]),
+                retries=5,
+                backoff=0.5,
+                max_backoff=5,
+                exceptions=_ARR_RETRY_EXCEPTIONS,
+            )
+            for e in episodes:
+                if "airDateUtc" in e:
+                    if datetime.strptime(e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ").replace(
+                        tzinfo=timezone.utc
+                    ) > datetime.now(timezone.utc):
+                        continue
+                    if not self.search_specials and e["seasonNumber"] == 0:
+                        continue
+                    if TvdbIds and ImdbIds and "tvdbId" in e and "imdbId" in e:
+                        if s["tvdbId"] not in TvdbIds or s["imdbId"] not in ImdbIds:
+                            continue
+                    if ImdbIds and "imdbId" in e:
+                        if s["imdbId"] not in ImdbIds:
+                            continue
+                    if TvdbIds and "tvdbId" in e:
+                        if s["tvdbId"] not in TvdbIds:
+                            continue
+                    if not e["monitored"]:
+                        continue
+                    if e["episodeFileId"] != 0:
+                        continue
+                    db_update_single_series(self, db_entry=e, request=True)
+
+    def _iter_temp_profile_items(self) -> list[dict]:
+        return self.client.series.get()
+
+    def _temp_profile_item_label(self) -> str:
+        return "series"
+
+    def _update_item_quality_profile(self, item: dict) -> bool:
+        return self._retry_profile_switch_update(
+            lambda: self.client.series.update(data=item), "series"
+        )
+
+    def _temp_profile_db_model(self):
+        return self.model_file
+
+    def _temp_profile_timeout_entity_label(self) -> str:
+        return "episode"
+
+    def _reset_timed_out_temp_profile(self, db_item, original_profile: int) -> None:
+        series = self.client.series.get(item_id=db_item.SeriesId)
+        series["qualityProfileId"] = original_profile
+        self.client.series.update(data=series)
 
     def _init_search_api_command(self) -> None:
         if (
@@ -158,8 +340,51 @@ class SonarrArr(ArrBase):
             return "seriesId", None
         return "episodeId", "EpisodeFileId"
 
+    def build_queue_caches_from_queue(
+        self, queue: list[dict[str, Any]]
+    ) -> tuple[dict[Any, Any], set[Any]]:
+        field = sonarr_queue_id_field(series_search=bool(self.series_search))
+        requeue: dict[Any, set[Any]] = defaultdict(set)
+        for entry in queue:
+            if media_id := entry.get(field):
+                requeue[entry["id"]].add(media_id)
+        file_ids = {entry[field] for entry in queue if entry.get(field)}
+        return requeue, file_ids
+
     def collect_years_for_search(self) -> list[int]:
-        return _collect_years_for_search(self)
+        years_list: set[int] = set()
+        series = with_retry(
+            lambda: self.client.series.get(),
+            retries=3,
+            backoff=0.5,
+            max_backoff=3,
+            exceptions=_ARR_RETRY_EXCEPTIONS_EXTENDED,
+        )
+        for show in series:
+            episodes = with_retry(
+                lambda s=show: self.client.episode.get(series_id=s["id"]),
+                retries=3,
+                backoff=0.5,
+                max_backoff=3,
+                exceptions=_ARR_RETRY_EXCEPTIONS_EXTENDED,
+            )
+            for episode in episodes:
+                if "airDateUtc" not in episode:
+                    continue
+                if not self.search_specials and episode["seasonNumber"] == 0:
+                    continue
+                if not episode["monitored"]:
+                    continue
+                years_list.add(
+                    datetime.strptime(episode["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ")
+                    .replace(tzinfo=timezone.utc)
+                    .year
+                )
+        ordered = dict.fromkeys(years_list)
+        reverse = bool(getattr(self, "search_in_reverse", False))
+        return [
+            key for key, _ in sorted(ordered.items(), key=lambda item: item[0], reverse=reverse)
+        ]
 
     def _re_search_failed_media(self, object_id: Any) -> None:
         object_ids = list(object_id)

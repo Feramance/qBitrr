@@ -1,9 +1,30 @@
 from __future__ import annotations
 
+import threading
 import time
 
 from qBitrr.config_reload_policy import ReloadPlan
 from qBitrr.webui.urlbase import _install_url_base_middleware, configured_url_base
+
+# Full-restart keys that only rebuild PlaceHolder workers — Arr search DBs stay on disk.
+_PLACEHOLDER_RENAME_FULL_KEYS = frozenset(
+    {
+        "Settings.FailedCategory",
+        "Settings.RecheckCategory",
+    }
+)
+
+
+def full_restart_is_placeholder_rename_only(full_restart_keys: list[str]) -> bool:
+    """Return True when every full-restart key is a PlaceHolder category rename."""
+    if not full_restart_keys:
+        return False
+    for key in full_restart_keys:
+        if not any(
+            key.casefold() == member.casefold() for member in _PLACEHOLDER_RENAME_FULL_KEYS
+        ):
+            return False
+    return True
 
 
 def _config():
@@ -26,7 +47,7 @@ class LifecycleMixin:
                     arr.apply_config_refresh(preserve_db=True)
                 break
 
-    def _reload_all(self):
+    def _reload_all(self, *, delete_arr_dbs: bool = True):
         # Set rebuilding flag
         self._rebuilding_arrs = True
         try:
@@ -44,7 +65,12 @@ class LifecycleMixin:
             self.manager._process_registry.clear()
 
             # Delete database files for all arr instances before rebuilding
-            if hasattr(self.manager, "arr_manager") and self.manager.arr_manager:
+            # (skipped for PlaceHolder-only renames: FailedCategory / RecheckCategory)
+            if (
+                delete_arr_dbs
+                and hasattr(self.manager, "arr_manager")
+                and self.manager.arr_manager
+            ):
                 for arr in self.manager.arr_manager.managed_objects.values():
                     try:
                         if hasattr(arr, "search_db_file") and arr.search_db_file:
@@ -67,6 +93,10 @@ class LifecycleMixin:
                         self.logger.warning(
                             "Failed to delete database files for %s: %s", arr._name, e
                         )
+            elif not delete_arr_dbs:
+                self.logger.info(
+                    "Preserving Arr search databases during full reload (PlaceHolder rename)"
+                )
 
             # Rebuild arr manager from config and spawn fresh
             from qBitrr.arss import ArrManager
@@ -106,10 +136,26 @@ class LifecycleMixin:
             self.app.config.pop("APPLICATION_ROOT", None)
         self.app.config["SESSION_COOKIE_PATH"] = f"{url_base}/" if url_base else "/"
 
+    def _close_waitress_server(self) -> None:
+        """Close the active Waitress server handle if present."""
+        server = self._server
+        if server is None:
+            return
+        try:
+            server.close()
+        except Exception as exc:
+            self.logger.error(
+                "Failed to close WebUI Waitress server during rebind: %s",
+                exc,
+                exc_info=True,
+            )
+
     def _restart_webui(self):
         """
         Gracefully restart the WebUI server without affecting Arr processes.
-        This is used when WebUI.Host, WebUI.Port, or WebUI.Token changes.
+
+        Token and UrlBase soft-apply without rebinding. Host/Port changes close the
+        prior Waitress server and start a new one on the updated bind address.
         """
         self.logger.notice("WebUI restart requested (config changed)")
 
@@ -128,7 +174,7 @@ class LifecycleMixin:
         self._apply_webui_runtime_settings()
 
         # Check if restart is actually needed
-        needs_restart = new_host != self.host or new_port != self.port
+        needs_restart = new_host != self.host or int(new_port) != int(self.port)
 
         # Token can be updated without restart
         if new_token != self.token:
@@ -139,15 +185,50 @@ class LifecycleMixin:
             self.logger.info("WebUI Host/Port unchanged, restart not required")
             return
 
-        # Update host/port
+        old_host, old_port = self.host, self.port
         self.host = new_host
-        self.port = new_port
+        self.port = int(new_port)
 
-        # Signal restart
-        self._restart_requested = True
+        self.logger.info(
+            "WebUI rebinding from %s:%s to %s:%s",
+            old_host,
+            old_port,
+            self.host,
+            self.port,
+        )
+
+        # Own the rebind: signal shutdown, close prior handle, join serve thread, start again.
+        # Clear _restart_requested so _serve's finally does not double-start.
+        self._restart_requested = False
         self._shutdown_event.set()
+        self._close_waitress_server()
 
-        self.logger.info("WebUI will restart on %s:%s", self.host, self.port)
+        thread = self._thread
+        if thread is not None and thread.is_alive() and threading.current_thread() is not thread:
+            thread.join(timeout=10)
+            if thread.is_alive():
+                self.logger.error(
+                    "WebUI serve thread did not stop after server close; "
+                    "rebind to %s:%s may fail. Restart the qBitrr process to apply Host/Port.",
+                    self.host,
+                    self.port,
+                )
+
+        self._thread = None
+        self._server = None
+
+        try:
+            self.start()
+            self.logger.success("WebUI rebound to %s:%s", self.host, self.port)
+        except Exception as exc:
+            self.logger.error(
+                "WebUI rebind to %s:%s failed: %s. "
+                "Restart the qBitrr process to apply Host/Port.",
+                self.host,
+                self.port,
+                exc,
+                exc_info=True,
+            )
 
     def _stop_arr_instance(self, arr, category: str, *, delete_db: bool = True):
         """Stop and cleanup a single Arr instance."""

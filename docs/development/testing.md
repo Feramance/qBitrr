@@ -20,6 +20,8 @@ Notable modules under `tests/`: config first-boot, live-reload characterization,
 
 ```bash
 cd webui && npm test
+# Coverage report (text + HTML under webui/coverage/; no thresholds enforced):
+cd webui && npm run test:coverage
 ```
 
 ### Manual / live smoke

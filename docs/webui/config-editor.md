@@ -121,7 +121,7 @@ AutoUpdateCron = "0 3 * * 0"
 - **Theme**: Visual theme (`Light` or `Dark`) — **changes apply immediately**
 - **View Density**: List density (`Comfortable` or `Compact`) — applied on next load
 
-Sonarr/Lidarr browse always uses rows + detail modals (Sonarr: series→season→episode; Lidarr: artist→album→track).
+Sonarr/Lidarr browse always uses rows + detail modals (Sonarr: series→season→episode; Lidarr: artist→album→track). Flat episode/album browse lists are permanently gone — there is no View Density or config toggle to restore them.
 
 **Example**:
 ```toml
@@ -145,7 +145,8 @@ ViewDensity = "Comfortable"
 
 - **Theme**: Changes apply immediately via JavaScript (no save required)
 - **ViewDensity**: Persisted to config; applied when the page is loaded
-- **Host/Port/Token**: Trigger WebUI restart after save
+- **Host/Port**: Trigger a Waitress rebind (close prior server, bind new host/port)
+- **Token / UrlBase**: Soft-apply in-process without rebinding the listen socket
 
 ---
 
@@ -670,11 +671,11 @@ The backend uses **intelligent reload detection** to minimize disruption (aligne
 | **Frontend-only** (`WebUI.Theme`, `WebUI.LiveArr`, `WebUI.ViewDensity`) | `frontend` | No backend reload (Theme applies immediately; ViewDensity applies on next load) |
 | **Live** (`Settings.LoopSleepTimer`, `FreeSpace`, most Arr `Torrent.*` / `EntrySearch.*` flags, …) | `live` | No worker restart; Arr LIVE workers sync via `_sync_loop_settings_from_config` → `_apply_arr_live_attrs_from_config` |
 | **qBit hot** (`qBit.ManagedCategories`, `CategorySeeding.*`, `Trackers`, …) | `qbit_hot` | Refresh in-memory qBit category managers without respawn |
-| **WebUI Server** (`WebUI.Host`, `WebUI.Port`, `WebUI.Token`, OIDC, …) | `webui` | Restart WebUI server (brief downtime) |
+| **WebUI Server** (`WebUI.Host`, `WebUI.Port`, OIDC, …) | `webui` | Rebind Waitress on Host/Port; Token/UrlBase soft-apply without rebind when possible |
 | **Arr preserve DB** (`URI`, `APIKey`, `Category`, `Managed`, `importMode`, …) | `single_arr` / `multi_arr` | Respawn affected Arr workers; **keep** search DB |
 | **Arr reset DB** (quality-profile / temp-profile mapping keys under `EntrySearch.*`) | `single_arr` / `multi_arr` | Respawn affected Arr workers; **reset** search DB |
-| **Full restart** (qBit connection, `Logging`, `Tagless`, process-restart gates, …) | `full` | Reload all components |
-| **PlaceHolder rebuild** (`Settings.FailedCategory`, `Settings.RecheckCategory`) | `full` | Full restart required — category names are registered at ArrManager init |
+| **Full restart** (qBit connection, `Logging`, `Tagless`, process-restart gates, …) | `full` | Reload all components; **wipe** Arr search DBs |
+| **PlaceHolder rebuild** (`Settings.FailedCategory`, `Settings.RecheckCategory`) | `full` | Rebuild ArrManager/PlaceHolders under new category names; **keep** Arr search DBs |
 
 ### API Response
 
