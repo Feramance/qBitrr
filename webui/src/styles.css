@@ -6,8 +6,10 @@
 [data-theme="dark"] {
     --bg: #101114;
     --surface: #1b1e22;
+    --card-bg: #1b1e22;
     --on-surface: #eaeef2;
     --muted: #9aa3ac;
+    --text-muted: #9aa3ac;
     --primary: #3b82f6;
     --primary-variant: #2563eb;
     --success: #22c55e;
@@ -21,8 +23,10 @@
 [data-theme="light"] {
     --bg: #f5f5f7;
     --surface: #ffffff;
+    --card-bg: #ffffff;
     --on-surface: #1d1d1f;
     --muted: #6e6e73;
+    --text-muted: #6e6e73;
     --primary: #2563eb;
     --primary-variant: #1d4ed8;
     --success: #34c759;
@@ -131,7 +135,7 @@ body {
     font-size: 20px;
     font-weight: 700;
     letter-spacing: -0.02em;
-    color: #ffffff;
+    color: var(--on-surface);
 }
 .icon.appbar__logo {
     width: 42px;
@@ -148,7 +152,7 @@ body {
 }
 
 [data-theme="light"] .appbar h1 {
-    color: #ffffff;
+    color: var(--on-surface);
 }
 .appbar__version {
     font-size: 12px;
@@ -875,9 +879,23 @@ body {
     font-weight: 600;
 }
 
+.table-badge-reason--idle {
+    background: rgba(153, 162, 173, 0.12);
+    border-color: rgba(153, 162, 173, 0.3);
+    color: var(--muted);
+    font-family: inherit;
+    font-weight: 500;
+}
+
 [data-theme="light"] .table-badge-reason {
     background: rgba(255, 149, 0, 0.1);
     border-color: rgba(255, 149, 0, 0.3);
+}
+
+[data-theme="light"] .table-badge-reason--idle {
+    background: rgba(153, 162, 173, 0.1);
+    border-color: rgba(153, 162, 173, 0.25);
+    color: var(--muted);
 }
 
 .field label {
@@ -1015,6 +1033,10 @@ th {
 tbody tr {
     transition: background-color 0.1s ease, transform 0.08s ease;
     border-left: 3px solid transparent;
+}
+tbody tr[role="button"]:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: -2px;
 }
 tbody tr:hover {
     background: rgba(122, 162, 247, 0.05);
@@ -2549,11 +2571,16 @@ svg[height] {
     border-radius: 0 0 16px 16px;
 }
 .modal-footer-note {
-    padding: 0 24px 16px;
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    padding: 10px 24px;
     font-size: 13px;
     color: var(--danger, #e57373);
     line-height: 1.4;
     white-space: pre-line;
+    background: color-mix(in srgb, var(--surface) 92%, var(--danger) 8%);
+    border-top: 1px solid rgba(229, 115, 115, 0.25);
 }
 .field--invalid input,
 .field--invalid select,
@@ -3536,6 +3563,80 @@ svg[height] {
     border-color: rgba(250, 204, 21, 0.35);
     color: var(--warning);
     flex-shrink: 0;
+}
+
+.arr-catalog-body {
+    position: relative;
+    min-height: 48px;
+}
+
+.arr-catalog-body__overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: color-mix(in srgb, var(--bg) 72%, transparent);
+    border-radius: 12px;
+    pointer-events: none;
+}
+
+.appbar__help {
+    position: relative;
+}
+
+.appbar__help-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    z-index: 40;
+    min-width: 160px;
+    display: grid;
+    gap: 4px;
+    padding: 8px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+.appbar__help-menu .btn {
+    justify-content: flex-start;
+    width: 100%;
+}
+
+.qbit-summary-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.qbit-summary-stat {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    min-width: 96px;
+}
+
+.qbit-summary-stat__label {
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.qbit-summary-stat__value {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--on-surface);
 }
 
 .live-switch {
@@ -4668,6 +4769,30 @@ svg[height] {
     gap: 6px;
     align-items: center;
     flex-shrink: 0;
+}
+
+.logs-toolbar__more {
+    position: relative;
+}
+
+.logs-toolbar__more-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    z-index: 30;
+    min-width: 160px;
+    display: grid;
+    gap: 4px;
+    padding: 8px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+.logs-toolbar__more-menu .btn {
+    justify-content: flex-start;
+    width: 100%;
 }
 
 .logs-live-dot {

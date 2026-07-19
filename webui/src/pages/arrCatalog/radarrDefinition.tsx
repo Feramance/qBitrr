@@ -7,6 +7,11 @@ import type {
   RadarrMoviesResponse,
 } from "../../api/types";
 import { RadarrMovieDetailBody } from "../../components/arr/RadarrMovieDetailBody";
+import {
+  ArrHasFileBadge,
+  ArrMonitoredBadge,
+  ArrReasonBadge,
+} from "../../components/arr/ArrStatusCells";
 import { summarizeAggregateMonitoredRows } from "../../constants/arrAggregateFetch";
 import { normalizeNumericId } from "../../utils/normalizeNumericId";
 import { radarrMovieThumbnailUrl } from "../../utils/arrThumbnailUrl";
@@ -82,28 +87,16 @@ const RADARR_INSTANCE_COLUMNS: ColumnDef<RadarrInstanceRow>[] = [
   {
     accessorKey: "monitored",
     header: "Monitored",
-    cell: (info) => {
-      const monitored = info.getValue() as boolean;
-      return (
-        <span className={`track-status ${monitored ? "available" : "missing"}`}>
-          {monitored ? "✓" : "✗"}
-        </span>
-      );
-    },
-    size: 100,
+    cell: (info) => (
+      <ArrMonitoredBadge monitored={Boolean(info.getValue())} />
+    ),
+    size: 120,
   },
   {
     accessorKey: "hasFile",
     header: "Has File",
-    cell: (info) => {
-      const hasFile = info.getValue() as boolean;
-      return (
-        <span className={`track-status ${hasFile ? "available" : "missing"}`}>
-          {hasFile ? "✓" : "✗"}
-        </span>
-      );
-    },
-    size: 100,
+    cell: (info) => <ArrHasFileBadge hasFile={Boolean(info.getValue())} />,
+    size: 110,
   },
   {
     accessorKey: "qualityProfileName",
@@ -117,20 +110,10 @@ const RADARR_INSTANCE_COLUMNS: ColumnDef<RadarrInstanceRow>[] = [
   {
     accessorKey: "reason",
     header: "Reason",
-    cell: (info) => {
-      const reason = info.getValue() as string | null;
-      if (!reason) {
-        return (
-          <span className="table-badge table-badge-reason">
-            Not being searched
-          </span>
-        );
-      }
-      return (
-        <span className="table-badge table-badge-reason">{reason}</span>
-      );
-    },
-    size: 120,
+    cell: (info) => (
+      <ArrReasonBadge reason={info.getValue() as string | null} />
+    ),
+    size: 140,
   },
 ];
 

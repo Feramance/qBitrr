@@ -139,10 +139,12 @@ function AppShell({
     },
     [activeTab, configDirty, markTabVisited, setSearchValue]
   );
-  const { viewDensity, setViewDensity, liveArr, setLiveArr } = useWebUI();
+  const { viewDensity, setViewDensity, theme, setTheme, liveArr, setLiveArr } =
+    useWebUI();
   const isOnline = useNetworkStatus();
   const [meta, setMeta] = useState<MetaResponse | null>(initialMeta);
   const [metaLoading, setMetaLoading] = useState(false);
+  const [showHelpMenu, setShowHelpMenu] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
   const [showAlreadyUpToDateModal, setShowAlreadyUpToDateModal] = useState(false);
   const [updateBusy, setUpdateBusy] = useState(false);
@@ -266,9 +268,10 @@ function AppShell({
         return;
       }
 
-      // ESC - Clear search
-      if (event.key === 'Escape') {
-        setSearchValue('');
+      // ESC - Clear search / close help menu
+      if (event.key === "Escape") {
+        setShowHelpMenu(false);
+        setSearchValue("");
         return;
       }
 
@@ -637,7 +640,7 @@ function AppShell({
                 Offline
               </span>
             )}
-            <div className="view-density-toggle">
+            <div className="view-density-toggle" title="View density">
               <button
                 type="button"
                 className={viewDensity === "comfortable" ? "active" : ""}
@@ -653,6 +656,22 @@ function AppShell({
                 title="Compact view"
               >
                 Compact
+              </button>
+            </div>
+            <div className="view-density-toggle" title="Theme">
+              <button
+                type="button"
+                className={theme === "dark" ? "active" : ""}
+                onClick={() => setTheme("dark")}
+              >
+                Dark
+              </button>
+              <button
+                type="button"
+                className={theme === "light" ? "active" : ""}
+                onClick={() => setTheme("light")}
+              >
+                Light
               </button>
             </div>
             <div className="live-switch">
@@ -683,34 +702,55 @@ function AppShell({
               <IconImage src={RefreshIcon} />
               {metaLoading ? "Checking..." : "Check Updates"}
             </button>
-            <a
-              href={repositoryUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="btn small ghost"
-            >
-              <IconImage src={ExternalIcon} />
-              GitHub
-            </a>
-            <a
-              href={webPath("/web/docs")}
-              target="_blank"
-              rel="noreferrer"
-              className="btn small ghost"
-              title="Interactive API docs (Swagger UI)"
-            >
-              <IconImage src={ExternalIcon} />
-              OpenAPI
-            </a>
-            <a
-              href="https://feramance.github.io/qBitrr/"
-              target="_blank"
-              rel="noreferrer"
-              className="btn small ghost"
-            >
-              <IconImage src={ExternalIcon} />
-              Docs
-            </a>
+            <div className="appbar__help">
+              <button
+                type="button"
+                className="btn small ghost"
+                aria-expanded={showHelpMenu}
+                aria-haspopup="menu"
+                onClick={() => setShowHelpMenu((v) => !v)}
+              >
+                Help
+              </button>
+              {showHelpMenu ? (
+                <div className="appbar__help-menu" role="menu">
+                  <a
+                    href={repositoryUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn small ghost"
+                    role="menuitem"
+                    onClick={() => setShowHelpMenu(false)}
+                  >
+                    <IconImage src={ExternalIcon} />
+                    GitHub
+                  </a>
+                  <a
+                    href={webPath("/web/docs")}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn small ghost"
+                    role="menuitem"
+                    title="Interactive API docs (Swagger UI)"
+                    onClick={() => setShowHelpMenu(false)}
+                  >
+                    <IconImage src={ExternalIcon} />
+                    OpenAPI
+                  </a>
+                  <a
+                    href="https://feramance.github.io/qBitrr/"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn small ghost"
+                    role="menuitem"
+                    onClick={() => setShowHelpMenu(false)}
+                  >
+                    <IconImage src={ExternalIcon} />
+                    Docs
+                  </a>
+                </div>
+              ) : null}
+            </div>
             {authRequired && (
               <button
                 type="button"

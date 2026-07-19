@@ -7,6 +7,7 @@ import { lidarrArtistThumbnailUrl } from "../../utils/arrThumbnailUrl";
 import { ArrExternalLink, ArrInstanceHint } from "./ArrExternalLink";
 import { ArrPosterImage } from "./ArrPosterImage";
 import { LidarrAlbumDetailBody } from "./LidarrAlbumDetailBody";
+import { ArrMonitoredBadge } from "./ArrStatusCells";
 
 export function LidarrArtistDetailBody({
   category,
@@ -83,7 +84,9 @@ export function LidarrArtistDetailBody({
           <dt>Artist</dt>
           <dd>{String(a?.["name"] ?? "—")}</dd>
           <dt>Monitored</dt>
-          <dd>{a?.["monitored"] ? "Yes" : "No"}</dd>
+          <dd>
+            <ArrMonitoredBadge monitored={Boolean(a?.["monitored"])} />
+          </dd>
           <dt>Albums</dt>
           <dd>{Number(a?.["albumCount"] ?? 0).toLocaleString()}</dd>
           <dt>Tracks (total)</dt>

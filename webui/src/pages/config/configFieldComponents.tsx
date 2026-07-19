@@ -322,7 +322,10 @@ export function FieldGroup({
     };
 
     return (
-      <details className="config-section" open={defaultOpen}>
+      <details
+        className="config-section"
+        open={defaultOpen || groupHasErrors || undefined}
+      >
         <summary>{title}</summary>
         <div className="config-section__body">
           <div className="field-description" style={{ marginBottom: '1rem' }}>
@@ -452,7 +455,10 @@ export function FieldGroup({
       onChange([...basePath, ...trackerPath], {} as FieldDefinition, nextTrackers);
     };
     return (
-      <details className="config-section" open={defaultOpen}>
+      <details
+        className="config-section"
+        open={defaultOpen || groupHasErrors || undefined}
+      >
         <summary>{title}</summary>
         <div className="config-section__body">
           {qbitTrackers && (

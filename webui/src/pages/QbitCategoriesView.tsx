@@ -272,27 +272,27 @@ export function QbitCategoriesView({ active }: QbitCategoriesViewProps): JSX.Ele
     [categories, search]
   );
 
-  // Honor Processes deep-link: expand the requested category once data is ready.
+  // Auto-expand small categories and honor Processes deep-link focus.
   useEffect(() => {
     if (!active || !filteredCategories.length) {
       return;
     }
     const focusCategory = sessionStorage.getItem("qbitrr:focusQbitCategory");
-    if (!focusCategory) {
-      return;
+    if (focusCategory) {
+      sessionStorage.removeItem("qbitrr:focusQbitCategory");
     }
-    sessionStorage.removeItem("qbitrr:focusQbitCategory");
     const id = window.setTimeout(() => {
       setExpanded((prev) => {
         let changed = false;
         const next = { ...prev };
         for (const cat of filteredCategories) {
-          if (cat.category === focusCategory) {
-            const key = categorySectionKey(cat);
-            if (!next[key]) {
-              next[key] = true;
-              changed = true;
-            }
+          const key = categorySectionKey(cat);
+          const shouldOpen =
+            cat.torrentCount <= 5 ||
+            (focusCategory != null && cat.category === focusCategory);
+          if (shouldOpen && !next[key]) {
+            next[key] = true;
+            changed = true;
           }
         }
         return changed ? next : prev;
@@ -333,19 +333,48 @@ export function QbitCategoriesView({ active }: QbitCategoriesViewProps): JSX.Ele
 
   const summaryLine = (
     <>
-      Monitored-category torrent overview
-      {selection && selection !== "aggregate"
-        ? ` · ${selection}`
-        : instances.length > 1
-          ? " · All qBittorrent"
-          : ""}
-      <br />
-      <strong>Categories:</strong> {summary.categoryCount} •{" "}
-      <strong>qBit-managed:</strong> {summary.qbitCount} •{" "}
-      <strong>Arr-managed:</strong> {summary.arrCount} •{" "}
-      <strong>Total Torrents:</strong> {summary.totalTorrents.toLocaleString()}{" "}
-      • <strong>Seeding:</strong> {summary.totalSeeding.toLocaleString()} •{" "}
-      <strong>Total Size:</strong> {formatBytes(summary.totalSize)}
+      <div>
+        Monitored-category torrent overview
+        {selection && selection !== "aggregate"
+          ? ` · ${selection}`
+          : instances.length > 1
+            ? " · All qBittorrent"
+            : ""}
+      </div>
+      <div className="qbit-summary-stats">
+        <div className="qbit-summary-stat">
+          <span className="qbit-summary-stat__label">Categories</span>
+          <span className="qbit-summary-stat__value">
+            {summary.categoryCount}
+          </span>
+        </div>
+        <div className="qbit-summary-stat">
+          <span className="qbit-summary-stat__label">qBit-managed</span>
+          <span className="qbit-summary-stat__value">{summary.qbitCount}</span>
+        </div>
+        <div className="qbit-summary-stat">
+          <span className="qbit-summary-stat__label">Arr-managed</span>
+          <span className="qbit-summary-stat__value">{summary.arrCount}</span>
+        </div>
+        <div className="qbit-summary-stat">
+          <span className="qbit-summary-stat__label">Torrents</span>
+          <span className="qbit-summary-stat__value">
+            {summary.totalTorrents.toLocaleString()}
+          </span>
+        </div>
+        <div className="qbit-summary-stat">
+          <span className="qbit-summary-stat__label">Seeding</span>
+          <span className="qbit-summary-stat__value">
+            {summary.totalSeeding.toLocaleString()}
+          </span>
+        </div>
+        <div className="qbit-summary-stat">
+          <span className="qbit-summary-stat__label">Total size</span>
+          <span className="qbit-summary-stat__value">
+            {formatBytes(summary.totalSize)}
+          </span>
+        </div>
+      </div>
     </>
   );
 

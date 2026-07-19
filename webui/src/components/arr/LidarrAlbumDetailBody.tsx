@@ -1,5 +1,10 @@
 import type { JSX } from "react";
 import type { LidarrAlbumEntry, LidarrTrack } from "../../api/types";
+import {
+  ArrHasFileBadge,
+  ArrMonitoredBadge,
+  ArrReasonBadge,
+} from "./ArrStatusCells";
 
 type Albumish = LidarrAlbumEntry & { __instance?: string };
 
@@ -42,18 +47,18 @@ export function LidarrAlbumDetailBody({
           {release ? new Date(release).toLocaleDateString() : "—"}
         </dd>
         <dt>Monitored</dt>
-        <dd>{monitored ? "Yes" : "No"}</dd>
+        <dd>
+          <ArrMonitoredBadge monitored={Boolean(monitored)} />
+        </dd>
         <dt>Has file</dt>
-        <dd>{hasFile ? "Yes" : "No"}</dd>
+        <dd>
+          <ArrHasFileBadge hasFile={Boolean(hasFile)} />
+        </dd>
         <dt>Quality profile</dt>
         <dd>{qProf}</dd>
         <dt>Reason</dt>
         <dd>
-          {reason ? (
-            <span className="table-badge table-badge-reason">{reason}</span>
-          ) : (
-            <span className="table-badge table-badge-reason">Not being searched</span>
-          )}
+          <ArrReasonBadge reason={reason} />
         </dd>
         {totals ? (
           <>
@@ -95,24 +100,10 @@ export function LidarrAlbumDetailBody({
                       : "—"}
                   </td>
                   <td data-label="Has File">
-                    <span
-                      className={`track-status ${
-                        track.hasFile ? "available" : "missing"
-                      }`}
-                    >
-                      {track.hasFile ? "✓" : "✗"}
-                    </span>
+                    <ArrHasFileBadge hasFile={Boolean(track.hasFile)} />
                   </td>
                   <td data-label="Reason">
-                    {trackReason ? (
-                      <span className="table-badge table-badge-reason">
-                        {trackReason}
-                      </span>
-                    ) : (
-                      <span className="table-badge table-badge-reason">
-                        Not being searched
-                      </span>
-                    )}
+                    <ArrReasonBadge reason={trackReason} />
                   </td>
                 </tr>
                 );

@@ -7,6 +7,11 @@ import type {
   LidarrArtistsResponse,
 } from "../../api/types";
 import { ArrMiniProgress } from "../../components/arr/ArrMiniProgress";
+import {
+  ArrListProgressCell,
+  ArrMonitoredBadge,
+  ArrReasonBadge,
+} from "../../components/arr/ArrStatusCells";
 import { LidarrArtistDetailBody } from "../../components/arr/LidarrArtistDetailBody";
 import { lidarrArtistThumbnailUrl } from "../../utils/arrThumbnailUrl";
 import { ArrCatalogIconTile } from "./ArrCatalogIconTile";
@@ -152,29 +157,49 @@ const LIDARR_INSTANCE_COLUMNS: ColumnDef<LidarrInstanceRow>[] = [
     header: "Albums",
     cell: ({ row }) => {
       const a = row.original.artist as Record<string, unknown>;
+      const avail = Number(a?.["albumsAvailable"] ?? NaN);
+      const miss = Number(a?.["albumsMissing"] ?? NaN);
+      if (Number.isFinite(avail) && Number.isFinite(miss)) {
+        return (
+          <ArrListProgressCell
+            label="Albums"
+            available={avail}
+            missing={miss}
+          />
+        );
+      }
       return Number(a?.["albumCount"] ?? 0).toLocaleString();
     },
+    size: 140,
   },
   {
     id: "tracks",
     header: "Tracks",
     cell: ({ row }) => {
       const a = row.original.artist as Record<string, unknown>;
+      const avail = Number(a?.["tracksAvailable"] ?? NaN);
+      const miss = Number(a?.["tracksMissing"] ?? NaN);
+      if (Number.isFinite(avail) && Number.isFinite(miss)) {
+        return (
+          <ArrListProgressCell
+            label="Tracks"
+            available={avail}
+            missing={miss}
+          />
+        );
+      }
       return Number(a?.["trackTotalCount"] ?? 0).toLocaleString();
     },
+    size: 140,
   },
   {
     id: "monitored",
     header: "Monitored",
     cell: ({ row }) => {
       const a = row.original.artist as Record<string, unknown>;
-      const monitored = Boolean(a?.["monitored"]);
-      return (
-        <span className={`track-status ${monitored ? "available" : "missing"}`}>
-          {monitored ? "✓" : "✗"}
-        </span>
-      );
+      return <ArrMonitoredBadge monitored={Boolean(a?.["monitored"])} />;
     },
+    size: 120,
   },
   {
     id: "qualityProfileName",
@@ -185,6 +210,17 @@ const LIDARR_INSTANCE_COLUMNS: ColumnDef<LidarrInstanceRow>[] = [
         (a?.["qualityProfileName"] as string | null | undefined) || "—"
       );
     },
+  },
+  {
+    id: "reason",
+    header: "Reason",
+    cell: ({ row }) => {
+      const a = row.original.artist as Record<string, unknown>;
+      const reason =
+        typeof a?.["reason"] === "string" ? (a["reason"] as string) : null;
+      return <ArrReasonBadge reason={reason} />;
+    },
+    size: 140,
   },
 ];
 

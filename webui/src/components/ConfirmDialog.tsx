@@ -35,7 +35,12 @@ export function ConfirmDialog({
       >
         <div className="modal-header">
           <h2 id="confirm-dialog-title">{title}</h2>
-          <button className="btn ghost" type="button" onClick={onCancel}>
+          <button
+            className="btn ghost"
+            type="button"
+            onClick={onCancel}
+            aria-label="Close"
+          >
             <IconImage src={CloseIcon} />
           </button>
         </div>

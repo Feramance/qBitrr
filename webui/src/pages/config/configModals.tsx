@@ -335,6 +335,11 @@ export function ArrInstanceModal({
             validationErrors={validationErrors}
           />
         </div>
+        {(validationErrors.length || saveDisabled) && saveBlockedReason ? (
+          <div className="modal-footer-note" role="status">
+            {saveBlockedReason}
+          </div>
+        ) : null}
         <div className="modal-footer">
           {onDelete && (
             <button
@@ -378,11 +383,6 @@ export function ArrInstanceModal({
             {savingModal ? "Saving..." : "Save"}
           </button>
         </div>
-        {(validationErrors.length || saveDisabled) && saveBlockedReason ? (
-          <div className="modal-footer-note" role="status">
-            {saveBlockedReason}
-          </div>
-        ) : null}
       </div>
     </div>
     </ConfigModalPortal>
@@ -505,6 +505,11 @@ export function QbitInstanceModal({
             validationErrors={validationErrors}
           />
         </div>
+        {(validationErrors.length || saveDisabled) && saveBlockedReason ? (
+          <div className="modal-footer-note" role="status">
+            {saveBlockedReason}
+          </div>
+        ) : null}
         <div className="modal-footer">
           {onDelete && (
             <button
@@ -533,11 +538,6 @@ export function QbitInstanceModal({
             {savingModal ? "Saving..." : "Save"}
           </button>
         </div>
-        {(validationErrors.length || saveDisabled) && saveBlockedReason ? (
-          <div className="modal-footer-note" role="status">
-            {saveBlockedReason}
-          </div>
-        ) : null}
       </div>
     </div>
     </ConfigModalPortal>
@@ -675,6 +675,11 @@ export function SimpleConfigModal({
             </div>
           )}
         </div>
+        {(validationErrors.length || saveDisabled) && saveBlockedReason ? (
+          <div className="modal-footer-note" role="status">
+            {saveBlockedReason}
+          </div>
+        ) : null}
         <div className="modal-footer">
           {onSave ? (
             <button
@@ -698,11 +703,6 @@ export function SimpleConfigModal({
             </button>
           )}
         </div>
-        {(validationErrors.length || saveDisabled) && saveBlockedReason ? (
-          <div className="modal-footer-note" role="status">
-            {saveBlockedReason}
-          </div>
-        ) : null}
       </div>
     </div>
     </ConfigModalPortal>

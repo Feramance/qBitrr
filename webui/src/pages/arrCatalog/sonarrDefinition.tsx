@@ -17,6 +17,11 @@ import type {
 } from "../../api/types";
 import { ArrMiniProgress } from "../../components/arr/ArrMiniProgress";
 import {
+  ArrListProgressCell,
+  ArrMonitoredBadge,
+  ArrReasonBadge,
+} from "../../components/arr/ArrStatusCells";
+import {
   type SonarrSeriesGroup,
   SonarrSeriesGroupDetailBody,
 } from "../../components/arr/SonarrSeriesGroupDetailBody";
@@ -504,6 +509,17 @@ function useSonarrInstancePipeline(
   };
 }
 
+function sonarrSeriesMonitored(group: SonarrSeriesGroupRow): boolean {
+  return group.episodes.some((ep) => ep.monitored);
+}
+
+function sonarrSeriesReason(group: SonarrSeriesGroupRow): string | null {
+  const active = group.episodes
+    .map((ep) => (typeof ep.reason === "string" ? ep.reason.trim() : ""))
+    .find((r) => r.length > 0);
+  return active ?? null;
+}
+
 /** Module-level column defs — stable identity across renders for StableTable memo. */
 const SONARR_INSTANCE_COLUMNS: ColumnDef<SonarrSeriesGroupRow>[] = [
   {
@@ -512,15 +528,43 @@ const SONARR_INSTANCE_COLUMNS: ColumnDef<SonarrSeriesGroupRow>[] = [
     cell: (info) => String(info.getValue() ?? ""),
   },
   {
-    id: "episodes",
-    header: "Episodes",
-    cell: ({ row }) => row.original.episodes.length,
+    id: "progress",
+    header: "Progress",
+    cell: ({ row }) => {
+      const mon = row.original.episodes.filter((e) => e.monitored);
+      const available = mon.filter((e) => e.hasFile).length;
+      const missing = Math.max(0, mon.length - available);
+      return (
+        <ArrListProgressCell
+          label="Episodes"
+          available={available}
+          missing={missing}
+        />
+      );
+    },
+    size: 140,
+  },
+  {
+    id: "monitored",
+    header: "Monitored",
+    cell: ({ row }) => (
+      <ArrMonitoredBadge monitored={sonarrSeriesMonitored(row.original)} />
+    ),
+    size: 120,
   },
   {
     accessorKey: "qualityProfileName" as const,
     header: "Quality profile",
     cell: (info) =>
       (info.getValue() as string | null | undefined) || "—",
+  },
+  {
+    id: "reason",
+    header: "Reason",
+    cell: ({ row }) => (
+      <ArrReasonBadge reason={sonarrSeriesReason(row.original)} />
+    ),
+    size: 140,
   },
 ];
 
@@ -786,7 +830,7 @@ function SonarrAggregateBody({
       onRefresh={onRefresh}
       loading={effectiveLoading}
       loadingHint="Loading Sonarr library…"
-      emptyOrder="noItemsFirst"
+      emptyOrder="syncFirst"
       showCatalogEmptyHint={showCatalogEmptyHint}
       hasRows={total > 0}
       catalogEmptyMessage="No episodes found in the database."
@@ -905,7 +949,7 @@ function SonarrInstanceBody({
       onRefresh={refresh}
       loading={effectiveLoading}
       loadingHint="Loading series…"
-      emptyOrder="noItemsFirst"
+      emptyOrder="syncFirst"
       showCatalogEmptyHint={showCatalogEmptyHint}
       hasRows={visibleRows.length > 0}
       catalogEmptyMessage="No series rows in the local catalog yet."

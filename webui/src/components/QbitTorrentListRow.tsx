@@ -121,7 +121,11 @@ export function QbitTorrentListRow({ torrent }: QbitTorrentListRowProps): JSX.El
         {torrent.name}
       </div>
       <div className="qbit-torrent-metrics">
-        <DataMetric label="Size" bytes={torrent.size} />
+        <Metric label="State">
+          <span className={`badge qbit-state-badge qbit-state-badge--${family}`}>
+            {formatTorrentStateLabel(torrent.state)}
+          </span>
+        </Metric>
         <Metric label="Progress">
           <div
             className={`qbit-torrent-progress qbit-torrent-progress--${family}`}
@@ -139,6 +143,7 @@ export function QbitTorrentListRow({ torrent }: QbitTorrentListRowProps): JSX.El
             </span>
           </div>
         </Metric>
+        <DataMetric label="Size" bytes={torrent.size} />
         {!done && <SpeedMetric label="Download" bytesPerSec={torrent.dlspeed} />}
         <SpeedMetric label="Upload" bytesPerSec={torrent.upspeed} />
         <DataMetric label="Downloaded" bytes={torrent.downloaded} />
@@ -159,11 +164,6 @@ export function QbitTorrentListRow({ torrent }: QbitTorrentListRowProps): JSX.El
           <span className="qbit-torrent-metric__unit">
             {" "}
             / {torrent.numComplete}
-          </span>
-        </Metric>
-        <Metric label="State">
-          <span className={`badge qbit-state-badge qbit-state-badge--${family}`}>
-            {formatTorrentStateLabel(torrent.state)}
           </span>
         </Metric>
         <Metric label="Ratio">

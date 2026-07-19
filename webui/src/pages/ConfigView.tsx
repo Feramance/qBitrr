@@ -838,44 +838,62 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
                        )}
                      </summary>
                     <div className="config-arr-grid">
-                      {group.items.map(([key, value]) => {
-                        const uri = getValue(value as ConfigDocument, ["URI"]);
-                        const category = getValue(value as ConfigDocument, ["Category"]);
-                        const managed = getValue(value as ConfigDocument, ["Managed"]);
-                        return (
-                          <div className="card config-card config-arr-card" key={key}>
-                            <div className="card-header">{key}</div>
-                            <div className="card-body">
-                              <dl className="config-arr-summary">
-                                <div className="config-arr-summary__item">
-                                  <dt>Managed</dt>
-                                  <dd>{managed ? "Enabled" : "Disabled"}</dd>
+                      {group.items.length === 0 ? (
+                        <div className="empty-state config-arr-empty">
+                          No {group.label.replace(/ Instances$/i, "")} instances
+                          configured. Use Add Instance to create one.
+                        </div>
+                      ) : (
+                        group.items.map(([key, value]) => {
+                          const uri = getValue(value as ConfigDocument, ["URI"]);
+                          const category = getValue(value as ConfigDocument, [
+                            "Category",
+                          ]);
+                          const managed = getValue(value as ConfigDocument, [
+                            "Managed",
+                          ]);
+                          return (
+                            <div
+                              className="card config-card config-arr-card"
+                              key={key}
+                            >
+                              <div className="card-header">{key}</div>
+                              <div className="card-body">
+                                <dl className="config-arr-summary">
+                                  <div className="config-arr-summary__item">
+                                    <dt>Managed</dt>
+                                    <dd>
+                                      {managed ? "Enabled" : "Disabled"}
+                                    </dd>
+                                  </div>
+                                  <div className="config-arr-summary__item">
+                                    <dt>Category</dt>
+                                    <dd>
+                                      {category ? String(category) : "-"}
+                                    </dd>
+                                  </div>
+                                  <div className="config-arr-summary__item">
+                                    <dt>URI</dt>
+                                    <dd className="config-arr-summary__uri">
+                                      {uri ? String(uri) : "-"}
+                                    </dd>
+                                  </div>
+                                </dl>
+                                <div className="config-arr-actions">
+                                  <button
+                                    className="btn primary"
+                                    type="button"
+                                    onClick={() => setActiveArrKey(key)}
+                                  >
+                                    <IconImage src={ConfigureIcon} />
+                                    Configure
+                                  </button>
                                 </div>
-                                <div className="config-arr-summary__item">
-                                  <dt>Category</dt>
-                                  <dd>{category ? String(category) : "-"}</dd>
-                                </div>
-                                <div className="config-arr-summary__item">
-                                  <dt>URI</dt>
-                                  <dd className="config-arr-summary__uri">
-                                    {uri ? String(uri) : "-"}
-                                  </dd>
-                                </div>
-                              </dl>
-                              <div className="config-arr-actions">
-                                <button
-                                  className="btn primary"
-                                  type="button"
-                                  onClick={() => setActiveArrKey(key)}
-                                >
-                                  <IconImage src={ConfigureIcon} />
-                                  Configure
-                                </button>
                               </div>
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })
+                      )}
                     </div>
                   </details>
                 </section>

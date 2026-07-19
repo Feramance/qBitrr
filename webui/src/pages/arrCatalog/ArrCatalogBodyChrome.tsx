@@ -57,13 +57,14 @@ export function ArrCatalogBodyChrome({
           Refresh
         </button>
       </div>
-      {loading ? (
-        <div className="loading">
-          <span className="spinner" /> {loadingHint}
-        </div>
-      ) : (
-        children
-      )}
+      <div className="arr-catalog-body">
+        {children}
+        {loading ? (
+          <div className="arr-catalog-body__overlay loading">
+            <span className="spinner" /> {loadingHint}
+          </div>
+        ) : null}
+      </div>
       {footer}
     </div>
   );

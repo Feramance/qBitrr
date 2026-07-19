@@ -95,6 +95,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
   const [lines, setLines] = useState<string[]>([]);
   const [follow, setFollow] = useState(true);
   const [liveUpdates, setLiveUpdates] = useState(true);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [transport, setTransport] = useState<LiveTransport>("sse");
   /** When true, use delta polling instead of SSE (after stream failures). */
   const [forcePoll, setForcePoll] = useState(false);
@@ -545,14 +546,11 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
     [selected, applyPayload, closeStream, push]
   );
 
-  const statusLabel = useMemo(() => {
-    if (!liveUpdates) return "Paused";
-    if (!atTailWindow) return "Paused (history)";
-    if (!liveActive) return "Live…";
-    if (forcePoll || transport === "poll") return "Live (poll)";
-    if (transport === "sse") return "Live (SSE)";
-    return "Live…";
-  }, [liveUpdates, atTailWindow, liveActive, forcePoll, transport]);
+  const liveButtonLabel = liveUpdates
+    ? atTailWindow
+      ? "Live"
+      : "Paused"
+    : "Paused";
 
   const viewerText = filteredText || " ";
 
@@ -583,10 +581,15 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
               className={`btn ${liveUpdates ? "" : "ghost"}`}
               onClick={() => setLiveUpdates((v) => !v)}
               title="Toggle live updates"
+              aria-pressed={liveUpdates}
             >
               <IconImage src={LiveIcon} />
-              <span className={`logs-live-dot ${liveUpdates && atTailWindow ? "logs-live-dot--on" : ""}`} />
-              {liveUpdates ? "Live" : "Paused"}
+              <span
+                className={`logs-live-dot ${
+                  liveUpdates && atTailWindow ? "logs-live-dot--on" : ""
+                }`}
+              />
+              {liveButtonLabel}
             </button>
             <label className="hint inline logs-toolbar__check">
               <input
@@ -596,36 +599,9 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
               />
               <span>Follow</span>
             </label>
-            {!follow && (
-              <button
-                type="button"
-                className="btn ghost"
-                onClick={handleJumpToLatest}
-              >
-                Jump to latest
-              </button>
-            )}
             <button
               type="button"
               className="btn ghost"
-              onClick={() => void loadList()}
-              disabled={loadingList}
-            >
-              <IconImage src={RefreshIcon} />
-              Reload List
-            </button>
-            <button
-              type="button"
-              className="btn ghost"
-              onClick={handleRefreshLogs}
-              disabled={!selected || loadingContent}
-            >
-              <IconImage src={RefreshIcon} />
-              Refresh
-            </button>
-            <button
-              type="button"
-              className="btn"
               onClick={() =>
                 selected && window.open(getLogDownloadUrl(selected), "_blank")
               }
@@ -639,6 +615,60 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
               label="Copy Logs"
               onCopy={() => push("Logs copied to clipboard", "success")}
             />
+            <div className="logs-toolbar__more">
+              <button
+                type="button"
+                className="btn ghost"
+                aria-expanded={showMoreMenu}
+                aria-haspopup="menu"
+                onClick={() => setShowMoreMenu((v) => !v)}
+              >
+                More
+              </button>
+              {showMoreMenu ? (
+                <div className="logs-toolbar__more-menu" role="menu">
+                  {!follow ? (
+                    <button
+                      type="button"
+                      className="btn small ghost"
+                      role="menuitem"
+                      onClick={() => {
+                        handleJumpToLatest();
+                        setShowMoreMenu(false);
+                      }}
+                    >
+                      Jump to latest
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="btn small ghost"
+                    role="menuitem"
+                    onClick={() => {
+                      void loadList();
+                      setShowMoreMenu(false);
+                    }}
+                    disabled={loadingList}
+                  >
+                    <IconImage src={RefreshIcon} />
+                    Reload List
+                  </button>
+                  <button
+                    type="button"
+                    className="btn small ghost"
+                    role="menuitem"
+                    onClick={() => {
+                      handleRefreshLogs();
+                      setShowMoreMenu(false);
+                    }}
+                    disabled={!selected || loadingContent}
+                  >
+                    <IconImage src={RefreshIcon} />
+                    Refresh
+                  </button>
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
 
@@ -649,8 +679,6 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
             {lines.length.toLocaleString()} lines
             {levelFilters.size > 0 ? " (filtered)" : ""}
           </span>
-          <span>·</span>
-          <span>{statusLabel}</span>
         </div>
 
         <div className="logs-level-chips" role="group" aria-label="Log level filters">
@@ -683,7 +711,8 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
           <input
             className="logs-search-input"
             type="search"
-            placeholder="Search file (server)…"
+            placeholder="Search log file on server…"
+            title="Server-side search across the selected log file (and rotated files if enabled). Use the viewer's find control to search loaded lines only."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => {
@@ -804,7 +833,9 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
             </div>
           ) : (
             <div className="logs-viewer__empty">
-              Select a log file to view…
+              {selected
+                ? "This log file is empty."
+                : "Select a log file to view…"}
             </div>
           )}
         </div>
