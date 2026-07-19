@@ -87,7 +87,7 @@ qBitrr's configuration is organized into several sections:
 
 1. **[Settings](#settings-section)** - Global qBitrr settings
 2. **[WebUI](#webui-section)** - Web interface configuration
-3. **[qBit](#qbit-section)** - qBittorrent connection
+3. **[qBit](#qbit-section)** / **[qBit-*](#qbit-section)** - qBittorrent connection (optional; absence disables qBit)
 4. **[Sonarr-*](#arr-sections)** - Sonarr instance configuration
 5. **[Radarr-*](#arr-sections)** - Radarr instance configuration
 6. **[Lidarr-*](#arr-sections)** - Lidarr instance configuration
@@ -865,19 +865,19 @@ LiveArr = true
 
 **Type:** Boolean
 **Default:** `true`
+**Label:** Live (app-bar switch)
 
-Enable live updates in Arr views (Radarr/Sonarr/Lidarr tabs).
+Enable live updates for Arr catalogs and the qBittorrent overview.
 
 When `true`:
 
-- Real-time status updates
-- Progress bars update live
-- No manual refresh needed
+- Auto-refresh on active Arr / qBittorrent tabs
+- Progress and status update without a full page reload
 
 When `false`:
 
-- Static snapshots
-- Must manually refresh page
+- No auto-refresh on those views
+- Use the in-page Refresh button
 - Lower resource usage
 
 **Recommendation:** Keep `true` for best UX.
@@ -919,7 +919,7 @@ List view density in the WebUI (e.g. Arr views, process list). `Comfortable` use
 
 ## qBit Section
 
-The `[qBit]` section configures the connection to qBittorrent.
+qBittorrent connection sections use `[qBit]` or `[qBit-<name>]` (same naming idea as Arr instances). qBit is optional: if no matching section exists, qBitrr treats qBit as disabled. Adding a section enables it; set `Disabled = true` on an instance to keep the section without connecting.
 
 ### Complete qBit Example
 
@@ -935,6 +935,11 @@ ManagedCategories = []
 # subcategory beneath them ("seed" then matches "seed/tleech", "seed/longterm",
 # etc.). Defaults to false (exact match), preserving existing behaviour.
 MatchSubcategories = false
+
+# Named form is equally valid (and can be the only qBit section):
+# [qBit-General]
+# Host = "192.168.1.100"
+# Port = 8080
 ```
 
 For detailed qBittorrent configuration, including `[qBit.CategorySeeding]` for per-category seeding settings, plus the dedicated **[Subcategories](qbittorrent.md#subcategories-qbittorrent-46)** section covering full-path values, the `MatchSubcategories` opt-in, and migration tips, see the [qBittorrent Configuration Guide](qbittorrent.md).

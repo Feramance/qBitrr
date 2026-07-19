@@ -117,7 +117,7 @@ AutoUpdateCron = "0 3 * * 0"
 - **WebUI Host**: Bind address (default: `0.0.0.0` for all interfaces)
 - **WebUI Port**: Port number (default: `6969`, range: 1-65535)
 - **WebUI Token**: Optional bearer token for API/UI authentication (auto-generated if empty)
-- **Live Arr**: Enable real-time Arr data (bypasses database cache, increases API load)
+- **Live**: Enable live updates for Arr catalogs and the qBittorrent overview (also available as the app-bar Live switch)
 - **Theme**: Visual theme (`Light` or `Dark`) — **changes apply immediately**
 - **View Density**: List density (`Comfortable` or `Compact`) — applied on next load
 

@@ -36,7 +36,7 @@ Port = 6969
 Token = ""
 
 # WebUI-specific display settings
-LiveArr = true        # Enable live Arr instance views
+LiveArr = true        # Live updates for Arr catalogs + qBittorrent overview
 Theme = "Dark"        # Dark | Light | Auto
 ```
 
@@ -325,8 +325,8 @@ The **qBittorrent** nav tab appears only when at least one qBittorrent instance 
   - Read-only overview — no pause/delete/add actions
 
 - **Live Updates**
-  - Auto-refresh every 5 seconds when "Live Arr" is enabled and the tab is active
-  - Manual refresh button
+  - Auto-refresh every 5 seconds when the app-bar **Live** switch is on and the tab is active
+  - Manual refresh button (also works when Live is off)
 
 **Use Cases:**
 

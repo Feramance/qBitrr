@@ -52,7 +52,7 @@ export const FIELD_TOOLTIPS: Record<string, string> = {
   "WebUI.OIDCEnabled": "Enable OpenID Connect login. Configure OIDC Authority and Client ID/Secret.",
   "WebUI.Username":
     "Username for local auth login. Used together with the password set via Set Password.",
-  "WebUI.LiveArr": "Enable live updates for Arr views.",
+  "WebUI.LiveArr": "Enable live updates for Arr catalogs and the qBittorrent overview.",
   "WebUI.Theme": "Choose the visual theme for the WebUI (light or dark).",
   "WebUI.ViewDensity":
     "View density for lists in the WebUI: Comfortable (more spacing) or Compact (more rows on screen).",

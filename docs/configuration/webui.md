@@ -295,20 +295,19 @@ LiveArr = true
 
 **Type:** Boolean
 **Default:** `true`
+**Label:** Live (app-bar switch)
 
-Enable live updates for Arr instance views (Radarr/Sonarr/Lidarr tabs).
+Enable live updates for Arr catalogs (Radarr/Sonarr/Lidarr) and the qBittorrent overview.
 
 **When true:**
-- Real-time status updates
-- Progress bars update automatically
-- No manual page refresh needed
-- Uses polling every few seconds
+- Auto-refresh while the Arr or qBittorrent tab is active
+- Progress and status update without a full page reload
+- Uses polling every few seconds on the active tab
 
 **When false:**
-- Static snapshots
-- Must manually refresh page
-- Lower resource usage
-- Reduced API calls to Arr instances
+- No auto-refresh on Arr or qBittorrent views
+- Use the in-page Refresh button
+- Lower resource usage and fewer Arr / qBittorrent API calls
 
 **Recommendation:** `true` for best user experience.
 

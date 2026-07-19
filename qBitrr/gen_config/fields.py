@@ -557,8 +557,8 @@ WEBUI_FIELDS: tuple[ConfigField, ...] = (
     ConfigField(
         ("LiveArr",),
         True,
-        "Enable live updates for Arr views",
-        label="Live Arr",
+        "Enable live updates for Arr catalogs and the qBittorrent overview",
+        label="Live",
         kind="checkbox",
         ui_expose=False,
     ),

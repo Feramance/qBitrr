@@ -477,6 +477,9 @@ class qBitManager(ProcessLifecycleMixin):
             return
 
         for section in qbit_sections(CONFIG):
+            if CONFIG.get(f"{section}.Disabled", fallback=False):
+                self.logger.info("Skipping disabled qBit instance: %s", section)
+                continue
             try:
                 self._init_instance(section, section)
                 self.logger.info("Initialized qBit instance: %s", section)
@@ -672,6 +675,8 @@ class qBitManager(ProcessLifecycleMixin):
 
         rebuilt: dict[str, dict] = {}
         for section in qbit_sections(CONFIG):
+            if CONFIG.get(f"{section}.Disabled", fallback=False):
+                continue
             managed_categories = CONFIG.get(f"{section}.ManagedCategories", fallback=[])
             if not managed_categories:
                 continue
@@ -726,7 +731,9 @@ class qBitManager(ProcessLifecycleMixin):
         if QBIT_DISABLED or SEARCH_ONLY:
             valid: set[str] = set()
         else:
-            valid = set(qbit_sections(CONFIG))
+            valid = {
+                s for s in qbit_sections(CONFIG) if not CONFIG.get(f"{s}.Disabled", fallback=False)
+            }
 
         for store_name in ("clients", "qbit_versions", "instance_metadata", "instance_health"):
             store = getattr(self, store_name, None)

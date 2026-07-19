@@ -638,9 +638,11 @@ export function SimpleConfigModal({
                       checked={webUI.liveArr}
                       onChange={(e) => webUI.setLiveArr(e.target.checked)}
                     />
-                    {" "}Live Arr Updates
+                    {" "}Live updates
                   </label>
-                  <p className="field-description">Enable real-time updates for Arr views</p>
+                  <p className="field-description">
+                    Enable live updates for Arr catalogs and the qBittorrent overview
+                  </p>
                 </div>
                 <div className="field">
                   <label>Theme</label>

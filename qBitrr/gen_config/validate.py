@@ -139,7 +139,8 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
             webui_section["UrlBase"] = normalized_url_base
             changed = True
 
-    # Validate qBit section
+    # Fill missing keys on existing qBit / qBit-* sections only.
+    # Never create a qBit section: absence means qBit is disabled.
     qbit_defaults = [
         ("Disabled", False),
         ("Host", "localhost"),
@@ -147,10 +148,21 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
         ("UserName", ""),
         ("Password", ""),
     ]
-
-    for key, default in qbit_defaults:
-        if ensure_value("qBit", key, default):
-            changed = True
+    existing_qbit_sections = [
+        str(s) for s in config.config.keys() if str(s) == "qBit" or str(s).startswith("qBit-")
+    ]
+    for section_name in existing_qbit_sections:
+        section = config.config[section_name]
+        if not isinstance(section, dict):
+            continue
+        for key, default_value in qbit_defaults:
+            if key not in section or section[key] is None:
+                default_section = defaults.get(section_name, {})
+                if default_section and key in default_section:
+                    section[key] = default_section[key]
+                else:
+                    section[key] = default_value
+                changed = True
 
     # Validate EntrySearch sections for all Arr instances
     entry_search_defaults = {

@@ -194,8 +194,10 @@ def _has_any_qbit_section() -> bool:
     return any(s == "qBit" or s.startswith("qBit-") for s in CONFIG.sections())
 
 
+# qBit is enabled when any [qBit] / [qBit-*] section exists; absence means disabled.
+# Per-instance Disabled is handled at init time, not via this global flag.
 QBIT_DISABLED = (
-    (not _has_any_qbit_section() or CONFIG.get("qBit.Disabled", fallback=False))
+    (not _has_any_qbit_section())
     if ENVIRO_CONFIG.qbit.disabled is None
     else ENVIRO_CONFIG.qbit.disabled
 )
@@ -246,11 +248,15 @@ def get_auto_pause_resume_effective() -> bool:
 
 
 def get_effective_qbit_disabled() -> bool:
-    """Return whether qBit processing is disabled, matching startup QBIT_DISABLED semantics."""
+    """Return whether qBit processing is disabled, matching startup QBIT_DISABLED semantics.
+
+    Globally disabled when no ``[qBit]`` / ``[qBit-*]`` section exists (or via env /
+    SEARCH_ONLY). Per-instance ``Disabled`` does not flip this flag.
+    """
     if ENVIRO_CONFIG.qbit.disabled is not None:
         qbit_disabled = ENVIRO_CONFIG.qbit.disabled
     else:
-        qbit_disabled = not _has_any_qbit_section() or CONFIG.get("qBit.Disabled", fallback=False)
+        qbit_disabled = not _has_any_qbit_section()
     if SEARCH_ONLY and not qbit_disabled:
         return True
     return qbit_disabled

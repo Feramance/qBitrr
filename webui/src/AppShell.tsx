@@ -30,6 +30,11 @@ import QbitIcon from "./icons/qbittorrent.svg";
 import ConfigIcon from "./icons/gear.svg";
 import logoUrl from "./assets/logo-64.png";
 import { safeClick } from "./utils/safeClick";
+import {
+  NAVIGATE_TAB_EVENT,
+  type NavigateTabDetail,
+  type NavigableTab,
+} from "./utils/navigateTab";
 
 type Tab = "processes" | "logs" | "radarr" | "sonarr" | "lidarr" | "qbittorrent" | "config";
 
@@ -134,7 +139,7 @@ function AppShell({
     },
     [activeTab, configDirty, markTabVisited, setSearchValue]
   );
-  const { viewDensity, setViewDensity } = useWebUI();
+  const { viewDensity, setViewDensity, liveArr, setLiveArr } = useWebUI();
   const isOnline = useNetworkStatus();
   const [meta, setMeta] = useState<MetaResponse | null>(initialMeta);
   const [metaLoading, setMetaLoading] = useState(false);
@@ -290,6 +295,28 @@ function AppShell({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [setSearchValue, configuredTabs, switchTab]);
+
+  useEffect(() => {
+    const onNavigate = (event: Event) => {
+      const detail = (event as CustomEvent<NavigateTabDetail>).detail;
+      if (!detail?.tab) return;
+      const tab = detail.tab as NavigableTab;
+      if (
+        (tab === "radarr" && !configuredTabs.radarr) ||
+        (tab === "sonarr" && !configuredTabs.sonarr) ||
+        (tab === "lidarr" && !configuredTabs.lidarr) ||
+        (tab === "qbittorrent" && !configuredTabs.qbittorrent)
+      ) {
+        return;
+      }
+      switchTab(tab as Tab);
+      if (detail.qbitCategory) {
+        sessionStorage.setItem("qbitrr:focusQbitCategory", detail.qbitCategory);
+      }
+    };
+    window.addEventListener(NAVIGATE_TAB_EVENT, onNavigate);
+    return () => window.removeEventListener(NAVIGATE_TAB_EVENT, onNavigate);
+  }, [configuredTabs, switchTab]);
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -626,6 +653,25 @@ function AppShell({
                 title="Compact view"
               >
                 Compact
+              </button>
+            </div>
+            <div className="live-switch">
+              <span className="live-switch__label" id="live-switch-label">
+                Live
+              </span>
+              <button
+                type="button"
+                className={`live-switch__control${liveArr ? " live-switch__control--on" : ""}`}
+                role="switch"
+                aria-checked={liveArr}
+                aria-labelledby="live-switch-label"
+                title="Live updates for Arr and qBittorrent views"
+                aria-label="Live updates for Arr and qBittorrent views"
+                onClick={() => setLiveArr(!liveArr)}
+              >
+                <span className="live-switch__track" aria-hidden="true">
+                  <span className="live-switch__thumb" />
+                </span>
               </button>
             </div>
             <button

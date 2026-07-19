@@ -272,6 +272,35 @@ export function QbitCategoriesView({ active }: QbitCategoriesViewProps): JSX.Ele
     [categories, search]
   );
 
+  // Honor Processes deep-link: expand the requested category once data is ready.
+  useEffect(() => {
+    if (!active || !filteredCategories.length) {
+      return;
+    }
+    const focusCategory = sessionStorage.getItem("qbitrr:focusQbitCategory");
+    if (!focusCategory) {
+      return;
+    }
+    sessionStorage.removeItem("qbitrr:focusQbitCategory");
+    const id = window.setTimeout(() => {
+      setExpanded((prev) => {
+        let changed = false;
+        const next = { ...prev };
+        for (const cat of filteredCategories) {
+          if (cat.category === focusCategory) {
+            const key = categorySectionKey(cat);
+            if (!next[key]) {
+              next[key] = true;
+              changed = true;
+            }
+          }
+        }
+        return changed ? next : prev;
+      });
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [active, filteredCategories]);
+
   const summary = useMemo(() => {
     const totalTorrents = filteredCategories.reduce(
       (sum, cat) => sum + cat.torrentCount,

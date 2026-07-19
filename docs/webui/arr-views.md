@@ -341,27 +341,26 @@ See [WebUI API](api.md#lidarr-artists) for query parameters.
 
 ## Configuration
 
-### Live Arr Mode
+### Live Mode
 
-**Path**: `Settings.WebUI.LiveArr`
+**Path**: `WebUI.LiveArr`
 **Type**: `bool`
-**Default**: `false`
+**Default**: `true`
+**App bar control**: **Live** switch
 
-When enabled, bypasses database cache and fetches live data directly from Arr APIs on every page load.
+When enabled, Arr catalogs (Radarr/Sonarr/Lidarr) and the qBittorrent overview auto-refresh while their tab is active. When disabled, those views stop polling; use the in-page Refresh button for updates. Processes and Logs are not gated by this setting.
 
 **Pros**:
 - Always up-to-date (no sync delay)
-- Reflects immediate changes in Arr
+- Reflects immediate changes in Arr and qBittorrent
 
 **Cons**:
-- Slower page loads (API latency)
-- Higher load on Arr instances
-- No offline browsing
+- Higher load on Arr / qBittorrent APIs while tabs are open
 
 **Example**:
 ```toml
 [WebUI]
-LiveArr = false  # Use database cache (recommended)
+LiveArr = false  # Manual refresh only for Arr and qBit overview
 ```
 
 ### Tab keep-alive and polling
