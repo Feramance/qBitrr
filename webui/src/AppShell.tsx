@@ -355,12 +355,9 @@ function AppShell({
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        // Remount only views that benefit from a hard reset; Arr tabs stay mounted so browse state persists.
-        if (
-          activeTab === "processes" ||
-          activeTab === "logs" ||
-          activeTab === "qbittorrent"
-        ) {
+        // Remount only views that benefit from a hard reset; Arr/qBit tabs stay
+        // mounted so browse/expand state persists.
+        if (activeTab === "processes" || activeTab === "logs") {
           setReloadKey((prev) => prev + 1);
         }
         void refreshMeta({ force: true });
@@ -811,10 +808,7 @@ function AppShell({
             ) : null}
             {visitedTabs.has("qbittorrent") && visibleTabIds.has("qbittorrent") ? (
               <div hidden={activeTab !== "qbittorrent"}>
-                <QbitCategoriesView
-                  key={`qbittorrent-${reloadKey}`}
-                  active={activeTab === "qbittorrent"}
-                />
+                <QbitCategoriesView active={activeTab === "qbittorrent"} />
               </div>
             ) : null}
             {visitedTabs.has("config") ? (

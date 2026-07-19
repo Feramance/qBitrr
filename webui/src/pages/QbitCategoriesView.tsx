@@ -287,10 +287,15 @@ export function QbitCategoriesView({ active }: QbitCategoriesViewProps): JSX.Ele
         const next = { ...prev };
         for (const cat of filteredCategories) {
           const key = categorySectionKey(cat);
-          const shouldOpen =
-            cat.torrentCount <= 5 ||
-            (focusCategory != null && cat.category === focusCategory);
-          if (shouldOpen && !next[key]) {
+          const isFocus =
+            focusCategory != null && cat.category === focusCategory;
+          if (isFocus) {
+            if (next[key] !== true) {
+              next[key] = true;
+              changed = true;
+            }
+          } else if (cat.torrentCount <= 5 && !(key in next)) {
+            // Only default-open when unset; respect explicit user collapse (false).
             next[key] = true;
             changed = true;
           }

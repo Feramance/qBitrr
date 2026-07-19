@@ -15,8 +15,14 @@ describe("AppShell keep-alive policy", () => {
     expect(source).toMatch(/hidden=\{activeTab !== "processes"\}/);
   });
 
-  it("documents Arr tabs staying mounted across visibility changes", () => {
-    expect(source).toMatch(/Arr tabs stay mounted|visibilitychange/i);
+  it("documents Arr/qBit tabs staying mounted across visibility changes", () => {
+    expect(source).toMatch(/Arr\/qBit tabs stay mounted|visibilitychange/i);
+    expect(source).toMatch(
+      /if \(activeTab === "processes" \|\| activeTab === "logs"\)/,
+    );
+    expect(source).not.toMatch(
+      /activeTab === "qbittorrent"[\s\S]{0,80}setReloadKey/,
+    );
   });
 
   it("shows Arr and qBittorrent nav tabs only when configured", () => {
