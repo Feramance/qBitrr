@@ -8,7 +8,7 @@ defaults:
   run:
     shell: bash
 permissions:
-  contents: write
+  contents: read
 env:
   project-name: qBitrr
 jobs:

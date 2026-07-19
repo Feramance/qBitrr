@@ -576,7 +576,7 @@ FFprobeAutoUpdate = true
 **Type:** Boolean
 **Default:** `true`
 
-Automatically download and update FFprobe binary for media file validation.
+Automatically download and update FFprobe binary for media file validation. Downloads use HTTPS and an allowlisted host (ffbinaries.com / GitHub release assets); SHA-256 is verified when the upstream API provides a checksum. Prefer a distro/system `ffprobe` in Docker when available.
 
 When `true`:
 

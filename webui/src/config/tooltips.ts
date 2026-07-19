@@ -43,11 +43,15 @@ export const FIELD_TOOLTIPS: Record<string, string> = {
     "Interface address for the built-in WebUI. 0.0.0.0 binds on all interfaces.",
   "WebUI.Port": "Port number for the built-in WebUI.",
   "WebUI.Token":
-    "Optional bearer token required by the WebUI/API. Leave empty to disable authentication.",
+    "Bearer token used when authentication is enabled. Does not enable auth by itself. Available via /api/token and /web/token when authorized.",
   "WebUI.AuthDisabled":
-    "When true, no login is required. Set to false to enforce local and/or OIDC authentication.",
+    "When true, no login is required and the full admin API is open (including token retrieval, config, and self-update). Set false to require login.",
+  "WebUI.AllowInsecureExposure":
+    "Required when AuthDisabled is true and Host is 0.0.0.0 or ::. Acknowledge intentional unauthenticated exposure (e.g. behind a reverse proxy).",
+  "WebUI.AllowInsecureTokenQuery":
+    "Allow ?token= query auth (insecure; leaks in logs/history). Prefer Authorization: Bearer.",
   "WebUI.BehindHttpsProxy":
-    "Set to true when the WebUI is reached over HTTPS (e.g. behind a reverse proxy). Enables Secure session cookies.",
+    "Set to true when the WebUI is reached over HTTPS behind a trusted reverse proxy that overwrites X-Forwarded-* headers. Enables Secure session cookies.",
   "WebUI.LocalAuthEnabled": "Enable username/password login (requires Username and Set Password).",
   "WebUI.OIDCEnabled": "Enable OpenID Connect login. Configure OIDC Authority and Client ID/Secret.",
   "WebUI.Username":

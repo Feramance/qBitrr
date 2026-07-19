@@ -174,7 +174,21 @@ export const GENERATED_WEBUI_FIELDS: FieldDefinition[] = [
     label: "Auth Disabled",
     path: ["WebUI", "AuthDisabled"],
     type: "checkbox",
-    description: "Disable login requirement (default: true for backward compatibility)",
+    description: "Disable login requirement. Opens the full admin API when true (default false for new installs; missing key = disabled for legacy configs).",
+    requiresRestart: true,
+  },
+  {
+    label: "Allow Insecure Exposure",
+    path: ["WebUI", "AllowInsecureExposure"],
+    type: "checkbox",
+    description: "Acknowledge AuthDisabled on a public bind (0.0.0.0/::). Required when both are set; missing key = warn-only for legacy configs.",
+    requiresRestart: true,
+  },
+  {
+    label: "Allow Insecure Token Query",
+    path: ["WebUI", "AllowInsecureTokenQuery"],
+    type: "checkbox",
+    description: "Allow ?token= auth (insecure). Prefer Authorization: Bearer header.",
     requiresRestart: true,
   },
   {

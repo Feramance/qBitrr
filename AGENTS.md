@@ -120,7 +120,7 @@
 - **Event Loops**: Each ArrManager has a main loop checking qBit torrents every N seconds, triggering health checks, imports, cleanup
 - **Config Migrations**: `apply_config_migrations()` upgrades old configs; bump `CURRENT_CONFIG_VERSION` when schema changes
 - **API Routes**:
-  - `/api/*` – token-protected (check `Settings.WebUIToken`), returns JSON
+  - `/api/*` – protected when `WebUI.AuthDisabled` is false (session cookie or `Authorization: Bearer` with `WebUI.Token`), returns JSON
   - `/web/*` – public helpers (serve UI, version info)
   - `/ui` → serves React SPA from `qBitrr/static/`
 
@@ -326,7 +326,7 @@ Each release produces:
 - **Qbittorrent API**: Both qBittorrent 4.x and 5.x are automatically detected and supported
 - **Tagging**: Radarr/Sonarr downloads MUST have tags matching the category configured for qBitrr to track them
 - **Paths**: qBit's "Save Path" must be accessible to Radarr/Sonarr (common issue in Docker with mismatched volumes)
-- **WebUI Token**: If `Settings.WebUIToken` is set, all `/api/*` calls require `X-API-Token` header
+- **WebUI Auth**: Authentication is controlled by `WebUI.AuthDisabled` (not by Token alone). When auth is enabled, `/api/*` requires a session cookie or `Authorization: Bearer <WebUI.Token>`. Token alone does not enable auth. With `AuthDisabled = true` on a public bind, set `WebUI.AllowInsecureExposure = true` to acknowledge full open admin access (including `/api/token` and `/web/token`).
 - **Database Locks**: Use `db_lock.py:database_lock()` context manager for all Peewee queries to avoid conflicts
 
 ## Documentation Maintenance

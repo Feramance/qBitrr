@@ -12,6 +12,7 @@ from flask import Response, jsonify, redirect, request, send_file, session
 from qBitrr.config import HOME_PATH
 from qBitrr.utils import coerce_bool
 from qBitrr.webui.auth import (
+    _allow_insecure_token_query,
     _auth_disabled,
     _local_auth_enabled,
     _login_limiter,
@@ -136,6 +137,13 @@ def register_routes(webui: WebUI) -> None:
             return header_token
         query_token = request.args.get("token")
         if query_token:
+            if not _allow_insecure_token_query():
+                _webui_logger.warning(
+                    "Ignoring ?token= from %s — WebUI.AllowInsecureTokenQuery is false. "
+                    "Use Authorization: Bearer instead.",
+                    request.remote_addr,
+                )
+                return None
             _webui_logger.warning(
                 "Token supplied via query parameter from %s — this is insecure "
                 "(token visible in logs and browser history). Use Authorization header instead.",

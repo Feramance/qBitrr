@@ -449,8 +449,9 @@ WEBUI_FIELDS: tuple[ConfigField, ...] = (
         ("Token",),
         "",
         (
-            "Optional bearer token to secure WebUI/API.",
-            "Set a non-empty value to require Authorization: Bearer <token>.",
+            "Bearer token used when authentication is enabled; does not enable auth by itself.",
+            "Available via /api/token and /web/token when authorized (including when AuthDisabled).",
+            "Send as Authorization: Bearer <token> on API requests when auth is required.",
         ),
         label="WebUI Token",
         kind="password",
@@ -459,10 +460,45 @@ WEBUI_FIELDS: tuple[ConfigField, ...] = (
     ConfigField(
         ("AuthDisabled",),
         False,
-        "Require login on new installs; user is prompted to create credentials. Set to true to disable auth (backward compat for configs without this key).",
+        (
+            "When true, login is not required and the full admin API is open to anyone who can",
+            "reach the WebUI port (including token retrieval, config writes, and self-update).",
+            "New installs default to false (login required). Legacy configs missing this key",
+            "still treat auth as disabled for backward compatibility.",
+        ),
         label="Auth Disabled",
         kind="checkbox",
-        description="Disable login requirement (default: true for backward compatibility)",
+        description=(
+            "Disable login requirement. Opens the full admin API when true "
+            "(default false for new installs; missing key = disabled for legacy configs)."
+        ),
+    ),
+    ConfigField(
+        ("AllowInsecureExposure",),
+        False,
+        (
+            "Required acknowledgment when AuthDisabled is true and Host is 0.0.0.0 or ::.",
+            "Set to true only if you intentionally expose an unauthenticated admin WebUI",
+            "(e.g. behind a reverse proxy that already authenticates clients).",
+            "Legacy configs missing this key keep warn-only behavior; new installs default false.",
+        ),
+        label="Allow Insecure Exposure",
+        kind="checkbox",
+        description=(
+            "Acknowledge AuthDisabled on a public bind (0.0.0.0/::). "
+            "Required when both are set; missing key = warn-only for legacy configs."
+        ),
+    ),
+    ConfigField(
+        ("AllowInsecureTokenQuery",),
+        False,
+        (
+            "Allow authentication via ?token= query parameter (insecure: leaks in logs/history).",
+            "Prefer Authorization: Bearer. Legacy configs missing this key still accept query tokens.",
+        ),
+        label="Allow Insecure Token Query",
+        kind="checkbox",
+        description="Allow ?token= auth (insecure). Prefer Authorization: Bearer header.",
     ),
     ConfigField(
         ("BehindHttpsProxy",),

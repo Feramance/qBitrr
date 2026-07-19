@@ -138,11 +138,21 @@ class TestPerformSelfUpdate(unittest.TestCase):
     def test_pip_upgrade_invokes_pip(self, _typ: mock.MagicMock, run: mock.MagicMock) -> None:
         run.return_value = mock.MagicMock(stdout="ok", returncode=0)
         logger = mock.MagicMock()
-        self.assertTrue(perform_self_update(logger))
+        self.assertTrue(perform_self_update(logger, target_version="1.2.3"))
         run.assert_called_once()
         args = run.call_args.args[0]
         self.assertIn("pip", args)
         self.assertIn("install", args)
+        self.assertIn("qBitrr2==1.2.3", args)
+
+    @mock.patch("qBitrr.auto_update.subprocess.run")
+    @mock.patch("qBitrr.auto_update.get_installation_type", return_value="pip")
+    def test_pip_refuses_unversioned_upgrade(
+        self, _typ: mock.MagicMock, run: mock.MagicMock
+    ) -> None:
+        logger = mock.MagicMock()
+        self.assertFalse(perform_self_update(logger))
+        run.assert_not_called()
 
 
 if __name__ == "__main__":

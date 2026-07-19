@@ -214,9 +214,32 @@ class TestDivergentRoutePairs(_WebUIClientTestCase):
         self.assertEqual(api.status_code, 401)
         self.assertEqual(web.status_code, 401)
 
-    def test_token_accepts_valid_api_header(self) -> None:
-        api = self.client.get("/api/token", headers={"X-API-Token": "test-token"})
-        web = self.client.get("/web/token", headers={"X-API-Token": "test-token"})
+    def test_token_returns_when_auth_disabled(self) -> None:
+        """AuthDisabled short-circuits auth; token endpoints remain fully supported."""
+        api = self.client.get("/api/token")
+        web = self.client.get("/web/token")
+        self.assertEqual(api.status_code, 200)
+        self.assertEqual(web.status_code, 200)
+        self.assertEqual(api.get_json(), {"token": "test-token"})
+        self.assertEqual(web.get_json(), {"token": "test-token"})
+
+    def test_token_accepts_bearer_when_auth_enabled(self) -> None:
+        with patch(
+            "qBitrr.webui.CONFIG.get",
+            side_effect=lambda key, fallback=None: {
+                "WebUI.AuthDisabled": False,
+                "WebUI.Token": "test-token",
+                "WebUI.BehindHttpsProxy": False,
+                "WebUI.LocalAuthEnabled": True,
+                "WebUI.PasswordHash": "x",
+                "WebUI.Username": "u",
+                "WebUI.OIDC.CallbackPath": "/signin-oidc",
+            }.get(key, fallback),
+        ):
+            webui = WebUI(self.manager)
+            client = webui.app.test_client()
+            api = client.get("/api/token", headers={"Authorization": "Bearer test-token"})
+            web = client.get("/web/token", headers={"Authorization": "Bearer test-token"})
         self.assertEqual(api.status_code, 200)
         self.assertEqual(web.status_code, 200)
         self.assertEqual(api.get_json(), {"token": "test-token"})

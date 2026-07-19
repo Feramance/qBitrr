@@ -32,6 +32,8 @@ WEBUI_RESTART_KEYS = frozenset(
         "WebUI.Token",
         "WebUI.UrlBase",
         "WebUI.AuthDisabled",
+        "WebUI.AllowInsecureExposure",
+        "WebUI.AllowInsecureTokenQuery",
         "WebUI.BehindHttpsProxy",
         "WebUI.LocalAuthEnabled",
         "WebUI.OIDCEnabled",

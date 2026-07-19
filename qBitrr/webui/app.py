@@ -13,8 +13,14 @@ from authlib.integrations.flask_client import OAuth
 from flask import Flask, request
 
 from qBitrr.bundled_data import patched_version, tagged_version
+from qBitrr.errors import ConfigException
 from qBitrr.versioning import fetch_latest_release, fetch_release_by_tag
-from qBitrr.webui.auth import _auth_disabled, _oidc_enabled
+from qBitrr.webui.auth import (
+    _allow_insecure_exposure,
+    _auth_disabled,
+    _check_insecure_exposure,
+    _oidc_enabled,
+)
 from qBitrr.webui.catalog.queries import CatalogMixin
 from qBitrr.webui.config_toml import _toml_set
 from qBitrr.webui.lifecycle import LifecycleMixin
@@ -45,19 +51,33 @@ class WebUI(CatalogMixin, LifecycleMixin):
         self.logger = logging.getLogger("qBitrr.WebUI")
         _run_logs(self.logger, "WebUI")
         self.logger.info("Initialising WebUI on %s:%s", self.host, self.port)
+        insecure_error = _check_insecure_exposure(self.host)
+        if insecure_error:
+            self.logger.error(insecure_error)
+            raise ConfigException(insecure_error)
         if self.host in {"0.0.0.0", "::"}:
             self.logger.warning(
                 "WebUI configured to listen on %s. Expose this only behind a trusted reverse proxy.",
                 self.host,
             )
             if _auth_disabled():
-                self.logger.warning(
-                    "WebUI authentication is disabled: all API and WebUI actions are available "
-                    "without credentials to any client that can reach this port. If that is not "
-                    "intentional, enable authentication (see WebUI.AuthDisabled and login/token in "
-                    "the docs), bind WebUI.Host to 127.0.0.1, or place the service behind a "
-                    "trusted reverse proxy with its own access controls."
-                )
+                if _allow_insecure_exposure() is None:
+                    self.logger.warning(
+                        "WebUI authentication is disabled on a public bind and "
+                        "WebUI.AllowInsecureExposure is unset (legacy config). All API and WebUI "
+                        "actions — including /api/token, /web/token, config writes, and self-update "
+                        "— are available without credentials. Set AllowInsecureExposure = true to "
+                        "acknowledge this, bind Host to 127.0.0.1, or set AuthDisabled = false."
+                    )
+                else:
+                    self.logger.warning(
+                        "WebUI authentication is disabled: all API and WebUI actions are available "
+                        "without credentials to any client that can reach this port "
+                        "(AllowInsecureExposure=true). If that is not intentional, enable "
+                        "authentication (see WebUI.AuthDisabled), bind WebUI.Host to 127.0.0.1, "
+                        "or place the service behind a trusted reverse proxy with its own "
+                        "access controls."
+                    )
         self._github_repo = "Feramance/qBitrr"
         self._version_lock = threading.Lock()
         self._version_cache = {
@@ -133,7 +153,34 @@ class WebUI(CatalogMixin, LifecycleMixin):
             response.headers.setdefault("X-Frame-Options", "DENY")
             response.headers.setdefault("X-Content-Type-Options", "nosniff")
             response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-            if request.path in (
+            # Modest CSP: self by default; Swagger UI on /docs may load jsDelivr (SRI in HTML).
+            path = request.path or ""
+            if path.endswith("/docs") or path in {"/api/docs", "/web/docs"}:
+                csp = (
+                    "default-src 'self'; "
+                    "script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; "
+                    "style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; "
+                    "img-src 'self' data: https://cdn.jsdelivr.net; "
+                    "font-src 'self' https://cdn.jsdelivr.net; "
+                    "connect-src 'self'; "
+                    "frame-ancestors 'none'; "
+                    "base-uri 'self'; "
+                    "form-action 'self'"
+                )
+            else:
+                csp = (
+                    "default-src 'self'; "
+                    "script-src 'self'; "
+                    "style-src 'self' 'unsafe-inline'; "
+                    "img-src 'self' data: blob:; "
+                    "font-src 'self' data:; "
+                    "connect-src 'self'; "
+                    "frame-ancestors 'none'; "
+                    "base-uri 'self'; "
+                    "form-action 'self'"
+                )
+            response.headers.setdefault("Content-Security-Policy", csp)
+            if path in (
                 "/static/index.html",
                 "/ui",
                 "/ui/",
@@ -313,7 +360,10 @@ class WebUI(CatalogMixin, LifecycleMixin):
             except AttributeError:
                 from qBitrr.auto_update import perform_self_update
 
-                if not perform_self_update(self.manager.logger):
+                target = None
+                with self._version_lock:
+                    target = self._version_cache.get("latest_version")
+                if not perform_self_update(self.manager.logger, target_version=target):
                     raise RuntimeError("pip upgrade did not complete successfully")
                 try:
                     self.manager.request_restart()

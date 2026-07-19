@@ -2,14 +2,20 @@
 
 from __future__ import annotations
 
+import secrets
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from flask import jsonify, request
+from flask import jsonify, request, session
 
 from qBitrr.arss import PlaceHolderArr, TorrentPolicyManager
 from qBitrr.utils import coerce_bool
-from qBitrr.webui.auth import _auth_disabled, _local_auth_enabled, _oidc_enabled
+from qBitrr.webui.auth import (
+    _auth_disabled,
+    _local_auth_enabled,
+    _meta_force_limiter,
+    _oidc_enabled,
+)
 from qBitrr.webui.urlbase import configured_url_base
 
 if TYPE_CHECKING:
@@ -149,16 +155,39 @@ def register_status_routes(
         )
         return jsonify(payload)
 
+    def _has_meta_principal() -> bool:
+        supplied = request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+        if supplied and webui.token and secrets.compare_digest(supplied, webui.token):
+            return True
+        return bool(session.get("authenticated"))
+
+    def _meta_force_allowed() -> bool:
+        """Allow force refresh; rate-limit anonymous callers to protect GitHub API quota."""
+        if _has_meta_principal():
+            return True
+        client = request.remote_addr or "unknown"
+        return _meta_force_limiter.allow(f"meta-force:{client}")
+
     @app.get("/api/meta")
     def api_meta():
         if (resp := require_token()) is not None:
             return resp
         force = coerce_bool(request.args.get("force"))
+        if force and not _meta_force_allowed():
+            return (
+                jsonify({"error": "rate_limited", "message": "Too many force refresh requests"}),
+                429,
+            )
         return jsonify(webui._ensure_version_info(force=force))
 
     @app.get("/web/meta")
     def web_meta():
         force = coerce_bool(request.args.get("force"))
+        if force and not _meta_force_allowed():
+            return (
+                jsonify({"error": "rate_limited", "message": "Too many force refresh requests"}),
+                429,
+            )
         result = dict(webui._ensure_version_info(force=force))
         auth_required = not _auth_disabled()
         local_auth_enabled = _local_auth_enabled()
