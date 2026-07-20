@@ -49,7 +49,7 @@ jobs:
         INPUT_RELEASE_TYPE: ${{ github.event.inputs.release_type || '' }}
       run: "if [[ \"${EVENT_NAME}\" == \"workflow_dispatch\" ]]; then\n  type=\"${INPUT_RELEASE_TYPE:-patch}\"\n  echo \"value=${type}\" >> \"${GITHUB_OUTPUT}\"\n  exit 0\nfi\n\ncase \"${COMMIT_MESSAGE}\" in\n  \"[patch]\"*)\n    type=\"patch\"\n    ;;\n  \"[minor]\"*)\n    type=\"minor\"\n    ;;\n  \"[major]\"*)\n    type=\"major\"\n    ;;\n  *)\n    echo \"Commit message must begin with [patch], [minor], or [major].\" >&2\n    exit 1\n    ;;\nesac\n\necho \"value=${type}\" >> \"${GITHUB_OUTPUT}\"\n"
     - name: Set up Python
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: '3.12'
         cache: pip
@@ -219,7 +219,7 @@ jobs:
       if: runner.os == 'macOS'
       run: "/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"\n"
     - name: Set up Python ${{ matrix.python }}
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: ${{ matrix.python }}
         architecture: ${{ matrix.arch }}
@@ -236,7 +236,7 @@ jobs:
         RELEASE_HASH: ${{ needs.prepare_release.outputs.release_hash }}
       run: "ARCHIVE_NAME=\"${{ env.project-name }}-${RELEASE_HASH}-${{ matrix.os }}-${{ matrix.arch }}\"\necho \"Archive name set to: ${ARCHIVE_NAME}\"\necho \"NAME=${ARCHIVE_NAME}\" >> \"${GITHUB_OUTPUT}\"\n"
     - name: Set up Node.js
-      uses: actions/setup-node@v6
+      uses: actions/setup-node@v7
       with:
         node-version: '22'
         cache: npm
@@ -292,12 +292,12 @@ jobs:
         fetch-depth: 0
         ref: master
     - name: Set up Python
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: '3.12'
         cache: pip
     - name: Set up Node.js
-      uses: actions/setup-node@v6
+      uses: actions/setup-node@v7
       with:
         node-version: '22'
         cache: npm
@@ -337,11 +337,11 @@ jobs:
         fetch-depth: 0
         ref: master
     - name: Set up Python
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: '3.12'
         cache: pip
-    - uses: actions/setup-node@v6
+    - uses: actions/setup-node@v7
       with:
         node-version: latest
         cache: npm
@@ -596,7 +596,7 @@ jobs:
         ref: master
         token: ${{ secrets.PAT }}
     - name: Set up Python
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: '3.12'
     - name: Pull latest changelog updates
