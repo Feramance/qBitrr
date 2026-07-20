@@ -240,7 +240,7 @@ def iter_inventory_paths() -> Iterable[str]:
 SETTINGS_FIELDS: tuple[ConfigField, ...] = (
     ConfigField(
         ("ConfigVersion",),
-        "5.12.12",
+        "5.13.0",
         (
             "Internal config schema version - DO NOT MODIFY",
             "This is managed automatically by qBitrr for config migrations",
