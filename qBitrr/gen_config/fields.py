@@ -651,9 +651,8 @@ QBIT_FIELDS: tuple[ConfigField, ...] = (
         ("Disabled",),
         False,
         (
-            "If this is enabled qBitrr can run in headless mode where it will only process searches.",
-            "If media search is enabled in their individual categories",
-            "This is useful if you use for example Sabnzbd/NZBGet for downloading content but still want the faster media searches provided by qbit",
+            "Skip connecting this qBit instance while keeping the section in config.",
+            "Does not enable global headless mode; omit all [qBit] / [qBit-*] sections (or use QBITRR_QBIT_DISABLED / SEARCH_ONLY) for search-only without torrent management.",
         ),
         label="Disabled",
         kind="checkbox",

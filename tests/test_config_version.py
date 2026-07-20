@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -16,12 +17,36 @@ from qBitrr.config_version import (
     validate_config_version,
 )
 from qBitrr.gen_config import MyConfig
+from qBitrr.gen_config.fields import SETTINGS_FIELDS
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+_CONFIG_VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
+_APP_VERSION_RE = re.compile(r"^(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)-(?P<build>\d+)$")
+_BUNDLED_VERSION_RE = re.compile(
+    r'^version\s*=\s*"(?P<version>\d+\.\d+\.\d+-\d+)"\s*$',
+    flags=re.MULTILINE,
+)
 
 
 def _config_from_toml(text: str) -> MyConfig:
     doc = parse(text)
     with tempfile.NamedTemporaryFile(suffix=".toml") as tmp:
         return MyConfig(path=tmp.name, config=doc)
+
+
+def _app_version_from_bundled_data() -> str:
+    text = (_REPO_ROOT / "qBitrr/bundled_data.py").read_text(encoding="utf-8")
+    match = _BUNDLED_VERSION_RE.search(text)
+    if match is None:
+        raise AssertionError('qBitrr/bundled_data.py missing version = "MAJOR.MINOR.PATCH-BUILD"')
+    return match.group("version")
+
+
+def _schema_core_from_app_version(app_version: str) -> str:
+    match = _APP_VERSION_RE.fullmatch(app_version)
+    if match is None:
+        raise AssertionError(f"App version must be MAJOR.MINOR.PATCH-BUILD, got {app_version!r}")
+    return f"{match.group('major')}.{match.group('minor')}.{match.group('patch')}"
 
 
 class TestParseVersionMatrix(unittest.TestCase):
@@ -71,6 +96,47 @@ class TestSetConfigVersion(unittest.TestCase):
         cfg = _config_from_toml("[qBit]\n")
         set_config_version(cfg, "5.0.0")
         self.assertEqual(cfg.get("Settings.ConfigVersion"), "5.0.0")
+
+
+class TestConfigVersionBumpPolicy(unittest.TestCase):
+    """ConfigVersion is MAJOR.MINOR.PATCH only and tracks the app version core."""
+
+    def test_expected_config_version_is_major_minor_patch(self) -> None:
+        self.assertRegex(EXPECTED_CONFIG_VERSION, _CONFIG_VERSION_RE)
+
+    def test_expected_matches_app_version_core(self) -> None:
+        self.assertEqual(
+            EXPECTED_CONFIG_VERSION,
+            _schema_core_from_app_version(_app_version_from_bundled_data()),
+        )
+
+    def test_settings_field_default_matches_expected(self) -> None:
+        config_version_field = next(
+            field for field in SETTINGS_FIELDS if field.path == ("ConfigVersion",)
+        )
+        self.assertEqual(config_version_field.default, EXPECTED_CONFIG_VERSION)
+
+    def test_config_example_matches_expected(self) -> None:
+        text = (_REPO_ROOT / "config.example.toml").read_text(encoding="utf-8")
+        match = re.search(
+            r'^ConfigVersion\s*=\s*"(?P<version>[^"]+)"\s*$',
+            text,
+            flags=re.MULTILINE,
+        )
+        self.assertIsNotNone(match, "config.example.toml missing ConfigVersion")
+        assert match is not None
+        self.assertEqual(match.group("version"), EXPECTED_CONFIG_VERSION)
+
+    def test_config_file_docs_match_expected(self) -> None:
+        text = (_REPO_ROOT / "docs/configuration/config-file.md").read_text(encoding="utf-8")
+        match = re.search(
+            r'^ConfigVersion\s*=\s*"(?P<version>[^"]+)"\s*$',
+            text,
+            flags=re.MULTILINE,
+        )
+        self.assertIsNotNone(match, "config-file.md missing uncommented ConfigVersion")
+        assert match is not None
+        self.assertEqual(match.group("version"), EXPECTED_CONFIG_VERSION)
 
 
 class TestBackupConfig(unittest.TestCase):

@@ -66,7 +66,7 @@ export const FIELD_TOOLTIPS: Record<string, string> = {
   "qBit.Trackers":
     "Tracker configs shared by all Arr instances on this qBit instance. Define tracker-specific rate limits, HnR protection, and management rules here. Arr instances inherit these and can optionally override per-tracker settings.",
   "qBit.Disabled":
-    "Disable qBitrr's direct qBittorrent integration (headless mode for search-only setups).",
+    "Skip connecting this qBit instance while keeping its config. Not global headless — omit all [qBit] sections (or use QBITRR_QBIT_DISABLED / SEARCH_ONLY) for search-only without torrent management.",
   "qBit.Host": "qBittorrent WebUI host or IP address.",
   "qBit.Port": "qBittorrent WebUI port.",
   "qBit.UserName": "qBittorrent WebUI username.",
@@ -74,7 +74,7 @@ export const FIELD_TOOLTIPS: Record<string, string> = {
     "qBittorrent WebUI password. Remove this if authentication is bypassed for the host.",
 
   "Disabled":
-    "Disable this qBittorrent instance (headless mode for search-only setups).",
+    "Skip connecting this qBit instance while keeping its config. Not global headless — omit all [qBit] sections (or use QBITRR_QBIT_DISABLED / SEARCH_ONLY) for search-only without torrent management.",
   "Host": "qBittorrent WebUI host or IP address.",
   "Port": "qBittorrent WebUI port.",
   "UserName": "qBittorrent WebUI username.",

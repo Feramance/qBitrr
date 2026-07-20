@@ -105,12 +105,17 @@ qBitrr can run in "headless mode" where it **only processes searches** without m
 
 ### Enabling Headless Mode
 
+Global headless means **no qBit management at all**. Omit every `[qBit]` / `[qBit-*]` section from `config.toml` (see [qBit Section](config-file.md#qbit-section)). You can also force the same behavior with environment overrides:
+
+- [`QBITRR_QBIT_DISABLED=true`](environment.md#qbitrr_qbit_disabled)
+- [`QBITRR_OVERRIDES_SEARCH_ONLY=true`](environment.md#qbitrr_overrides_search_only) (forces qBit off and runs search loops only)
+
 ```toml
-[qBit]
-Disabled = true  # Run without qBittorrent torrent management
+# Headless: do not include any [qBit] or [qBit-<name>] sections.
+# Arr search, requests, and upgrades still work when those features are enabled.
 ```
 
-When `Disabled = true`:
+When qBit is globally disabled (no sections, or the env overrides above):
 
 - ✅ **Enabled:** Automated searches for missing media
 - ✅ **Enabled:** Overseerr/Ombi request processing
@@ -120,6 +125,17 @@ When `Disabled = true`:
 - ❌ **Disabled:** Stalled torrent detection
 - ❌ **Disabled:** Seeding management
 - ❌ **Disabled:** Disk space monitoring
+
+### Per-instance `Disabled`
+
+Setting `Disabled = true` on a `[qBit]` / `[qBit-*]` section **does not** enable global headless mode. It only skips connecting that instance while leaving the section in the config (useful when you temporarily park one of several qBit clients). Other enabled qBit sections still run torrent management.
+
+```toml
+[qBit-seedbox]
+Disabled = true  # Skip this instance only; keep Host/Port/etc. for later
+Host = "seedbox.example"
+Port = 8080
+```
 
 !!! tip "When to Use Headless Mode"
     - You use Usenet (Sabnzbd/NZBGet) for downloads
@@ -901,8 +917,8 @@ Password = "my-secure-password"
 ### Headless Mode (Search Only)
 
 ```toml
-[qBit]
-Disabled = true
+# Omit all [qBit] / [qBit-*] sections for search-only (no torrent management).
+# Or set QBITRR_QBIT_DISABLED=true / QBITRR_OVERRIDES_SEARCH_ONLY=true.
 ```
 
 ---

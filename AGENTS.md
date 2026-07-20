@@ -119,7 +119,7 @@
 - **Threading**: WebUI runs in main thread; auto-update, network monitor, and FFprobe downloads in background threads
 - **Database**: Peewee ORM with SQLite (thread-safe via `db_lock.py`); tables: `DownloadsModel`, `SearchModel`, `EntryExpiry`
 - **Event Loops**: Each ArrManager has a main loop checking qBit torrents every N seconds, triggering health checks, imports, cleanup
-- **Config Migrations**: `apply_config_migrations()` upgrades old configs; bump `CURRENT_CONFIG_VERSION` when schema changes
+- **Config Migrations**: `apply_config_migrations()` upgrades old configs; bump `EXPECTED_CONFIG_VERSION` when schema changes
 - **API Routes**:
   - `/api/*` – protected when `WebUI.AuthDisabled` is false (session cookie or `Authorization: Bearer` with `WebUI.Token`), returns JSON
   - `/web/*` – public helpers (serve UI, version info)
@@ -253,7 +253,7 @@ The workflow can also be triggered manually via `workflow_dispatch` on GitHub Ac
    git push origin master
    ```
 3. The release workflow automatically:
-   - Runs `bump2version` to update version in `setup.cfg`, `.bumpversion.cfg`, `bundled_data.py`, `Dockerfile`, `docs/index.md` (and ConfigVersion files on major/minor/patch only)
+   - Runs `bump2version` to update version in `setup.cfg`, `.bumpversion.cfg`, `bundled_data.py`, `Dockerfile`, `docs/index.md` (and ConfigVersion files — `config_version.py`, `gen_config/fields.py`, `docs/configuration/config-file.md`, `config.example.toml` — on major/minor/patch only; schema stays `MAJOR.MINOR.PATCH`, never `-BUILD`)
    - Commits the version bump (`[skip ci]`)
    - Creates a draft GitHub release
    - Builds and pushes Docker images (`v{version}`, `latest`, and `stable` for patch/minor/major) to Docker Hub and GHCR

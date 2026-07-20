@@ -157,7 +157,7 @@ ViewDensity = "Comfortable"
 
 **Key Fields**:
 
-- **Disabled**: Disable qBitrr's qBittorrent integration (headless search-only mode)
+- **Disabled**: Skip this qBit instance without removing its config (not global headless; omit all `[qBit]` sections for search-only)
 - **Host**: qBittorrent WebUI host or IP address
 - **Port**: qBittorrent WebUI port (default: 8080)
 - **UserName**: qBittorrent WebUI username (optional if auth bypassed)

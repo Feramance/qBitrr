@@ -457,7 +457,7 @@ with locked_database():
 **File:** `qBitrr/config.py:apply_config_migrations()`
 
 When schema changes:
-1. Bump `CURRENT_CONFIG_VERSION` constant
+1. Bump `EXPECTED_CONFIG_VERSION` constant
 2. Add migration logic to detect old version
 3. Apply ALTER TABLE / data transformations
 4. Update config version in database

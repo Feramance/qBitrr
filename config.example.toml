@@ -4,7 +4,7 @@
 [Settings]
 # Internal config schema version - DO NOT MODIFY
 # This is managed automatically by qBitrr for config migrations
-ConfigVersion = "5.8.8"
+ConfigVersion = "5.12.12"
 
 # Level of logging; One of CRITICAL, ERROR, WARNING, NOTICE, INFO, DEBUG, TRACE
 ConsoleLevel = "INFO"
@@ -165,9 +165,9 @@ Theme = "Dark"
 ViewDensity = "Comfortable"
 
 [qBit]
-# If this is enabled qBitrr can run in headless mode where it will only process searches.
-# If media search is enabled in their individual categories
-# This is useful if you use for example Sabnzbd/NZBGet for downloading content but still want the faster media searches provided by qbit
+# Skip connecting this qBit instance while keeping the section in config.
+# Does not enable global headless mode; omit all [qBit] / [qBit-*] sections
+# (or use QBITRR_QBIT_DISABLED / SEARCH_ONLY) for search-only without torrent management.
 Disabled = false
 
 # qbittorrent WebUI URL/IP - Can be found in Options > Web UI (called "IP Address")

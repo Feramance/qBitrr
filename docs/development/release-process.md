@@ -108,9 +108,10 @@ git push origin master
 | `qBitrr/bundled_data.py` | Runtime `version` / `patched_version` |
 | `Dockerfile` | `ARG VERSION` |
 | `docs/index.md` | Latest release line |
-| `qBitrr/config_version.py` | Schema only (`MAJOR.MINOR.PATCH`) |
-| `qBitrr/gen_config/fields.py` | Default ConfigVersion (schema only) |
-| `docs/configuration/config-file.md` | ConfigVersion example (schema only) |
+| `qBitrr/config_version.py` | Schema only (`MAJOR.MINOR.PATCH`; unchanged on `[build]`) |
+| `qBitrr/gen_config/fields.py` | Default ConfigVersion (schema only; unchanged on `[build]`) |
+| `docs/configuration/config-file.md` | ConfigVersion example (schema only; unchanged on `[build]`) |
+| `config.example.toml` | ConfigVersion example (schema only; unchanged on `[build]`) |
 
 ## PyPI publishing
 
