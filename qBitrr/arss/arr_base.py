@@ -24,7 +24,7 @@ from peewee import DatabaseError, Model, OperationalError, SqliteDatabase
 from qbittorrentapi import TorrentDictionary
 from ujson import JSONDecodeError
 
-from qBitrr.arss._shared import (
+from qBitrr.arss.arr_shared import (
     _ARR_RETRY_EXCEPTIONS,
     _ARR_RETRY_EXCEPTIONS_EXTENDED,
     _QBIT_READ_RETRY_EXCEPTIONS,
@@ -119,19 +119,17 @@ from qBitrr.arss.request_providers import db_ombi_update as _db_ombi_update_fn
 from qBitrr.arss.request_providers import db_overseerr_update as _db_overseerr_update_fn
 from qBitrr.arss.request_providers import db_request_update as _db_request_update_fn
 from qBitrr.arss.search_handlers import maybe_do_search as _maybe_do_search_fn
-from qBitrr.arss.torrent_batch_mixin import TorrentBatchMixin
-from qBitrr.arss.torrent_dispatcher_mixin import TorrentDispatcherMixin
-from qBitrr.arss.torrent_inspector_mixin import TorrentInspectorMixin
-from qBitrr.arss.torrent_limits_mixin import TorrentLimitsMixin
+from qBitrr.arss.torrent_batch import TorrentBatch
+from qBitrr.arss.torrent_dispatch import TorrentDispatch
+from qBitrr.arss.torrent_inspect import TorrentInspect
+from qBitrr.arss.torrent_limits import TorrentLimits
 from qBitrr.radarr_availability import minimum_availability_check as _minimum_availability_check_fn
 
 if TYPE_CHECKING:
     from qBitrr.arss.manager import ArrManager
 
 
-class ArrBase(
-    TorrentBatchMixin, TorrentInspectorMixin, TorrentDispatcherMixin, TorrentLimitsMixin
-):
+class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
     """Shared Arr worker pipeline; prefer RadarrArr / SonarrArr / LidarrArr concretes."""
 
     arr_type: ClassVar[str] = ""
@@ -2121,10 +2119,10 @@ class ArrBase(
         self.needs_cleanup = False
 
     def process(self):
-        """Apply queued torrent side-effects (batch mixin), then folder cleanup.
+        """Apply queued torrent side-effects (batch), then folder cleanup.
 
         Preceded by :meth:`process_torrents`, which classifies each torrent via
-        the dispatcher/inspector mixins before this method runs the batch queue.
+        the dispatch/inspect roles before this method runs the batch queue.
         """
         self._process_resume()
         self._process_paused()

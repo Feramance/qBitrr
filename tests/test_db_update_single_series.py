@@ -88,8 +88,8 @@ class TestQualityProfileHelpers(unittest.TestCase):
         )
 
 
-class TestArrMixinInheritance(unittest.TestCase):
-    def test_arr_inherits_torrent_mixins(self) -> None:
+class TestArrPipelineInheritance(unittest.TestCase):
+    def test_arr_inherits_torrent_pipeline(self) -> None:
         self.assertTrue(hasattr(Arr, "_process_paused"))
         self.assertTrue(hasattr(Arr, "_process_single_torrent"))
         self.assertTrue(hasattr(Arr, "is_alive"))
@@ -387,7 +387,7 @@ class TestDbUpdateEpisodeRetry(unittest.TestCase):
         arr.client.episode.get.return_value = []
         arr.series_file_model.insert.return_value.on_conflict.return_value.execute = MagicMock()
         with patch("qBitrr.arss.sonarr.with_retry", side_effect=real_with_retry) as mock_retry:
-            with patch("qBitrr.arss.base.fetch_search_activities", return_value={}):
+            with patch("qBitrr.arss.arr_base.fetch_search_activities", return_value={}):
                 with patch(
                     "qBitrr.arss.db_update_handlers.refresh_rollups_after_db_update",
                     return_value=None,

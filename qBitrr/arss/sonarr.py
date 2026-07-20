@@ -17,13 +17,13 @@ from qBitrr.arr_client import (
     build_sonarr_client,
     execute_command,
 )
-from qBitrr.arss._shared import (
+from qBitrr.arss.arr_base import ArrBase
+from qBitrr.arss.arr_shared import (
     _ARR_RETRY_EXCEPTIONS,
     _ARR_RETRY_EXCEPTIONS_EXTENDED,
     with_retry,
 )
 from qBitrr.arss.arr_type_config import sonarr_queue_id_field
-from qBitrr.arss.base import ArrBase
 from qBitrr.arss.db_update_handlers import (
     db_update_single_series,
     update_sonarr_episode,

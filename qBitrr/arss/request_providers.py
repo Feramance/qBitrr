@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 
 import requests
 
-from qBitrr.arss._shared import (
+from qBitrr.arss.arr_shared import (
     _is_media_available,
     _is_media_processing,
     _normalize_media_status,

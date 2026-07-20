@@ -5,10 +5,10 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from qBitrr.arss._shared import JsonObject
+from qBitrr.arss.arr_shared import JsonObject
 
 if TYPE_CHECKING:
-    from qBitrr.arss.base import ArrBase as Arr
+    from qBitrr.arss.arr_base import ArrBase as Arr
 
 
 def minimum_availability_check(arr: Arr, db_entry: JsonObject) -> bool:

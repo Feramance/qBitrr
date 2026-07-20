@@ -1,9 +1,9 @@
-"""Torrent decision-tree mixin extracted from Arr.
+"""Torrent decision-tree pipeline role composed into ArrBase.
 
 Call graph (per loop):
-  Arr.process_torrents → TorrentDispatcherMixin._process_single_torrent
-  → TorrentInspectorMixin._process_single_torrent_* (decide) → Arr.process
-  → TorrentBatchMixin._process_* (pause / import / fail / resume / file priority).
+  Arr.process_torrents → TorrentDispatch._process_single_torrent
+  → TorrentInspect._process_single_torrent_* (decide) → Arr.process
+  → TorrentBatch._process_* (pause / import / fail / resume / file priority).
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 import qbittorrentapi
 from qbittorrentapi import TorrentStates
 
-from qBitrr.arss._shared import (
+from qBitrr.arss.arr_shared import (
     _extract_tracker_host,
     _parse_qbittorrent_tag_list,
     _TrackerDataUnavailable,
@@ -24,7 +24,7 @@ from qBitrr.arss._shared import (
 )
 
 
-class TorrentDispatcherMixin:
+class TorrentDispatch:
     def _process_single_torrent_trackers(
         self,
         torrent: qbittorrentapi.TorrentDictionary,

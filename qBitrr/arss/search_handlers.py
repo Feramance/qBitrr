@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from qBitrr.arr_client import execute_command
-from qBitrr.arss._shared import _ARR_RETRY_EXCEPTIONS, with_retry
+from qBitrr.arss.arr_shared import _ARR_RETRY_EXCEPTIONS, with_retry
 from qBitrr.errors import NoConnectionrException
 from qBitrr.tables import (
     AlbumFilesModel,
@@ -15,7 +15,7 @@ from qBitrr.tables import (
 )
 
 if TYPE_CHECKING:
-    from qBitrr.arss.base import ArrBase as Arr
+    from qBitrr.arss.arr_base import ArrBase as Arr
 
 
 def maybe_do_search(

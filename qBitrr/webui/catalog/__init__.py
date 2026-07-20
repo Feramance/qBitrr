@@ -1,4 +1,4 @@
-"""WebUI catalog helpers and query mixins."""
+"""WebUI catalog helpers and query composition."""
 
 from __future__ import annotations
 

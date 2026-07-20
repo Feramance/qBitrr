@@ -16,7 +16,7 @@ from qBitrr.db_lock import database_lock
 from qBitrr.utils import coerce_bool
 
 
-class CatalogMixin:
+class Catalog:
     def _safe_str(value: Any) -> str:
         if value is None:
             return ""
@@ -483,7 +483,7 @@ class CatalogMixin:
                 ids = [int(ar.EntryId) for ar in slice_rows]
                 alb_maps, trk_maps = {}, {}
                 if ids and album_m is not None:
-                    alb_maps, trk_maps = CatalogMixin._lidarr_artist_browse_progress_maps(
+                    alb_maps, trk_maps = Catalog._lidarr_artist_browse_progress_maps(
                         album_m, track_m, arr_keys, ids
                     )
 

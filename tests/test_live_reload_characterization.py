@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 from qBitrr.arss import Arr, PlaceHolderArr, TorrentPolicyManager
 from qBitrr.arss.qbit_side_effects import pause_hashes_by_instance, resume_hashes_by_instance
 from qBitrr.config_reload_policy import classify_config_changes
-from qBitrr.webui.lifecycle import LifecycleMixin
+from qBitrr.webui.lifecycle import Lifecycle
 
 
 def _bare_arr_for_refresh() -> Arr:
@@ -158,10 +158,10 @@ class TestArrApplyConfigRefresh(unittest.TestCase):
             }[key]
 
         with (
-            patch("qBitrr.arss.base.CONFIG") as mock_config,
-            patch("qBitrr.arss.base.PROCESS_ONLY", False),
-            patch("qBitrr.arss.base.SEARCH_ONLY", True),
-            patch("qBitrr.arss.base.sync_config_from_disk"),
+            patch("qBitrr.arss.arr_base.CONFIG") as mock_config,
+            patch("qBitrr.arss.arr_base.PROCESS_ONLY", False),
+            patch("qBitrr.arss.arr_base.SEARCH_ONLY", True),
+            patch("qBitrr.arss.arr_base.sync_config_from_disk"),
             patch.object(arr, "_get_ignore_torrents_younger_than", return_value=180),
             patch.object(arr, "_get_maximum_eta", return_value=86400),
             patch.object(arr, "_get_search_command_limit", return_value=9),
@@ -169,7 +169,9 @@ class TestArrApplyConfigRefresh(unittest.TestCase):
             patch.object(arr, "_get_refresh_downloads_timer", return_value=1),
             patch.object(arr, "_merge_trackers", return_value=tracker_rows) as merge,
             patch.object(arr, "_install_tracker_index") as install,
-            patch("qBitrr.arss.base.build_tracker_index", return_value=MagicMock()) as build_idx,
+            patch(
+                "qBitrr.arss.arr_base.build_tracker_index", return_value=MagicMock()
+            ) as build_idx,
         ):
             mock_config.get.side_effect = _live_config_get
             mock_config.get_or_raise.side_effect = config_get_or_raise
@@ -203,10 +205,10 @@ class TestArrApplyConfigRefresh(unittest.TestCase):
         arr.import_mode = "Auto"
 
         with (
-            patch("qBitrr.arss.base.CONFIG") as mock_config,
-            patch("qBitrr.arss.base.PROCESS_ONLY", False),
-            patch("qBitrr.arss.base.SEARCH_ONLY", True),
-            patch("qBitrr.arss.base.sync_config_from_disk") as sync_disk,
+            patch("qBitrr.arss.arr_base.CONFIG") as mock_config,
+            patch("qBitrr.arss.arr_base.PROCESS_ONLY", False),
+            patch("qBitrr.arss.arr_base.SEARCH_ONLY", True),
+            patch("qBitrr.arss.arr_base.sync_config_from_disk") as sync_disk,
             patch.object(arr, "_get_ignore_torrents_younger_than", return_value=600),
             patch.object(arr, "_get_maximum_eta", return_value=43200),
             patch.object(arr, "_get_search_command_limit", return_value=9),
@@ -214,8 +216,8 @@ class TestArrApplyConfigRefresh(unittest.TestCase):
             patch.object(arr, "_get_refresh_downloads_timer", return_value=5),
             patch.object(arr, "_merge_trackers", return_value=tracker_rows),
             patch.object(arr, "_install_tracker_index"),
-            patch("qBitrr.arss.base.build_tracker_index", return_value=MagicMock()),
-            patch("qBitrr.arss.base.ExpiringSet") as expiring,
+            patch("qBitrr.arss.arr_base.build_tracker_index", return_value=MagicMock()),
+            patch("qBitrr.arss.arr_base.ExpiringSet") as expiring,
         ):
             mock_config.get.side_effect = _live_config_get
             mock_config.get_duration.side_effect = lambda key, fallback=0, unit=None: {
@@ -302,7 +304,7 @@ class TestArrApplyConfigRefresh(unittest.TestCase):
         plan = classify_config_changes({"Radarr.Main.EntrySearch.SearchMissing": True})
         self.assertIn("Radarr.Main", plan.arr_live_instances)
 
-        webui = LifecycleMixin()
+        webui = Lifecycle()
         webui.logger = MagicMock()
         webui.manager = MagicMock()
         webui.manager.arr_manager = MagicMock()
@@ -317,8 +319,8 @@ class TestArrApplyConfigRefresh(unittest.TestCase):
 class TestArrLiveSearchWorkerReconcile(unittest.TestCase):
     """LIVE refresh must start/stop the search worker when SearchMissing changes."""
 
-    def _webui_with_arr(self, arr) -> LifecycleMixin:
-        webui = LifecycleMixin()
+    def _webui_with_arr(self, arr) -> Lifecycle:
+        webui = Lifecycle()
         webui.logger = MagicMock()
         webui.manager = MagicMock()
         webui.manager.arr_manager = MagicMock()
@@ -520,16 +522,16 @@ class TestPlaceHolderLiveSync(unittest.TestCase):
             arr.manager.completed_folders = {arr.completed_folder}
 
             with (
-                patch("qBitrr.arss.placeholder.sync_config_from_disk"),
+                patch("qBitrr.arss.placeholder_arr.sync_config_from_disk"),
                 patch(
-                    "qBitrr.arss.placeholder.get_ignore_torrents_younger_than_effective",
+                    "qBitrr.arss.placeholder_arr.get_ignore_torrents_younger_than_effective",
                     return_value=600,
                 ),
                 patch(
-                    "qBitrr.arss.placeholder.get_completed_download_folder_effective",
+                    "qBitrr.arss.placeholder_arr.get_completed_download_folder_effective",
                     return_value=str(new_root),
                 ),
-                patch("qBitrr.arss.placeholder.ExpiringSet") as expiring,
+                patch("qBitrr.arss.placeholder_arr.ExpiringSet") as expiring,
             ):
                 arr._sync_loop_settings_from_config()
 

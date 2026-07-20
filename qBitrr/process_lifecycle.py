@@ -8,7 +8,7 @@ import time
 import pathos
 
 
-class ProcessLifecycleMixin:
+class ProcessLifecycle:
     def _enqueue_failed_spawn(self, arr, role: str) -> None:
         """Track a failed worker spawn and queue it for periodic retry."""
         category = getattr(arr, "category", "")

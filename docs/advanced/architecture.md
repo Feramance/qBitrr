@@ -464,7 +464,7 @@ When schema changes:
 
 ### Event Loop Architecture
 
-**File:** `qBitrr/arss/base.py` (`ArrBase` event loop)
+**File:** `qBitrr/arss/arr_base.py` (`ArrBase` event loop)
 
 Each Arr instance runs this loop:
 
@@ -899,7 +899,7 @@ Each Arr manager's event loop runs six phases per iteration:
 
 ### Main Loop Implementation
 
-**File:** `qBitrr/arss/base.py` (`ArrBase` event loop)
+**File:** `qBitrr/arss/arr_base.py` (`ArrBase` event loop)
 
 ```python
 def run_loop(self):

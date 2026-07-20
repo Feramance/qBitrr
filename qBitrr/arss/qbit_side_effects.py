@@ -7,7 +7,7 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable
 from typing import Any
 
-from qBitrr.arss._shared import (
+from qBitrr.arss.arr_shared import (
     _QBIT_TORRENT_DELETE_EXCEPTIONS,
     _QBIT_WRITE_RETRY_EXCEPTIONS,
     get_auto_pause_resume_effective,

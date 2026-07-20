@@ -712,7 +712,7 @@ except InvalidTorrentError:
 
 3. **Integrate into event loop:**
    ```python
-   # qBitrr/arss/base.py (or a concrete Arr subclass)
+   # qBitrr/arss/arr_base.py (or a concrete Arr subclass)
    def process_completed_torrents(self):
        for torrent in completed:
            # ... existing import logic ...
@@ -921,7 +921,7 @@ except InvalidTorrentError:
 
 3. **Add debug statements:**
    ```python
-   # qBitrr/arss/base.py
+   # qBitrr/arss/arr_base.py
    def process_completed_torrents(self):
        logger.debug(f"Found {len(completed)} completed torrents")
 

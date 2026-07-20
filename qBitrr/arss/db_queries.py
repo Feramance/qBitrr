@@ -11,7 +11,7 @@ from copy import copy
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
-from qBitrr.arss._shared import _ARR_RETRY_EXCEPTIONS, with_retry
+from qBitrr.arss.arr_shared import _ARR_RETRY_EXCEPTIONS, with_retry
 from qBitrr.db_lock import database_lock
 from qBitrr.tables import (
     AlbumFilesModel,
@@ -21,7 +21,7 @@ from qBitrr.tables import (
 )
 
 if TYPE_CHECKING:
-    from qBitrr.arss.base import ArrBase as Arr
+    from qBitrr.arss.arr_base import ArrBase as Arr
 
 
 def db_get_files(

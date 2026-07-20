@@ -21,9 +21,9 @@ from qBitrr.webui.auth import (
     _check_insecure_exposure,
     _oidc_enabled,
 )
-from qBitrr.webui.catalog.queries import CatalogMixin
+from qBitrr.webui.catalog.queries import Catalog
 from qBitrr.webui.config_toml import _toml_set
-from qBitrr.webui.lifecycle import LifecycleMixin
+from qBitrr.webui.lifecycle import Lifecycle
 from qBitrr.webui.urlbase import _install_url_base_middleware, configured_url_base
 
 # Waitress worker threads for concurrent API + poster thumbnail traffic.
@@ -42,7 +42,7 @@ def _run_logs(logger, name: str) -> None:
     return webui_mod.run_logs(logger, name)
 
 
-class WebUI(CatalogMixin, LifecycleMixin):
+class WebUI(Catalog, Lifecycle):
     def __init__(self, manager, host: str = "0.0.0.0", port: int = 6969):
         self.manager = manager
         self.host = host

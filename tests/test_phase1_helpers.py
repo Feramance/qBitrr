@@ -128,7 +128,7 @@ SHARED_ARR_FILE_FIELDS = (
 
 
 class TestTablesFieldGoldenMaster(unittest.TestCase):
-    """Snapshot shared field types/nullability before/after mixin extraction."""
+    """Snapshot shared field types/nullability before/after pipeline extraction."""
 
     def _field_snapshot(self, model: type) -> dict[str, tuple[type, bool]]:
         return {

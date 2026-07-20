@@ -14,7 +14,7 @@ from qBitrr.arr_client import (
     build_radarr_client,
     build_sonarr_client,
 )
-from qBitrr.arss.base import ArrBase
+from qBitrr.arss.arr_base import ArrBase
 from qBitrr.arss.lidarr import LidarrArr
 from qBitrr.arss.radarr import RadarrArr
 from qBitrr.arss.sonarr import SonarrArr

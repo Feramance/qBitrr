@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import requests
 
 from qBitrr.arss import ArrManager, LidarrArr, RadarrArr, SonarrArr, arr_class_for_section
-from qBitrr.arss.base import ArrBase
+from qBitrr.arss.arr_base import ArrBase
 from qBitrr.errors import SkipException
 
 
@@ -16,14 +16,14 @@ class TestArssSplitImports(unittest.TestCase):
     """Star-imported names from _shared must be visible in ArrBase module."""
 
     def test_base_module_exposes_atexit_and_database_error(self) -> None:
-        import qBitrr.arss.base as base_mod
+        import qBitrr.arss.arr_base as base_mod
 
         self.assertTrue(hasattr(base_mod, "atexit"))
         self.assertTrue(hasattr(base_mod, "DatabaseError"))
         self.assertTrue(hasattr(base_mod, "sync_config_from_disk"))
 
     def test_atexit_register_works_from_base_namespace(self) -> None:
-        import qBitrr.arss.base as base_mod
+        import qBitrr.arss.arr_base as base_mod
 
         session = requests.Session()
         try:
@@ -41,12 +41,12 @@ class TestArrInitSessionSetup(unittest.TestCase):
     """RadarrArr.__init__ must reach session/atexit setup without NameError."""
 
     @patch.object(RadarrArr, "register_search_mode")
-    @patch("qBitrr.arss.base.run_logs")
-    @patch("qBitrr.arss.base.CONFIG")
-    @patch("qBitrr.arss.base.QBIT_DISABLED", True)
-    @patch("qBitrr.arss.base.SEARCH_ONLY", True)
-    @patch("qBitrr.arss.base.PROCESS_ONLY", False)
-    @patch("qBitrr.arss.base.TAGLESS", True)
+    @patch("qBitrr.arss.arr_base.run_logs")
+    @patch("qBitrr.arss.arr_base.CONFIG")
+    @patch("qBitrr.arss.arr_base.QBIT_DISABLED", True)
+    @patch("qBitrr.arss.arr_base.SEARCH_ONLY", True)
+    @patch("qBitrr.arss.arr_base.PROCESS_ONLY", False)
+    @patch("qBitrr.arss.arr_base.TAGLESS", True)
     def test_init_registers_session_close_on_atexit(
         self,
         mock_config: MagicMock,
@@ -85,7 +85,7 @@ class TestArrInitSessionSetup(unittest.TestCase):
         mock_client = MagicMock()
         client_builder = MagicMock(return_value=mock_client)
 
-        with patch("qBitrr.arss.base.atexit.register") as mock_register:
+        with patch("qBitrr.arss.arr_base.atexit.register") as mock_register:
             arr = RadarrArr("TestRadarr", manager, client_builder=client_builder)
 
         self.assertEqual(arr.type, "radarr")

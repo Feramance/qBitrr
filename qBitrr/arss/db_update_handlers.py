@@ -12,7 +12,7 @@ from peewee import OperationalError
 from ujson import JSONDecodeError
 
 from qBitrr.arr_client import JsonObject, PyarrResourceNotFound
-from qBitrr.arss._shared import (
+from qBitrr.arss.arr_shared import (
     _ARR_RETRY_EXCEPTIONS,
     _lidarr_track_duration_seconds,
     with_retry,
@@ -40,7 +40,7 @@ from qBitrr.tables import (
 )
 
 if TYPE_CHECKING:
-    from qBitrr.arss.base import ArrBase as Arr
+    from qBitrr.arss.arr_base import ArrBase as Arr
 
 
 def _fetch_quality_profile(arr: Arr, quality_profile_id: int) -> JsonObject:

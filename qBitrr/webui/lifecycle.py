@@ -34,7 +34,7 @@ def _config():
     return webui_mod.CONFIG
 
 
-class LifecycleMixin:
+class Lifecycle:
     def _apply_arr_live_refresh(self, plan: ReloadPlan) -> None:
         """Refresh running Arr instances in-place for live-reloadable instance keys."""
         if not hasattr(self.manager, "arr_manager") or not self.manager.arr_manager:

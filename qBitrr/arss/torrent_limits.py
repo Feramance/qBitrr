@@ -1,10 +1,10 @@
-"""Torrent seeding-limits / HnR / leave-alone mixin extracted from Arr.
+"""Torrent seeding-limits / HnR / leave-alone pipeline role composed into ArrBase.
 
 Call graph (per loop):
-  Arr.process_torrents → TorrentDispatcherMixin._process_single_torrent
-  → TorrentLimitsMixin._should_leave_alone / torrent_limit_check / custom_format_unmet_check
-  → TorrentInspectorMixin._process_single_torrent_* (decide; uses _hnr_allows_delete)
-  → Arr.process → TorrentBatchMixin._process_* (pause / import / fail / resume / file priority).
+  Arr.process_torrents → TorrentDispatch._process_single_torrent
+  → TorrentLimits._should_leave_alone / torrent_limit_check / custom_format_unmet_check
+  → TorrentInspect._process_single_torrent_* (decide; uses _hnr_allows_delete)
+  → Arr.process → TorrentBatch._process_* (pause / import / fail / resume / file priority).
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from datetime import timedelta
 import qbittorrentapi
 from qbittorrentapi import TorrentStates
 
-from qBitrr.arss._shared import (
+from qBitrr.arss.arr_shared import (
     _ARR_RETRY_EXCEPTIONS,
     _extract_tracker_host,
     _TrackerDataUnavailable,
@@ -22,7 +22,7 @@ from qBitrr.arss._shared import (
 )
 
 
-class TorrentLimitsMixin:
+class TorrentLimits:
     def _resolve_hnr_clear_mode(self, tracker_or_config: dict) -> str:
         """Resolve HnR mode from single HitAndRunMode key: 'and' | 'or' | 'disabled'."""
         raw = tracker_or_config.get("HitAndRunMode")

@@ -16,12 +16,12 @@ from qBitrr.arr_client import (
     build_lidarr_client,
     execute_command,
 )
-from qBitrr.arss._shared import (
+from qBitrr.arss.arr_base import ArrBase
+from qBitrr.arss.arr_shared import (
     _ARR_RETRY_EXCEPTIONS,
     _ARR_RETRY_EXCEPTIONS_EXTENDED,
     with_retry,
 )
-from qBitrr.arss.base import ArrBase
 from qBitrr.arss.db_update_handlers import update_lidarr_album, update_lidarr_artist
 from qBitrr.arss.search_handlers import search_lidarr
 from qBitrr.config import TAGLESS

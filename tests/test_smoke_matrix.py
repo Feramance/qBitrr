@@ -29,14 +29,14 @@ class TestQueueDeleteBlocklistKwarg(unittest.TestCase):
     """pyarr v6 queue.delete uses blocklist= (not blacklist=)."""
 
     def test_delete_from_queue_passes_blocklist(self) -> None:
-        from qBitrr.arss.base import ArrBase
+        from qBitrr.arss.arr_base import ArrBase
 
         arr = ArrBase.__new__(ArrBase)
         arr.client = MagicMock()
         arr.logger = MagicMock()
         arr.client.queue.delete.return_value = {"ok": True}
 
-        with patch("qBitrr.arss.base.with_retry", side_effect=lambda fn, **_: fn()):
+        with patch("qBitrr.arss.arr_base.with_retry", side_effect=lambda fn, **_: fn()):
             ArrBase.delete_from_queue(arr, id_=99, remove_from_client=True, blacklist=True)
 
         arr.client.queue.delete.assert_called_once_with(

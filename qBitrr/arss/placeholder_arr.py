@@ -8,7 +8,8 @@ from typing import TYPE_CHECKING
 
 import qbittorrentapi
 
-from qBitrr.arss._shared import (
+from qBitrr.arss.arr_base import ArrBase
+from qBitrr.arss.arr_shared import (
     _QBIT_READ_RETRY_EXCEPTIONS,
     _QBIT_TORRENT_DELETE_EXCEPTIONS,
     CONFIG,
@@ -28,7 +29,6 @@ from qBitrr.arss._shared import (
     sync_config_from_disk,
     with_retry,
 )
-from qBitrr.arss.base import ArrBase
 
 if TYPE_CHECKING:
     from qBitrr.arss.manager import ArrManager

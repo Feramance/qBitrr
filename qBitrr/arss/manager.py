@@ -5,7 +5,8 @@ import pathlib
 import re
 from typing import TYPE_CHECKING
 
-from qBitrr.arss._shared import (
+from qBitrr.arss.arr_base import ArrBase
+from qBitrr.arss.arr_shared import (
     CONFIG,
     QBIT_DISABLED,
     SEARCH_ONLY,
@@ -22,9 +23,8 @@ from qBitrr.arss._shared import (
     qbit_sections,
     run_logs,
 )
-from qBitrr.arss.base import ArrBase
 from qBitrr.arss.factory import build_arr_instance
-from qBitrr.arss.placeholder import PlaceHolderArr
+from qBitrr.arss.placeholder_arr import PlaceHolderArr
 from qBitrr.arss.torrent_policy import TorrentPolicyManager
 
 if TYPE_CHECKING:

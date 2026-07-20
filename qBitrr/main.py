@@ -36,7 +36,7 @@ from qBitrr.env_config import ENVIRO_CONFIG
 from qBitrr.ffprobe import FFprobeDownloader
 from qBitrr.home_path import APPDATA_FOLDER
 from qBitrr.logger import run_logs
-from qBitrr.process_lifecycle import ProcessLifecycleMixin
+from qBitrr.process_lifecycle import ProcessLifecycle
 from qBitrr.qbit_category_manager import qBitCategoryManager
 from qBitrr.qbit_seeding_config import load_qbit_seeding_config
 from qBitrr.utils import ExpiringSet, mask_secret, qbit_sections
@@ -88,7 +88,7 @@ def _delete_all_databases() -> None:
         logger.debug("No old database files found to delete on startup")
 
 
-class qBitManager(ProcessLifecycleMixin):
+class qBitManager(ProcessLifecycle):
     min_supported_version = VersionClass("4.3.9")
     soft_not_supported_supported_version = VersionClass("4.4.4")
     # max_supported_version = VersionClass("5.1.2")

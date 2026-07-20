@@ -9,18 +9,18 @@
 - **Key Modules**:
   - `qBitrr/main.py` – orchestrates multiprocessing, launches arr managers and WebUI
   - `qBitrr/arss/` – Arr package (split from legacy monolith):
-    - `base.py` – `ArrBase` shared torrent pipeline, config, loops, qBit side effects
+    - `arr_base.py` – `ArrBase` shared torrent pipeline, config, loops, qBit side effects
     - `radarr.py` / `sonarr.py` / `lidarr.py` – `RadarrArr` / `SonarrArr` / `LidarrArr` concretes
     - `factory.py` – section name → concrete Arr class + client builder
     - `arr.py` – compatibility alias (`Arr = ArrBase`)
     - `manager.py` – `ArrManager` orchestration and instance factory wiring
-    - `placeholder.py` – `PlaceHolderArr` role subclass for special/qBit categories
+    - `placeholder_arr.py` – `PlaceHolderArr` role subclass for special/qBit categories
     - `torrent_policy.py` – `TorrentPolicyManager` free-space / tracker-sort role worker
-    - `torrent_batch_mixin.py` – batched torrent processing helpers
+    - `torrent_dispatch.py` / `torrent_limits.py` / `torrent_inspect.py` / `torrent_batch.py` – pipeline roles composed into `ArrBase`
     - `qbit_side_effects.py` – shared pause/resume/delete helpers
     - `db_queries.py` / `request_providers.py` – DB search selection and Ombi/Overseerr leaves
     - `db_update_handlers.py` – per-Arr-type DB update leaf functions
-    - `_shared.py` – shared imports/constants for arss submodules
+    - `arr_shared.py` – shared imports/constants for arss submodules
   - `qBitrr/arr_client.py` – Pyarr v6 client builders and shared JSON types
   - `qBitrr/arr_tracker_index.py` – shared tracker config → derived URI/host sets (`build_tracker_index`, `extract_tracker_host`)
   - `qBitrr/qbit_seeding_config.py` – qBit-managed category seeding settings loader

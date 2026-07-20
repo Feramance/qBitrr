@@ -38,11 +38,17 @@ class TestPackageLayout(unittest.TestCase):
     def test_arss_arr_submodule_importable(self) -> None:
         for name in (
             "qBitrr.arss.arr",
-            "qBitrr.arss.base",
+            "qBitrr.arss.arr_base",
+            "qBitrr.arss.arr_shared",
+            "qBitrr.arss.placeholder_arr",
             "qBitrr.arss.radarr",
             "qBitrr.arss.sonarr",
             "qBitrr.arss.lidarr",
             "qBitrr.arss.factory",
+            "qBitrr.arss.torrent_dispatch",
+            "qBitrr.arss.torrent_limits",
+            "qBitrr.arss.torrent_inspect",
+            "qBitrr.arss.torrent_batch",
         ):
             spec = importlib.util.find_spec(name)
             self.assertIsNotNone(spec, name)

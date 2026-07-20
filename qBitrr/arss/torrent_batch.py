@@ -1,9 +1,9 @@
-"""Torrent batch side-effects mixin extracted from Arr.
+"""Torrent batch side-effects pipeline role composed into ArrBase.
 
 Call graph (per loop):
-  Arr.process_torrents → TorrentDispatcherMixin._process_single_torrent
-  → TorrentInspectorMixin._process_single_torrent_* (decide) → Arr.process
-  → TorrentBatchMixin._process_* (pause / import / fail / resume / file priority).
+  Arr.process_torrents → TorrentDispatch._process_single_torrent
+  → TorrentInspect._process_single_torrent_* (decide) → Arr.process
+  → TorrentBatch._process_* (pause / import / fail / resume / file priority).
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from collections.abc import Iterable
 
 import qbittorrentapi
 
-from qBitrr.arss._shared import (
+from qBitrr.arss.arr_shared import (
     _ARR_RETRY_EXCEPTIONS_EXTENDED,
     _QBIT_TORRENT_DELETE_EXCEPTIONS,
     _QBIT_WRITE_RETRY_EXCEPTIONS,
@@ -25,7 +25,7 @@ from qBitrr.arss._shared import (
 )
 
 
-class TorrentBatchMixin:
+class TorrentBatch:
     def _process_paused(self) -> None:
         # Pause torrents on their owning qBittorrent instance.
         from qBitrr.arss.qbit_side_effects import pause_hashes_by_instance, pause_legacy_hash_set

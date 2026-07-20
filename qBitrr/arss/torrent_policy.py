@@ -12,7 +12,8 @@ import requests
 from peewee import SqliteDatabase
 from qbittorrentapi import TorrentDictionary, TorrentStates
 
-from qBitrr.arss._shared import (
+from qBitrr.arss.arr_base import ArrBase
+from qBitrr.arss.arr_shared import (
     _QBIT_READ_RETRY_EXCEPTIONS,
     APPDATA_FOLDER,
     TAGLESS,
@@ -32,7 +33,6 @@ from qBitrr.arss._shared import (
     sync_config_from_disk,
     with_retry,
 )
-from qBitrr.arss.base import ArrBase
 
 if TYPE_CHECKING:
     from qBitrr.arss.manager import ArrManager

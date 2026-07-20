@@ -1,9 +1,9 @@
-"""Torrent state-inspection mixin extracted from Arr.
+"""Torrent state-inspection pipeline role composed into ArrBase.
 
 Call graph (per loop):
-  Arr.process_torrents → TorrentDispatcherMixin._process_single_torrent
-  → TorrentInspectorMixin._process_single_torrent_* (decide) → Arr.process
-  → TorrentBatchMixin._process_* (pause / import / fail / resume / file priority).
+  Arr.process_torrents → TorrentDispatch._process_single_torrent
+  → TorrentInspect._process_single_torrent_* (decide) → Arr.process
+  → TorrentBatch._process_* (pause / import / fail / resume / file priority).
 """
 
 from __future__ import annotations
@@ -17,10 +17,10 @@ import qbittorrentapi
 import requests
 from qbittorrentapi import TorrentDictionary, TorrentStates
 
-from qBitrr.arss._shared import _TrackerDataUnavailable
+from qBitrr.arss.arr_shared import _TrackerDataUnavailable
 
 
-class TorrentInspectorMixin:
+class TorrentInspect:
     @property
     def is_alive(self) -> bool:
         try:
@@ -57,7 +57,7 @@ class TorrentInspectorMixin:
     @staticmethod
     def _is_metadata_stuck_state(torrent: TorrentDictionary) -> bool:
         """True when qBittorrent is fetching torrent metadata (metaDL / forcedMetaDL)."""
-        return torrent.state_enum in TorrentInspectorMixin._METADATA_STUCK_STATES
+        return torrent.state_enum in TorrentInspect._METADATA_STUCK_STATES
 
     @staticmethod
     def is_ignored_state(torrent: TorrentDictionary) -> bool:
@@ -140,7 +140,7 @@ class TorrentInspectorMixin:
     @staticmethod
     def _torrent_queue_position_sort_key(torrent: TorrentDictionary) -> tuple[bool, int]:
         """Sort key matching qBittorrent queue ordering (active queue first, then position)."""
-        nq = TorrentInspectorMixin._normalize_torrent_queue_priority_value(torrent)
+        nq = TorrentInspect._normalize_torrent_queue_priority_value(torrent)
         return (not (nq > 0), nq)
 
     @staticmethod

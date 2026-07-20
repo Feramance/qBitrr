@@ -8,7 +8,7 @@ Prefer importing from the real owners when writing or touching leaf modules:
 - :mod:`qBitrr.errors` — Arr/qBit control-flow exceptions
 - :mod:`qBitrr.db_lock` / :mod:`qBitrr.utils` — locking and retry helpers
 
-This module still re-exports those symbols for older Arr workers/mixins so
+This module still re-exports those symbols for older Arr workers/pipeline roles so
 imports do not break mid-migration. Prefer not to grow ``__all__``; new shared
 Arr-only helpers (retry exception tuples, tracker/tag utilities, Overseerr
 status helpers) belong here.
