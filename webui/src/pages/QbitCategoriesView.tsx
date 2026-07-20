@@ -275,30 +275,23 @@ export function QbitCategoriesView({ active }: QbitCategoriesViewProps): JSX.Ele
     [categories, search]
   );
 
-  // Auto-expand small categories and honor Processes deep-link focus.
+  // Honor Processes deep-link focus (expand that category only).
   useEffect(() => {
     if (!active || !filteredCategories.length) {
       return;
     }
     const focusCategory = sessionStorage.getItem("qbitrr:focusQbitCategory");
-    if (focusCategory) {
-      sessionStorage.removeItem("qbitrr:focusQbitCategory");
+    if (!focusCategory) {
+      return;
     }
+    sessionStorage.removeItem("qbitrr:focusQbitCategory");
     const id = window.setTimeout(() => {
       setExpanded((prev) => {
         let changed = false;
         const next = { ...prev };
         for (const cat of filteredCategories) {
           const key = categorySectionKey(cat);
-          const isFocus =
-            focusCategory != null && cat.category === focusCategory;
-          if (isFocus) {
-            if (next[key] !== true) {
-              next[key] = true;
-              changed = true;
-            }
-          } else if (cat.torrentCount <= 5 && !(key in next)) {
-            // Only default-open when unset; respect explicit user collapse (false).
+          if (cat.category === focusCategory && next[key] !== true) {
             next[key] = true;
             changed = true;
           }
