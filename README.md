@@ -46,14 +46,14 @@ docker run -d \
   -v /path/to/appdata/qbitrr:/config \
   -v /path/to/completed/downloads:/completed_downloads:rw \
   --restart unless-stopped \
-  feramance/qbitrr:latest
+  feramance/qbitrr:stable
 ```
 
 **Docker Compose:**
 ```yaml
 services:
   qbitrr:
-    image: feramance/qbitrr:latest
+    image: feramance/qbitrr:stable
     container_name: qbitrr
     restart: unless-stopped
     tty: true
@@ -68,9 +68,11 @@ services:
 
 Access the WebUI at `http://<host>:6969/ui` after startup.
 
+Use `:stable` for production (feature/fix releases). `:latest` also includes weekly dependency builds; `:nightly` tracks `master`. See the [Docker installation guide](https://feramance.github.io/qBitrr/getting-started/installation/docker/) for details.
+
 ## ✨ Key Features
 
-- **🚀 Multi-qBittorrent Support (v5.7.x+)** – Manage torrents across multiple qBittorrent instances for load balancing, redundancy, and VPN isolation
+- **🚀 Multi-qBittorrent Support** – Manage torrents across multiple qBittorrent instances for load balancing, redundancy, and VPN isolation
 - **🚑 Torrent Health Monitoring** – Detect stalled/failed downloads, auto-blacklist, trigger re-searches
 - **🔍 Automated Search** – Missing media, quality upgrades, custom format scoring
 - **🎯 Request Integration** – Pull requests from Overseerr/Ombi, prioritize user-requested media
@@ -106,7 +108,7 @@ Access the WebUI at `http://<host>:6969/ui` after startup.
    CompletedDownloadFolder = "/path/to/completed"
    ```
 
-### 🆕 Multi-qBittorrent (v5.7.x+)
+### Multi-qBittorrent
 
 Manage torrents across multiple qBittorrent instances:
 
@@ -132,11 +134,9 @@ See [Configuration Guide](https://feramance.github.io/qBitrr/configuration/) and
 
 ## 📖 Resources
 
-- **Documentation:** https://feramance.github.io/qBitrr/
 - **PyPI Package:** https://pypi.org/project/qBitrr2/
 - **Docker Hub:** https://hub.docker.com/r/feramance/qbitrr
 - **Example Config:** [config.example.toml](config.example.toml)
-- **API Documentation:** [docs/webui/api.md](docs/webui/api.md)
 - **Systemd Setup:** [docs/getting-started/installation/systemd.md](docs/getting-started/installation/systemd.md)
 
 ## 🐛 Issues & Support
@@ -161,6 +161,10 @@ cd webui && npm ci
 npm run dev    # Dev server at localhost:5173
 ```
 
+## 🤖 AI Assistance
+
+AI tools are used to help keep up with project maintenance—implementation assistance, reviewing large surfaces, and docs/CI churn. All project decisions, and all code and documentation changes, are made and manually reviewed by the maintainer before they land. AI is a tool, not an autonomous maintainer; accountability for this repository remains with the human maintainer(s).
+
 ## ❤️ Support
 
 If qBitrr saves you time and headaches:
@@ -171,16 +175,6 @@ If qBitrr saves you time and headaches:
 
 Released under the [MIT License](LICENSE). Use it, modify it, share it—commercially or personally.
 
----
-
-<div align="center">
-
-**Made with ❤️ by the qBitrr community**
-
-[Documentation](https://feramance.github.io/qBitrr/) • [PyPI](https://pypi.org/project/qBitrr2/) • [Docker](https://hub.docker.com/r/feramance/qbitrr) • [GitHub](https://github.com/Feramance/qBitrr)
-
-</div>
-
 ## Star History
 
 <a href="https://www.star-history.com/?repos=Feramance%2FqBitrr&type=date&legend=top-left">
@@ -190,3 +184,13 @@ Released under the [MIT License](LICENSE). Use it, modify it, share it—commerc
    <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=Feramance/qBitrr&type=date&legend=top-left&sealed_token=EXe-Jk5zmkaT62MxEUEshh3juu06IvhODSmGySh0hyQiA_DOrfWNv0H1axUNBrDDL3RfIB1KBnpwm5kw9YZhRByncU_LfykUCU-Iim2GqBEFbMXIQK6O2RVJwvcFHd7yI8_-Gl0ARaG-blnqO5RNw53c3lXvPYOldEWHA58pMTSfMqF5czAY9CDgrZeQ" />
  </picture>
 </a>
+
+---
+
+<div align="center">
+
+**Made with ❤️ by the qBitrr community**
+
+[Documentation](https://feramance.github.io/qBitrr/) • [PyPI](https://pypi.org/project/qBitrr2/) • [Docker](https://hub.docker.com/r/feramance/qbitrr) • [GitHub](https://github.com/Feramance/qBitrr)
+
+</div>
