@@ -409,7 +409,9 @@ export interface MetaResponse {
   last_checked: string | null;
   error?: string | null;
   update_state: UpdateState;
-  installation_type: "git" | "pip" | "binary" | "unknown";
+  installation_type: "source" | "git" | "pip" | "binary" | "docker" | "unknown";
+  auto_update_supported?: boolean;
+  update_channel?: "latest" | "stable" | "nightly";
   binary_download_url: string | null;
   binary_download_name: string | null;
   binary_download_size: number | null;

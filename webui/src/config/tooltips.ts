@@ -28,9 +28,11 @@ export const FIELD_TOOLTIPS: Record<string, string> = {
   "Settings.FFprobeAutoUpdate":
     "Download and update the bundled ffprobe binary automatically.",
   "Settings.AutoUpdateEnabled":
-    "Enable the background worker that periodically checks for qBitrr updates.",
+    "Enable the background worker that periodically checks for qBitrr updates. Ignored for source builds (.git checkout or QBITRR_SOURCE_BUILD).",
   "Settings.AutoUpdateCron":
     "Cron expression describing when to check for updates (default weekly Sunday at 03:00).",
+  "Settings.AutoUpdateChannel":
+    "Release channel for updates: latest (newest release including builds), stable (newest non-build release), or nightly (tip of master; not supported for binary installs). Source builds never auto-update.",
   "Settings.AutoRestartProcesses":
     "Automatically restart worker processes that crash unexpectedly. Recommended to keep enabled for reliability.",
   "Settings.MaxProcessRestarts":

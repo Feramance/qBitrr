@@ -284,6 +284,25 @@ QBITRR_SETTINGS_AUTO_UPDATE_CRON="0 3 * * *"
 
 ---
 
+### QBITRR_SETTINGS_AUTO_UPDATE_CHANNEL
+
+**Type:** String (`latest` | `stable` | `nightly`)
+**Default:** `latest`
+
+Release channel for update checks and auto-updates.
+
+```bash
+QBITRR_SETTINGS_AUTO_UPDATE_CHANNEL=stable
+```
+
+Optional GitHub API token for higher rate limits (also accepts `GITHUB_TOKEN` / `GH_TOKEN`):
+
+```bash
+QBITRR_SETTINGS_GITHUB_TOKEN=ghp_...
+```
+
+---
+
 ## qBittorrent Settings
 
 ### QBITRR_QBIT_DISABLED
@@ -453,7 +472,8 @@ services:
       QBITRR_QBIT_PASSWORD: ${QBIT_PASSWORD}  # From .env file
 
       # Auto-Update
-      QBITRR_SETTINGS_AUTO_UPDATE_ENABLED: "false"  # Use Watchtower instead
+      QBITRR_SETTINGS_AUTO_UPDATE_ENABLED: "true"
+      QBITRR_SETTINGS_AUTO_UPDATE_CHANNEL: "stable"
 ```
 
 **`.env` file:**
@@ -608,6 +628,7 @@ WantedBy=multi-user.target
 ```bash
 QBITRR_SETTINGS_AUTO_UPDATE_ENABLED=true
 QBITRR_SETTINGS_AUTO_UPDATE_CRON="0 3 * * 0"
+QBITRR_SETTINGS_AUTO_UPDATE_CHANNEL=latest
 ```
 
 **Enable and start:**
@@ -860,6 +881,7 @@ The following environment variables are supported by qBitrr. Process management 
 | `QBITRR_SETTINGS_FFPROBE_AUTO_UPDATE` | Boolean | `true` | Auto-update FFprobe binary |
 | `QBITRR_SETTINGS_AUTO_UPDATE_ENABLED` | Boolean | `false` | Enable qBitrr auto-updates |
 | `QBITRR_SETTINGS_AUTO_UPDATE_CRON` | String | `0 3 * * 0` | Auto-update cron schedule |
+| `QBITRR_SETTINGS_AUTO_UPDATE_CHANNEL` | String | `latest` | Update channel (`latest`/`stable`/`nightly`) |
 | `QBITRR_QBIT_DISABLED` | Boolean | `false` | Disable qBittorrent integration |
 | `QBITRR_QBIT_HOST` | String | `localhost` | qBittorrent WebUI host |
 | `QBITRR_QBIT_PORT` | Integer | `8080` | qBittorrent WebUI port |

@@ -60,6 +60,7 @@ SETTINGS_LIVE_KEYS = frozenset(
         "Settings.FFprobeAutoUpdate",
         "Settings.AutoUpdateEnabled",
         "Settings.AutoUpdateCron",
+        "Settings.AutoUpdateChannel",
         "Settings.FreeSpace",
         "Settings.FreeSpaceFolder",
     }

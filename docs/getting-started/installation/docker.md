@@ -235,7 +235,9 @@ docker rm qbitrr
 ```
 
 !!! tip "Auto-Updates"
-    qBitrr has a built-in auto-update feature that works in Docker. It will pull the latest image and restart the container automatically if configured.
+    Built-in auto-update can upgrade qBitrr **inside** the container into a persistent `/config/runtime` overlay (`Settings.AutoUpdateEnabled`). It does not pull Docker images. You can still pull a newer image (`:stable` / `:latest` / `:nightly`) separately if you prefer image-based updates.
+
+    Local/source builds should pass `--build-arg QBITRR_SOURCE_BUILD=1` so auto-update stays disabled (official Hub images leave this at `0`).
 
 ## Troubleshooting Quick Reference
 

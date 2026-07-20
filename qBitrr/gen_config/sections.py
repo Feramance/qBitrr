@@ -113,6 +113,7 @@ def _add_settings_section(config: TOMLDocument):
             else False
         ),
         "AutoUpdateCron": _default(ENVIRO_CONFIG.settings.auto_update_cron, "0 3 * * 0"),
+        "AutoUpdateChannel": _default(ENVIRO_CONFIG.settings.auto_update_channel, "latest"),
     }
     apply_fields(settings, _fields_with_overrides(SETTINGS_FIELDS, overrides))
     config.add("Settings", settings)

@@ -88,6 +88,7 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
         ("FFprobeAutoUpdate", True),
         ("AutoUpdateEnabled", False),
         ("AutoUpdateCron", "0 3 * * 0"),
+        ("AutoUpdateChannel", "latest"),
         ("AutoRestartProcesses", True),
         ("MaxProcessRestarts", 5),
         ("ProcessRestartWindow", 300),

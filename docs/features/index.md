@@ -321,21 +321,25 @@ AutoUpdateEnabled = true
 
 # Update schedule (cron expression)
 AutoUpdateCron = "0 3 * * 0"  # Sundays at 3:00 AM
+
+# Release channel
+AutoUpdateChannel = "latest"  # or stable / nightly
 ```
 
 **Update process:**
 
-1. qBitrr checks for new versions on schedule
-2. Downloads latest release from GitHub
-3. Installs update (PyPI package or binary)
+1. qBitrr checks the configured channel on schedule
+2. Downloads/installs using the detected install type
+3. Verifies the update
 4. Restarts qBitrr automatically
 5. Logs update in `Main.log`
 
 **Supported installation methods:**
 
-- ✅ PyPI package (`pip install -U qbitrr2`)
-- ✅ Docker (pull latest image)
-- ⚠️ Binary (manual download, not fully automated)
+- ✅ PyPI package
+- ✅ Docker (in-container `/config/runtime` overlay; official Hub images)
+- ✅ Binary (latest/stable)
+- ❌ Source builds (`.git` / `QBITRR_SOURCE_BUILD=1`) — auto-update forced off
 
 ---
 

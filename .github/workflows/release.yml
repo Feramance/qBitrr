@@ -282,11 +282,16 @@ jobs:
       run: "find dist\n"
     - name: Tar files
       if: runner.os != 'Windows'
-      run: "tar --format=ustar -czvf ${{ steps.archive.outputs.NAME }}.tar.gz dist/\n"
+      run: |
+        tar --format=ustar -czvf ${{ steps.archive.outputs.NAME }}.tar.gz dist/
+        sha256sum ${{ steps.archive.outputs.NAME }}.tar.gz | tee ${{ steps.archive.outputs.NAME }}.tar.gz.sha256
     - name: Archive files
       if: runner.os == 'Windows'
       shell: pwsh
-      run: "Compress-Archive dist/* ${{ steps.archive.outputs.NAME }}.zip\n"
+      run: |
+        Compress-Archive dist/* ${{ steps.archive.outputs.NAME }}.zip
+        $hash = (Get-FileHash -Algorithm SHA256 "${{ steps.archive.outputs.NAME }}.zip").Hash.ToLower()
+        Set-Content -Path "${{ steps.archive.outputs.NAME }}.zip.sha256" -Value "$hash  ${{ steps.archive.outputs.NAME }}.zip"
     - name: Upload Artifact
       uses: actions/upload-artifact@v7
       with:

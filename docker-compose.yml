@@ -4,11 +4,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        QBITRR_SOURCE_BUILD: '1'
     environment:
     - UMASK=000
     - TZ=${TZ}
     - PUID=${USER_ID}
     - PGID=${USER_ID}
+    - QBITRR_SOURCE_BUILD=1
     restart: always
     tty: true
     stop_grace_period: 60s

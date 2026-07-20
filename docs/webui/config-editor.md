@@ -97,6 +97,7 @@ PingURLS = ["one.one.one.one", "dns.google.com"]
 FFprobeAutoUpdate = true
 AutoUpdateEnabled = true
 AutoUpdateCron = "0 3 * * 0"
+AutoUpdateChannel = "latest"
 ```
 
 **Validation**:
@@ -106,6 +107,7 @@ AutoUpdateCron = "0 3 * * 0"
 - `FreeSpaceFolder` required when `FreeSpace != "-1"`
 - All timer fields must be non-negative numbers
 - `AutoUpdateCron` must contain 5 or 6 space-separated fields
+- `AutoUpdateChannel` must be one of `latest`, `stable`, `nightly`
 
 ---
 
@@ -627,6 +629,7 @@ The editor validates fields **on change** and **before save**, displaying inline
 | `Arr.Category` vs `qBit.ManagedCategories` | Same normalised string cannot appear in both (managed Arr only) |
 | `EntrySearch.SearchLimit` | Must be ≥ 1 |
 | `AutoUpdateCron` | Must contain 5 or 6 space-separated fields |
+| `AutoUpdateChannel` | Must be `latest`, `stable`, or `nightly` |
 | `Torrent.MaximumDeletablePercentage` | Decimal 0–1 (e.g. 0.99 = 99%) |
 | `CategorySeeding.HitAndRunMinimumDownloadPercent` | 0–100 |
 | `CategorySeeding.HitAndRunMode` / tracker HnR mode | `disabled`, `and`, or `or` |

@@ -56,6 +56,7 @@ class AppConfig:
         ffprobe_auto_update = environ.var(None, converter=Converter.bool)
         auto_update_enabled = environ.var(None, converter=Converter.bool)
         auto_update_cron = environ.var(None)
+        auto_update_channel = environ.var(None)
 
     @environ.config(prefix="QBIT", frozen=True)
     class qBit:

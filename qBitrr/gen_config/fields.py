@@ -394,6 +394,19 @@ SETTINGS_FIELDS: tuple[ConfigField, ...] = (
         required=True,
     ),
     ConfigField(
+        ("AutoUpdateChannel",),
+        "latest",
+        (
+            "Release channel for update checks and auto-updates",
+            "latest = newest release (includes build bumps); stable = newest non-build release; "
+            "nightly = tip of master (unsupported for binary installs).",
+        ),
+        label="Auto Update Channel",
+        kind="select",
+        options=("latest", "stable", "nightly"),
+        required=True,
+    ),
+    ConfigField(
         ("AutoRestartProcesses",),
         True,
         (

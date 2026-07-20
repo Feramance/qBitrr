@@ -222,9 +222,13 @@ FF_VERSION = APPDATA_FOLDER.joinpath("ffprobe_info.json")
 FF_PROBE = APPDATA_FOLDER.joinpath("ffprobe")
 
 
-def get_auto_update_settings() -> tuple[bool, str]:
+def get_auto_update_settings() -> tuple[bool, str, str]:
+    """Return ``(enabled, cron, channel)`` for the auto-update worker."""
+    from qBitrr.versioning import DEFAULT_UPDATE_CHANNEL, normalize_update_channel
+
     enabled_env = ENVIRO_CONFIG.settings.auto_update_enabled
     cron_env = ENVIRO_CONFIG.settings.auto_update_cron
+    channel_env = ENVIRO_CONFIG.settings.auto_update_channel
     enabled = (
         enabled_env
         if enabled_env is not None
@@ -232,7 +236,12 @@ def get_auto_update_settings() -> tuple[bool, str]:
     )
     cron = cron_env or CONFIG.get("Settings.AutoUpdateCron", fallback="0 3 * * 0")
     cron = str(cron or "0 3 * * 0")
-    return bool(enabled), cron
+    channel = normalize_update_channel(
+        channel_env
+        if channel_env is not None
+        else CONFIG.get("Settings.AutoUpdateChannel", fallback=DEFAULT_UPDATE_CHANNEL)
+    )
+    return bool(enabled), cron, channel
 
 
 def get_auto_pause_resume_effective() -> bool:

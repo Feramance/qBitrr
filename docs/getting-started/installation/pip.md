@@ -228,12 +228,13 @@ qBitrr has a built-in auto-update feature:
 
 1. Enable in `config.toml`:
    ```toml
-   [Settings.CompletedDownloadFolder]
-   AutoUpdate = true
-   UpdateSchedule = "0 3 * * 0"  # Sunday at 3 AM
+   [Settings]
+   AutoUpdateEnabled = true
+   AutoUpdateCron = "0 3 * * 0"  # Sunday at 3 AM
+   AutoUpdateChannel = "latest"  # or stable / nightly
    ```
 
-2. qBitrr will automatically update itself from PyPI
+2. qBitrr will check GitHub on the schedule and install the matching `qBitrr2==version` from PyPI (or git tip for nightly)
 
 ## Uninstalling
 

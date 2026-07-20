@@ -10,5 +10,21 @@ if [ "$(id -u)" = "0" ] && [ "${PUID}" != "0" ]; then
     chown -R "${PUID}:${PGID}" /config 2>/dev/null || true
 fi
 
+# Prefer a persistent in-container update overlay under /config/runtime when present.
+# Auto-update installs qBitrr2 into this path so upgrades survive container recreate.
+RUNTIME_OVERLAY="/config/runtime"
+if [ -d "${RUNTIME_OVERLAY}" ]; then
+    case ":${PYTHONPATH:-}:" in
+        *":${RUNTIME_OVERLAY}:"*) ;;
+        *)
+            if [ -n "${PYTHONPATH:-}" ]; then
+                export PYTHONPATH="${RUNTIME_OVERLAY}:${PYTHONPATH}"
+            else
+                export PYTHONPATH="${RUNTIME_OVERLAY}"
+            fi
+            ;;
+    esac
+fi
+
 # Run the container CMD as the specified user (tini + python)
 exec gosu "${PUID}:${PGID}" /usr/bin/tini -- "$@"

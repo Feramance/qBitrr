@@ -21,6 +21,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends tini gosu curl 
 # Env used by the script to determine if it's inside a docker -
 # if this is set to 69420 it will change the working dir for docker specific values
 ENV QBITRR_DOCKER_RUNNING=69420
+# Set to 1 when building from a local/source tree so auto-update stays disabled
+# (official Hub images leave this at 0). Example:
+#   docker build --build-arg QBITRR_SOURCE_BUILD=1 -t qbitrr:local .
+ARG QBITRR_SOURCE_BUILD=0
+ENV QBITRR_SOURCE_BUILD=${QBITRR_SOURCE_BUILD}
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONOPTIMIZE=1

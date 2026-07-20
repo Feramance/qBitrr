@@ -109,10 +109,10 @@ Responsibilities:
 **File:** `qBitrr/auto_update.py`
 
 - Runs in main process as daemon thread
-- Checks GitHub releases for new versions
-- Downloads and validates release packages
-- Triggers restart when update is available
-- Configurable update channel (stable/nightly)
+- Resolves the configured channel (`latest` / `stable` / `nightly`) from GitHub
+- Applies install-type-specific updates (pip, Docker `/config/runtime` overlay, binary self-replace)
+- Source builds (`.git` / `QBITRR_SOURCE_BUILD`) never auto-update
+- Verifies success before restarting
 
 #### Network Monitor
 **File:** `qBitrr/main.py`

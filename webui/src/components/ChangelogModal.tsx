@@ -22,6 +22,8 @@ export interface ChangelogModalProps {
   readonly updateState?: MetaResponse["update_state"] | null;
   readonly updating?: boolean;
   readonly installationType?: MetaResponse["installation_type"];
+  readonly updateChannel?: MetaResponse["update_channel"];
+  readonly autoUpdateSupported?: boolean;
   readonly binaryDownloadUrl?: string | null;
   readonly binaryDownloadName?: string | null;
   readonly binaryDownloadSize?: number | null;
@@ -42,7 +44,9 @@ function changelogTitle(
   variant: ChangelogModalVariant,
   currentVersion: string,
   updateInProgress: boolean,
+  updateChannel?: MetaResponse["update_channel"],
 ): { readonly id: string; readonly text: string } {
+  const channel = updateChannel ?? "latest";
   switch (variant) {
     case "welcome":
       return {
@@ -50,7 +54,15 @@ function changelogTitle(
         text: `🎉 Welcome to qBitrr ${formatVersionLabel(currentVersion)}!`,
       };
     case "upToDate":
-      return { id: "already-up-to-date-title", text: "✓ You're on the latest version" };
+      return {
+        id: "already-up-to-date-title",
+        text:
+          channel === "nightly"
+            ? "✓ You're current on the nightly channel"
+            : channel === "stable"
+              ? "✓ You're on the latest stable version"
+              : "✓ You're on the latest version",
+      };
     case "updateAvailable":
       return {
         id: "changelog-title",
@@ -70,6 +82,8 @@ export function ChangelogModal({
   updateState,
   updating = false,
   installationType,
+  updateChannel = "latest",
+  autoUpdateSupported,
   binaryDownloadUrl = null,
   binaryDownloadName = null,
   binaryDownloadSize = null,
@@ -84,7 +98,12 @@ export function ChangelogModal({
     ? new Date(updateState.completed_at).toLocaleString()
     : null;
   const isBinaryInstall = installationType === "binary";
-  const title = changelogTitle(variant, currentVersion, updateInProgress);
+  const isSourceInstall =
+    installationType === "source" ||
+    installationType === "git" ||
+    autoUpdateSupported === false;
+  const nightlyUnsupported = isBinaryInstall && updateChannel === "nightly";
+  const title = changelogTitle(variant, currentVersion, updateInProgress, updateChannel);
   const changelogText = changelog?.trim() ?? "";
   const showReleaseNotes =
     variant === "welcome" ||
@@ -174,12 +193,27 @@ export function ChangelogModal({
                   </span>
                   <span className="version-arrow">→</span>
                   <span className="version-item">
-                    <strong>Latest:</strong>{" "}
+                    <strong>
+                      {updateChannel === "nightly"
+                        ? "Nightly:"
+                        : updateChannel === "stable"
+                          ? "Stable:"
+                          : "Latest:"}
+                    </strong>{" "}
                     <span className="version-badge version-latest">
                       {latestVersion ? formatVersionLabel(latestVersion) : "Unknown"}
                     </span>
                   </span>
                 </div>
+                <p style={{ marginTop: "0.5rem", color: "var(--text-secondary)", fontSize: "0.875rem" }}>
+                  Channel: <strong>{updateChannel}</strong>
+                  {installationType ? (
+                    <>
+                      {" "}
+                      · Install: <strong>{installationType}</strong>
+                    </>
+                  ) : null}
+                </p>
                 {statusMessage ? (
                   <div className={`update-status ${statusClass}`}>{statusMessage}</div>
                 ) : null}
@@ -226,22 +260,39 @@ export function ChangelogModal({
           </div>
           <div className="changelog-buttons">
             {variant === "updateAvailable" ? (
-              isBinaryInstall ? (
-                binaryDownloadError ? (
-                  <div className="update-status text-danger" style={{ marginBottom: "0.5rem" }}>
-                    {binaryDownloadError}
-                  </div>
-                ) : binaryDownloadUrl ? (
-                  <>
+              isSourceInstall ? (
+                <div className="update-status text-danger">
+                  Source builds do not support auto-update. Update the working tree
+                  manually (or rebuild the image without QBITRR_SOURCE_BUILD /
+                  without a .git directory for release images).
+                </div>
+              ) : nightlyUnsupported ? (
+                <div className="update-status text-danger">
+                  Nightly channel is not supported for binary installations. Switch to
+                  latest or stable in Settings, or update manually.
+                </div>
+              ) : (
+                <>
+                  <button
+                    className="btn primary"
+                    type="button"
+                    onClick={onUpdate}
+                    disabled={updateDisabled}
+                  >
+                    <IconImage src={UpdateIcon} />
+                    {updateDisabled ? "Updating..." : "Update Now"}
+                  </button>
+                  {isBinaryInstall && binaryDownloadUrl ? (
                     <a
-                      className="btn primary"
+                      className="btn ghost"
                       href={webPath("/web/download-update")}
                       download={binaryDownloadName ?? undefined}
                       target="_blank"
                       rel="noreferrer"
+                      style={{ marginLeft: "0.5rem" }}
                     >
                       <IconImage src={DownloadIcon} />
-                      Download Update
+                      Download
                       {binaryDownloadSize && binaryDownloadSize > 0 ? (
                         <span
                           style={{ marginLeft: "0.5rem", opacity: 0.8, fontSize: "0.875rem" }}
@@ -250,31 +301,13 @@ export function ChangelogModal({
                         </span>
                       ) : null}
                     </a>
-                    <div
-                      style={{
-                        fontSize: "0.875rem",
-                        color: "var(--text-secondary)",
-                        marginTop: "0.5rem",
-                      }}
-                    >
-                      Binary installation detected. Download and manually replace the executable.
+                  ) : null}
+                  {isBinaryInstall && binaryDownloadError ? (
+                    <div className="update-status text-danger" style={{ marginTop: "0.5rem" }}>
+                      {binaryDownloadError}
                     </div>
-                  </>
-                ) : (
-                  <div className="update-status text-danger">
-                    Unable to fetch binary download URL. Please update manually.
-                  </div>
-                )
-              ) : (
-                <button
-                  className="btn primary"
-                  type="button"
-                  onClick={onUpdate}
-                  disabled={updateDisabled}
-                >
-                  <IconImage src={UpdateIcon} />
-                  {updateDisabled ? "Updating..." : "Update Now"}
-                </button>
+                  ) : null}
+                </>
               )
             ) : (
               <button className="btn primary" type="button" onClick={onClose}>

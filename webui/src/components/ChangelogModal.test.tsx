@@ -138,13 +138,30 @@ describe("ChangelogModal variants", () => {
     expect(screen.getByText(/Update failed: network timeout/i)).toBeInTheDocument();
   });
 
-  it("updateAvailable: binary install shows download link with size", () => {
+  it("updateAvailable: source install blocks Update Now", () => {
+    render(
+      <ChangelogModal
+        {...baseProps({
+          variant: "updateAvailable",
+          latestVersion: "6.0.0",
+          installationType: "source",
+          autoUpdateSupported: false,
+        })}
+      />,
+    );
+
+    expect(screen.getByText(/Source builds do not support auto-update/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Update Now/i })).not.toBeInTheDocument();
+  });
+
+  it("updateAvailable: binary install shows Update Now and optional download", () => {
     render(
       <ChangelogModal
         {...baseProps({
           variant: "updateAvailable",
           latestVersion: "6.0.0",
           installationType: "binary",
+          updateChannel: "latest",
           binaryDownloadUrl: "https://example.com/qbitrr.bin",
           binaryDownloadName: "qbitrr.bin",
           binaryDownloadSize: 2 * 1024 * 1024,
@@ -152,10 +169,27 @@ describe("ChangelogModal variants", () => {
       />,
     );
 
-    const download = screen.getByRole("link", { name: /Download Update/i });
+    expect(screen.getByRole("button", { name: /Update Now/i })).toBeInTheDocument();
+    const download = screen.getByRole("link", { name: /Download/i });
     expect(download).toHaveAttribute("href", "/web/download-update");
     expect(download).toHaveAttribute("download", "qbitrr.bin");
     expect(screen.getByText(/\(2\.0 MB\)/i)).toBeInTheDocument();
+  });
+
+  it("updateAvailable: binary nightly channel is unsupported", () => {
+    render(
+      <ChangelogModal
+        {...baseProps({
+          variant: "updateAvailable",
+          latestVersion: "nightly-abc1234",
+          installationType: "binary",
+          updateChannel: "nightly",
+        })}
+      />,
+    );
+
+    expect(screen.getByText(/Nightly channel is not supported for binary/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Update Now/i })).not.toBeInTheDocument();
   });
 
   it("updateAvailable: binary install shows error when download URL missing", () => {
@@ -165,11 +199,13 @@ describe("ChangelogModal variants", () => {
           variant: "updateAvailable",
           latestVersion: "6.0.0",
           installationType: "binary",
+          updateChannel: "latest",
           binaryDownloadError: "CDN unreachable",
         })}
       />,
     );
 
+    expect(screen.getByRole("button", { name: /Update Now/i })).toBeInTheDocument();
     expect(screen.getByText(/CDN unreachable/i)).toBeInTheDocument();
   });
 });

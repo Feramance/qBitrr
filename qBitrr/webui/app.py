@@ -14,7 +14,7 @@ from flask import Flask, request
 
 from qBitrr.bundled_data import patched_version, tagged_version
 from qBitrr.errors import ConfigException
-from qBitrr.versioning import fetch_latest_release, fetch_release_by_tag
+from qBitrr.versioning import fetch_channel_release, fetch_release_by_tag
 from qBitrr.webui.auth import (
     _allow_insecure_exposure,
     _auth_disabled,
@@ -92,6 +92,8 @@ class WebUI(Catalog, Lifecycle):
             "last_checked": None,
             "error": None,
             "installation_type": "unknown",
+            "auto_update_supported": True,
+            "update_channel": "latest",
             "binary_download_url": None,
             "binary_download_name": None,
             "binary_download_size": None,
@@ -236,16 +238,26 @@ class WebUI(Catalog, Lifecycle):
         register_routes(self)
 
     def _fetch_version_info(self) -> dict[str, Any]:
-        info = fetch_latest_release(self._github_repo)
+        from qBitrr.auto_update import read_nightly_sha
+        from qBitrr.config import get_auto_update_settings
+
+        _, _, channel = get_auto_update_settings()
+        info = fetch_channel_release(
+            channel,
+            self._github_repo,
+            current_nightly_sha=read_nightly_sha(),
+        )
         if info.get("error"):
-            self.logger.debug("Failed to fetch latest release information: %s", info["error"])
-            return {"error": info["error"]}
+            self.logger.debug("Failed to fetch release information: %s", info["error"])
+            return {"error": info["error"], "update_channel": channel}
         latest_display = info.get("raw_tag") or info.get("normalized")
         return {
             "latest_version": latest_display,
             "update_available": bool(info.get("update_available")),
             "changelog": info.get("changelog") or "",
             "changelog_url": info.get("changelog_url"),
+            "update_channel": info.get("channel") or channel,
+            "nightly_sha": info.get("nightly_sha"),
             "error": None,
         }
 
@@ -301,6 +313,10 @@ class WebUI(Catalog, Lifecycle):
                     self._version_cache["update_available"] = bool(latest_info["update_available"])
                 if "error" in latest_info:
                     self._version_cache["error"] = latest_info["error"]
+                if latest_info.get("update_channel"):
+                    self._version_cache["update_channel"] = latest_info["update_channel"]
+                if "nightly_sha" in latest_info:
+                    self._version_cache["nightly_sha"] = latest_info.get("nightly_sha")
             # Store current version changelog
             if current_ver_info and not current_ver_info.get("error"):
                 self._version_cache["current_version_changelog"] = (
@@ -310,14 +326,27 @@ class WebUI(Catalog, Lifecycle):
             self._version_cache["current_version"] = patched_version
             self._version_cache["last_checked"] = now.isoformat()
 
-            # Add installation type and binary download info
-            from qBitrr.auto_update import get_binary_download_url, get_installation_type
+            from qBitrr.auto_update import (
+                get_binary_download_url,
+                get_installation_type,
+                is_auto_update_supported,
+            )
+            from qBitrr.config import get_auto_update_settings
 
             install_type = get_installation_type()
             self._version_cache["installation_type"] = install_type
+            self._version_cache["auto_update_supported"] = is_auto_update_supported(install_type)
+            _, _, channel = get_auto_update_settings()
+            self._version_cache["update_channel"] = (
+                self._version_cache.get("update_channel") or channel
+            )
 
-            # If binary and update available, get download URL
-            if install_type == "binary" and self._version_cache.get("update_available"):
+            # If binary and update available on a release channel, get download URL
+            if (
+                install_type == "binary"
+                and self._version_cache.get("update_available")
+                and channel != "nightly"
+            ):
                 latest_version = self._version_cache.get("latest_version")
                 if latest_version:
                     binary_info = get_binary_download_url(latest_version, self.logger)
@@ -326,6 +355,16 @@ class WebUI(Catalog, Lifecycle):
                     self._version_cache["binary_download_size"] = binary_info.get("size")
                     if binary_info.get("error"):
                         self._version_cache["binary_download_error"] = binary_info["error"]
+            elif install_type == "binary" and channel == "nightly":
+                self._version_cache["binary_download_url"] = None
+                self._version_cache["binary_download_error"] = (
+                    "Nightly channel is not supported for binary installations"
+                )
+            elif not is_auto_update_supported(install_type):
+                self._version_cache["binary_download_url"] = None
+                self._version_cache["binary_download_error"] = (
+                    "Source builds do not support auto-update"
+                )
 
             # Extend cache validity if fetch succeeded; otherwise allow quick retry.
             if not latest_info or latest_info.get("error"):
@@ -337,6 +376,11 @@ class WebUI(Catalog, Lifecycle):
             return snapshot
 
     def _trigger_manual_update(self) -> tuple[bool, str]:
+        from qBitrr.auto_update import get_installation_type, is_auto_update_supported
+
+        install_type = get_installation_type()
+        if not is_auto_update_supported(install_type):
+            return False, "Source builds do not support auto-update."
         with self._version_lock:
             if self._update_state["in_progress"]:
                 return False, "An update is already in progress."
@@ -358,13 +402,22 @@ class WebUI(Catalog, Lifecycle):
             try:
                 self.manager._perform_auto_update()
             except AttributeError:
-                from qBitrr.auto_update import perform_self_update
+                from qBitrr.auto_update import perform_self_update, read_nightly_sha
+                from qBitrr.config import get_auto_update_settings
 
+                _, _, channel = get_auto_update_settings()
                 target = None
+                nightly_sha = None
                 with self._version_lock:
                     target = self._version_cache.get("latest_version")
-                if not perform_self_update(self.manager.logger, target_version=target):
-                    raise RuntimeError("pip upgrade did not complete successfully")
+                    nightly_sha = self._version_cache.get("nightly_sha") or read_nightly_sha()
+                if not perform_self_update(
+                    self.manager.logger,
+                    target_version=target,
+                    channel=channel,
+                    nightly_sha=nightly_sha,
+                ):
+                    raise RuntimeError("Update did not complete successfully")
                 try:
                     self.manager.request_restart()
                 except Exception:

@@ -122,6 +122,14 @@ export const GENERATED_SETTINGS_FIELDS: FieldDefinition[] = [
     applyLive: true,
   },
   {
+    label: "Auto Update Channel",
+    path: ["Settings", "AutoUpdateChannel"],
+    type: "select",
+    options: ["latest", "stable", "nightly"],
+    required: true,
+    applyLive: true,
+  },
+  {
     label: "Auto-Restart Processes",
     path: ["Settings", "AutoRestartProcesses"],
     type: "checkbox",

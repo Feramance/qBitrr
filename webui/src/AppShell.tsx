@@ -824,6 +824,8 @@ function AppShell({
             updateState={updateState}
             updating={updateBusy}
             installationType={meta.installation_type}
+            updateChannel={meta.update_channel}
+            autoUpdateSupported={meta.auto_update_supported}
             binaryDownloadUrl={meta.binary_download_url}
             binaryDownloadName={meta.binary_download_name}
             binaryDownloadSize={meta.binary_download_size}
@@ -849,6 +851,7 @@ function AppShell({
             changelog={meta.current_version_changelog || meta.changelog}
             changelogUrl={changelogUrl}
             repositoryUrl={repositoryUrl}
+            updateChannel={meta.update_channel}
             onClose={handleCloseAlreadyUpToDateModal}
           />
         ) : null}

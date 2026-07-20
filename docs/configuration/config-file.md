@@ -139,6 +139,7 @@ FFprobeAutoUpdate = true
 # Auto-updates
 AutoUpdateEnabled = false
 AutoUpdateCron = "0 3 * * 0"
+AutoUpdateChannel = "latest"
 
 # Process management
 AutoRestartProcesses = true
@@ -614,10 +615,13 @@ When `true`:
 **Supported installation methods:**
 
 - ✅ PyPI package (`pip install`)
-- ✅ Docker (pulls latest image)
-- ⚠️ Binary (manual, not fully automated)
+- ✅ Docker (in-container `/config/runtime` overlay; does not pull images)
+- ✅ Binary (latest/stable self-update with checksum verification)
+- ❌ Source builds (`.git` / `QBITRR_SOURCE_BUILD=1`) — auto-update forced off
 
-**Recommendation:** Enable for Docker deployments. Consider manual updates for PyPI.
+**Related:** `AutoUpdateChannel` (`latest` / `stable` / `nightly`).
+
+**Recommendation:** Opt-in (`false` by default). Prefer `stable` for production.
 
 ---
 
@@ -661,6 +665,26 @@ AutoUpdateCron = "0 0 1 * *"
 ```
 
 **Tools:** Use [crontab.guru](https://crontab.guru) to validate expressions.
+
+---
+
+### AutoUpdateChannel
+
+```toml
+AutoUpdateChannel = "latest"
+```
+
+**Type:** String (`latest` | `stable` | `nightly`)
+**Default:** `"latest"`
+**Environment Variable:** `QBITRR_SETTINGS_AUTO_UPDATE_CHANNEL`
+
+| Value | Behavior |
+|-------|----------|
+| `latest` | Newest GitHub/PyPI release (includes build bumps) |
+| `stable` | Newest non-build release (build segment `1`) |
+| `nightly` | Tip of `master` (unsupported for binary installs) |
+
+Shown as a dropdown in the WebUI Settings config editor.
 
 ---
 
@@ -1286,7 +1310,7 @@ These take effect on the next loop without killing Arr or qBit workers:
 
 | Key prefix | Examples |
 |------------|----------|
-| `Settings.*` | `ConsoleLevel`, `LoopSleepTimer`, `SearchLoopDelay`, `NoInternetSleepTimer`, `CompletedDownloadFolder`, `AutoPauseResume`, `PingURLS`, `IgnoreTorrentsYoungerThan`, `FFprobeAutoUpdate`, `AutoUpdateEnabled`, `AutoUpdateCron`, `FreeSpace`, `FreeSpaceFolder` |
+| `Settings.*` | `ConsoleLevel`, `LoopSleepTimer`, `SearchLoopDelay`, `NoInternetSleepTimer`, `CompletedDownloadFolder`, `AutoPauseResume`, `PingURLS`, `IgnoreTorrentsYoungerThan`, `FFprobeAutoUpdate`, `AutoUpdateEnabled`, `AutoUpdateCron`, `AutoUpdateChannel`, `FreeSpace`, `FreeSpaceFolder` |
 | Arr timers / ETA | `*.RssSyncTimer`, `*.RefreshDownloadsTimer`, `*.Torrent.IgnoreTorrentsYoungerThan`, `*.Torrent.MaximumETA`, `*.Torrent.StalledDelay` |
 | Arr `Torrent.*` (LIVE) | `AutoDelete`, `CaseSensitiveMatches`, exclusion/allowlist regexes, `DoNotRemoveSlow`, `ReSearchStalled`, `MaximumDeletablePercentage`, `SeedingMode.*`, `Trackers` (merged with `qBit.Trackers`) |
 | Arr `EntrySearch.*` (LIVE) | `SearchMissing`, `DoUpgradeSearch`, `QualityUnmetSearch`, `CustomFormatUnmetSearch`, `ForceMinimumCustomFormat`, `AlsoSearchSpecials`, `Unmonitored`, `SearchByYear`, `SearchInReverse`, `SearchLimit`, `SearchBySeries`, `SearchAgainOnSearchCompletion`, `PrioritizeTodaysReleases`, `SearchRequestsEvery`, Ombi/Overseerr enable+URI+key+`ApprovedOnly`+`Is4K`+request-provider `SkipTLSVerify` |

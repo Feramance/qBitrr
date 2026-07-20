@@ -104,13 +104,16 @@ class TestConfigLiveReloadExtendedGetters(unittest.TestCase):
     def test_get_auto_update_settings_env_overrides_toml(self) -> None:
         self.env_mock.settings.auto_update_enabled = True
         self.env_mock.settings.auto_update_cron = "0 4 * * *"
+        self.env_mock.settings.auto_update_channel = "stable"
         self.config_mock.get.side_effect = lambda key, fallback=None: {
             "Settings.AutoUpdateEnabled": False,
             "Settings.AutoUpdateCron": "0 3 * * 0",
+            "Settings.AutoUpdateChannel": "latest",
         }.get(key, fallback)
-        enabled, cron = config_module.get_auto_update_settings()
+        enabled, cron, channel = config_module.get_auto_update_settings()
         self.assertTrue(enabled)
         self.assertEqual(cron, "0 4 * * *")
+        self.assertEqual(channel, "stable")
 
     def test_get_auto_pause_resume_effective_env_wins(self) -> None:
         self.env_mock.settings.auto_pause_resume = False

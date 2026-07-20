@@ -65,6 +65,12 @@ AutoUpdateEnabled = false
 # Default is weekly Sunday at 03:00 (0 3 * * 0).
 AutoUpdateCron = "0 3 * * 0"
 
+# Release channel for update checks and auto-updates
+# latest  = newest GitHub/PyPI release (includes [build] bumps)
+# stable  = newest non-build release (build segment == 1)
+# nightly = tip of master (unsupported for binary installs)
+AutoUpdateChannel = "latest"
+
 # Automatically restart worker processes that fail or crash
 # Set to false to disable auto-restart (processes will only log failures)
 AutoRestartProcesses = true

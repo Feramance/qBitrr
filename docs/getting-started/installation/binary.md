@@ -253,7 +253,7 @@ launchctl load ~/Library/LaunchAgents/com.qbitrr.plist
 
 ## Updating
 
-Binary installations do not support auto-update. You must manually download and replace the binary.
+Binary installations support auto-update on the **latest** and **stable** channels (download, SHA256 verify, atomic replace, restart). The **nightly** channel is not available for binaries.
 
 ### Linux/macOS
 
@@ -365,8 +365,7 @@ This is normal for PyInstaller binaries.
 ### ❌ Disadvantages
 
 - Large file size (50-100MB)
-- No auto-update support
-- Manual updates required
+- Nightly channel not available for binaries
 - May trigger antivirus warnings
 - Slower startup than native Python
 

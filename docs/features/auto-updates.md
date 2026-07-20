@@ -14,11 +14,12 @@ The auto-update feature automatically:
 4. **Restarts** the application (if restart is enabled)
 
 !!! note "Installation Method Support"
-    Auto-update support varies by installation method:
+    Auto-update support by installation method:
 
-    - **Git Installation**: ✅ Fully supported (`git pull` or tag checkout)
-    - **PyPI/pip Installation**: ✅ Fully supported (`pip install --upgrade`)
-    - **Binary Installation**: ⚠️ Manual update required (auto-update will notify only)
+    - **PyPI/pip**: Fully supported (`qBitrr2==version`, or git tip for nightly)
+    - **Docker**: Fully supported via a persistent `/config/runtime` overlay (in-container; no image pull) — except **source-built** images
+    - **Binary**: Fully supported for latest/stable (download + SHA256 verify + atomic replace); nightly is not available
+    - **Source** (`.git` checkout, or `QBITRR_SOURCE_BUILD=1`): **Not supported** — auto-update is forced off
 
 ---
 
@@ -35,6 +36,9 @@ AutoUpdateEnabled = false
 
 # Cron expression for update schedule (default: weekly Sunday at 3 AM)
 AutoUpdateCron = "0 3 * * 0"
+
+# Release channel: latest | stable | nightly
+AutoUpdateChannel = "latest"
 ```
 
 ### Configuration Options
@@ -43,7 +47,7 @@ AutoUpdateCron = "0 3 * * 0"
 
 **Type:** Boolean
 **Default:** `false`
-**Environment Variable:** `QBITRR_AUTO_UPDATE_ENABLED`
+**Environment Variable:** `QBITRR_SETTINGS_AUTO_UPDATE_ENABLED`
 
 Enable or disable the automatic update worker.
 
@@ -51,14 +55,11 @@ Enable or disable the automatic update worker.
 AutoUpdateEnabled = true
 ```
 
-!!! warning "Binary Installations"
-    For binary installations, enabling this option will only log available updates. Manual download and installation is still required.
-
 #### `AutoUpdateCron`
 
 **Type:** String (cron expression)
 **Default:** `"0 3 * * 0"` (weekly Sunday at 3 AM)
-**Environment Variable:** `QBITRR_AUTO_UPDATE_CRON`
+**Environment Variable:** `QBITRR_SETTINGS_AUTO_UPDATE_CRON`
 
 Cron expression defining when to check for and install updates.
 
@@ -90,76 +91,63 @@ AutoUpdateCron = "0 2 1 * *"
     - `,` = multiple values (e.g., `0,3` for Sunday and Wednesday)
     - `*/n` = every n units (e.g., `*/2` for every 2 hours)
 
+#### `AutoUpdateChannel`
+
+**Type:** String (`latest` | `stable` | `nightly`)
+**Default:** `"latest"`
+**Environment Variable:** `QBITRR_SETTINGS_AUTO_UPDATE_CHANNEL`
+
+| Channel | Meaning |
+|---------|---------|
+| `latest` | Newest GitHub/PyPI release (includes `[build]` bumps) |
+| `stable` | Newest non-build release (build segment `1`), mirrors Docker `:stable` |
+| `nightly` | Tip of `master` via git / pip-from-git; **not supported for binary installs** |
+
+Optional GitHub API token for higher rate limits: `QBITRR_SETTINGS_GITHUB_TOKEN`, `GITHUB_TOKEN`, or `GH_TOKEN`.
+
 ---
 
 ## Installation Method Behavior
 
-### Git Installation
+### Git / source Installation
 
-**Detection:** Directory contains `.git/` folder
+**Detection:** Repository root contains `.git/`, **or** `QBITRR_SOURCE_BUILD` is set to a truthy value (`1` / `true` / `yes`). Checked **before** Docker so containers built from source are also classified as `source`.
 
-**Update Method:**
+**Update Method:** **Not supported.** Auto-update is forced off at runtime (config `AutoUpdateEnabled` is ignored). Update the working tree or rebuild the image manually.
 
-- **Without Target Version:** Runs `git pull --ff-only` to update to latest master
-- **With Target Version:** Fetches tags and checks out specific version tag
-
-**Process:**
+For local Docker builds that exclude `.git` via `.dockerignore`, mark the image as source:
 
 ```bash
-# Default behavior (latest)
-git pull --ff-only
-
-# Specific version
-git fetch --tags --force
-git checkout v5.4.3
+docker build --build-arg QBITRR_SOURCE_BUILD=1 -t qbitrr:local .
 ```
 
-**Logs:**
-
-```
-[INFO] Installation type detected: git
-[INFO] git pull output:
-Updating abc1234..def5678
-Fast-forward
- qBitrr/main.py | 15 +++++++++++----
- 1 file changed, 11 insertions(+), 4 deletions(-)
-[INFO] Update completed successfully
-```
+Official Hub images leave `QBITRR_SOURCE_BUILD=0` (default).
 
 ---
 
 ### PyPI/pip Installation
 
-**Detection:** Not a binary, no `.git/` folder present
+**Detection:** Not binary, not Docker, no `.git/` folder
 
 **Update Method:**
 
-- **Without Target Version:** Runs `pip install --upgrade qBitrr2`
-- **With Target Version:** Runs `pip install qBitrr2==5.4.3`
+- **latest / stable:** `python -m pip install --upgrade qBitrr2==X.Y.Z-N` (exact version required)
+- **nightly:** `python -m pip install --upgrade "git+https://github.com/Feramance/qBitrr.git@master"`
 
-**Process:**
+---
 
-```bash
-# Default behavior (latest)
-python -m pip install --upgrade qBitrr2
+### Docker Installation
 
-# Specific version
-python -m pip install qBitrr2==5.4.3
-```
+**Detection:** `QBITRR_DOCKER_RUNNING=69420` / Docker runtime
 
-**Logs:**
+**Update Method (in-container, persistent):**
 
-```
-[INFO] Installation type detected: pip
-[INFO] PyPI installation detected
-[DEBUG] Upgrading package: qBitrr2
-[INFO] pip upgrade output:
-Collecting qBitrr2
-  Downloading qBitrr2-5.4.3-py3-none-any.whl (245 kB)
-Installing collected packages: qBitrr2
-Successfully installed qBitrr2-5.4.3
-[INFO] Update completed successfully
-```
+- Installs into `/config/runtime` (volume-backed) with `pip install --target /config/runtime …`
+- Entrypoint prepends `/config/runtime` to `PYTHONPATH`
+- Survives container recreate as long as `/config` is mounted
+- If a newer image is pulled later and is already ahead of the overlay, the overlay is cleared automatically
+
+Pulling a new Docker image remains valid; built-in auto-update does **not** talk to the Docker socket.
 
 ---
 
@@ -167,37 +155,19 @@ Successfully installed qBitrr2-5.4.3
 
 **Detection:** Running as PyInstaller frozen executable (`sys.frozen` is True)
 
-**Update Method:** **Manual only** - auto-update cannot replace running executable
+**Update Method:**
 
-**Process:**
-
-When an update is available, qBitrr will log instructions:
-
-```
-[INFO] Binary installation detected - manual update required
-[INFO] Update available: v5.4.3
-[INFO] Download from: https://github.com/Feramance/qBitrr/releases/latest
-[INFO] Instructions:
-[INFO]   1. Download the binary for your platform
-[INFO]   2. Extract the archive
-[INFO]   3. Replace current executable with new binary
-[INFO]   4. Restart qBitrr
-```
+- **latest / stable:** Download the matching release asset, verify SHA256, atomically replace the executable, restart
+- **nightly:** Not supported (no nightly binary assets)
 
 **Supported Platforms:**
-
-Binary builds are available for:
 
 - `ubuntu-latest-x64` (Linux x86_64)
 - `macOS-latest-arm64` (macOS Apple Silicon)
 - `windows-2025-vs2026-x64` (Windows x86_64; older releases may use `windows-2025-x64` or `windows-latest-x64`)
 
 !!! warning "Platform Availability"
-    Binary builds are NOT available for:
-
-    - Linux ARM64 (use Docker or pip)
-    - macOS Intel x64 (use pip)
-    - Windows ARM64 (use pip)
+    Binary builds are NOT available for Linux ARM64, macOS Intel x64, or Windows ARM64 (use Docker or pip).
 
 ---
 
@@ -207,38 +177,20 @@ You can trigger an update manually via the WebUI or API without waiting for the 
 
 ### Via WebUI
 
-1. Navigate to **Settings** → **Updates**
-2. Click **"Check for Updates"**
-3. If an update is available, click **"Install Update"**
-4. Monitor the **Logs** view for progress
+1. Open the version / changelog modal from the WebUI
+2. If an update is available, click **Update Now**
+3. Monitor logs for progress; the app restarts after a successful verified update
 
 ### Via API
 
-Trigger an update via the REST API:
-
 ```bash
-# Check for updates
-curl -X POST http://localhost:6969/api/check-updates \
-  -H "Authorization: Bearer YOUR_TOKEN"
+# Version / update metadata (includes channel + install type)
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+  http://localhost:6969/api/meta
 
-# Response
-{
-  "current_version": "5.4.2",
-  "latest_version": "5.4.3",
-  "update_available": true,
-  "install_type": "pip"
-}
-
-# Install update
-curl -X POST http://localhost:6969/api/install-update \
-  -H "Authorization: Bearer YOUR_TOKEN"
-
-# Response
-{
-  "success": true,
-  "message": "Update completed successfully",
-  "new_version": "5.4.3"
-}
+# Trigger update install
+curl -X POST -H "Authorization: Bearer YOUR_TOKEN" \
+  http://localhost:6969/api/update
 ```
 
 ---
@@ -249,22 +201,20 @@ curl -X POST http://localhost:6969/api/install-update \
 
 ```mermaid
 graph TD
-    A[Cron Schedule Triggers] --> B{Check GitHub Releases}
-    B --> C{New Version Available?}
-    C -->|No| D[Log: Already up to date]
-    C -->|Yes| E{Installation Type?}
-    E -->|Git| F[git pull --ff-only]
-    E -->|Pip| G[pip install --upgrade qBitrr2]
-    E -->|Binary| H[Log manual instructions]
-    F --> I{Update Successful?}
-    G --> I
-    H --> D
-    I -->|Yes| J[Verify New Version]
-    I -->|No| K[Log Error]
-    J --> L{Version Matches?}
-    L -->|Yes| M[Restart Application]
-    L -->|No| K
-    M --> N[Update Complete]
+    A[Cron or WebUI POST /update] --> B[Resolve AutoUpdateChannel]
+    B --> C{Update available?}
+    C -->|No| D[Log: already current]
+    C -->|Yes| E{Install type}
+    E -->|git| F[Checkout tag or master tip]
+    E -->|pip| G[pip install target]
+    E -->|docker| H[pip into /config/runtime]
+    E -->|binary| I[Download + SHA256 + replace]
+    F --> J[Verify]
+    G --> J
+    H --> J
+    I --> J
+    J -->|pass| K[Restart via os.execv]
+    J -->|fail| L[Abort restart]
 ```
 
 ### Verification Steps
@@ -303,47 +253,19 @@ AutoUpdateCron = "0 25 * * *"
 AutoUpdateCron = "0 3 * * *"
 ```
 
-### Git Pull Fails (Merge Conflicts)
+### Source Build Detected (Auto-Update Disabled)
 
 **Symptom:**
 
 ```
-[ERROR] Failed to update repository via git: error: Your local changes to the following files would be overwritten by merge:
-        qBitrr/config.py
-Please commit your changes or stash them before you merge.
+[INFO] Auto update disabled for source installation (source builds are never auto-updated)
 ```
 
-**Solution:**
+or WebUI: "Source builds do not support auto-update".
 
-You have uncommitted local changes. Either:
+**Cause:** qBitrr detected a `.git` directory or `QBITRR_SOURCE_BUILD=1`.
 
-**Option 1: Stash Changes**
-
-```bash
-cd /path/to/qBitrr
-git stash
-# qBitrr will auto-update on next cron run
-
-# Later, restore your changes:
-git stash pop
-```
-
-**Option 2: Commit Changes**
-
-```bash
-cd /path/to/qBitrr
-git add .
-git commit -m "Local config changes"
-git pull --rebase
-```
-
-**Option 3: Discard Changes**
-
-```bash
-cd /path/to/qBitrr
-git reset --hard
-# qBitrr will auto-update on next cron run
-```
+**Solution:** Update manually (`git pull` / rebuild), or for Docker built from source use an official Hub image (or rebuild without `--build-arg QBITRR_SOURCE_BUILD=1` and without baking `.git` into the image).
 
 ### Pip Upgrade Fails (Permission Denied)
 
@@ -384,24 +306,13 @@ sudo pip install qBitrr2
 
 ### Update Available but Not Installing
 
-**Symptom:**
+**Symptom:** Update shows in WebUI / logs but Update Now is blocked or apply fails.
 
-```
-[INFO] Update available: v5.4.3
-[INFO] Binary installation detected - manual update required
-```
+**Common causes:**
 
-**Solution:**
-
-For **binary installations**, auto-update cannot replace the running executable. Download manually:
-
-1. Go to https://github.com/Feramance/qBitrr/releases/latest
-2. Download the appropriate binary for your platform:
-   - Linux: `qBitrr-ubuntu-latest-x64.tar.gz`
-   - macOS: `qBitrr-macOS-latest-arm64.tar.gz`
-   - Windows: `qBitrr-windows-2025-vs2026-x64.zip` (or `qBitrr-windows-2025-x64.zip` / `qBitrr-windows-latest-x64.zip` on older releases)
-3. Extract and replace your current binary
-4. Restart qBitrr
+1. **Source build** (`.git` or `QBITRR_SOURCE_BUILD=1`) — auto-update is intentionally disabled; update the tree or rebuild manually.
+2. **Binary + nightly channel** — switch to `latest` or `stable`, or download a release binary manually.
+3. **Checksum / network failure** — check `Main.log` for SHA256 or download errors; ensure release assets include `.sha256` files.
 
 ### Version Mismatch After Update
 
@@ -425,7 +336,7 @@ For **binary installations**, auto-update cannot replace the running executable.
 which qbitrr
 pip show qBitrr2
 
-# For git installations
+# For source checkouts (auto-update is disabled; update manually)
 cd /path/to/qBitrr && git describe --tags
 ```
 
@@ -435,7 +346,7 @@ cd /path/to/qBitrr && git describe --tags
 pip install --force-reinstall qBitrr2==5.4.3
 ```
 
-**Force Pull (git):**
+**Manual update (source checkout):**
 
 ```bash
 cd /path/to/qBitrr
@@ -476,74 +387,17 @@ If you don't see these logs, auto-update is not enabled. Set `AutoUpdateEnabled 
 
 ## Docker Considerations
 
-### Auto-Update in Docker
+### Built-in in-container updates
 
-For Docker deployments, there are **two approaches** to auto-updates:
+With `AutoUpdateEnabled = true`, Docker installs update **inside the container** into `/config/runtime`. That overlay is preferred via `PYTHONPATH` and persists across container recreate when `/config` is mounted.
 
-#### Approach 1: Update qBitrr Inside Container (Not Recommended)
+Built-in auto-update does **not** pull Docker images or call the Docker API.
 
-You can enable `AutoUpdateEnabled = true` inside a Docker container, and qBitrr will update the **Python package** inside the container.
+**Source-built images:** if the image was built from a git tree with `QBITRR_SOURCE_BUILD=1` (or somehow includes `.git`), install type is `source` and auto-update stays disabled.
 
-**Limitations:**
+### Optional: update the image itself
 
-- Updates are **lost on container restart** (ephemeral)
-- Container image remains outdated
-- Not recommended for production
-
-#### Approach 2: Update Docker Image (Recommended)
-
-Use an external tool to update the Docker image itself:
-
-**Option A: Watchtower**
-
-Automatically pull and restart with new image:
-
-```yaml
-version: "3"
-services:
-  qbitrr:
-    image: feramance/qbitrr:latest
-    # ... other config ...
-
-  watchtower:
-    image: containrrr/watchtower:latest
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      - WATCHTOWER_CLEANUP=true
-      - WATCHTOWER_SCHEDULE=0 3 * * 0  # Weekly Sunday 3 AM
-    restart: unless-stopped
-```
-
-**Option B: Manual Update**
-
-```bash
-# Pull latest image
-docker pull feramance/qbitrr:latest
-
-# Recreate container
-docker-compose down
-docker-compose up -d
-```
-
-**Option C: Ouroboros**
-
-Alternative to Watchtower:
-
-```yaml
-services:
-  ouroboros:
-    image: pyouroboros/ouroboros:latest
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      - CLEANUP=true
-      - INTERVAL=86400  # Check daily
-    restart: unless-stopped
-```
-
-!!! tip "Docker Auto-Update Best Practice"
-    Disable qBitrr's internal auto-update (`AutoUpdateEnabled = false`) and use Watchtower or Ouroboros to manage Docker image updates.
+You can still pull a newer image (`feramance/qbitrr:stable`, `:latest`, or `:nightly`) with Watchtower, Ouroboros, or `docker compose pull`. If the image version is already ahead of the overlay, qBitrr clears the overlay on startup.
 
 ---
 
@@ -684,49 +538,19 @@ cp /config/qBitrr.db /config/qBitrr.db.backup
 
 ## API Reference
 
-### Check for Updates
+### Version metadata
 
-**Endpoint:** `POST /api/check-updates`
-**Authentication:** Required (`Authorization: Bearer <token>`)
+**Endpoint:** `GET /api/meta` (also `/web/meta`)
+**Authentication:** Required when auth is enabled
 
-**Response:**
+Returns current/latest version, `update_available`, `installation_type`, `update_channel`, and optional binary download fields.
 
-```json
-{
-  "current_version": "5.4.2",
-  "latest_version": "5.4.3",
-  "update_available": true,
-  "install_type": "pip",
-  "release_url": "https://github.com/Feramance/qBitrr/releases/tag/v5.4.3",
-  "changelog": "Bug fixes and performance improvements"
-}
-```
+### Install update
 
-### Install Update
+**Endpoint:** `POST /api/update` (also `/web/update`)
+**Authentication:** Required when auth is enabled
 
-**Endpoint:** `POST /api/install-update`
-**Authentication:** Required (`Authorization: Bearer <token>`)
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "message": "Update completed successfully",
-  "old_version": "5.4.2",
-  "new_version": "5.4.3"
-}
-```
-
-**Error Response:**
-
-```json
-{
-  "success": false,
-  "error": "Binary installation detected - manual update required",
-  "install_type": "binary"
-}
-```
+Starts the same update pipeline as the cron worker (channel-aware). Restarts only after verification succeeds.
 
 ---
 
@@ -740,9 +564,10 @@ cp /config/qBitrr.db /config/qBitrr.db.backup
 
 ## Summary
 
-- Auto-update supports **Git** and **PyPI** installations; binary installations require manual updates
-- Configure schedule with **cron expressions** (`AutoUpdateCron`)
-- Updates can be **triggered manually** via WebUI or API
-- For **Docker**, use **Watchtower** or **Ouroboros** instead of internal auto-update
-- Always **monitor logs** after updates to verify success
-- **Backup config and database** before enabling auto-update
+- Auto-update supports **pip**, **Docker** (`/config/runtime` overlay), and **binary** (latest/stable)
+- **Source builds** (`.git` or `QBITRR_SOURCE_BUILD=1`, including Docker-from-source) never auto-update
+- Choose channel with **`AutoUpdateChannel`**: `latest`, `stable`, or `nightly`
+- Configure schedule with **`AutoUpdateCron`**
+- Updates can be triggered manually via WebUI or `POST /api/update`
+- Verification must succeed before restart
+- Backup config and database before enabling auto-update

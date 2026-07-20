@@ -179,6 +179,12 @@ def _validate_path_specific(key: str, value: Any) -> str | None:
             return "Auto Update Cron must contain 5 or 6 space-separated fields"
         return None
 
+    if key == "Settings.AutoUpdateChannel":
+        channel = str(value or "").strip().lower()
+        if channel not in {"latest", "stable", "nightly"}:
+            return "Auto Update Channel must be one of: latest, stable, nightly"
+        return None
+
     if key == "WebUI.UrlBase":
         raw = str(value or "").strip()
         if not raw:

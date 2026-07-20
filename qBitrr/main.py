@@ -22,7 +22,13 @@ from packaging import version as version_parser
 from packaging.version import Version as VersionClass
 from qbittorrentapi import APINames
 
-from qBitrr.auto_update import AutoUpdater, perform_self_update
+from qBitrr.auto_update import (
+    AutoUpdater,
+    cleanup_old_binary,
+    cleanup_stale_runtime_overlay,
+    perform_self_update,
+    read_nightly_sha,
+)
 from qBitrr.bundled_data import patched_version
 from qBitrr.config import (
     CONFIG,
@@ -40,7 +46,7 @@ from qBitrr.process_lifecycle import ProcessLifecycle
 from qBitrr.qbit_category_manager import qBitCategoryManager
 from qBitrr.qbit_seeding_config import load_qbit_seeding_config
 from qBitrr.utils import ExpiringSet, mask_secret, qbit_sections
-from qBitrr.versioning import fetch_latest_release
+from qBitrr.versioning import fetch_channel_release
 from qBitrr.webui import WebUI
 
 if CONFIG_EXISTS:
@@ -186,13 +192,24 @@ class qBitManager(ProcessLifecycle):
         return None
 
     def configure_auto_update(self) -> None:
-        enabled, cron = get_auto_update_settings()
+        from qBitrr.auto_update import get_installation_type, is_auto_update_supported
+
+        enabled, cron, channel = get_auto_update_settings()
         if self.auto_updater:
             self.auto_updater.stop()
             self.auto_updater = None
+        install_type = get_installation_type()
+        if not is_auto_update_supported(install_type):
+            self.logger.info(
+                "Auto update disabled for %s installation "
+                "(source builds are never auto-updated)",
+                install_type,
+            )
+            return
         if not enabled:
             self.logger.debug("Auto update is disabled")
             return
+        self.logger.debug("Auto update channel: %s", channel)
         updater = AutoUpdater(cron, self._perform_auto_update, self.logger)
         if updater.start():
             self.auto_updater = updater
@@ -201,66 +218,76 @@ class qBitManager(ProcessLifecycle):
 
     def _perform_auto_update(self) -> None:
         """Check for updates and apply if available."""
-        self.logger.notice("Checking for updates...")
+        from qBitrr.auto_update import (
+            get_installation_type,
+            is_auto_update_supported,
+            verify_update_success,
+        )
 
-        # Fetch latest release info from GitHub
-        release_info = fetch_latest_release()
+        install_type = get_installation_type()
+        if not is_auto_update_supported(install_type):
+            self.logger.info(
+                "Auto update skipped: %s installations do not support auto-update",
+                install_type,
+            )
+            return
+
+        _, _, channel = get_auto_update_settings()
+        self.logger.notice("Checking for updates (channel=%s)...", channel)
+
+        release_info = fetch_channel_release(channel, current_nightly_sha=read_nightly_sha())
 
         if release_info.get("error"):
             self.logger.error("Auto update skipped: %s", release_info["error"])
             return
 
-        # Use normalized version for comparison, raw tag for display
         target_version = release_info.get("normalized")
         raw_tag = release_info.get("raw_tag")
+        nightly_sha = release_info.get("nightly_sha")
 
         if not release_info.get("update_available"):
             if target_version:
                 self.logger.info(
-                    "Auto update skipped: already running the latest release (%s).",
+                    "Auto update skipped: already on channel %s target (%s).",
+                    channel,
                     raw_tag or target_version,
                 )
             else:
                 self.logger.info("Auto update skipped: no new release detected.")
             return
 
-        # Detect installation type
-        from qBitrr.auto_update import get_installation_type
-
-        install_type = get_installation_type()
-
         self.logger.notice(
-            "Update available: %s -> %s (installation: %s)",
+            "Update available: %s -> %s (installation: %s, channel: %s)",
             patched_version,
             raw_tag or target_version,
             install_type,
+            channel,
         )
 
-        # Perform the update with specific version
-        updated = perform_self_update(self.logger, target_version=target_version)
+        updated = perform_self_update(
+            self.logger,
+            target_version=target_version,
+            channel=channel,
+            nightly_sha=nightly_sha,
+        )
 
         if not updated:
-            if install_type == "binary":
-                # Binary installations require manual update, this is expected
-                self.logger.info("Manual update required for binary installation")
-            else:
-                self.logger.error("Auto update failed; manual intervention may be required.")
+            self.logger.error("Auto update failed; manual intervention may be required.")
             return
 
-        # Verify update success (git/pip only)
-        if target_version and install_type != "binary":
-            from qBitrr.auto_update import verify_update_success
+        verified = verify_update_success(
+            target_version or "",
+            self.logger,
+            channel=channel,
+            expected_nightly_sha=nightly_sha,
+        )
+        if not verified:
+            self.logger.error(
+                "Update completed but version verification failed; aborting restart."
+            )
+            return
 
-            if verify_update_success(target_version, self.logger):
-                self.logger.notice("Update verified successfully")
-            else:
-                self.logger.warning(
-                    "Update completed but version verification failed. "
-                    "The system may not be running the expected version."
-                )
-                # Continue with restart anyway (Phase 1 approach)
-
-        self.logger.notice("Update applied successfully; restarting to load the new version.")
+        self.logger.notice("Update verified successfully; restarting to load the new version.")
         self.request_restart()
 
     def request_restart(self, delay: float = 3.0) -> None:
@@ -400,6 +427,11 @@ class qBitManager(ProcessLifecycle):
     def _complete_startup(self) -> None:
         started_at = monotonic()
         try:
+            cleanup_old_binary()
+            if cleanup_stale_runtime_overlay():
+                self.logger.info(
+                    "Cleared stale Docker runtime overlay (image version is current or newer)"
+                )
             # FFprobe update (deferred from __init__ to avoid blocking WebUI start)
             try:
                 self.ffprobe_downloader.update()
