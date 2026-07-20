@@ -49,7 +49,7 @@
    - `pyupgrade` (modernizes syntax to py38+)
    - `check-yaml`, `check-toml`, `check-json`, `detect-private-key`, `end-of-file-fixer`, `trailing-whitespace`, `mixed-line-ending`
 4. **Manual Testing**: No pytest suite; test against live qBittorrent + Arr instances or use Docker Compose setup
-5. **Version Bump**: `bump2version patch|minor|major` (updates `.bumpversion.cfg`, `setup.cfg`, `pyproject.toml`, tags commit)
+5. **Version Bump**: Do not bump locally — CI runs `bump2version patch|minor|major|build` on release commits (`MAJOR.MINOR.PATCH-BUILD`)
 6. **Build Package**: `python setup.py sdist bdist_wheel` → dist/qBitrr2-*.whl
 7. **Docker Build**: `docker build -t feramance/qbitrr:test .` (multi-stage: Node build → Python install)
 
@@ -64,8 +64,9 @@
 ### CI/CD
 - **pre-commit.ci**: Auto-formats PRs, runs weekly autoupdates
 - **CodeQL**: `.github/workflows/codeql.yml` scans for security issues
-- **Nightly**: `.github/workflows/nightly.yml` builds Docker image, publishes to `feramance/qbitrr:nightly`
-- **Release**: `.github/workflows/release.yml` publishes PyPI package, Docker tags (`latest`, semver)
+- **Nightly**: `.github/workflows/nightly.yml` builds Docker image on each `master` push, publishes `feramance/qbitrr:nightly`
+- **Release**: `.github/workflows/release.yml` publishes PyPI package and Docker tags (`stable`, `latest`, `v{version}`)
+- **Weekly build**: `.github/workflows/weekly-build.yml` merges green Dependabot PRs and dispatches a `[build]` release when `master` moved
 - **Dependabot**: `.github/dependabot.yml` updates GitHub Actions weekly
 
 ## Code Style
@@ -213,7 +214,7 @@ Before submitting a PR for final merge:
 ## Release Process
 
 ### Overview
-qBitrr uses **semantic versioning** (MAJOR.MINOR.PATCH) and automated release workflows. Releases are triggered by **commit message prefixes** on the `master` branch — not by local version bumps or tags.
+qBitrr uses **`MAJOR.MINOR.PATCH-BUILD`** versioning and automated release workflows. Releases are triggered by **commit message prefixes** on the `master` branch — not by local version bumps or tags. Build starts at **1** and resets to **1** on every major/minor/patch bump.
 
 ### How Releases Are Triggered
 
@@ -221,13 +222,25 @@ The `.github/workflows/release.yml` workflow runs on every push to `master`, but
 
 | Prefix | Bump | Example |
 |--------|------|---------|
-| `[patch]` | x.x.**X** | Bug fixes, minor improvements |
-| `[minor]` | x.**X**.0 | New features, non-breaking changes |
-| `[major]` | **X**.0.0 | Breaking changes |
+| `[patch]` | x.x.**X**-1 | Bug fixes, minor improvements (build resets to 1) |
+| `[minor]` | x.**X**.0-1 | New features, non-breaking changes (build resets to 1) |
+| `[major]` | **X**.0.0-1 | Breaking changes (build resets to 1) |
+| `[build]` | x.x.x-**N** | Dependency / automation-only releases (build increments) |
 
-The workflow can also be triggered manually via `workflow_dispatch` on GitHub Actions.
+The workflow can also be triggered manually via `workflow_dispatch` on GitHub Actions (`patch` / `minor` / `major` / `build`).
 
-**Do NOT run `bump2version` locally.** The CI workflow runs `bump2version` itself, commits the version bump (with `[skip ci]`), updates the bundled git hash, generates the changelog, and publishes the release.
+**Do NOT run `bump2version` locally.** The CI workflow runs `bump2version` itself, commits the version bump (with `[skip ci]`), generates the changelog, and publishes the release.
+
+**Dependabot merges** must not use `[patch]` / `[minor]` / `[major]` / `[build]` prefixes. Let the weekly build workflow (or a manual `[build]` / `workflow_dispatch`) publish dependency updates.
+
+### Docker channels
+
+| Tag | Meaning |
+|-----|---------|
+| `stable` | Latest **patch/minor/major** release (not build-only) |
+| `latest` | Absolute newest published release (includes builds) |
+| `nightly` | Per-commit tip of `master` (from `nightly.yml` only) |
+| `vX.Y.Z-N` | Immutable version tag |
 
 ### Release Steps
 
@@ -240,34 +253,37 @@ The workflow can also be triggered manually via `workflow_dispatch` on GitHub Ac
    git push origin master
    ```
 3. The release workflow automatically:
-   - Runs `bump2version` to update version in `setup.cfg`, `pyproject.toml`, `.bumpversion.cfg`, `bundled_data.py`, `Dockerfile`, `docs/index.md`
-   - Commits the version bump and bundled git hash (`[skip ci]`)
+   - Runs `bump2version` to update version in `setup.cfg`, `.bumpversion.cfg`, `bundled_data.py`, `Dockerfile`, `docs/index.md` (and ConfigVersion files on major/minor/patch only)
+   - Commits the version bump (`[skip ci]`)
    - Creates a draft GitHub release
-   - Builds and pushes Docker images (`latest`, `nightly`, `v{version}`) to Docker Hub and GHCR
-   - Builds platform binaries (Windows x64, macOS arm64, Linux x64) and uploads to the release
+   - Builds and pushes Docker images (`v{version}`, `latest`, and `stable` for patch/minor/major) to Docker Hub and GHCR
+   - Builds platform binaries named `qBitrr-{version}-{os}-{arch}` and uploads to the release
    - Builds and publishes the Python package to PyPI
    - Generates a changelog entry in `CHANGELOG.md` from commits since the last tag
    - Publishes the GitHub release with the changelog as release notes
 
 ### Version Numbering Guidelines
 
-**MAJOR** (X.0.0) - Breaking changes:
+**MAJOR** (X.0.0-1) - Breaking changes:
 - Config schema changes requiring migration
 - Removed features or breaking API changes
 - Python version requirement changes
 - Database schema breaking changes
 
-**MINOR** (x.X.0) - New features:
+**MINOR** (x.X.0-1) - New features:
 - New Arr instance types
 - New search features
 - New WebUI pages/features
 - Non-breaking config additions
 
-**PATCH** (x.x.X) - Bug fixes:
+**PATCH** (x.x.X-1) - Bug fixes:
 - Bug fixes
 - Performance improvements
 - Documentation updates
-- Dependency updates (non-breaking)
+
+**BUILD** (x.x.x-N) - Dependency / automation only:
+- Dependency updates (Dependabot)
+- Weekly automated releases when commits landed since the last release of any kind
 
 ### Hotfix Release Process
 
@@ -309,18 +325,19 @@ If a release has critical issues:
 
 ### CI/CD Workflows
 
-- **`.github/workflows/release.yml`**: Triggered on tag push (v*)
-- **`.github/workflows/nightly.yml`**: Builds `nightly` Docker tag daily
+- **`.github/workflows/release.yml`**: Commit-prefix / `workflow_dispatch` releases
+- **`.github/workflows/weekly-build.yml`**: Weekly Dependabot auto-merge + `[build]` dispatch
+- **`.github/workflows/nightly.yml`**: Per-commit `nightly` Docker tag on `master` pushes
 - **`.github/workflows/codeql.yml`**: Security scanning on push
-- **`.github/dependabot.yml`**: Weekly dependency updates
+- **`.github/dependabot.yml`**: Dependency update PRs
 
 ### Release Artifacts
 
 Each release produces:
-- **PyPI Package**: `qBitrr2-{version}.tar.gz`, `qBitrr2-{version}-py3-none-any.whl`
-- **Docker Images**: Multi-architecture (amd64, arm64, armv7)
-- **GitHub Release**: Changelog + attachments
-- **Git Tag**: `v{version}` (e.g., v5.8.1)
+- **PyPI Package**: `qBitrr2-{version}.tar.gz`, `qBitrr2-{version}-py3-none-any.whl` (PEP 440 may normalize `5.12.12-1` → `5.12.12.post1`)
+- **Docker Images**: Multi-architecture (amd64, arm64)
+- **GitHub Release**: Changelog + binary attachments (`qBitrr-{version}-{os}-{arch}`)
+- **Git Tag**: `v{version}` (e.g., `v5.12.12-1`)
 
 ## Common Pitfalls
 - **Qbittorrent API**: Both qBittorrent 4.x and 5.x are automatically detected and supported

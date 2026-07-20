@@ -54,6 +54,17 @@ Then run:
 docker-compose up -d
 ```
 
+## Image tags
+
+| Tag | Use when |
+|-----|----------|
+| `feramance/qbitrr:stable` | Prefer the latest feature/fix release (patch/minor/major only; excludes weekly dependency builds) |
+| `feramance/qbitrr:latest` | Prefer the newest published release, including weekly dependency builds |
+| `feramance/qbitrr:nightly` | Bleeding-edge per-commit builds from `master` |
+| `feramance/qbitrr:vX.Y.Z-N` | Pin an exact version (e.g. `v5.12.12-1`) |
+
+Most production installs should use `:stable` or a pinned `v…` tag. Use `:latest` if you want weekly dependency builds automatically.
+
 ## Configuration
 
 ### Environment Variables
@@ -658,7 +669,7 @@ volumes:
 
 **Use specific version tags:**
 ```yaml
-image: feramance/qbitrr:5.5.5  # Not latest
+image: feramance/qbitrr:v5.12.12-1  # Pin exact version (or use :stable)
 ```
 
 ### 3. Limit Log Output

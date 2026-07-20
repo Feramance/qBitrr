@@ -13,6 +13,7 @@ on:
         - patch
         - minor
         - major
+        - build
 defaults:
   run:
     shell: bash
@@ -29,11 +30,11 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       startsWith(github.event.head_commit.message || '', '[patch]') ||
       startsWith(github.event.head_commit.message || '', '[minor]') ||
-      startsWith(github.event.head_commit.message || '', '[major]')
+      startsWith(github.event.head_commit.message || '', '[major]') ||
+      startsWith(github.event.head_commit.message || '', '[build]')
     outputs:
       release_type: ${{ steps.release_type.outputs.value }}
       new_version: ${{ steps.version.outputs.value }}
-      release_hash: ${{ steps.release_hash.outputs.value }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@v7
@@ -47,21 +48,53 @@ jobs:
         EVENT_NAME: ${{ github.event_name }}
         COMMIT_MESSAGE: ${{ github.event.head_commit.message || '' }}
         INPUT_RELEASE_TYPE: ${{ github.event.inputs.release_type || '' }}
-      run: "if [[ \"${EVENT_NAME}\" == \"workflow_dispatch\" ]]; then\n  type=\"${INPUT_RELEASE_TYPE:-patch}\"\n  echo \"value=${type}\" >> \"${GITHUB_OUTPUT}\"\n  exit 0\nfi\n\ncase \"${COMMIT_MESSAGE}\" in\n  \"[patch]\"*)\n    type=\"patch\"\n    ;;\n  \"[minor]\"*)\n    type=\"minor\"\n    ;;\n  \"[major]\"*)\n    type=\"major\"\n    ;;\n  *)\n    echo \"Commit message must begin with [patch], [minor], or [major].\" >&2\n    exit 1\n    ;;\nesac\n\necho \"value=${type}\" >> \"${GITHUB_OUTPUT}\"\n"
+      run: |
+        if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
+          type="${INPUT_RELEASE_TYPE:-patch}"
+          echo "value=${type}" >> "${GITHUB_OUTPUT}"
+          exit 0
+        fi
+
+        case "${COMMIT_MESSAGE}" in
+          "[patch]"*)
+            type="patch"
+            ;;
+          "[minor]"*)
+            type="minor"
+            ;;
+          "[major]"*)
+            type="major"
+            ;;
+          "[build]"*)
+            type="build"
+            ;;
+          *)
+            echo "Commit message must begin with [patch], [minor], [major], or [build]." >&2
+            exit 1
+            ;;
+        esac
+
+        echo "value=${type}" >> "${GITHUB_OUTPUT}"
     - name: Set up Python
       uses: actions/setup-python@v7
       with:
         python-version: '3.12'
         cache: pip
     - name: Install release tooling
-      run: "python -m pip install --upgrade pip\npython -m pip install --upgrade setuptools wheel\npython -m pip install bump2version build twine\n"
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install --upgrade setuptools wheel
+        python -m pip install bump2version build twine
     - name: Bump project version
       env:
         RELEASE_TYPE: ${{ steps.release_type.outputs.value }}
-      run: "bump2version \"${RELEASE_TYPE}\"\n"
+      run: bump2version "${RELEASE_TYPE}"
     - name: Capture new version
       id: version
-      run: "VERSION=$(python -c \"import configparser; c = configparser.ConfigParser(); c.read('setup.cfg'); print(c['metadata']['version'])\")\necho \"value=${VERSION}\" >> \"${GITHUB_OUTPUT}\"\necho \"New version: ${VERSION}\"\n"
+      run: |
+        VERSION=$(python -c "import configparser; c = configparser.ConfigParser(); c.read('setup.cfg'); print(c['metadata']['version'])")
+        echo "value=${VERSION}" >> "${GITHUB_OUTPUT}"
+        echo "New version: ${VERSION}"
     - name: Import GPG key
       id: import_gpg
       uses: crazy-max/ghaction-import-gpg@v7.0.0
@@ -75,21 +108,6 @@ jobs:
       uses: stefanzweifel/git-auto-commit-action@v7
       with:
         commit_message: '[skip ci] Bump version to v${{ steps.version.outputs.value }}'
-        commit_options: -S
-        commit_user_name: ${{ steps.import_gpg.outputs.name }}
-        commit_user_email: ${{ steps.import_gpg.outputs.email }}
-        commit_author: ${{ steps.import_gpg.outputs.name }} <${{ steps.import_gpg.outputs.email }}>
-    - name: Capture release hash
-      id: release_hash
-      run: "HASH=$(git rev-parse --short HEAD)\necho \"value=${HASH}\" >> \"${GITHUB_OUTPUT}\"\necho \"Release hash: ${HASH}\"\n"
-    - name: Update bundled git hash
-      env:
-        RELEASE_HASH: ${{ steps.release_hash.outputs.value }}
-      run: "python - <<'PY'\nimport os\nfrom pathlib import Path\nimport re\n\nrelease_hash = os.environ[\"RELEASE_HASH\"]\npath = Path(\"qBitrr/bundled_data.py\")\ncontent = path.read_text()\nupdated = re.sub(r'git_hash = \".*\"', f'git_hash = \"{release_hash}\"', content)\npath.write_text(updated)\nPY\n"
-    - name: Commit bundled hash update
-      uses: stefanzweifel/git-auto-commit-action@v7
-      with:
-        commit_message: '[skip ci] Update bundled git hash for v${{ steps.version.outputs.value }}'
         commit_options: -S
         commit_user_name: ${{ steps.import_gpg.outputs.name }}
         commit_user_email: ${{ steps.import_gpg.outputs.email }}
@@ -143,6 +161,7 @@ jobs:
     if: needs.prepare_release.result == 'success'
     env:
       VERSION: ${{ needs.prepare_release.outputs.new_version }}
+      RELEASE_TYPE: ${{ needs.prepare_release.outputs.release_type }}
     steps:
     - id: repo
       uses: ASzc/change-string-case-action@v8
@@ -171,8 +190,13 @@ jobs:
       id: meta
       uses: docker/metadata-action@v6
       with:
-        images: "feramance/qbitrr\nghcr.io/${{ steps.repo.outputs.lowercase }}\n"
-        tags: "type=raw,value=latest\ntype=raw,value=nightly\ntype=raw,value=v${{ env.VERSION }}\n"
+        images: |
+          feramance/qbitrr
+          ghcr.io/${{ steps.repo.outputs.lowercase }}
+        tags: |
+          type=raw,value=latest
+          type=raw,value=stable,enable=${{ env.RELEASE_TYPE != 'build' }}
+          type=raw,value=v${{ env.VERSION }}
     - name: Build and push Docker images
       uses: docker/build-push-action@v7
       with:
@@ -233,8 +257,11 @@ jobs:
     - name: Set archive name
       id: archive
       env:
-        RELEASE_HASH: ${{ needs.prepare_release.outputs.release_hash }}
-      run: "ARCHIVE_NAME=\"${{ env.project-name }}-${RELEASE_HASH}-${{ matrix.os }}-${{ matrix.arch }}\"\necho \"Archive name set to: ${ARCHIVE_NAME}\"\necho \"NAME=${ARCHIVE_NAME}\" >> \"${GITHUB_OUTPUT}\"\n"
+        VERSION: ${{ needs.prepare_release.outputs.new_version }}
+      run: |
+        ARCHIVE_NAME="${{ env.project-name }}-${VERSION}-${{ matrix.os }}-${{ matrix.arch }}"
+        echo "Archive name set to: ${ARCHIVE_NAME}"
+        echo "NAME=${ARCHIVE_NAME}" >> "${GITHUB_OUTPUT}"
     - name: Set up Node.js
       uses: actions/setup-node@v7
       with:
@@ -384,6 +411,9 @@ jobs:
 
             if any(x in message for x in ['[patch]', 'fix:', 'Fix ', 'Fixed ', 'Hotfix']):
                 return '🐛 Bug Fixes'
+
+            if any(x in message for x in ['[build]', 'dependabot']):
+                return '🔧 Maintenance'
 
             if any(x in message for x in ['docs:', 'doc:', 'Document ']):
                 return '📝 Documentation'

@@ -109,6 +109,8 @@
       feramance/qbitrr:latest
     ```
 
+    Prefer `:stable` for patch/feature releases only, or pin `vX.Y.Z-N`. See [Docker installation](getting-started/installation/docker.md#image-tags).
+
 === "Docker Compose"
 
     ```yaml
@@ -351,7 +353,7 @@ Optimize for private tracker requirements:
 
 ### Current Version
 
-**Latest Release**: v5.12.12
+**Latest Release**: v5.12.12-1
 
 - ✅ Production ready
 - ✅ Active development

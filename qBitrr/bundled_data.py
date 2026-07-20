@@ -1,7 +1,6 @@
-version = "5.12.12"
-git_hash = "ea67bf65"
+version = "5.12.12-1"
 license_text = (
     "Licence can be found on:\n\nhttps://github.com/Feramance/qBitrr/blob/master/LICENSE"
 )
-patched_version = f"{version}-{git_hash}"
+patched_version = version
 tagged_version = version

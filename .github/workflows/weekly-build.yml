@@ -1,0 +1,122 @@
+name: Weekly Build Release
+
+on:
+  schedule:
+    # Monday 06:00 UTC
+  - cron: 0 6 * * 1
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  weekly_build:
+    name: Merge Dependabot PRs and release build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.PAT }}
+        ref: master
+
+    - name: Auto-merge green Dependabot PRs
+      env:
+        GH_TOKEN: ${{ secrets.PAT }}
+      run: |
+        set -euo pipefail
+
+        mapfile -t numbers < <(
+          gh pr list \
+            --repo "${{ github.repository }}" \
+            --state open \
+            --author "app/dependabot" \
+            --json number \
+            --jq '.[].number'
+        )
+
+        if [[ ${#numbers[@]} -eq 0 ]]; then
+          echo "No open Dependabot PRs."
+          exit 0
+        fi
+
+        for number in "${numbers[@]}"; do
+          meta=$(gh pr view "${number}" --repo "${{ github.repository }}" \
+            --json title,labels,mergeable,body \
+            --jq '{title: .title, labels: ([.labels[].name] | join(",")), mergeable: .mergeable, body: .body}')
+          title=$(echo "${meta}" | jq -r '.title')
+          labels=$(echo "${meta}" | jq -r '.labels')
+          mergeable=$(echo "${meta}" | jq -r '.mergeable')
+          body=$(echo "${meta}" | jq -r '.body // ""')
+
+          echo "Evaluating Dependabot PR #${number}: ${title}"
+
+          if [[ "${body}" == *"version-update:semver-major"* ]] || \
+             [[ "${labels}" == *"major"* ]] || \
+             [[ "${labels}" == *"breaking"* ]]; then
+            echo "Skipping PR #${number} (major/breaking update)."
+            continue
+          fi
+
+          if [[ "${mergeable}" != "MERGEABLE" ]]; then
+            echo "Skipping PR #${number} (mergeable=${mergeable})."
+            continue
+          fi
+
+          if ! gh pr checks "${number}" --repo "${{ github.repository }}"; then
+            echo "Skipping PR #${number}: checks not green."
+            continue
+          fi
+
+          if gh pr merge "${number}" \
+            --repo "${{ github.repository }}" \
+            --squash \
+            --delete-branch; then
+            echo "Merged PR #${number}."
+          else
+            echo "Could not merge PR #${number}; continuing."
+          fi
+        done
+
+    - name: Refresh master
+      run: |
+        git fetch origin master
+        git checkout master
+        git reset --hard origin/master
+
+    - name: Decide whether to release a build
+      id: should_release
+      run: |
+        set -euo pipefail
+
+        last_tag=$(git tag -l 'v*' --sort=-version:refname | head -n1 || true)
+        if [[ -z "${last_tag}" ]]; then
+          echo "No previous release tags found; will release."
+          echo "release=true" >> "${GITHUB_OUTPUT}"
+          exit 0
+        fi
+
+        count=$(git rev-list --count "${last_tag}..HEAD")
+        echo "Commits since ${last_tag}: ${count}"
+        if [[ "${count}" -gt 0 ]]; then
+          echo "release=true" >> "${GITHUB_OUTPUT}"
+        else
+          echo "release=false" >> "${GITHUB_OUTPUT}"
+          echo "No commits since last release; skipping build release."
+        fi
+
+    - name: Dispatch build release
+      if: steps.should_release.outputs.release == 'true'
+      env:
+        GH_TOKEN: ${{ secrets.PAT }}
+      run: |
+        gh workflow run "Create a Release" \
+          --repo "${{ github.repository }}" \
+          -f release_type=build
+        echo "Dispatched Create a Release with release_type=build"

@@ -11,13 +11,18 @@ DEFAULT_REPOSITORY = "Feramance/qBitrr"
 
 
 def normalize_version(raw: str | None) -> str | None:
+    """Normalize a version string for comparison.
+
+    Strips a leading ``v``/``V`` and any ``+local`` metadata. Keeps the
+    ``MAJOR.MINOR.PATCH-BUILD`` build segment so build bumps compare correctly.
+    """
     if not raw:
         return None
     cleaned = raw.strip()
     if cleaned.startswith(("v", "V")):
         cleaned = cleaned[1:]
-    if "-" in cleaned:
-        cleaned = cleaned.split("-", 1)[0]
+    if "+" in cleaned:
+        cleaned = cleaned.split("+", 1)[0]
     return cleaned or None
 
 

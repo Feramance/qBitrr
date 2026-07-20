@@ -2,414 +2,118 @@
 
 qBitrr uses automated releases via GitHub Actions. This document describes the release workflow for maintainers.
 
-## Release Workflow
+## Version scheme
 
-### 1. Version Bumping
+qBitrr versions are **`MAJOR.MINOR.PATCH-BUILD`** (build starts at **1**).
 
-qBitrr uses **bump2version** for version management:
+| Part | Meaning |
+|------|---------|
+| MAJOR | Breaking changes |
+| MINOR | New features, backward-compatible |
+| PATCH | Bug fixes |
+| BUILD | Dependency / automation-only releases; resets to **1** on every major/minor/patch bump |
 
-```bash
-# Patch release (5.5.4 → 5.5.5)
-bump2version patch
+Examples:
 
-# Minor release (5.5.5 → 5.6.0)
-bump2version minor
+- `[patch]` on `5.12.12-3` → `5.12.13-1`
+- `[build]` on `5.12.12-1` → `5.12.12-2`
 
-# Major release (5.6.0 → 6.0.0)
-bump2version major
-```
+**ConfigVersion** (config schema) stays `MAJOR.MINOR.PATCH` only and is not rewritten on `[build]` bumps.
 
-**What bump2version updates:**
-- `setup.cfg` - Package version
-- `pyproject.toml` - Project metadata
-- `.bumpversion.cfg` - Version tracker
-- Git tag created automatically
+**Do not run `bump2version` locally.** CI bumps, commits (`[skip ci]`), tags, and publishes.
 
-### 2. Changelog Generation
+## How releases are triggered
 
-qBitrr uses **gren** (GitHub Release Notes generator):
+Push to `master` with a commit message prefix, or run **Create a Release** via `workflow_dispatch`:
 
-```bash
-# Generate release notes from commits
-gren release --override
-
-# Or manually edit CHANGELOG.md
-```
-
-**Changelog format:**
-
-```markdown
-## [5.6.0] - 2024-12-09
-
-### Added
-- New feature X
-- New feature Y
-
-### Changed
-- Updated behavior of Z
-- Improved performance of W
-
-### Fixed
-- Bug fix A
-- Bug fix B
-
-### Security
-- Security fix C
-```
-
-### 3. Create Release
-
-#### Option A: Automated (Recommended)
+| Prefix | Bump | Use for |
+|--------|------|---------|
+| `[patch]` | patch (build → 1) | Bug fixes |
+| `[minor]` | minor (build → 1) | Features |
+| `[major]` | major (build → 1) | Breaking changes |
+| `[build]` | build (+1) | Dependency / weekly automation only |
 
 ```bash
-# 1. Bump version
-bump2version minor  # or patch/major
-
-# 2. Push tags
-git push origin master --tags
-
-# 3. GitHub Actions automatically:
-#    - Builds Python package
-#    - Publishes to PyPI
-#    - Builds Docker image
-#    - Pushes to Docker Hub
-#    - Creates GitHub Release
-```
-
-#### Option B: Manual
-
-```bash
-# 1. Create tag
-git tag -a v5.6.0 -m "Release v5.6.0"
-git push origin v5.6.0
-
-# 2. Build package
-python setup.py sdist bdist_wheel
-
-# 3. Upload to PyPI
-twine upload dist/*
-
-# 4. Build Docker image
-docker build -t feramance/qbitrr:5.6.0 .
-docker build -t feramance/qbitrr:latest .
-
-# 5. Push to Docker Hub
-docker push feramance/qbitrr:5.6.0
-docker push feramance/qbitrr:latest
-
-# 6. Create GitHub Release manually
-```
-
-## Release Types
-
-### Patch Release (5.5.4 → 5.5.5)
-
-**When:** Bug fixes only, no new features
-
-**Process:**
-1. Merge bug fix PRs to `master`
-2. `bump2version patch`
-3. Push tags
-
-**Example commits:**
-- `fix(radarr): resolve import path issue`
-- `fix(webui): correct API token validation`
-
-### Minor Release (5.5.5 → 5.6.0)
-
-**When:** New features, backward-compatible changes
-
-**Process:**
-1. Merge feature PRs to `master`
-2. `bump2version minor`
-3. Update documentation
-4. Push tags
-
-**Example commits:**
-- `feat(lidarr): add Lidarr v2.0 support`
-- `feat(webui): add dark mode toggle`
-
-### Major Release (5.6.0 → 6.0.0)
-
-**When:** Breaking changes, major features
-
-**Process:**
-1. Create `v6-dev` branch for development
-2. Merge all v6 features
-3. Update documentation
-4. Test thoroughly
-5. Merge to `master`
-6. `bump2version major`
-7. Push tags
-8. Write migration guide
-
-**Example commits:**
-- `feat!: replace SQLite with PostgreSQL`
-- `refactor!: new configuration schema`
-
-## CI/CD Pipelines
-
-### Release Workflow
-
-**File:** `.github/workflows/release.yml`
-
-**Triggers:**
-- Push tags matching `v*.*.*`
-
-**Steps:**
-1. Checkout code
-2. Set up Python 3.12
-3. Install build dependencies
-4. Build WebUI (`npm run build`)
-5. Build Python package (`python setup.py sdist bdist_wheel`)
-6. Publish to PyPI (`twine upload`)
-7. Build Docker image (multi-platform: amd64, arm64)
-8. Push to Docker Hub with tags:
-   - `feramance/qbitrr:5.6.0`
-   - `feramance/qbitrr:5.6`
-   - `feramance/qbitrr:5`
-   - `feramance/qbitrr:latest`
-9. Create GitHub Release with changelog
-
-### Nightly Builds
-
-**File:** `.github/workflows/nightly.yml`
-
-**Trigger:** Daily at 00:00 UTC
-
-**Output:** `feramance/qbitrr:nightly`
-
-**Purpose:** Test bleeding-edge changes
-
-## Version Numbering
-
-qBitrr follows **Semantic Versioning** (semver):
-
-```
-MAJOR.MINOR.PATCH
-
-5.6.2
-│ │ │
-│ │ └─ Patch: Bug fixes, security fixes
-│ └─── Minor: New features, backward-compatible
-└───── Major: Breaking changes
-```
-
-### Pre-release Versions
-
-```
-5.6.0-alpha.1  # Alpha release
-5.6.0-beta.1   # Beta release
-5.6.0-rc.1     # Release candidate
-```
-
-**Create pre-release:**
-
-```bash
-# Tag manually
-git tag v5.6.0-rc.1
-git push origin v5.6.0-rc.1
-```
-
-## Docker Image Tags
-
-### Tag Strategy
-
-| Tag | Description | Example |
-|-----|-------------|---------|
-| `latest` | Latest stable release | `5.6.2` |
-| `nightly` | Daily build from master | Today's date |
-| `X.Y.Z` | Specific version | `5.6.2` |
-| `X.Y` | Latest patch in minor | `5.6` → `5.6.2` |
-| `X` | Latest minor in major | `5` → `5.6.2` |
-
-### Multi-Platform Builds
-
-qBitrr supports multiple architectures:
-
-- `linux/amd64` - x86_64 (most common)
-- `linux/arm64` - ARM 64-bit (Raspberry Pi 4, Apple Silicon)
-- `linux/arm/v7` - ARM 32-bit (older Raspberry Pi)
-
-**Build command:**
-
-```bash
-docker buildx build \
-  --platform linux/amd64,linux/arm64,linux/arm/v7 \
-  -t feramance/qbitrr:5.6.0 \
-  --push \
-  .
-```
-
-## PyPI Publishing
-
-### Package Metadata
-
-**File:** `setup.cfg`
-
-```ini
-[metadata]
-name = qBitrr2
-version = 5.6.0
-description = Automate qBittorrent and *arr integration
-author = Feramance
-url = https://github.com/Feramance/qBitrr
-```
-
-### Trusted Publishing (CI)
-
-Releases publish to PyPI via [Trusted Publishing](https://docs.pypi.org/trusted-publishers/) (OIDC). No long-lived `PYPI_API_TOKEN` is used in CI.
-
-**One-time setup (project owner):**
-
-1. **PyPI** — [qBitrr2 → Publishing settings](https://pypi.org/manage/project/qbitrr2/settings/publishing/):
-   - Publisher type: **GitHub**
-   - Owner: `Feramance`
-   - Repository: `qBitrr`
-   - Workflow name: `release.yml`
-   - Environment name: `pypi`
-2. **GitHub** — Repo **Settings → Environments** → create environment `pypi` (optional deployment protection rules as desired).
-
-The `publish_pypi` job in [`.github/workflows/release.yml`](https://github.com/Feramance/qBitrr/blob/master/.github/workflows/release.yml) uses `pypa/gh-action-pypi-publish@release/v1` with `id-token: write` and the `pypi` environment. PEP 740 attestations are generated automatically.
-
-**After the first successful OIDC publish:**
-
-1. Delete the `PYPI_API_TOKEN` repository secret (if still present).
-2. Revoke the old PyPI API token in your PyPI account settings.
-
-### Publishing
-
-Automated via GitHub Actions when a `[patch]`, `[minor]`, or `[major]` commit is pushed to `master`, or via `workflow_dispatch`.
-
-**Manual publishing (local maintainer):**
-
-```bash
-# Build
-python -m build
-
-# Check
-twine check dist/*
-
-# Upload (requires PyPI credentials on your machine)
-twine upload dist/*
-```
-
-## Post-Release
-
-### 1. Verify Release
-
-```bash
-# Check PyPI
-pip install qBitrr2==5.6.0
-
-# Check Docker Hub
-docker pull feramance/qbitrr:5.6.0
-
-# Check GitHub Release
-# Visit: https://github.com/Feramance/qBitrr/releases
-```
-
-### 2. Update Documentation
-
-Ensure docs are deployed:
-
-- GitHub Pages: https://feramance.github.io/qBitrr/
-- Docker Hub: Update description if needed
-
-### 3. Announce Release
-
-- GitHub Discussions: Post announcement
-- Discord/Community: Share release notes
-- Reddit: Post in relevant subreddits (r/radarr, r/sonarr)
-
-### 4. Monitor Issues
-
-Watch for issues related to new release:
-- GitHub Issues
-- Discord messages
-- Reddit comments
-
-## Hotfix Process
-
-For critical bugs in production:
-
-**1. Create hotfix branch:**
-
-```bash
-git checkout -b hotfix/5.6.1 v5.6.0
-```
-
-**2. Fix the bug:**
-
-```bash
-# Make minimal changes
-git commit -m "fix(critical): resolve data loss issue"
-```
-
-**3. Test thoroughly**
-
-**4. Release:**
-
-```bash
-bump2version patch  # 5.6.0 → 5.6.1
-git push origin hotfix/5.6.1 --tags
-```
-
-**5. Merge back:**
-
-```bash
-# Merge to master
 git checkout master
-git merge --no-ff hotfix/5.6.1
+git pull origin master
+git commit --allow-empty -m "[patch] Short description of the release"
 git push origin master
 ```
 
-## Release Checklist
+### Dependabot
 
-Before releasing:
+Merge Dependabot PRs **without** release prefixes (`[patch]` / `[minor]` / `[major]` / `[build]`). The weekly workflow merges green patch/minor Dependabot PRs and dispatches a `build` release when `master` has moved since the last tag.
 
-- [ ] All tests pass (once implemented)
-- [ ] Documentation updated
-- [ ] Changelog generated
-- [ ] Version bumped
-- [ ] Tag created
-- [ ] No open critical issues
+## Docker channels
 
-After releasing:
+| Tag | Meaning | Updated by |
+|-----|---------|------------|
+| `stable` | Latest **patch/minor/major** release | `release.yml` (not `[build]`) |
+| `latest` | Absolute newest published release (includes builds) | `release.yml` (every release type) |
+| `nightly` | Per-commit tip of `master` | `nightly.yml` only |
+| `vX.Y.Z-N` | Immutable version | `release.yml` |
 
-- [ ] PyPI package available
-- [ ] Docker images pushed
-- [ ] GitHub Release created
-- [ ] Documentation deployed
-- [ ] Announcement posted
-- [ ] Monitor for issues
+`pip install -U qBitrr2` tracks the newest PyPI upload (including builds). There is no second PyPI package name.
 
-## Rollback Procedure
+## What a release publishes
 
-If a release has critical issues:
+1. `bump2version` updates `setup.cfg`, `.bumpversion.cfg`, `bundled_data.py`, `Dockerfile`, `docs/index.md` (and ConfigVersion-related files on major/minor/patch)
+2. Signed `[skip ci]` version bump commit
+3. Draft GitHub release `v{version}`
+4. Docker images to Docker Hub + GHCR (`v…`, `latest`, and `stable` when applicable)
+5. Platform binaries: `qBitrr-{version}-{os}-{arch}.tar.gz` / `.zip`
+6. PyPI package `qBitrr2` (PEP 440 may normalize `5.12.12-1` → `5.12.12.post1`)
+7. Changelog entry + published GitHub release notes
 
-**1. Pull Docker images:**
+## Weekly build workflow
+
+**File:** `.github/workflows/weekly-build.yml`
+
+- Schedule: Monday 06:00 UTC (also `workflow_dispatch`)
+- Auto-merges open Dependabot PRs with green checks (skips major/breaking)
+- If commits exist since the latest `v*` tag, dispatches **Create a Release** with `release_type=build`
+
+## Nightly workflow
+
+**File:** `.github/workflows/nightly.yml`
+
+- Trigger: push to `master` (non-release commits)
+- Publishes **only** `feramance/qbitrr:nightly` (and GHCR equivalent)
+- Skips commits starting with `[patch]` / `[minor]` / `[major]` / `[build]` / `[skip ci]`
+
+## Hotfix
 
 ```bash
-# Users can rollback
-docker pull feramance/qbitrr:5.5.5
+git checkout master
+git checkout -b hotfix/fix-critical-bug
+# … fix and test …
+git checkout master
+git merge hotfix/fix-critical-bug
+git commit --allow-empty -m "[patch] Fix critical bug description"
+git push origin master
 ```
 
-**2. Yank PyPI package:**
+## Rollback
 
-```bash
-# Marks package as unavailable (requires PyPI maintainer)
-# Contact Feramance to yank if needed
-```
+1. Revert the bad commit on `master` and push (or cut a new `[patch]` with the fix)
+2. Warn on the GitHub Release / Discussions
+3. Users can pin: `pip install qBitrr2==X.Y.Z.postN` or Docker `feramance/qbitrr:vX.Y.Z-N` / `:stable`
 
-**3. Create hotfix release:**
+## Files bump2version updates
 
-```bash
-# Fix issue and release 5.6.1
-```
+| File | Notes |
+|------|--------|
+| `.bumpversion.cfg` | `current_version` |
+| `setup.cfg` | Package version |
+| `qBitrr/bundled_data.py` | Runtime `version` / `patched_version` |
+| `Dockerfile` | `ARG VERSION` |
+| `docs/index.md` | Latest release line |
+| `qBitrr/config_version.py` | Schema only (`MAJOR.MINOR.PATCH`) |
+| `qBitrr/gen_config/fields.py` | Default ConfigVersion (schema only) |
+| `docs/configuration/config-file.md` | ConfigVersion example (schema only) |
 
-## Related Documentation
+## PyPI publishing
 
-- [Contributing](contributing.md) - Contribution guidelines
-- [Development Guide](index.md) - Development setup
-- [GitHub Actions Workflows](https://github.com/Feramance/qBitrr/tree/master/.github/workflows) - CI/CD configuration
+Releases publish package **`qBitrr2`** via [Trusted Publishing](https://docs.pypi.org/trusted-publishers/) (OIDC). Version strings use `MAJOR.MINOR.PATCH-BUILD`; packaging may normalize `5.12.12-1` to `5.12.12.post1` on PyPI.
+
+`pip install -U qBitrr2` always tracks the newest upload (including `[build]` releases). Docker `:stable` vs `:latest` is the opt-in split for dependency builds—not a second PyPI package.
