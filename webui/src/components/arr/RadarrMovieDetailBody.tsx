@@ -2,7 +2,13 @@ import type { JSX } from "react";
 import { getRadarrOpenMovieUrl } from "../../api/client";
 import type { RadarrMovie } from "../../api/types";
 import { radarrMovieThumbnailUrl } from "../../utils/arrThumbnailUrl";
+import { ArrExternalLink } from "./ArrExternalLink";
 import { ArrPosterImage } from "./ArrPosterImage";
+import {
+  ArrHasFileBadge,
+  ArrMonitoredBadge,
+  ArrReasonBadge,
+} from "./ArrStatusCells";
 
 interface RadarrMovieDetailBodyProps {
   movie: RadarrMovie;
@@ -23,13 +29,7 @@ export function RadarrMovieDetailBody({
   const reason = movie.reason as string | null | undefined;
   return (
     <div className="arr-detail-radarr">
-      {openUrl ? (
-        <div className="arr-detail-actions">
-          <a className="btn small outline" href={openUrl} target="_blank" rel="noreferrer">
-            Open in Radarr
-          </a>
-        </div>
-      ) : null}
+      <ArrExternalLink href={openUrl} arrName="Radarr" />
       {poster ? (
         <div className="arr-detail-radarr__poster">
           <ArrPosterImage src={poster} alt={String(movie.title ?? "")} />
@@ -39,18 +39,18 @@ export function RadarrMovieDetailBody({
         <dt>Year</dt>
         <dd>{movie.year ?? "—"}</dd>
         <dt>Monitored</dt>
-        <dd>{movie.monitored ? "Yes" : "No"}</dd>
+        <dd>
+          <ArrMonitoredBadge monitored={Boolean(movie.monitored)} />
+        </dd>
         <dt>Has file</dt>
-        <dd>{movie.hasFile ? "Yes" : "No"}</dd>
+        <dd>
+          <ArrHasFileBadge hasFile={Boolean(movie.hasFile)} />
+        </dd>
         <dt>Quality profile</dt>
         <dd>{movie.qualityProfileName ?? "—"}</dd>
         <dt>Reason</dt>
         <dd>
-          {reason ? (
-            <span className="table-badge table-badge-reason">{reason}</span>
-          ) : (
-            <span className="table-badge table-badge-reason">Not being searched</span>
-          )}
+          <ArrReasonBadge reason={reason} />
         </dd>
       </dl>
     </div>

@@ -26,7 +26,7 @@ On **new installs**, authentication is required by default. When you open the We
 
 - **First-run flow:** Open `/ui` → enter a setup token → create username and password → set password & sign in → use the WebUI.
 - **Existing configs:** If your config file was created before this behavior (or does not set `AuthDisabled`), the app continues to treat auth as disabled for backward compatibility until you set `AuthDisabled = false` or configure a password.
-- **Disable auth:** To run without login (e.g. behind your own reverse proxy or in a fully trusted environment), set `AuthDisabled = true` in the `[WebUI]` section of `config.toml`. See [AuthDisabled](#authdisabled) below.
+- **Disable auth:** To run without login (e.g. behind your own reverse proxy or in a fully trusted environment), set `AuthDisabled = true` in the `[WebUI]` section of `config.toml`. This opens the **entire** admin API (including `/api/token`, `/web/token`, config writes, and self-update) to anyone who can reach the port. On a public bind (`0.0.0.0` / `::`), you must also set `AllowInsecureExposure = true`. See [AuthDisabled](#authdisabled) and [AllowInsecureExposure](#allowinsecureexposure) below.
 
 ---
 
@@ -42,15 +42,14 @@ Host = "0.0.0.0"
 # Listen port
 Port = 6969
 
-# Optional authentication token
+# Bearer token (used when auth is enabled; does not enable auth by itself)
 Token = ""
+
+# Require login on new installs (set true only for trusted/proxy setups)
+AuthDisabled = false
 
 # Live updates
 LiveArr = true
-
-# Reserved (no effect today; kept for compatibility)
-GroupSonarr = true
-GroupLidarr = true
 
 # Default theme
 Theme = "Dark"
@@ -92,8 +91,8 @@ Host = "0.0.0.0"
 # Native (with reverse proxy)
 Host = "127.0.0.1"
 
-# Native (direct access)
-Host = "0.0.0.0"  # Use with Token for security
+# Native (direct access) — require AuthDisabled = false (login)
+Host = "0.0.0.0"
 ```
 
 ---
@@ -141,58 +140,29 @@ Token = ""
 ```
 
 **Type:** String
-**Default:** `""` (empty, no authentication)
+**Default:** `""` (auto-generated and persisted on first start if empty)
 
-Bearer token for API authentication.
+Bearer token used when authentication is **enabled** (`AuthDisabled = false`). Setting a token does **not** enable auth by itself.
 
-**When empty:**
-- WebUI and API are publicly accessible
-- No authentication required
-- Anyone with network access can use the WebUI
+When authorized (session login, valid Bearer token, or `AuthDisabled = true`), clients can retrieve it from `GET /api/token` and `GET /web/token`. The WebUI SPA uses these endpoints after login.
 
-**When set:**
-- All `/api/*` endpoints require authentication
-- Must include `Authorization: Bearer` header in API requests
-- WebUI automatically handles token for you
-
-**Setting up authentication:**
-
-```toml
-[WebUI]
-Token = "my-secure-token-12345"
-```
-
-**Generating secure tokens:**
-
-```bash
-# Linux/macOS
-openssl rand -hex 32
-
-# Or
-python3 -c "import secrets; print(secrets.token_hex(32))"
-
-# Output: a1b2c3d4e5f6...
-```
-
-**Using authenticated API:**
+**Using authenticated API (when auth is enabled):**
 
 ```bash
 curl -H "Authorization: Bearer my-secure-token-12345" \
   http://localhost:6969/api/processes
 ```
 
+**Generating secure tokens:**
+
+```bash
+openssl rand -hex 32
+# Or
+python3 -c "import secrets; print(secrets.token_hex(32))"
+```
+
 !!! warning "Security Recommendation"
-    **Always set a token if:**
-
-    - qBitrr is accessible from the internet
-    - You're not using a reverse proxy with authentication
-    - Multiple users have network access
-
-    **Token can be omitted if:**
-
-    - Behind reverse proxy with its own authentication
-    - Only accessible from localhost
-    - Running in a trusted private network
+    Prefer `AuthDisabled = false` with a password or OIDC when the WebUI is reachable beyond a fully trusted network. Token alone does not close the API while `AuthDisabled = true`.
 
 ---
 
@@ -206,7 +176,12 @@ AuthDisabled = false
 **Default (new installs):** `false` (auth required; user is prompted to create credentials)
 **Default (configs without this key):** Treated as `true` for backward compatibility (auth disabled)
 
-When `false`, the WebUI requires authentication. On first run with no password set, the user sees the create-credentials screen. When `true`, no login is required and the WebUI is open to anyone with network access.
+When `false`, the WebUI requires authentication. On first run with no password set, the user sees the create-credentials screen. When `true`, **no login is required** and the full admin surface is open to anyone who can reach the port, including:
+
+- Token retrieval (`/api/token`, `/web/token`)
+- Config read/write
+- Process restart / Arr rebuild
+- Self-update (`POST /update`)
 
 **Use cases:**
 
@@ -215,12 +190,42 @@ When `false`, the WebUI requires authentication. On first run with no password s
 | `false` | New installs; require username/password (default for newly generated configs). |
 | `true`  | Disable auth (e.g. behind reverse proxy with its own auth, or trusted network). |
 
-**Example (disable auth):**
+**Example (disable auth on a public bind — requires acknowledgment):**
 
 ```toml
 [WebUI]
+Host = "0.0.0.0"
 AuthDisabled = true
+AllowInsecureExposure = true
 ```
+
+---
+
+## AllowInsecureExposure
+
+```toml
+AllowInsecureExposure = false
+```
+
+**Type:** Boolean
+**Default (new installs):** `false`
+**Default (configs without this key):** Warn-only (startup continues) for backward compatibility
+
+When `AuthDisabled = true` and `Host` is `0.0.0.0` or `::`, qBitrr refuses to start the WebUI unless this is set to `true`. Use it only when you intentionally expose an unauthenticated admin UI (typically behind a reverse proxy that already authenticates clients).
+
+---
+
+## AllowInsecureTokenQuery
+
+```toml
+AllowInsecureTokenQuery = false
+```
+
+**Type:** Boolean
+**Default (new installs):** `false`
+**Default (configs without this key):** Treated as `true` (query tokens still accepted) for backward compatibility
+
+When `true`, `?token=` may be used for API auth. This is insecure (token appears in logs and browser history). Prefer `Authorization: Bearer`. New installs default to header-only.
 
 ---
 
@@ -238,13 +243,16 @@ Set to `true` when the WebUI is reached over HTTPS (e.g. behind a reverse proxy 
 **When `true`:**
 
 - The app trusts the `X-Forwarded-Proto` header so `request.is_secure` and generated URLs (e.g. OIDC redirect) reflect the client-facing HTTPS.
-- Werkzeug's ProxyFix middleware is applied (`x_proto=1`).
+- Werkzeug's ProxyFix middleware is applied (`x_for=1`, `x_proto=1`).
 - The session cookie is set with the `Secure` flag so browsers only send it over HTTPS.
 
 **When `false` (default):**
 
 - No proxy headers are trusted; suitable for plain HTTP or when qBitrr is not behind a proxy.
 - Session cookie is not marked Secure, so login works over HTTP.
+
+!!! warning "Trusted proxy only"
+    Enable **BehindHttpsProxy** only when a trusted reverse proxy **overwrites** `X-Forwarded-*` headers. If clients can reach qBitrr directly while this is true, they can spoof `X-Forwarded-For` and bypass login rate limits.
 
 !!! tip "When to enable"
     Enable **BehindHttpsProxy** when you access the WebUI via `https://` and your reverse proxy sets `X-Forwarded-Proto: https`. Leave `false` for local `http://localhost` or plain HTTP to avoid login/session issues.
@@ -299,20 +307,19 @@ LiveArr = true
 
 **Type:** Boolean
 **Default:** `true`
+**Label:** Live (app-bar switch)
 
-Enable live updates for Arr instance views (Radarr/Sonarr/Lidarr tabs).
+Enable live updates for Arr catalogs (Radarr/Sonarr/Lidarr) and the qBittorrent overview.
 
 **When true:**
-- Real-time status updates
-- Progress bars update automatically
-- No manual page refresh needed
-- Uses polling every few seconds
+- Auto-refresh while the Arr or qBittorrent tab is active
+- Progress and status update without a full page reload
+- Uses polling every few seconds on the active tab
 
 **When false:**
-- Static snapshots
-- Must manually refresh page
-- Lower resource usage
-- Reduced API calls to Arr instances
+- No auto-refresh on Arr or qBittorrent views
+- Use the in-page Refresh button
+- Lower resource usage and fewer Arr / qBittorrent API calls
 
 **Recommendation:** `true` for best user experience.
 
@@ -325,32 +332,6 @@ LiveArr = true  # Enable real-time updates
 # Low-resource system (Raspberry Pi, etc.)
 LiveArr = false  # Reduce load
 ```
-
----
-
-## GroupSonarr
-
-```toml
-GroupSonarr = true
-```
-
-**Type:** Boolean
-**Default:** `true`
-
-**Reserved.** The React WebUI does not read this flag today. Browse is **one row per series** (List or Icon mode); seasons and episodes open in the detail modal (`series → seasons → episodes`). The key remains for backwards compatibility.
-
----
-
-## GroupLidarr
-
-```toml
-GroupLidarr = true
-```
-
-**Type:** Boolean
-**Default:** `true`
-
-**Reserved.** The React WebUI does not read this flag today. Browse is **one row per artist** (List or Icon mode); albums and tracks open in the detail modal (`artist → albums → tracks`). The key remains for backwards compatibility.
 
 ---
 
@@ -394,41 +375,38 @@ Default color theme for the WebUI.
 
 ## Complete Configuration Examples
 
-### Example 1: Default (Public Access)
+### Example 1: Default (auth required)
 
 ```toml
 [WebUI]
 Host = "0.0.0.0"
 Port = 6969
-Token = ""  # No authentication
+AuthDisabled = false
 LiveArr = true
-GroupSonarr = true
-GroupLidarr = true
 Theme = "Dark"
 ViewDensity = "Comfortable"
 ```
 
-**Access:** `http://localhost:6969/ui`
+**Access:** `http://localhost:6969/ui` (create credentials on first run)
 
-**Use case:** Local network, trusted environment.
+**Use case:** Typical install; login required.
 
 ---
 
-### Example 2: Secured with Token
+### Example 2: Secured with login (recommended for exposed hosts)
 
 ```toml
 [WebUI]
 Host = "0.0.0.0"
 Port = 6969
-Token = "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6"
+AuthDisabled = false
+LocalAuthEnabled = true
 LiveArr = true
-GroupSonarr = true
-GroupLidarr = true
 Theme = "Dark"
 ViewDensity = "Comfortable"
 ```
 
-**Access:** `http://localhost:6969/ui` (token handled automatically by WebUI)
+**Access:** `http://localhost:6969/ui` (username/password or OIDC)
 
 **Use case:** Exposed to internet or untrusted network.
 
@@ -442,10 +420,9 @@ Host = "127.0.0.1"
 Port = 6969
 UrlBase = "/qbitrr"
 BehindHttpsProxy = true
-Token = ""  # Reverse proxy handles auth
+AuthDisabled = true
+AllowInsecureExposure = false  # loopback bind; ack not required
 LiveArr = true
-GroupSonarr = true
-GroupLidarr = true
 Theme = "Dark"
 ViewDensity = "Comfortable"
 ```
@@ -474,10 +451,8 @@ location /qbitrr/ {
 [WebUI]
 Host = "0.0.0.0"
 Port = 6969
-Token = ""
+AuthDisabled = false
 LiveArr = false  # Disable auto-refresh
-GroupSonarr = false  # Reserved; no perf effect
-GroupLidarr = false  # Reserved; no perf effect
 Theme = "Dark"
 ```
 
@@ -777,17 +752,14 @@ WebUI host, port, and token are configured in `config.toml` under the `[WebUI]` 
 
 ## Security Best Practices
 
-### 1. Use a Strong Token
-
-```bash
-# Generate secure token
-openssl rand -hex 32
-```
+### 1. Keep authentication enabled
 
 ```toml
 [WebUI]
-Token = "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6"
+AuthDisabled = false
 ```
+
+Create a strong username/password (or OIDC) on first run. Token alone does not enable auth.
 
 ---
 
@@ -798,7 +770,7 @@ Token = "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6"
 Host = "127.0.0.1"  # Only localhost
 ```
 
-Use Nginx/Apache/Caddy for external access with HTTPS.
+Use Nginx/Apache/Caddy for external access with HTTPS. If you must use `AuthDisabled = true` on `0.0.0.0`, set `AllowInsecureExposure = true` only when the proxy already authenticates clients.
 
 ---
 

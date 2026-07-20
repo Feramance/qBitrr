@@ -1,5 +1,5 @@
 import type { ColumnDef } from "@tanstack/react-table";
-import { type JSX, type RefCallback } from "react";
+import { useCallback, useMemo, type JSX, type RefCallback } from "react";
 import { getLidarrArtists } from "../../api/client";
 import type {
   ArrInfo,
@@ -7,17 +7,17 @@ import type {
   LidarrArtistsResponse,
 } from "../../api/types";
 import { ArrMiniProgress } from "../../components/arr/ArrMiniProgress";
+import {
+  ArrListProgressCell,
+  ArrMonitoredBadge,
+  ArrReasonBadge,
+} from "../../components/arr/ArrStatusCells";
 import { LidarrArtistDetailBody } from "../../components/arr/LidarrArtistDetailBody";
-import { StableTable } from "../../components/StableTable";
-import { ARR_CATALOG_SYNC_HINT } from "../../constants/arrCatalogMessages";
 import { lidarrArtistThumbnailUrl } from "../../utils/arrThumbnailUrl";
 import { ArrCatalogIconTile } from "./ArrCatalogIconTile";
-import {
-  ArrCatalogBodyChrome,
-  ArrCatalogPagination,
-} from "./ArrCatalogBodyChrome";
-import type { ArrCatalogDefinition, ArrCatalogSummary } from "./definition";
-import { ARR_CATALOG_REGISTRY } from "./registry";
+import { ArrCatalogStandardBody } from "./ArrCatalogStandardBody";
+import { createStandardArrFilters } from "./createStandardArrFilters";
+import type { ArrCatalogDefinition, ArrCatalogSummary, AnyArrCatalogDefinition } from "./definition";
 import { useInstancePagedFetch } from "./useInstancePagedFetch";
 import { categoryForInstanceLabel } from "./utils";
 import type { RowsStore } from "../../utils/rowsStore";
@@ -142,71 +142,102 @@ function lidarrArtistTileStats(
   );
 }
 
-function buildLidarrInstanceColumns(): ColumnDef<LidarrInstanceRow>[] {
-  return [
-    {
-      id: "artist",
-      header: "Artist",
-      cell: ({ row }) => {
-        const a = row.original.artist as Record<string, unknown>;
-        return String(a?.["name"] ?? "—");
-      },
+/** Module-level column defs — stable identity across renders for StableTable memo. */
+const LIDARR_INSTANCE_COLUMNS: ColumnDef<LidarrInstanceRow>[] = [
+  {
+    id: "artist",
+    header: "Artist",
+    cell: ({ row }) => {
+      const a = row.original.artist as Record<string, unknown>;
+      return String(a?.["name"] ?? "—");
     },
-    {
-      id: "albums",
-      header: "Albums",
-      cell: ({ row }) => {
-        const a = row.original.artist as Record<string, unknown>;
-        return Number(a?.["albumCount"] ?? 0).toLocaleString();
-      },
-    },
-    {
-      id: "tracks",
-      header: "Tracks",
-      cell: ({ row }) => {
-        const a = row.original.artist as Record<string, unknown>;
-        return Number(a?.["trackTotalCount"] ?? 0).toLocaleString();
-      },
-    },
-    {
-      id: "monitored",
-      header: "Monitored",
-      cell: ({ row }) => {
-        const a = row.original.artist as Record<string, unknown>;
-        const monitored = Boolean(a?.["monitored"]);
+  },
+  {
+    id: "albums",
+    header: "Albums",
+    cell: ({ row }) => {
+      const a = row.original.artist as Record<string, unknown>;
+      const avail = Number(a?.["albumsAvailable"] ?? NaN);
+      const miss = Number(a?.["albumsMissing"] ?? NaN);
+      if (Number.isFinite(avail) && Number.isFinite(miss)) {
         return (
-          <span className={`track-status ${monitored ? "available" : "missing"}`}>
-            {monitored ? "✓" : "✗"}
-          </span>
+          <ArrListProgressCell
+            label="Albums"
+            available={avail}
+            missing={miss}
+          />
         );
-      },
+      }
+      return Number(a?.["albumCount"] ?? 0).toLocaleString();
     },
-    {
-      id: "qualityProfileName",
-      header: "Quality profile",
-      cell: ({ row }) => {
-        const a = row.original.artist as Record<string, unknown>;
+    size: 140,
+  },
+  {
+    id: "tracks",
+    header: "Tracks",
+    cell: ({ row }) => {
+      const a = row.original.artist as Record<string, unknown>;
+      const avail = Number(a?.["tracksAvailable"] ?? NaN);
+      const miss = Number(a?.["tracksMissing"] ?? NaN);
+      if (Number.isFinite(avail) && Number.isFinite(miss)) {
         return (
-          (a?.["qualityProfileName"] as string | null | undefined) || "—"
+          <ArrListProgressCell
+            label="Tracks"
+            available={avail}
+            missing={miss}
+          />
         );
-      },
+      }
+      return Number(a?.["trackTotalCount"] ?? 0).toLocaleString();
     },
-  ];
-}
+    size: 140,
+  },
+  {
+    id: "monitored",
+    header: "Monitored",
+    cell: ({ row }) => {
+      const a = row.original.artist as Record<string, unknown>;
+      return <ArrMonitoredBadge monitored={Boolean(a?.["monitored"])} />;
+    },
+    size: 120,
+  },
+  {
+    id: "qualityProfileName",
+    header: "Quality profile",
+    cell: ({ row }) => {
+      const a = row.original.artist as Record<string, unknown>;
+      return (
+        (a?.["qualityProfileName"] as string | null | undefined) || "—"
+      );
+    },
+  },
+  {
+    id: "reason",
+    header: "Reason",
+    cell: ({ row }) => {
+      const a = row.original.artist as Record<string, unknown>;
+      const reason =
+        typeof a?.["reason"] === "string" ? (a["reason"] as string) : null;
+      return <ArrReasonBadge reason={reason} />;
+    },
+    size: 140,
+  },
+];
 
-function buildLidarrAggColumns(
-  instanceCount: number,
-): ColumnDef<LidarrAggRow>[] {
-  const cols: ColumnDef<LidarrAggRow>[] = [];
-  if (instanceCount > 1) {
-    cols.push({
-      id: "instance",
-      header: "Instance",
-      cell: ({ row }) => row.original.__instance,
-    });
-  }
-  cols.push(...(buildLidarrInstanceColumns() as ColumnDef<LidarrAggRow>[]));
-  return cols;
+const LIDARR_AGG_COLUMNS_SINGLE =
+  LIDARR_INSTANCE_COLUMNS as ColumnDef<LidarrAggRow>[];
+
+const LIDARR_AGG_COLUMNS_MULTI: ColumnDef<LidarrAggRow>[] = [
+  {
+    id: "instance",
+    header: "Instance",
+    cell: ({ row }) => row.original.__instance,
+  },
+  ...LIDARR_AGG_COLUMNS_SINGLE,
+];
+
+function getLidarrAggColumns(instanceCount: number): ColumnDef<LidarrAggRow>[] {
+  return instanceCount > 1 ? LIDARR_AGG_COLUMNS_MULTI : LIDARR_AGG_COLUMNS_SINGLE;
 }
 
 const LIDARR_INITIAL_ROLLUP: LidarrRollup = {
@@ -233,34 +264,7 @@ export const LIDARR_DEFINITION: ArrCatalogDefinition<
   allInstancesLabel: "All Lidarr",
   searchPlaceholder: "Filter artists",
   initialFilters: { onlyMissing: false, reasonFilter: "all" },
-  filterControls: [
-    {
-      id: "status",
-      label: "Status",
-      mode: "always",
-      options: [
-        { value: "all", label: "All Artists" },
-        { value: "missing", label: "Missing Only" },
-      ],
-      getValue: (f) => (f.onlyMissing ? "missing" : "all"),
-      setValue: (prev, next) => ({ ...prev, onlyMissing: next === "missing" }),
-    },
-    {
-      id: "reason",
-      label: "Search Reason",
-      mode: "always",
-      options: [
-        { value: "all", label: "All Reasons" },
-        { value: "Not being searched", label: "Not Being Searched" },
-        { value: "Missing", label: "Missing" },
-        { value: "Quality", label: "Quality" },
-        { value: "CustomFormat", label: "Custom Format" },
-        { value: "Upgrade", label: "Upgrade" },
-      ],
-      getValue: (f) => f.reasonFilter,
-      setValue: (prev, next) => ({ ...prev, reasonFilter: next }),
-    },
-  ],
+  filterControls: createStandardArrFilters<LidarrFilters>("All Artists"),
   aggregate: {
     basePageSize: LIDARR_PAGE_SIZE,
     initialRollup: LIDARR_INITIAL_ROLLUP,
@@ -473,13 +477,13 @@ export const LIDARR_DEFINITION: ArrCatalogDefinition<
       />
     );
   },
-  buildAggregateColumns: buildLidarrAggColumns,
-  buildInstanceColumns: buildLidarrInstanceColumns,
   renderAggregateBody: (props) => <LidarrAggregateBody {...props} />,
   renderInstanceBody: (props) => <LidarrInstanceBody {...props} />,
 };
 
-ARR_CATALOG_REGISTRY.lidarr = LIDARR_DEFINITION;
+export function getLidarrCatalogDefinition(): AnyArrCatalogDefinition {
+  return LIDARR_DEFINITION;
+}
 
 interface LidarrAggregateBodyProps {
   readonly rows: ReadonlyArray<LidarrAggRow>;
@@ -524,7 +528,34 @@ function LidarrAggregateBody({
   instances,
   instanceCount,
 }: LidarrAggregateBodyProps): JSX.Element {
-  const columns = buildLidarrAggColumns(instanceCount);
+  const columns = useMemo(
+    () => getLidarrAggColumns(instanceCount),
+    [instanceCount],
+  );
+  const renderIconTile = useCallback(
+    (row: LidarrAggRow) => {
+      const artist = row.artist as Record<string, unknown>;
+      const id = artist?.["id"];
+      const name = (artist?.["name"] as string | undefined) || "—";
+      const cat = categoryForInstanceLabel([...instances], row.__instance);
+      const thumb =
+        typeof id === "number" ? lidarrArtistThumbnailUrl(cat, id) : "";
+      return (
+        <ArrCatalogIconTile
+          key={lidarrAggRowKey(row)}
+          posterSrc={thumb}
+          onClick={() => onRowSelect(row)}
+        >
+          {instanceCount > 1 ? (
+            <div className="arr-movie-tile__instance">{row.__instance}</div>
+          ) : null}
+          <div className="arr-movie-tile__title">{name}</div>
+          {lidarrArtistTileStats(artist)}
+        </ArrCatalogIconTile>
+      );
+    },
+    [instances, instanceCount, onRowSelect],
+  );
   const waitingForStableEmpty =
     instanceCount > 0 && !emptyStateReady && total === 0;
   const effectiveLoading = loading || waitingForStableEmpty;
@@ -570,73 +601,33 @@ function LidarrAggregateBody({
     instanceCount > 0;
 
   return (
-    <ArrCatalogBodyChrome
+    <ArrCatalogStandardBody
       summaryLine={summaryLine}
       onRefresh={onRefresh}
       loading={effectiveLoading}
       loadingHint="Loading Lidarr library…"
-      footer={
-        total > 0 ? (
-          <ArrCatalogPagination
-            page={page}
-            totalPages={totalPages}
-            total={total}
-            itemNoun="artists"
-            pageSize={aggregatePageSize}
-            loading={effectiveLoading}
-            onPageChange={onPageChange}
-          />
-        ) : null
-      }
-    >
-      {showCatalogEmptyHint ? (
-        <div className="hint">
-          <p>No artists found in the local catalog.</p>
-          <p>{ARR_CATALOG_SYNC_HINT}</p>
-        </div>
-      ) : total ? (
-        browseMode === "list" ? (
-          <StableTable<LidarrAggRow>
-            rowsStore={rowsStore}
-            rowOrder={rowOrder}
-            columns={columns}
-            getRowKey={lidarrAggRowKey}
-            onRowClick={onRowSelect}
-          />
-        ) : (
-          <div className="arr-icon-grid" ref={iconGridRef}>
-            {rows.map((row) => {
-              const artist = row.artist as Record<string, unknown>;
-              const id = artist?.["id"];
-              const name = (artist?.["name"] as string | undefined) || "—";
-              const cat = categoryForInstanceLabel(
-                [...instances],
-                row.__instance,
-              );
-              const thumb =
-                typeof id === "number" ? lidarrArtistThumbnailUrl(cat, id) : "";
-              return (
-                <ArrCatalogIconTile
-                  key={lidarrAggRowKey(row)}
-                  posterSrc={thumb}
-                  onClick={() => onRowSelect(row)}
-                >
-                  {instanceCount > 1 ? (
-                    <div className="arr-movie-tile__instance">
-                      {row.__instance}
-                    </div>
-                  ) : null}
-                  <div className="arr-movie-tile__title">{name}</div>
-                  {lidarrArtistTileStats(artist)}
-                </ArrCatalogIconTile>
-              );
-            })}
-          </div>
-        )
-      ) : (
-        <div className="hint">No artists match the current filters.</div>
-      )}
-    </ArrCatalogBodyChrome>
+      emptyOrder="syncFirst"
+      showCatalogEmptyHint={showCatalogEmptyHint}
+      hasRows={total > 0}
+      catalogEmptyMessage="No artists found in the local catalog."
+      noMatchMessage="No artists match the current filters."
+      showPagination={totalPages > 1}
+      page={page}
+      totalPages={totalPages}
+      total={total}
+      itemNoun="artists"
+      pageSize={aggregatePageSize}
+      onPageChange={onPageChange}
+      browseMode={browseMode}
+      rows={rows}
+      rowOrder={rowOrder}
+      rowsStore={rowsStore}
+      columns={columns}
+      getRowKey={lidarrAggRowKey}
+      onRowSelect={onRowSelect}
+      iconGridRef={iconGridRef}
+      renderIconTile={renderIconTile}
+    />
   );
 }
 
@@ -679,7 +670,27 @@ function LidarrInstanceBody({
   setPage,
   refresh,
 }: LidarrInstanceBodyProps): JSX.Element {
-  const columns = buildLidarrInstanceColumns();
+  const columns = LIDARR_INSTANCE_COLUMNS;
+  const renderIconTile = useCallback(
+    (row: LidarrInstanceRow) => {
+      const artist = row.artist as Record<string, unknown>;
+      const id = artist?.["id"];
+      const name = String(artist?.["name"] ?? "—");
+      const thumb =
+        typeof id === "number" ? lidarrArtistThumbnailUrl(category, id) : "";
+      return (
+        <ArrCatalogIconTile
+          key={lidarrInstanceRowKey(row)}
+          posterSrc={thumb}
+          onClick={() => onRowSelect(row)}
+        >
+          <div className="arr-movie-tile__title">{name}</div>
+          {lidarrArtistTileStats(artist)}
+        </ArrCatalogIconTile>
+      );
+    },
+    [category, onRowSelect],
+  );
   const waitingForStableEmpty =
     !emptyStateReady && visibleRows.length === 0;
   const effectiveLoading = loading || waitingForStableEmpty;
@@ -692,65 +703,32 @@ function LidarrInstanceBody({
   );
 
   return (
-    <ArrCatalogBodyChrome
+    <ArrCatalogStandardBody
       summaryLine={summaryLine}
       onRefresh={refresh}
       loading={effectiveLoading}
       loadingHint="Loading…"
-      footer={
-        totalPages > 1 ? (
-          <ArrCatalogPagination
-            page={page}
-            totalPages={totalPages}
-            total={totalItems}
-            itemNoun="artists"
-            pageSize={pageSize}
-            loading={effectiveLoading}
-            onPageChange={setPage}
-          />
-        ) : null
-      }
-    >
-      {visibleRows.length ? (
-        browseMode === "list" ? (
-          <StableTable<LidarrInstanceRow>
-            rowsStore={rowsStore}
-            rowOrder={rowOrder}
-            columns={columns}
-            getRowKey={lidarrInstanceRowKey}
-            onRowClick={onRowSelect}
-          />
-        ) : (
-          <div className="arr-icon-grid" ref={iconGridRef}>
-            {visibleRows.map((row) => {
-              const artist = row.artist as Record<string, unknown>;
-              const id = artist?.["id"];
-              const name = String(artist?.["name"] ?? "—");
-              const thumb =
-                typeof id === "number"
-                  ? lidarrArtistThumbnailUrl(category, id)
-                  : "";
-              return (
-                <ArrCatalogIconTile
-                  key={lidarrInstanceRowKey(row)}
-                  posterSrc={thumb}
-                  onClick={() => onRowSelect(row)}
-                >
-                  <div className="arr-movie-tile__title">{name}</div>
-                  {lidarrArtistTileStats(artist)}
-                </ArrCatalogIconTile>
-              );
-            })}
-          </div>
-        )
-      ) : showCatalogEmptyHint ? (
-        <div className="hint">
-          <p>No artists in the local catalog.</p>
-          <p>{ARR_CATALOG_SYNC_HINT}</p>
-        </div>
-      ) : (
-        <div className="hint">No artists match the current filters.</div>
-      )}
-    </ArrCatalogBodyChrome>
+      emptyOrder="syncFirst"
+      showCatalogEmptyHint={showCatalogEmptyHint}
+      hasRows={visibleRows.length > 0}
+      catalogEmptyMessage="No artists in the local catalog."
+      noMatchMessage="No artists match the current filters."
+      showPagination={totalPages > 1}
+      page={page}
+      totalPages={totalPages}
+      total={totalItems}
+      itemNoun="artists"
+      pageSize={pageSize}
+      onPageChange={setPage}
+      browseMode={browseMode}
+      rows={visibleRows}
+      rowOrder={rowOrder}
+      rowsStore={rowsStore}
+      columns={columns}
+      getRowKey={lidarrInstanceRowKey}
+      onRowSelect={onRowSelect}
+      iconGridRef={iconGridRef}
+      renderIconTile={renderIconTile}
+    />
   );
 }

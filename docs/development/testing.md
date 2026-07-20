@@ -1,12 +1,32 @@
 # Testing
 
-qBitrr testing strategies and guidelines. Currently, qBitrr relies on manual testing with plans for automated testing in the future.
+qBitrr testing strategies and guidelines. Automated coverage exists for config reload policy, package layout, WebUI routes, and frontend units; live smoke against real qBit + Arr remains the integration checklist.
 
 ## Current Testing Approach
 
-### Manual Testing
+### Automated tests
 
-qBitrr uses manual testing against real services:
+**Python (`unittest`):**
+
+```bash
+python -m unittest discover -s tests -v
+# Or a single module:
+python -m unittest tests.test_config_reload_policy -v
+```
+
+Notable modules under `tests/`: config first-boot, live-reload characterization, `config_reload_policy`, Arr factory/startup, WebUI routes/reload, package layout.
+
+**WebUI (Vitest):**
+
+```bash
+cd webui && npm test
+# Coverage report (text + HTML under webui/coverage/; no thresholds enforced):
+cd webui && npm run test:coverage
+```
+
+### Manual / live smoke
+
+Use manual testing against real services for end-to-end confidence:
 
 **Requirements:**
 - qBittorrent instance (v4.3+ or v5.0+)
@@ -107,96 +127,163 @@ docker stop qbitrr-test
 docker rm qbitrr-test
 ```
 
-## Future: Automated Testing
+## Live smoke (compose)
 
-**Planned for v6.0:**
+Use the **test-only** stack in [`docker-compose.test.yml`](https://github.com/Feramance/qBitrr/blob/master/docker-compose.test.yml) (linuxserver qBittorrent + Radarr + qBitrr built from this branch). Data lands under `.compose-test/` (gitignored). Do not use this compose for production.
 
-### Unit Tests
+Host ports (to avoid clashing with local Arr/qBit installs):
 
-Test individual functions and classes:
+| Service | Host | In-compose |
+|---------|------|------------|
+| qBittorrent WebUI | http://localhost:18080 | `qbittorrent:8080` |
+| Radarr | http://localhost:17878 | `radarr:7878` |
+| qBitrr WebUI | http://localhost:16969 | `qbitrr:6969` |
 
-```python
-# tests/test_torrent_processing.py
-import pytest
-from qBitrr.arss import RadarrManager
-
-def test_torrent_health_check():
-    manager = RadarrManager(test_config)
-
-    # Test healthy torrent
-    healthy_torrent = {'eta': 1800, 'progress': 0.5}
-    assert manager.check_health(healthy_torrent) == 'healthy'
-
-    # Test stalled torrent
-    stalled_torrent = {'eta': 7200, 'progress': 0.1}
-    assert manager.check_health(stalled_torrent) == 'stalled'
-```
-
-**Run with pytest:**
+### Build
 
 ```bash
-pytest tests/ -v
-pytest tests/test_torrent_processing.py::test_torrent_health_check
+docker compose -f docker-compose.test.yml build
 ```
 
-### Integration Tests
+### Checklist (finite; record pass/fail in the PR)
 
-Test components working together:
+Record results in the PR description (or review notes). Do **not** add a permanent `*_TEST*.md` in the repo root.
 
-```python
-# tests/integration/test_import_flow.py
-def test_full_import_flow(qbit_mock, radarr_mock):
-    """Test complete torrent → import → seeding flow."""
-    # 1. Add torrent to qBittorrent (mock)
-    torrent = qbit_mock.add_torrent(movie_torrent)
+1. **Cold start / first-boot (Phase A)** — empty data dir generates `config.toml` and exits cleanly (no `NameError`).
+2. **Configured start** — WebUI up; qBit + Arr connected.
+3. **Live: `Settings.AutoPauseResume`** — WebUI save changes pause/resume behavior without a full process restart.
+4. **Live: Arr LIVE key** — e.g. `EntrySearch.SearchMissing`; LIVE workers sync via `_sync_loop_settings_from_config` → `_apply_arr_live_attrs_from_config` (no full Arr respawn; supervisor may start/stop the search worker when `SearchMissing` flips).
+5. **Live: FreeSpace** — WebUI save; policy loop reflects the new threshold.
+6. **Torrent path (optional fixtures)** — detect / failed or recheck category handling if you can add a torrent.
+7. **`RadarrArr` spawn** — after the per-type hierarchy, manager builds `RadarrArr` (and Sonarr/Lidarr if configured).
 
-    # 2. Wait for completion
-    qbit_mock.complete_torrent(torrent.hash)
+### Phase A — first-boot (empty config)
 
-    # 3. Run qBitrr event loop
-    manager.run_once()
-
-    # 4. Verify import triggered
-    assert radarr_mock.import_called_with(torrent.hash)
-
-    # 5. Verify database updated
-    db_entry = DownloadsModel.get(hash=torrent.hash)
-    assert db_entry.state == 'imported'
+```bash
+mkdir -p .compose-test/qbitrr-firstboot
+docker compose -f docker-compose.test.yml run --rm --no-deps \
+  -v "$(pwd)/.compose-test/qbitrr-firstboot:/config" \
+  qbitrr
+# Expect: exit code 0, message that config.toml was generated, file present under
+# .compose-test/qbitrr-firstboot/config.toml, no NameError in logs.
 ```
 
-### End-to-End Tests
+Local equivalent (no Docker):
 
-Test against real services (Docker Compose):
+```bash
+# Uses the same contract as tests/test_config_first_boot.py
+python -m unittest tests.test_config_first_boot -v
+```
 
-```yaml
-# docker-compose.test.yml
-services:
-  qbittorrent:
-    image: linuxserver/qbittorrent
-    # ...
+### Bring up qBit + Radarr
 
-  radarr:
-    image: linuxserver/radarr
-    # ...
+```bash
+mkdir -p .compose-test/{qbittorrent,radarr,qbitrr,downloads,media}
+docker compose -f docker-compose.test.yml up -d qbittorrent radarr
+```
 
-  qbitrr:
-    build: .
-    depends_on:
-      - qbittorrent
-      - radarr
-    # ...
+Bootstrap notes:
+
+1. **qBittorrent** — open http://localhost:18080. Username is `admin`; the temporary password is printed in `docker logs qbitrr-test-qbittorrent`. Set a persistent password in the WebUI, set default save path to `/downloads`, and create category `radarr-movies` (save path `/downloads/radarr-movies` is fine).
+2. **Radarr** — open http://localhost:17878, complete the wizard (root folder `/movies`). Add a qBittorrent download client pointing at host `qbittorrent`, port `8080`, with category `radarr-movies`. Copy the API key from **Settings → General**.
+3. **qBitrr config** — copy the generated `config.toml` into `.compose-test/qbitrr/` (or run Phase A into that directory), then set at least:
+
+```toml
+[Settings]
+CompletedDownloadFolder = "/downloads"
+FreeSpaceFolder = "/downloads"
+FreeSpace = "-1"
+AutoPauseResume = true
+
+[qBit]
+Host = "qbittorrent"
+Port = 8080
+UserName = "admin"
+Password = "<persistent qBit password>"
+
+[Radarr-Movies]
+Managed = true
+URI = "http://radarr:7878"
+APIKey = "<radarr api key>"
+Category = "radarr-movies"
+
+[Radarr-Movies.EntrySearch]
+SearchMissing = false
+```
+
+Disable or leave unmanaged any other Arr sections that still say `CHANGE_ME`.
+
+Generated configs often set `WebUI.AuthDisabled = false` and a random `WebUI.Token`. Use that token for API calls:
+
+```bash
+TOKEN=$(rg -oP '(?m)^Token = "\K[^"]+' .compose-test/qbitrr/config.toml)
+curl -s -H "Authorization: Bearer $TOKEN" http://localhost:16969/api/processes
 ```
 
 ```bash
-# Run E2E tests
-docker-compose -f docker-compose.test.yml up -d
-python tests/e2e/test_real_services.py
-docker-compose -f docker-compose.test.yml down
+docker compose -f docker-compose.test.yml up -d qbitrr
+docker logs -f qbitrr-test-qbitrr
+# WebUI: http://localhost:16969/ui → /static/index.html
 ```
 
-### Performance Tests
+### Confirming `RadarrArr`
 
-Test performance under load:
+With a configured stack:
+
+```bash
+# Factory wiring (works without live Arr credentials)
+docker compose -f docker-compose.test.yml exec qbitrr \
+  python -c "from qBitrr.arss.factory import arr_class_for_section as f; print(f('Radarr-Movies').__name__)"
+# Expect: RadarrArr
+
+# Live spawn: Arr worker log should show the instance starting
+docker logs qbitrr-test-qbitrr 2>&1 | grep -E 'Starting Arr instance: Radarr-Movies|Starting Radarr-Movies monitor|qBitrr\.Radarr-Movies'
+```
+
+Unit coverage of the same factory mapping: `tests/test_arss_startup.py`.
+
+### Live-reload checks (items 3–5)
+
+Use the WebUI or `POST /api/config` with `{"changes":{...}}` and a Bearer token:
+
+1. Toggle **Settings.AutoPauseResume** — expect `reloadType: live` and WebUI.log `Live settings changed (no worker restart): Settings.AutoPauseResume` (same worker PIDs).
+2. Toggle **Radarr-Movies.EntrySearch.SearchMissing** — expect `Applying live Arr config refresh for: Radarr-Movies` and Radarr-Movies.log `Applied in-place config refresh`.
+3. Set **Settings.FreeSpace** / **FreeSpaceFolder** — expect live settings notice; policy loop reads effective FreeSpace on subsequent iterations.
+
+### Tear down
+
+```bash
+docker compose -f docker-compose.test.yml down
+# Optional: wipe local state
+# rm -rf .compose-test
+```
+
+### If Docker / images are unavailable
+
+Run Phase A via `tests/test_config_first_boot.py`, run live-reload characterization tests under `tests/`, and exercise the checklist against any existing local qBit + Arr instances. Note in the PR which checklist rows could not be live-smoked.
+
+## Expanding automated coverage
+
+Unit and characterization tests already live under `tests/` (stdlib `unittest`) and `webui/` (Vitest). Prefer adding focused tests next to the module under change rather than large E2E harnesses.
+
+### End-to-End / live smoke
+
+Prefer the manual finite checklist under [Live smoke (compose)](#live-smoke-compose) with `docker-compose.test.yml`. Automated browser E2E is not required for the confidence-hardening smoke.
+
+### Example unittest pattern
+
+```python
+# tests/test_config_reload_policy.py
+import unittest
+from qBitrr.config_reload_policy import classify_config_changes
+
+class TestFailedCategoryRequiresFullRestart(unittest.TestCase):
+    def test_failed_category_is_full_restart(self):
+        plan = classify_config_changes({"Settings.FailedCategory": "failed-new"})
+        self.assertTrue(plan.needs_full_restart)
+```
+
+### Performance Tests (optional)
 
 ```python
 # tests/performance/test_event_loop.py
@@ -209,33 +296,6 @@ def test_event_loop_with_many_torrents():
     duration = time.time() - start
 
     assert duration < 10.0, f"Event loop took {duration}s (expected < 10s)"
-```
-
-### CI/CD Integration
-
-**GitHub Actions workflow (planned):**
-
-```yaml
-# .github/workflows/test.yml
-name: Tests
-
-on: [push, pull_request]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.12'
-      - name: Install dependencies
-        run: |
-          pip install -e ".[test]"
-      - name: Run unit tests
-        run: pytest tests/unit -v
-      - name: Run integration tests
-        run: pytest tests/integration -v
 ```
 
 ## Test Data
@@ -282,36 +342,19 @@ SAMPLE_TORRENTS = {
 ### Enable Debug Logging
 
 ```python
-# conftest.py
 import logging
-
-@pytest.fixture(autouse=True)
-def enable_debug_logging():
-    logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG)
 ```
 
 ### Run Single Test
 
 ```bash
-# Run specific test
-pytest tests/test_torrent.py::test_health_check -v
+# Python — one module or test method
+python -m unittest tests.test_config_reload_policy -v
+python -m unittest tests.test_arss_startup.TestArrFactory.test_arr_class_for_section -v
 
-# Run with print statements
-pytest tests/test_torrent.py::test_health_check -v -s
-
-# Stop on first failure
-pytest tests/ -x
-```
-
-### Test Coverage
-
-```bash
-# Run tests with coverage
-pytest --cov=qBitrr tests/
-
-# Generate HTML coverage report
-pytest --cov=qBitrr --cov-report=html tests/
-open htmlcov/index.html
+# WebUI Vitest
+cd webui && npm test
 ```
 
 ## Manual Test Scenarios

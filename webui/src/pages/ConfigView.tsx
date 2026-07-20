@@ -1,1928 +1,69 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState, type JSX } from "react";
-import { createPortal } from "react-dom";
+import React, { useCallback, useEffect, useMemo, useState, type JSX } from "react";
 import { produce } from "immer";
 import equal from "fast-deep-equal";
-import { get, set } from "lodash-es";
-import ReactMarkdown from "react-markdown";
-import { getConfig, updateConfig, testArrConnection, setPassword as apiSetPassword, type TestConnectionResponse } from "../api/client";
+import {
+  ConfigApiError,
+  getConfig,
+  refreshUrlBaseFromMeta,
+  updateConfig,
+} from "../api/client";
 import type { ConfigDocument } from "../api/types";
 import { useToast } from "../context/ToastContext";
-import { useWebUI } from "../context/WebUIContext";
-import { getTooltip } from "../config/tooltips";
 import {
-  getCategoryCrossSectionIssues,
   getCategoryOverlapWarnings,
 } from "../config/categoryConfigValidation";
-import {
-  getArrTorrentHandlingSummary,
-  getQbitTorrentHandlingSummary,
-} from "../config/torrentHandlingSummary";
-import {
-  DURATION_UNITS,
-  durationDisplayToValue,
-  parseDurationDisplay,
-  parseDurationToMinutes,
-  parseDurationToSeconds,
-  type DurationUnit,
-} from "../config/durationUtils";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { IconImage } from "../components/IconImage";
-import { TagInput } from "../components/TagInput";
-import Select from "react-select";
-import type { CSSObjectWithLabel } from "react-select";
 import ConfigureIcon from "../icons/gear.svg";
-
-import RefreshIcon from "../icons/refresh-arrow.svg";
-import VisibilityIcon from "../icons/visibility.svg";
 import AddIcon from "../icons/plus.svg";
-import SaveIcon from "../icons/check-mark.svg";
-import DeleteIcon from "../icons/trash.svg";
-import CloseIcon from "../icons/close.svg";
-import { safeClick } from "../utils/safeClick";
-
-type FieldType = "text" | "number" | "checkbox" | "password" | "select" | "tags" | "duration";
-
-interface ValidationContext {
-  root: ConfigDocument;
-  section?: ConfigDocument | null;
-  sectionKey?: string;
-}
-
-type FieldValidator = (value: unknown, context: ValidationContext) => string | undefined;
-
-interface FieldDefinition {
-  label: string;
-  path?: string[];
-  type: FieldType;
-  options?: string[];
-  placeholder?: string;
-  description?: string;
-  parse?: (value: string | boolean) => unknown;
-  format?: (value: unknown) => string | boolean | string[];
-  sectionName?: boolean;
-  secure?: boolean;
-  required?: boolean;
-  validate?: FieldValidator;
-  fullWidth?: boolean;
-  /** For type "duration": base unit for the config key (seconds or minutes). */
-  nativeUnit?: "seconds" | "minutes";
-  /** For type "duration: allow -1 (disabled). */
-  allowNegative?: boolean;
-}
-
-interface ValidationError {
-  path: string[];
-  message: string;
-}
-
-const SERVARR_SECTION_REGEX = /^(radarr|sonarr|lidarr|animarr)(-|$)/i;
-const QBIT_SECTION_REGEX = /^qBit(-.*)?$/i;
-/** Matches backend REDACTED_PLACEHOLDER; when API key equals this, test uses instanceKey. */
-const REDACTED_PLACEHOLDER = "[redacted]";
-
-const getSelectStyles = (isDark: boolean) => {
-  return {
-    control: (base: CSSObjectWithLabel) => ({
-      ...base,
-      background: isDark ? '#0f131a' : '#ffffff',
-      color: isDark ? '#eaeef2' : '#1d1d1f',
-      borderColor: isDark ? '#2a2f36' : '#d2d2d7',
-      minHeight: '38px',
-      boxShadow: 'none',
-      '&:hover': {
-        borderColor: isDark ? '#3a4149' : '#b8b8bd',
-      }
-    }),
-    menu: (base: CSSObjectWithLabel) => ({
-      ...base,
-      background: isDark ? '#0f131a' : '#ffffff',
-      borderColor: isDark ? '#2a2f36' : '#d2d2d7',
-      border: `1px solid ${isDark ? '#2a2f36' : '#d2d2d7'}`,
-    }),
-    option: (base: CSSObjectWithLabel, state: { isFocused: boolean }) => ({
-      ...base,
-      background: state.isFocused
-        ? (isDark ? 'rgba(59, 130, 246, 0.15)' : 'rgba(37, 99, 235, 0.1)')
-        : (isDark ? '#0f131a' : '#ffffff'),
-      color: isDark ? '#eaeef2' : '#1d1d1f',
-      '&:active': {
-        background: isDark ? 'rgba(59, 130, 246, 0.25)' : 'rgba(37, 99, 235, 0.2)',
-      }
-    }),
-    singleValue: (base: CSSObjectWithLabel) => ({
-      ...base,
-      color: isDark ? '#eaeef2' : '#1d1d1f',
-    }),
-    input: (base: CSSObjectWithLabel) => ({
-      ...base,
-      color: isDark ? '#eaeef2' : '#1d1d1f',
-    }),
-    placeholder: (base: CSSObjectWithLabel) => ({
-      ...base,
-      color: isDark ? '#9aa3ac' : '#6e6e73',
-    }),
-    menuList: (base: CSSObjectWithLabel) => ({
-      ...base,
-      padding: '4px',
-    }),
-  };
-};
-
-const IMPORT_MODE_OPTIONS = ["Move", "Copy", "Auto"];
-
-const REMOVE_TORRENT_OPTIONS = [
-  "Do not remove (-1)",
-  "On max upload ratio (1)",
-  "On max seeding time (2)",
-  "On ratio OR time (3)",
-  "On ratio AND time (4)",
-];
-
-
-
-
-
-
-
-const SENTENCE_END = /(.+?[.!?])(\s|$)/;
-
-function extractTooltipSummary(tooltip?: string): string | undefined {
-  if (!tooltip) return undefined;
-  const trimmed = tooltip.trim();
-  if (!trimmed) return undefined;
-  const match = trimmed.match(SENTENCE_END);
-  const sentence = match ? match[1] : trimmed;
-  return sentence.length > 160 ? `${sentence.slice(0, 157)}…` : sentence;
-}
-
-
-
-
-
-const SETTINGS_FIELDS: FieldDefinition[] = [
-  {
-    label: "Console Level",
-    path: ["Settings", "ConsoleLevel"],
-    type: "select",
-    options: ["CRITICAL", "ERROR", "WARNING", "NOTICE", "INFO", "DEBUG", "TRACE"],
-    required: true,
-  },
-  { label: "Logging", path: ["Settings", "Logging"], type: "checkbox" },
-  {
-    label: "Completed Download Folder",
-    path: ["Settings", "CompletedDownloadFolder"],
-    type: "text",
-    required: true,
-    validate: (value) => {
-      const folder = String(value ?? "").trim();
-      if (!folder || folder.toUpperCase() === "CHANGE_ME") {
-        return "Completed Download Folder must be set to a valid path.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Free Space",
-    path: ["Settings", "FreeSpace"],
-    type: "text",
-    required: true,
-    validate: (value) => {
-      const raw = String(value ?? "").trim();
-      if (!raw) {
-        return "Free Space must be provided.";
-      }
-      if (raw === "-1") {
-        return undefined;
-      }
-      if (!/^-?\d+(\.\d+)?[KMGTP]?$/i.test(raw)) {
-        return "Free Space must be -1 or a number optionally suffixed with K, M, G, T, or P.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Free Space Folder",
-    path: ["Settings", "FreeSpaceFolder"],
-    type: "text",
-    validate: (value, context) => {
-      const freeSpace = getValue(context.root, ["Settings", "FreeSpace"]);
-      const requiresFolder = String(freeSpace ?? "").trim() !== "-1";
-      if (!requiresFolder) {
-        return undefined;
-      }
-      const folder = String(value ?? "").trim();
-      if (!folder || folder.toUpperCase() === "CHANGE_ME") {
-        return "Free Space Folder is required when Free Space monitoring is enabled.";
-      }
-      return undefined;
-    },
-  },
-  { label: "Auto Pause/Resume", path: ["Settings", "AutoPauseResume"], type: "checkbox" },
-  {
-    label: "No Internet Sleep",
-    path: ["Settings", "NoInternetSleepTimer"],
-    type: "duration",
-    nativeUnit: "seconds",
-    validate: (value) => {
-      const total = parseDurationToSeconds(value, -1);
-      if (!Number.isFinite(total) || total < 0) {
-        return "No Internet Sleep must be a non-negative duration.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Loop Sleep",
-    path: ["Settings", "LoopSleepTimer"],
-    type: "duration",
-    nativeUnit: "seconds",
-    validate: (value) => {
-      const total = parseDurationToSeconds(value, -1);
-      if (!Number.isFinite(total) || total < 0) {
-        return "Loop Sleep must be a non-negative duration.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Search Loop Delay",
-    path: ["Settings", "SearchLoopDelay"],
-    type: "duration",
-    nativeUnit: "seconds",
-    allowNegative: true,
-    validate: (value) => {
-      const total = parseDurationToSeconds(value, -2);
-      if (total === -1) return undefined;
-      if (!Number.isFinite(total) || total < 0) {
-        return "Search Loop Delay must be -1 (disabled) or a non-negative duration.";
-      }
-      return undefined;
-    },
-  },
-  { label: "Failed Category", path: ["Settings", "FailedCategory"], type: "text" },
-  { label: "Recheck Category", path: ["Settings", "RecheckCategory"], type: "text" },
-  { label: "Tagless", path: ["Settings", "Tagless"], type: "checkbox" },
-  {
-    label: "Ignore Torrents Younger Than",
-    path: ["Settings", "IgnoreTorrentsYoungerThan"],
-    type: "duration",
-    nativeUnit: "seconds",
-    validate: (value) => {
-      const total = parseDurationToSeconds(value, -1);
-      if (!Number.isFinite(total) || total < 0) {
-        return "Ignore Torrents Younger Than must be a non-negative duration.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Ping URLs",
-    path: ["Settings", "PingURLS"],
-    type: "tags",
-    placeholder: "one.one.one.one",
-  },
-  {
-    label: "FFprobe Auto Update",
-    path: ["Settings", "FFprobeAutoUpdate"],
-    type: "checkbox",
-  },
-  {
-    label: "Auto Update Enabled",
-    path: ["Settings", "AutoUpdateEnabled"],
-    type: "checkbox",
-  },
-  {
-    label: "Auto Update Cron",
-    path: ["Settings", "AutoUpdateCron"],
-    type: "text",
-    placeholder: "0 3 * * 0",
-    required: true,
-    validate: (value) => {
-      const cron = String(value ?? "").trim();
-      const parts = cron.split(/\s+/).filter(Boolean);
-      if (parts.length < 5 || parts.length > 6) {
-        return "Auto Update Cron must contain 5 or 6 space-separated fields.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Auto-Restart Processes",
-    path: ["Settings", "AutoRestartProcesses"],
-    type: "checkbox",
-  },
-  {
-    label: "Max Process Restarts",
-    path: ["Settings", "MaxProcessRestarts"],
-    type: "number",
-    validate: (value) => {
-      const num = typeof value === "number" ? value : Number(value);
-      if (!Number.isFinite(num) || num < 1) {
-        return "Max Process Restarts must be at least 1.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Process Restart Window",
-    path: ["Settings", "ProcessRestartWindow"],
-    type: "duration",
-    nativeUnit: "seconds",
-    validate: (value) => {
-      const total = parseDurationToSeconds(value, 0);
-      if (!Number.isFinite(total) || total < 1) {
-        return "Process Restart Window must be at least 1 second.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Process Restart Delay",
-    path: ["Settings", "ProcessRestartDelay"],
-    type: "duration",
-    nativeUnit: "seconds",
-    validate: (value) => {
-      const total = parseDurationToSeconds(value, -1);
-      if (!Number.isFinite(total) || total < 0) {
-        return "Process Restart Delay must be a non-negative duration.";
-      }
-      return undefined;
-    },
-  },
-
-];
-
-const WEB_SETTINGS_FIELDS: FieldDefinition[] = [
-  {
-    label: "WebUI Host",
-    path: ["WebUI", "Host"],
-    type: "text",
-    required: true,
-    validate: (value) => {
-      if (!String(value ?? "").trim()) {
-        return "WebUI Host is required.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "WebUI Port",
-    path: ["WebUI", "Port"],
-    type: "number",
-    validate: (value) => {
-      const port = typeof value === "number" ? value : Number(value);
-      if (!Number.isInteger(port) || port < 1 || port > 65535) {
-        return "WebUI Port must be between 1 and 65535.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "WebUI Token",
-    path: ["WebUI", "Token"],
-    type: "password",
-    secure: true,
-    fullWidth: true,
-  },
-  {
-    label: "Behind HTTPS Proxy",
-    path: ["WebUI", "BehindHttpsProxy"],
-    type: "checkbox",
-    description: "Set when the WebUI is reached over HTTPS (e.g. reverse proxy). Enables Secure cookies.",
-  },
-  {
-    label: "Url Base",
-    path: ["WebUI", "UrlBase"],
-    type: "text",
-    placeholder: "/qbitrr",
-    description:
-      "Public path prefix when behind a reverse proxy (e.g. /qbitrr). Leave empty for site root.",
-    validate: (value) => {
-      const raw = String(value ?? "").trim();
-      if (!raw) {
-        return undefined;
-      }
-      if (!raw.startsWith("/")) {
-        return "UrlBase must start with / (e.g. /qbitrr).";
-      }
-      if (raw.endsWith("/")) {
-        return "UrlBase must not end with a trailing slash.";
-      }
-      if (raw.includes("//")) {
-        return "UrlBase is invalid.";
-      }
-      return undefined;
-    },
-  },
-];
-
-const AUTH_SETTINGS_FIELDS: FieldDefinition[] = [
-  {
-    label: "Auth Disabled",
-    path: ["WebUI", "AuthDisabled"],
-    type: "checkbox",
-    description: "Disable login requirement (default: true for backward compatibility)",
-  },
-  {
-    label: "Local Auth Enabled",
-    path: ["WebUI", "LocalAuthEnabled"],
-    type: "checkbox",
-    description: "Enable username/password login",
-  },
-  {
-    label: "OIDC Enabled",
-    path: ["WebUI", "OIDCEnabled"],
-    type: "checkbox",
-    description: "Enable OpenID Connect login",
-  },
-  {
-    label: "Username",
-    path: ["WebUI", "Username"],
-    type: "text",
-    description: "Username for local auth login",
-  },
-  {
-    label: "OIDC Authority",
-    path: ["WebUI", "OIDC", "Authority"],
-    type: "text",
-    placeholder: "https://auth.example.com/application/o/qbitrr",
-    description: "OIDC issuer/authority URL",
-    fullWidth: true,
-  },
-  {
-    label: "OIDC Client ID",
-    path: ["WebUI", "OIDC", "ClientId"],
-    type: "text",
-    description: "OAuth2 client ID",
-  },
-  {
-    label: "OIDC Client Secret",
-    path: ["WebUI", "OIDC", "ClientSecret"],
-    type: "password",
-    secure: true,
-    description: "OAuth2 client secret",
-  },
-  {
-    label: "OIDC Scopes",
-    path: ["WebUI", "OIDC", "Scopes"],
-    type: "text",
-    placeholder: "openid profile",
-    description: "Space-separated OIDC scopes",
-  },
-  {
-    label: "OIDC Callback Path",
-    path: ["WebUI", "OIDC", "CallbackPath"],
-    type: "text",
-    placeholder: "/signin-oidc",
-    description: "OIDC callback path (must match IdP redirect URI)",
-  },
-  {
-    label: "Require HTTPS Metadata",
-    path: ["WebUI", "OIDC", "RequireHttpsMetadata"],
-    type: "checkbox",
-    description: "Require HTTPS for IdP metadata (set false only for local dev OIDC)",
-  },
-];
-
-const QBIT_FIELDS: FieldDefinition[] = [
-  { label: "Display Name", type: "text", placeholder: "qBit-seedbox", sectionName: true },
-  { label: "Disabled", path: ["Disabled"], type: "checkbox" },
-  {
-    label: "Host",
-    path: ["Host"],
-    type: "text",
-    validate: (value, context) => {
-      const disabled = Boolean(getValue(context.section ?? {}, ["Disabled"]));
-      if (disabled) {
-        return undefined;
-      }
-      if (!String(value ?? "").trim()) {
-        return "qBit Host is required.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Port",
-    path: ["Port"],
-    type: "number",
-    validate: (value) => {
-      const port = typeof value === "number" ? value : Number(value);
-      if (!Number.isInteger(port) || port < 1 || port > 65535) {
-        return "qBit Port must be between 1 and 65535.";
-      }
-      return undefined;
-    },
-  },
-  { label: "UserName", path: ["UserName"], type: "text" },
-  { label: "Password", path: ["Password"], type: "password", secure: true },
-  {
-    label: "Managed Categories",
-    path: ["ManagedCategories"],
-    type: "tags",
-    fullWidth: true,
-    placeholder: "Add categories (e.g., prowlarr, downloads)",
-    parse: (value: string | boolean) => {
-      // When saving, ensure we always save as array
-      if (Array.isArray(value)) return value;
-      if (typeof value === "string") return value.split(",").map(s => s.trim()).filter(Boolean);
-      return [];
-    },
-    format: (value: unknown) => {
-      // When displaying, ensure we always show as array
-      if (Array.isArray(value)) return value;
-      if (typeof value === "string") return value.split(",").map(s => s.trim()).filter(Boolean);
-      return [];
-    },
-  },
-  {
-    label: "Match subcategories",
-    path: ["MatchSubcategories"],
-    type: "checkbox",
-    description:
-      "When off (default), each managed category must match the qBittorrent category string exactly (use full paths like parent/child). When on, each entry here is a prefix: torrents in child categories (e.g. seed/foo) are included when seed is listed.",
-  },
-  {
-    label: "Max Upload Ratio",
-    path: ["CategorySeeding", "MaxUploadRatio"],
-    type: "number",
-    placeholder: "-1 (disabled), or positive number",
-  },
-  {
-    label: "Max Seeding Time",
-    path: ["CategorySeeding", "MaxSeedingTime"],
-    type: "duration",
-    nativeUnit: "seconds",
-    allowNegative: true,
-    placeholder: "-1 (disabled), or positive duration",
-  },
-  {
-    label: "Remove Torrent (policy)",
-    path: ["CategorySeeding", "RemoveTorrent"],
-    type: "select",
-    options: REMOVE_TORRENT_OPTIONS,
-    parse: (value: string | boolean) => {
-      const str = String(value);
-      const match = str.match(/\((-?\d+)\)/);
-      return match ? Number(match[1]) : -1;
-    },
-    format: (value: unknown) => {
-      const num = typeof value === "number" ? value : Number(value ?? -1);
-      return REMOVE_TORRENT_OPTIONS.find(opt => opt.includes(`(${num})`)) || REMOVE_TORRENT_OPTIONS[0];
-    },
-  },
-  {
-    label: "Download Rate Limit Per Torrent (KB/s)",
-    path: ["CategorySeeding", "DownloadRateLimitPerTorrent"],
-    type: "number",
-    placeholder: "-1 (unlimited), 0 (disabled), or positive number",
-  },
-  {
-    label: "Upload Rate Limit Per Torrent (KB/s)",
-    path: ["CategorySeeding", "UploadRateLimitPerTorrent"],
-    type: "number",
-    placeholder: "-1 (unlimited), 0 (disabled), or positive number",
-  },
-  {
-    label: "Hit and Run Mode",
-    path: ["CategorySeeding", "HitAndRunMode"],
-    type: "select",
-    options: ["and", "or", "disabled"],
-    format: (v: unknown) =>
-      v === true ? "and" : v === false ? "disabled" : (v as string),
-    parse: (v: string | boolean) =>
-      typeof v === "string" ? v : v ? "and" : "disabled",
-  },
-  {
-    label: "Min Seed Ratio",
-    path: ["CategorySeeding", "MinSeedRatio"],
-    type: "number",
-    required: false,
-    validate: (value) => {
-      if (value === null || value === undefined || value === "") return undefined;
-      const num = typeof value === "number" ? value : Number(value);
-      if (!Number.isFinite(num) || num < 0) {
-        return "Min Seed Ratio must be 0 or greater.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Min Seeding Time (days)",
-    path: ["CategorySeeding", "MinSeedingTimeDays"],
-    type: "number",
-    required: false,
-    validate: (value) => {
-      if (value === null || value === undefined || value === "") return undefined;
-      const num = typeof value === "number" ? value : Number(value);
-      if (!Number.isFinite(num) || num < 0) {
-        return "Min Seeding Time must be 0 or greater.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Min Download % for HnR",
-    path: ["CategorySeeding", "HitAndRunMinimumDownloadPercent"],
-    type: "number",
-    required: false,
-    validate: (value) => {
-      if (value === null || value === undefined || value === "") return undefined;
-      const num = typeof value === "number" ? value : Number(value);
-      if (!Number.isFinite(num) || num < 0 || num > 100) {
-        return "Min Download % must be between 0 and 100.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Partial Download Seed Ratio",
-    path: ["CategorySeeding", "HitAndRunPartialSeedRatio"],
-    type: "number",
-    required: false,
-    validate: (value) => {
-      if (value === null || value === undefined || value === "") return undefined;
-      const num = typeof value === "number" ? value : Number(value);
-      if (!Number.isFinite(num) || num < 0) {
-        return "Partial Download Seed Ratio must be 0 or greater.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Tracker Update Buffer",
-    path: ["CategorySeeding", "TrackerUpdateBuffer"],
-    type: "duration",
-    nativeUnit: "seconds",
-    required: false,
-    validate: (value) => {
-      if (value === null || value === undefined || value === "") return undefined;
-      const total = parseDurationToSeconds(value, -1);
-      if (!Number.isFinite(total) || total < 0) {
-        return "Tracker Update Buffer must be 0 or greater.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Stalled Delay",
-    path: ["CategorySeeding", "StalledDelay"],
-    type: "duration",
-    nativeUnit: "minutes",
-    allowNegative: true,
-    placeholder: "-1 (disabled), 0 (infinite), or minutes before removing stalled downloads",
-    validate: (value) => {
-      const total = parseDurationToMinutes(value, -2);
-      if (total === -1) return undefined;
-      if (!Number.isFinite(total) || total < -1) {
-        return "Stalled Delay must be -1 or greater.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Ignore Torrents Younger Than",
-    path: ["CategorySeeding", "IgnoreTorrentsYoungerThan"],
-    type: "duration",
-    nativeUnit: "seconds",
-    placeholder: "Seconds; stalled removal also requires last_activity older than this",
-    validate: (value) => {
-      const total = parseDurationToSeconds(value, -1);
-      if (!Number.isFinite(total) || total < 0) {
-        return "Ignore Torrents Younger Than must be a non-negative duration.";
-      }
-      return undefined;
-    },
-  },
-];
-
-const ARR_GENERAL_FIELDS: FieldDefinition[] = [
-  { label: "Display Name", type: "text", placeholder: "Sonarr-TV", sectionName: true },
-  { label: "Managed", path: ["Managed"], type: "checkbox" },
-  {
-    label: "URI",
-    path: ["URI"],
-    type: "text",
-    placeholder: "http://host:port",
-    validate: (value, context) => {
-      const uri = String(value ?? "").trim();
-      const managed = Boolean(getValue(context.section ?? {}, ["Managed"]));
-      if (!managed) {
-        return undefined;
-      }
-      if (!uri || uri.toUpperCase() === "CHANGE_ME") {
-        return "URI must be set to a valid URL when the instance is managed.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "API Key",
-    path: ["APIKey"],
-    type: "password",
-    secure: true,
-    validate: (value, context) => {
-      const apiKey = String(value ?? "").trim();
-      const managed = Boolean(getValue(context.section ?? {}, ["Managed"]));
-      if (!managed) {
-        return undefined;
-      }
-      if (!apiKey || apiKey.toUpperCase() === "CHANGE_ME") {
-        return "API Key must be provided when the instance is managed.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Category",
-    path: ["Category"],
-    type: "text",
-    validate: (value, context) => {
-      const managed = Boolean(getValue(context.section ?? {}, ["Managed"]));
-      if (!managed) {
-        return undefined;
-      }
-      if (!String(value ?? "").trim()) {
-        return "Category is required.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Match subcategories (override)",
-    path: ["MatchSubcategories"],
-    type: "checkbox",
-    description:
-      "Optional. When set, overrides the qBit instance MatchSubcategories default for this Arr only (explicit true/false wins; omit to inherit from [qBit] / [qBit-*]).",
-  },
-  { label: "Re-search", path: ["ReSearch"], type: "checkbox" },
-  {
-    label: "Import Mode",
-    path: ["importMode"],
-    type: "select",
-    options: IMPORT_MODE_OPTIONS,
-    validate: (value, context) => {
-      const managed = Boolean(getValue(context.section ?? {}, ["Managed"]));
-      if (!managed) {
-        return undefined;
-      }
-      if (isEmptyValue(value)) {
-        return "Import Mode is required.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "RSS Sync Timer",
-    path: ["RssSyncTimer"],
-    type: "duration",
-    nativeUnit: "minutes",
-    validate: (value) => {
-      const total = parseDurationToMinutes(value, -1);
-      if (!Number.isFinite(total) || total < 0) {
-        return "RSS Sync Timer must be a non-negative duration.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Refresh Downloads Timer",
-    path: ["RefreshDownloadsTimer"],
-    type: "duration",
-    nativeUnit: "minutes",
-    validate: (value) => {
-      const total = parseDurationToMinutes(value, -1);
-      if (!Number.isFinite(total) || total < 0) {
-        return "Refresh Downloads Timer must be a non-negative duration.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Arr Error Codes To Blocklist",
-    path: ["ArrErrorCodesToBlocklist"],
-    type: "tags",
-    fullWidth: true,
-  },
-];
-
-const ARR_ENTRY_SEARCH_FIELDS: FieldDefinition[] = [
-  {
-    label: "Search Missing",
-    path: ["EntrySearch", "SearchMissing"],
-    type: "checkbox",
-  },
-  {
-    label: "Also Search Specials",
-    path: ["EntrySearch", "AlsoSearchSpecials"],
-    type: "checkbox",
-  },
-  {
-    label: "Unmonitored",
-    path: ["EntrySearch", "Unmonitored"],
-    type: "checkbox",
-  },
-  {
-    label: "Do Upgrade Search",
-    path: ["EntrySearch", "DoUpgradeSearch"],
-    type: "checkbox",
-  },
-  {
-    label: "Quality Unmet Search",
-    path: ["EntrySearch", "QualityUnmetSearch"],
-    type: "checkbox",
-  },
-  {
-    label: "Custom Format Unmet Search",
-    path: ["EntrySearch", "CustomFormatUnmetSearch"],
-    type: "checkbox",
-  },
-  {
-    label: "Force Minimum Custom Format",
-    path: ["EntrySearch", "ForceMinimumCustomFormat"],
-    type: "checkbox",
-  },
-  {
-    label: "Search Limit",
-    path: ["EntrySearch", "SearchLimit"],
-    type: "number",
-    validate: (value) => {
-      const num = typeof value === "number" ? value : Number(value);
-      if (!Number.isFinite(num) || num < 1) {
-        return "Search Limit must be at least 1.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Search By Year",
-    path: ["EntrySearch", "SearchByYear"],
-    type: "checkbox",
-  },
-  {
-    label: "Search In Reverse",
-    path: ["EntrySearch", "SearchInReverse"],
-    type: "checkbox",
-  },
-  {
-    label: "Search Requests Every",
-    path: ["EntrySearch", "SearchRequestsEvery"],
-    type: "duration",
-    nativeUnit: "seconds",
-    validate: (value) => {
-      const total = parseDurationToSeconds(value, 0);
-      if (!Number.isFinite(total) || total < 1) {
-        return "Search Requests Every must be at least 1 second.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Search Again On Completion",
-    path: ["EntrySearch", "SearchAgainOnSearchCompletion"],
-    type: "checkbox",
-  },
-  {
-    label: "Use Temp Profile For Missing",
-    path: ["EntrySearch", "UseTempForMissing"],
-    type: "checkbox",
-  },
-  {
-    label: "Keep Temp Profile",
-    path: ["EntrySearch", "KeepTempProfile"],
-    type: "checkbox",
-  },
-  {
-    label: "Force Reset Temp Profiles",
-    path: ["EntrySearch", "ForceResetTempProfiles"],
-    type: "checkbox",
-    description: "Reset all items using temp profiles to their original main profile on qBitrr startup",
-  },
-  {
-    label: "Temp Profile Reset Timeout",
-    path: ["EntrySearch", "TempProfileResetTimeoutMinutes"],
-    type: "duration",
-    nativeUnit: "minutes",
-    description: "Timeout in minutes after which items with temp profiles are automatically reset to main profile (0 = disabled)",
-  },
-  {
-    label: "Profile Switch Retry Attempts",
-    path: ["EntrySearch", "ProfileSwitchRetryAttempts"],
-    type: "number",
-    description: "Number of retry attempts for profile switch API calls (default: 3)",
-  },
-  {
-    label: "Search By Series",
-    path: ["EntrySearch", "SearchBySeries"],
-    type: "select",
-    options: ["smart", "true", "false"],
-    description: "smart = auto (series search for multiple episodes, episode search for single), true = always series search, false = always episode search",
-    format: (value: unknown) => {
-      // Convert boolean or string to string for display
-      if (typeof value === "boolean") {
-        return value ? "true" : "false";
-      }
-      return String(value || "smart");
-    },
-    parse: (value: string | boolean) => {
-      // Keep as string for config - backend will handle parsing
-      const str = String(value);
-      if (str === "true" || str === "false") {
-        return str;
-      }
-      return "smart";
-    },
-  },
-  {
-    label: "Prioritize Today's Releases",
-    path: ["EntrySearch", "PrioritizeTodaysReleases"],
-    type: "checkbox",
-  },
-];
-
-const ARR_ENTRY_SEARCH_OMBI_FIELDS: FieldDefinition[] = [
-  {
-    label: "Search Ombi Requests",
-    path: ["EntrySearch", "Ombi", "SearchOmbiRequests"],
-    type: "checkbox",
-  },
-  {
-    label: "Ombi URI",
-    path: ["EntrySearch", "Ombi", "OmbiURI"],
-    type: "text",
-    placeholder: "http://host:port",
-  },
-  {
-    label: "Ombi API Key",
-    path: ["EntrySearch", "Ombi", "OmbiAPIKey"],
-    type: "password",
-  },
-  {
-    label: "Approved Only",
-    path: ["EntrySearch", "Ombi", "ApprovedOnly"],
-    type: "checkbox",
-  },
-];
-
-const ARR_ENTRY_SEARCH_OVERSEERR_FIELDS: FieldDefinition[] = [
-  {
-    label: "Search Overseerr Requests",
-    path: ["EntrySearch", "Overseerr", "SearchOverseerrRequests"],
-    type: "checkbox",
-  },
-  {
-    label: "Overseerr URI",
-    path: ["EntrySearch", "Overseerr", "OverseerrURI"],
-    type: "text",
-    placeholder: "http://host:port",
-  },
-  {
-    label: "Overseerr API Key",
-    path: ["EntrySearch", "Overseerr", "OverseerrAPIKey"],
-    type: "password",
-  },
-  {
-    label: "Approved Only",
-    path: ["EntrySearch", "Overseerr", "ApprovedOnly"],
-    type: "checkbox",
-  },
-  {
-    label: "Is 4K Instance",
-    path: ["EntrySearch", "Overseerr", "Is4K"],
-    type: "checkbox",
-  },
-];
-
-const ARR_TORRENT_FIELDS: FieldDefinition[] = [
-  {
-    label: "Case Sensitive Matches",
-    path: ["Torrent", "CaseSensitiveMatches"],
-    type: "checkbox",
-  },
-  {
-    label: "Folder Exclusion Regex",
-    path: ["Torrent", "FolderExclusionRegex"],
-    type: "tags",
-    fullWidth: true,
-  },
-  {
-    label: "File Name Exclusion Regex",
-    path: ["Torrent", "FileNameExclusionRegex"],
-    type: "tags",
-    fullWidth: true,
-  },
-  {
-    label: "File Extension Allowlist",
-    path: ["Torrent", "FileExtensionAllowlist"],
-    type: "tags",
-    fullWidth: true,
-  },
-  {
-    label: "Auto Delete",
-    path: ["Torrent", "AutoDelete"],
-    type: "checkbox",
-  },
-  {
-    label: "Ignore Torrents Younger Than",
-    path: ["Torrent", "IgnoreTorrentsYoungerThan"],
-    type: "duration",
-    nativeUnit: "seconds",
-    validate: (value) => {
-      const total = parseDurationToSeconds(value, -1);
-      if (!Number.isFinite(total) || total < 0) {
-        return "Ignore Torrents Younger Than must be a non-negative duration.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Maximum ETA",
-    path: ["Torrent", "MaximumETA"],
-    type: "duration",
-    nativeUnit: "seconds",
-    allowNegative: true,
-    validate: (value) => {
-      const total = parseDurationToSeconds(value, -2);
-      if (total === -1) return undefined;
-      if (!Number.isFinite(total) || total < -1) {
-        return "Maximum ETA must be -1 or a non-negative duration.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Maximum Deletable Percentage",
-    path: ["Torrent", "MaximumDeletablePercentage"],
-    type: "number",
-    placeholder: "0–100 (e.g. 99 = 99%)",
-    format: (value: unknown) => {
-      const n = typeof value === "number" ? value : Number(value ?? 0.99);
-      return Number.isFinite(n) ? String(Math.round(n * 10000) / 100) : "99";
-    },
-    parse: (value: string | boolean) => {
-      const n = Number(value);
-      return Number.isFinite(n) ? n / 100 : 0.99;
-    },
-    validate: (value) => {
-      const num = typeof value === "number" ? value : Number(value);
-      if (!Number.isFinite(num) || num < 0 || num > 1) {
-        return "Maximum Deletable Percentage must be between 0 and 100 (e.g. 99 = 99%).";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Do Not Remove Slow",
-    path: ["Torrent", "DoNotRemoveSlow"],
-    type: "checkbox",
-  },
-  {
-    label: "Stalled Delay",
-    path: ["Torrent", "StalledDelay"],
-    type: "duration",
-    nativeUnit: "minutes",
-    allowNegative: true,
-    placeholder: "-1 (disabled), 0 (infinite), or minutes before removing stalled downloads",
-    validate: (value) => {
-      const total = parseDurationToMinutes(value, -2);
-      if (total === -1) return undefined;
-      if (!Number.isFinite(total) || total < -1) {
-        return "Stalled Delay must be -1 (disabled), 0 (infinite), or a positive duration.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Re-search Stalled",
-    path: ["Torrent", "ReSearchStalled"],
-    type: "checkbox",
-  },
-];
-
-const ARR_SEEDING_FIELDS: FieldDefinition[] = [
-  {
-    label: "Download Rate Limit Per Torrent",
-    path: ["Torrent", "SeedingMode", "DownloadRateLimitPerTorrent"],
-    type: "number",
-    validate: (value) => {
-      const num = typeof value === "number" ? value : Number(value);
-      if (!Number.isFinite(num) || num < -1) {
-        return "Download Rate Limit must be -1 or greater.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Upload Rate Limit Per Torrent",
-    path: ["Torrent", "SeedingMode", "UploadRateLimitPerTorrent"],
-    type: "number",
-    validate: (value) => {
-      const num = typeof value === "number" ? value : Number(value);
-      if (!Number.isFinite(num) || num < -1) {
-        return "Upload Rate Limit must be -1 or greater.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Max Upload Ratio",
-    path: ["Torrent", "SeedingMode", "MaxUploadRatio"],
-    type: "number",
-    validate: (value) => {
-      const num = typeof value === "number" ? value : Number(value);
-      if (!Number.isFinite(num) || num < -1) {
-        return "Max Upload Ratio must be -1 or greater.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Max Seeding Time",
-    path: ["Torrent", "SeedingMode", "MaxSeedingTime"],
-    type: "duration",
-    nativeUnit: "seconds",
-    allowNegative: true,
-    validate: (value) => {
-      const total = parseDurationToSeconds(value, -2);
-      if (total === -1) return undefined;
-      if (!Number.isFinite(total) || total < -1) {
-        return "Max Seeding Time must be -1 or greater.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Remove Torrent (policy)",
-    path: ["Torrent", "SeedingMode", "RemoveTorrent"],
-    type: "select",
-    options: REMOVE_TORRENT_OPTIONS,
-    parse: (value: string | boolean) => {
-      // Extract numeric value from option string like "Do not remove (-1)"
-      const str = String(value);
-      const match = str.match(/\((-?\d+)\)/);
-      return match ? Number(match[1]) : -1;
-    },
-    format: (value: unknown) => {
-      // Convert numeric value to option string
-      const num = typeof value === "number" ? value : Number(value ?? -1);
-      return REMOVE_TORRENT_OPTIONS.find(opt => opt.includes(`(${num})`)) || REMOVE_TORRENT_OPTIONS[0];
-    },
-  },
-  {
-    label: "Remove Dead Trackers",
-    path: ["Torrent", "SeedingMode", "RemoveDeadTrackers"],
-    type: "checkbox",
-  },
-  {
-    label: "Remove Tracker Messages",
-    path: ["Torrent", "SeedingMode", "RemoveTrackerWithMessage"],
-    type: "tags",
-    fullWidth: true,
-  },
-];
-
-const ARR_TRACKER_FIELDS: FieldDefinition[] = [
-  { label: "Name", path: ["Name"], type: "text", required: true },
-  { label: "URI", path: ["URI"], type: "text", required: true },
-  {
-    label: "Priority",
-    path: ["Priority"],
-    type: "number",
-    validate: (value) => {
-      const num = typeof value === "number" ? value : Number(value);
-      if (!Number.isFinite(num) || num < 0) {
-        return "Priority must be a non-negative number.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Sort Torrents by Tracker Priority",
-    path: ["SortTorrents"],
-    type: "checkbox",
-  },
-  {
-    label: "Maximum ETA",
-    path: ["MaximumETA"],
-    type: "duration",
-    nativeUnit: "seconds",
-    allowNegative: true,
-    validate: (value) => {
-      const total = parseDurationToSeconds(value, -2);
-      if (total === -1) return undefined;
-      if (!Number.isFinite(total) || total < -1) {
-        return "Maximum ETA must be -1 or a non-negative duration.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Download Rate Limit",
-    path: ["DownloadRateLimit"],
-    type: "number",
-    validate: (value) => {
-      const num = typeof value === "number" ? value : Number(value);
-      if (!Number.isFinite(num) || num < -1) {
-        return "Download Rate Limit must be -1 or greater.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Upload Rate Limit",
-    path: ["UploadRateLimit"],
-    type: "number",
-    validate: (value) => {
-      const num = typeof value === "number" ? value : Number(value);
-      if (!Number.isFinite(num) || num < -1) {
-        return "Upload Rate Limit must be -1 or greater.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Max Upload Ratio",
-    path: ["MaxUploadRatio"],
-    type: "number",
-    validate: (value) => {
-      const num = typeof value === "number" ? value : Number(value);
-      if (!Number.isFinite(num) || num < -1) {
-        return "Max Upload Ratio must be -1 or greater.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Max Seeding Time",
-    path: ["MaxSeedingTime"],
-    type: "duration",
-    nativeUnit: "seconds",
-    allowNegative: true,
-    validate: (value) => {
-      const total = parseDurationToSeconds(value, -2);
-      if (total === -1) return undefined;
-      if (!Number.isFinite(total) || total < -1) {
-        return "Max Seeding Time must be -1 or greater.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Add Tracker If Missing",
-    path: ["AddTrackerIfMissing"],
-    type: "checkbox",
-  },
-  { label: "Remove If Exists", path: ["RemoveIfExists"], type: "checkbox" },
-  { label: "Super Seed Mode", path: ["SuperSeedMode"], type: "checkbox" },
-  {
-    label: "Add Tags",
-    path: ["AddTags"],
-    type: "tags",
-  },
-  {
-    label: "Hit and Run Mode",
-    path: ["HitAndRunMode"],
-    type: "select",
-    options: ["and", "or", "disabled"],
-    format: (v: unknown) =>
-      v === true ? "and" : v === false ? "disabled" : (v as string),
-    parse: (v: string | boolean) =>
-      typeof v === "string" ? v : v ? "and" : "disabled",
-  },
-  {
-    label: "Min Seed Ratio",
-    path: ["MinSeedRatio"],
-    type: "number",
-    required: false,
-    validate: (value) => {
-      if (value === null || value === undefined || value === "") return undefined;
-      const num = typeof value === "number" ? value : Number(value);
-      if (!Number.isFinite(num) || num < 0) {
-        return "Min Seed Ratio must be 0 or greater.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Min Seeding Time (days)",
-    path: ["MinSeedingTimeDays"],
-    type: "number",
-    required: false,
-    validate: (value) => {
-      if (value === null || value === undefined || value === "") return undefined;
-      const num = typeof value === "number" ? value : Number(value);
-      if (!Number.isFinite(num) || num < 0) {
-        return "Min Seeding Time must be 0 or greater.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Min Download % for HnR",
-    path: ["HitAndRunMinimumDownloadPercent"],
-    type: "number",
-    required: false,
-    validate: (value) => {
-      if (value === null || value === undefined || value === "") return undefined;
-      const num = typeof value === "number" ? value : Number(value);
-      if (!Number.isFinite(num) || num < 0 || num > 100) {
-        return "Min Download % must be between 0 and 100.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Partial Download Seed Ratio",
-    path: ["HitAndRunPartialSeedRatio"],
-    type: "number",
-    required: false,
-    validate: (value) => {
-      if (value === null || value === undefined || value === "") return undefined;
-      const num = typeof value === "number" ? value : Number(value);
-      if (!Number.isFinite(num) || num < 0) {
-        return "Partial Download Seed Ratio must be 0 or greater.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Tracker Update Buffer",
-    path: ["TrackerUpdateBuffer"],
-    type: "duration",
-    nativeUnit: "seconds",
-    required: false,
-    validate: (value) => {
-      if (value === null || value === undefined || value === "") return undefined;
-      const total = parseDurationToSeconds(value, -1);
-      if (!Number.isFinite(total) || total < 0) {
-        return "Tracker Update Buffer must be 0 or greater.";
-      }
-      return undefined;
-    },
-  },
-];
-
-function getArrFieldSets(arrKey: string) {
-  const lower = arrKey.toLowerCase();
-  const isSonarr = lower.includes("sonarr");
-  const isLidarr = lower.includes("lidarr");
-  const generalFields = [...ARR_GENERAL_FIELDS];
-  const entryFields = ARR_ENTRY_SEARCH_FIELDS.filter((field) => {
-    if (!field.path) {
-      return true;
-    }
-    const joined = field.path.join(".");
-    if (!isSonarr) {
-      if (
-        joined === "EntrySearch.AlsoSearchSpecials" ||
-        joined === "EntrySearch.SearchBySeries" ||
-        joined === "EntrySearch.PrioritizeTodaysReleases"
-      ) {
-        return false;
-      }
-    }
-    if (isLidarr) {
-      // Lidarr doesn't support SearchByYear (music albums don't have the same year-based search)
-      if (joined === "EntrySearch.SearchByYear") {
-        return false;
-      }
-    }
-    return true;
-  });
-  // Ombi and Overseerr don't support music requests, so hide them for Lidarr
-  const entryOmbiFields = isLidarr ? [] : [...ARR_ENTRY_SEARCH_OMBI_FIELDS];
-  const entryOverseerrFields = isLidarr ? [] : [...ARR_ENTRY_SEARCH_OVERSEERR_FIELDS];
-  const torrentFields = [...ARR_TORRENT_FIELDS];
-  const seedingFields = [...ARR_SEEDING_FIELDS];
-  const trackerFields = [...ARR_TRACKER_FIELDS];
-  return {
-    generalFields,
-    entryFields,
-    entryOmbiFields,
-    entryOverseerrFields,
-    torrentFields,
-    seedingFields,
-    trackerFields,
-  };
-}
-
-function isEmptyValue(value: unknown): boolean {
-  return (
-    value === null ||
-    value === undefined ||
-    (typeof value === "string" && value.trim() === "") ||
-    (Array.isArray(value) && value.length === 0)
-  );
-}
-
-function basicValidation(def: FieldDefinition, value: unknown): string | undefined {
-  const label = def.label;
-  const isRequired = def.required ?? (def.type === "number" || def.type === "select");
-  switch (def.type) {
-    case "text":
-    case "password": {
-      if (!isRequired) {
-        return undefined;
-      }
-      if (isEmptyValue(value)) {
-        return `${label} is required.`;
-      }
-      return undefined;
-    }
-    case "number": {
-      if (value === null || value === undefined || value === "") {
-        return isRequired ? `${label} is required.` : undefined;
-      }
-      const num = typeof value === "number" ? value : Number(value);
-      if (!Number.isFinite(num)) {
-        return `${label} must be a valid number.`;
-      }
-      return undefined;
-    }
-    case "checkbox": {
-      if (value === null || value === undefined) {
-        return isRequired ? `${label} is required.` : undefined;
-      }
-      if (typeof value !== "boolean") {
-        return `${label} must be true or false.`;
-      }
-      return undefined;
-    }
-    case "select": {
-      if (isEmptyValue(value)) {
-        return `${label} is required.`;
-      }
-      if (typeof value !== "string") {
-        return `${label} must be selected.`;
-      }
-      if (def.options && !def.options.includes(value)) {
-        return `${label} must be one of ${def.options.join(", ")}.`;
-      }
-      return undefined;
-    }
-    default:
-      return undefined;
-  }
-}
-
-function validateFieldGroup(
-  errors: ValidationError[],
-  fields: FieldDefinition[],
-  state: ConfigDocument | null,
-  basePath: string[],
-  context: ValidationContext
-): void {
-  if (!state) return;
-  for (const field of fields) {
-    if (field.sectionName) {
-      continue;
-    }
-    const pathSegments = field.path ?? [];
-    const rawValue = pathSegments.length
-      ? getValue(state as ConfigDocument, pathSegments)
-      : undefined;
-    // When field has both format and parse, validate the stored (raw) value; otherwise use formatted value.
-    // For type "select", use formatted value for basicValidation so stored numbers (e.g. RemoveTorrent -1..4) pass.
-    const value =
-      field.type === "select" && field.format
-        ? field.format(rawValue)
-        : field.format && field.parse
-          ? rawValue
-          : field.format
-            ? field.format(rawValue)
-            : rawValue;
-    const fullPath = [...basePath, ...pathSegments];
-    const baseError = basicValidation(field, value);
-    if (baseError) {
-      errors.push({ path: fullPath, message: baseError });
-      continue;
-    }
-    if (field.validate) {
-      const customError = field.validate(value, context);
-      if (customError) {
-        errors.push({ path: fullPath, message: customError });
-      }
-    }
-  }
-}
-
-function isManagedArrSection(section: ConfigDocument | null): boolean {
-  return Boolean(getValue(section, ["Managed"]));
-}
-
-function isEnabledQbitSection(section: ConfigDocument | null): boolean {
-  return !getValue(section, ["Disabled"]);
-}
-
-function validateSection(
-  formState: ConfigDocument | null,
-  sectionKey: string
-): ValidationError[] {
-  if (!formState) return [];
-  const value = formState[sectionKey];
-  if (!value || typeof value !== "object") {
-    return [];
-  }
-  const section = value as ConfigDocument;
-  const errors: ValidationError[] = [];
-  const sectionContext: ValidationContext = { root: formState, section, sectionKey };
-
-  if (QBIT_SECTION_REGEX.test(sectionKey)) {
-    if (!isEnabledQbitSection(section)) {
-      return [];
-    }
-    validateFieldGroup(errors, QBIT_FIELDS, section, [sectionKey], sectionContext);
-    return errors;
-  }
-
-  if (SERVARR_SECTION_REGEX.test(sectionKey)) {
-    if (!isManagedArrSection(section)) {
-      return [];
-    }
-    const fieldSets = getArrFieldSets(sectionKey);
-    validateFieldGroup(errors, fieldSets.generalFields, section, [sectionKey], sectionContext);
-    validateFieldGroup(errors, fieldSets.entryFields, section, [sectionKey], sectionContext);
-    validateFieldGroup(errors, fieldSets.entryOmbiFields, section, [sectionKey], sectionContext);
-    validateFieldGroup(errors, fieldSets.entryOverseerrFields, section, [sectionKey], sectionContext);
-    validateFieldGroup(errors, fieldSets.torrentFields, section, [sectionKey], sectionContext);
-    validateFieldGroup(errors, fieldSets.seedingFields, section, [sectionKey], sectionContext);
-    return errors;
-  }
-
-  if (sectionKey === "Settings") {
-    validateFieldGroup(errors, SETTINGS_FIELDS, formState, [], { root: formState });
-  } else if (sectionKey === "WebUI") {
-    validateFieldGroup(errors, WEB_SETTINGS_FIELDS, formState, [], { root: formState });
-  } else if (sectionKey === "Authentication") {
-    validateFieldGroup(errors, AUTH_SETTINGS_FIELDS, formState, [], { root: formState });
-  }
-
-  return errors;
-}
-
-function sectionHasCategoryChanges(
-  sectionKey: string,
-  formState: ConfigDocument,
-  originalConfig: ConfigDocument | null
-): boolean {
-  const categoryPath = `${sectionKey}.Category`;
-  const flattenedOriginal = flatten(originalConfig ?? {});
-  const flattenedCurrent = flatten(formState);
-  return !equal(flattenedCurrent[categoryPath], flattenedOriginal[categoryPath]);
-}
-
-function validateSectionsForSave(
-  formState: ConfigDocument | null,
-  sectionKeys: string[],
-  originalConfig: ConfigDocument | null,
-  includeCategoryCrossCheck: boolean
-): ValidationError[] {
-  if (!formState) return [];
-  const errors: ValidationError[] = [];
-  for (const sectionKey of sectionKeys) {
-    errors.push(...validateSection(formState, sectionKey));
-  }
-  if (includeCategoryCrossCheck) {
-    for (const issue of getCategoryCrossSectionIssues(formState)) {
-      errors.push(issue);
-    }
-  } else {
-    const categoryTouched = sectionKeys.some((key) =>
-      sectionHasCategoryChanges(key, formState, originalConfig)
-    );
-    if (categoryTouched) {
-      for (const issue of getCategoryCrossSectionIssues(formState)) {
-        errors.push(issue);
-      }
-    }
-  }
-  return errors;
-}
-
-function getChangedSectionKeys(
-  formState: ConfigDocument,
-  originalConfig: ConfigDocument | null,
-  pendingRenames: Map<string, string>
-): string[] {
-  const flattenedOriginal = flatten(originalConfig ?? {});
-  const flattenedCurrent = flatten(formState);
-  const sections = new Set<string>();
-
-  for (const [key, value] of Object.entries(flattenedCurrent)) {
-    if (!equal(value, flattenedOriginal[key])) {
-      sections.add(key.split(".")[0] ?? key);
-    }
-  }
-  for (const key of Object.keys(flattenedOriginal)) {
-    if (!(key in flattenedCurrent)) {
-      sections.add(key.split(".")[0] ?? key);
-    }
-  }
-  for (const [oldName] of pendingRenames) {
-    sections.add(oldName);
-    const newName = pendingRenames.get(oldName);
-    if (newName) {
-      sections.add(newName);
-    }
-  }
-  for (const [key, value] of Object.entries(originalConfig ?? {})) {
-    if (
-      !(key in formState) &&
-      SERVARR_SECTION_REGEX.test(key) &&
-      value &&
-      typeof value === "object"
-    ) {
-      sections.add(key);
-    }
-  }
-
-  return [...sections];
-}
-
-function buildSectionChanges(
-  formState: ConfigDocument,
-  originalConfig: ConfigDocument | null,
-  sectionKey: string,
-  pendingRenames: Map<string, string>
-): Record<string, unknown> {
-  const flattenedOriginal = flatten(originalConfig ?? {});
-  const flattenedCurrent = flatten(formState);
-  const changes: Record<string, unknown> = {};
-  const prefix = `${sectionKey}.`;
-
-  for (const [key, value] of Object.entries(flattenedCurrent)) {
-    if (key !== sectionKey && !key.startsWith(prefix)) {
-      continue;
-    }
-    const originalValue = flattenedOriginal[key];
-    if (!equal(value, originalValue)) {
-      changes[key] = value;
-    }
-  }
-
-  for (const key of Object.keys(flattenedOriginal)) {
-    if ((key === sectionKey || key.startsWith(prefix)) && !(key in flattenedCurrent)) {
-      changes[key] = null;
-    }
-  }
-
-  for (const [oldName, newName] of pendingRenames) {
-    if (oldName !== sectionKey && newName !== sectionKey) {
-      continue;
-    }
-    for (const key of Object.keys(flattenedOriginal)) {
-      if (key === oldName || key.startsWith(`${oldName}.`)) {
-        if (!(key in changes)) {
-          changes[key] = null;
-        }
-      }
-    }
-  }
-
-  if (
-    !(sectionKey in formState) &&
-    SERVARR_SECTION_REGEX.test(sectionKey) &&
-    sectionKey in (originalConfig ?? {})
-  ) {
-    changes[sectionKey] = null;
-  }
-
-  return changes;
-}
-
-function prunePendingRenames(
-  pendingRenames: Map<string, string>,
-  savedSectionKeys: Iterable<string> | "all"
-): Map<string, string> {
-  if (savedSectionKeys === "all") {
-    return new Map();
-  }
-  const saved = new Set(savedSectionKeys);
-  const next = new Map(pendingRenames);
-  for (const [oldName, newName] of pendingRenames) {
-    if (saved.has(oldName) || saved.has(newName)) {
-      next.delete(oldName);
-    }
-  }
-  return next;
-}
-
-function sectionKeysFromChanges(changes: Record<string, unknown>): string[] {
-  const sections = new Set<string>();
-  for (const key of Object.keys(changes)) {
-    sections.add(key.split(".")[0] ?? key);
-  }
-  return [...sections];
-}
-
-function buildAllChanges(
-  formState: ConfigDocument,
-  originalConfig: ConfigDocument | null,
-  pendingRenames: Map<string, string>
-): Record<string, unknown> {
-  const flattenedOriginal = flatten(originalConfig ?? {});
-  const flattenedCurrent = flatten(formState);
-  const changes: Record<string, unknown> = {};
-
-  for (const [key, value] of Object.entries(flattenedCurrent)) {
-    const originalValue = flattenedOriginal[key];
-    if (!equal(value, originalValue)) {
-      changes[key] = value;
-    }
-  }
-  for (const key of Object.keys(flattenedOriginal)) {
-    if (!(key in flattenedCurrent)) {
-      changes[key] = null;
-    }
-  }
-  for (const [key, value] of Object.entries(originalConfig ?? {})) {
-    if (
-      !(key in formState) &&
-      SERVARR_SECTION_REGEX.test(key) &&
-      value &&
-      typeof value === "object"
-    ) {
-      changes[key] = null;
-    }
-  }
-  for (const [oldName] of pendingRenames) {
-    for (const key of Object.keys(flattenedOriginal)) {
-      if (key === oldName || key.startsWith(`${oldName}.`)) {
-        if (!(key in changes)) {
-          changes[key] = null;
-        }
-      }
-    }
-  }
-
-  return changes;
-}
-
-function formatValidationErrors(validationErrors: ValidationError[]): string {
-  const formatted = validationErrors
-    .map((error) => `${error.path.join(".")}: ${error.message}`)
-    .join("\n");
-  return validationErrors.length === 1
-    ? formatted
-    : `Please resolve the following issues:\n${formatted}`;
-}
-
-// Note: cloneConfig is no longer needed - using immer's produce for immutable updates
-
-// Utility wrappers around lodash for ConfigDocument operations
-function getValue(doc: ConfigDocument | null, path: string[]): unknown {
-  if (!doc) return undefined;
-  return get(doc, path);
-}
-
-function setValue(
-  doc: ConfigDocument,
-  path: string[],
-  value: unknown
-): void {
-  set(doc, path, value);
-}
-
-// Custom flatten to create dot-notation keys (e.g., "Settings.FreeSpace")
-// Note: lodash's flatten is for arrays; this is a specialized object flattener
-function flatten(doc: ConfigDocument, prefix: string[] = []): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(doc)) {
-    const nextPath = [...prefix, key];
-    if (value && typeof value === "object" && !Array.isArray(value)) {
-      Object.assign(result, flatten(value as ConfigDocument, nextPath));
-    } else {
-      result[nextPath.join(".")] = value;
-    }
-  }
-  return result;
-}
-
-function ensureArrDefaults(type: string): ConfigDocument {
-  const lowerType = type.toLowerCase();
-  const isSonarr = lowerType.includes("sonarr");
-  const isRadarr = lowerType.includes("radarr");
-  const isLidarr = lowerType.includes("lidarr");
-
-  const arrErrorCodes = isRadarr
-    ? [
-        "Not a preferred word upgrade for existing movie file(s)",
-        "Not an upgrade for existing movie file(s)",
-        "Unable to determine if file is a sample",
-      ]
-    : isLidarr
-    ? [
-        "Not a preferred word upgrade for existing album file(s)",
-        "Not an upgrade for existing album file(s)",
-        "Unable to determine if file is a sample",
-      ]
-    : [
-        "Not a preferred word upgrade for existing episode file(s)",
-        "Not an upgrade for existing episode file(s)",
-        "Unable to determine if file is a sample",
-      ];
-
-  const entrySearch: Record<string, unknown> = {
-    SearchMissing: true,
-    Unmonitored: false,
-    SearchLimit: 5,
-    SearchByYear: true,
-    SearchInReverse: false,
-    SearchRequestsEvery: 300,
-    DoUpgradeSearch: false,
-    QualityUnmetSearch: false,
-    CustomFormatUnmetSearch: false,
-    ForceMinimumCustomFormat: false,
-    SearchAgainOnSearchCompletion: true,
-    UseTempForMissing: false,
-    KeepTempProfile: false,
-    ForceResetTempProfiles: false,
-    TempProfileResetTimeoutMinutes: 0,
-    ProfileSwitchRetryAttempts: 3,
-    QualityProfileMappings: {},
-  };
-
-  if (isSonarr) {
-    entrySearch.AlsoSearchSpecials = false;
-    entrySearch.SearchBySeries = "smart";
-    entrySearch.PrioritizeTodaysReleases = true;
-  }
-
-  entrySearch.Ombi = {
-    SearchOmbiRequests: false,
-    OmbiURI: "CHANGE_ME",
-    OmbiAPIKey: "CHANGE_ME",
-    ApprovedOnly: true,
-  };
-  entrySearch.Overseerr = {
-    SearchOverseerrRequests: false,
-    OverseerrURI: "CHANGE_ME",
-    OverseerrAPIKey: "CHANGE_ME",
-    ApprovedOnly: true,
-    Is4K: false,
-  };
-
-  const torrent: Record<string, unknown> = {
-    CaseSensitiveMatches: false,
-    FolderExclusionRegex: [
-      "\\bextras?\\b",
-      "\\bfeaturettes?\\b",
-      "\\bsamples?\\b",
-      "\\bscreens?\\b",
-      "\\bnc(ed|op)?(\\\\d+)?\\b",
-    ],
-    FileNameExclusionRegex: [
-      "\\bncop\\\\d+?\\b",
-      "\\bnced\\\\d+?\\b",
-      "\\bsample\\b",
-      "brarbg.com\\b",
-      "\\btrailer\\b",
-      "music video",
-      "comandotorrents.com",
-    ],
-    FileExtensionAllowlist: isLidarr
-      ? [".mp3", ".flac", ".m4a", ".aac", ".ogg", ".opus", ".wav", ".ape", ".wma", ".!qB", ".parts", ".log", ".cue"]
-      : [".mp4", ".mkv", ".sub", ".ass", ".srt", ".!qB", ".parts"],
-    AutoDelete: false,
-    IgnoreTorrentsYoungerThan: 600,
-    MaximumETA: 604800,
-    MaximumDeletablePercentage: 0.99,
-    DoNotRemoveSlow: true,
-    StalledDelay: 15,
-    ReSearchStalled: false,
-    RemoveDeadTrackers: false,
-    RemoveTrackerWithMessage: [
-      "skipping tracker announce (unreachable)",
-      "No such host is known",
-      "unsupported URL protocol",
-      "info hash is not authorized with this tracker",
-    ],
-    SeedingMode: {
-      DownloadRateLimitPerTorrent: -1,
-      UploadRateLimitPerTorrent: -1,
-      MaxUploadRatio: -1,
-      MaxSeedingTime: -1,
-      RemoveTorrent: -1,
-    },
-  };
-
-  return {
-    Managed: true,
-    URI: "CHANGE_ME",
-    APIKey: "CHANGE_ME",
-    Category: type,
-    ReSearch: true,
-    importMode: "Auto",
-    RssSyncTimer: 5,
-    RefreshDownloadsTimer: 5,
-    ArrErrorCodesToBlocklist: arrErrorCodes,
-    EntrySearch: entrySearch as ConfigDocument,
-    Torrent: torrent as ConfigDocument,
-  } as ConfigDocument;
-}
+import {
+  AUTH_SETTINGS_FIELDS,
+  SETTINGS_FIELDS,
+  WEB_SETTINGS_FIELDS,
+} from "./config/configFields";
+import {
+  buildSectionChanges,
+  buildSectionDeleteChanges,
+  ensureArrDefaults,
+  flatten,
+  focusFirstValidationError,
+  formatValidationErrors,
+  getValue,
+  prunePendingRenames,
+  resolveSectionDiskKey,
+  sectionKeysFromChanges,
+  setValue,
+  validationErrorsFromApi,
+} from "./config/configDocumentUtils";
+import {
+  validateSectionsForSave,
+} from "./config/configValidation";
+import {
+  QBIT_SECTION_REGEX,
+  SERVARR_SECTION_REGEX,
+  type FieldDefinition,
+  type ValidationError,
+} from "./config/configTypes";
+import {
+  ArrInstanceModal,
+  QbitInstanceModal,
+  SetPasswordModal,
+  SimpleConfigModal,
+} from "./config/configModals";
+import {
+  formatConfigSaveMessage,
+  shouldRefreshMetaAfterSave,
+  shouldReloadPageAfterSave,
+} from "./config/configSaveResult";
 
 interface ConfigViewProps {
   onDirtyChange?: (dirty: boolean) => void;
 }
+
+type PendingSectionDelete = {
+  kind: "qbit" | "arr";
+  key: string;
+};
 
 export function ConfigView(props?: ConfigViewProps): JSX.Element {
   const { onDirtyChange } = props ?? {};
@@ -1932,9 +73,12 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   );
   const [formState, setFormState] = useState<ConfigDocument | null>(null);
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [savingSection, setSavingSection] = useState<string | null>(null);
+  const [, setSavingSection] = useState<string | null>(null);
   const [pendingRenames, setPendingRenames] = useState<Map<string, string>>(new Map());
+  const [pendingDelete, setPendingDelete] = useState<PendingSectionDelete | null>(
+    null
+  );
+  const [deletingSection, setDeletingSection] = useState(false);
 
   const loadConfig = useCallback(async () => {
     setLoading(true);
@@ -2047,6 +191,97 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   const [isAuthSettingsOpen, setAuthSettingsOpen] = useState(false);
   const [isSetPasswordOpen, setSetPasswordOpen] = useState(false);
   const [isDirty, setDirty] = useState(false);
+  const [serverValidationErrors, setServerValidationErrors] = useState<ValidationError[]>([]);
+
+  const mergeValidationErrors = useCallback(
+    (clientErrors: ValidationError[], sectionKey: string): ValidationError[] => {
+      if (!serverValidationErrors.length) {
+        return clientErrors;
+      }
+      const allowedRoots = new Set<string>([sectionKey]);
+      for (const [oldName, newName] of pendingRenames) {
+        if (oldName === sectionKey || newName === sectionKey) {
+          allowedRoots.add(oldName);
+          allowedRoots.add(newName);
+        }
+      }
+      const seen = new Set(clientErrors.map((error) => error.path.join(".")));
+      const merged = [...clientErrors];
+      for (const error of serverValidationErrors) {
+        const root = error.path[0];
+        if (!root || !allowedRoots.has(root)) {
+          continue;
+        }
+        const key = error.path.join(".");
+        if (!seen.has(key)) {
+          merged.push(error);
+          seen.add(key);
+        }
+      }
+      return merged;
+    },
+    [serverValidationErrors, pendingRenames]
+  );
+
+  const sectionSaveGate = useCallback(
+    (
+      sectionKey: string
+    ): {
+      saveDisabled: boolean;
+      saveBlockedReason?: string;
+      validationErrors: ValidationError[];
+    } => {
+      const clientErrors = validateSectionsForSave(
+        formState,
+        [sectionKey],
+        originalConfig,
+        false
+      );
+      const errors = mergeValidationErrors(clientErrors, sectionKey);
+      if (!errors.length) {
+        return { saveDisabled: false, validationErrors: [] };
+      }
+      return {
+        saveDisabled: true,
+        saveBlockedReason: formatValidationErrors(errors),
+        validationErrors: errors,
+      };
+    },
+    [formState, originalConfig, mergeValidationErrors]
+  );
+
+  const arrSaveGate = useMemo(
+    () =>
+      activeArrKey
+        ? sectionSaveGate(activeArrKey)
+        : { saveDisabled: false, validationErrors: [] as ValidationError[] },
+    [activeArrKey, sectionSaveGate]
+  );
+  const qbitSaveGate = useMemo(
+    () =>
+      activeQbitKey
+        ? sectionSaveGate(activeQbitKey)
+        : { saveDisabled: false, validationErrors: [] as ValidationError[] },
+    [activeQbitKey, sectionSaveGate]
+  );
+  const settingsSaveGate = useMemo(
+    () =>
+      isSettingsOpen
+        ? sectionSaveGate("Settings")
+        : { saveDisabled: false, validationErrors: [] as ValidationError[] },
+    [isSettingsOpen, sectionSaveGate]
+  );
+  const webSaveGate = useMemo(
+    () =>
+      isWebSettingsOpen || isAuthSettingsOpen
+        ? sectionSaveGate("WebUI")
+        : { saveDisabled: false, validationErrors: [] as ValidationError[] },
+    [isWebSettingsOpen, isAuthSettingsOpen, sectionSaveGate]
+  );
+
+  useEffect(() => {
+    setServerValidationErrors([]);
+  }, [formState]);
 
   useEffect(() => {
     if (!formState || !originalConfig) {
@@ -2061,8 +296,6 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
     // Keys that are managed dynamically and should not trigger dirty state
     const liveKeys = new Set([
       "WebUI.LiveArr",
-      "WebUI.GroupSonarr",
-      "WebUI.GroupLidarr",
       "WebUI.Theme",
       "WebUI.ViewDensity",
     ]);
@@ -2183,33 +416,20 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
     },
     [formState]
   );
-  const deleteArrInstance = useCallback(
+  const requestDeleteArrInstance = useCallback(
     (key: string) => {
-      if (!formState) return;
+      if (!formState || !(key in formState)) return;
       const keyLower = key.toLowerCase();
-      if (!keyLower.startsWith("radarr") && !keyLower.startsWith("sonarr") && !keyLower.startsWith("lidarr")) {
+      if (
+        !keyLower.startsWith("radarr") &&
+        !keyLower.startsWith("sonarr") &&
+        !keyLower.startsWith("lidarr")
+      ) {
         return;
       }
-      const confirmed = window.confirm(
-        `Delete ${key}? This action cannot be undone.`
-      );
-      if (!confirmed) {
-        return;
-      }
-      if (!(key in formState)) {
-        return;
-      }
-      setFormState(
-        produce(formState, (draft) => {
-          delete draft[key];
-        })
-      );
-      if (activeArrKey === key) {
-        setActiveArrKey(null);
-      }
-      push(`${key} removed`, "success");
+      setPendingDelete({ kind: "arr", key });
     },
-    [formState, activeArrKey, push]
+    [formState]
   );
 
   const addQbitInstance = useCallback(() => {
@@ -2253,29 +473,12 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
     setActiveQbitKey(key);
   }, [formState]);
 
-  const deleteQbitInstance = useCallback(
+  const requestDeleteQbitInstance = useCallback(
     (key: string) => {
-      if (!formState) return;
-      const confirmed = window.confirm(
-        `Remove ${key}? This will remove this qBittorrent instance from the config file.`
-      );
-      if (!confirmed) {
-        return;
-      }
-      if (!(key in formState)) {
-        return;
-      }
-      setFormState(
-        produce(formState, (draft) => {
-          delete draft[key];
-        })
-      );
-      if (activeQbitKey === key) {
-        setActiveQbitKey(null);
-      }
-      push(`${key} removed`, "success");
+      if (!formState || !(key in formState)) return;
+      setPendingDelete({ kind: "qbit", key });
     },
-    [formState, activeQbitKey, push]
+    [formState]
   );
 
   const handleRenameSection = useCallback(
@@ -2340,22 +543,28 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       configReloaded: boolean,
       reloadType: string,
       affectedInstances: string[] | undefined,
-      savedSectionKeys: Iterable<string> | "all"
+      savedSectionKeys: Iterable<string> | "all",
+      changedKeys: readonly string[] = []
     ) => {
-      let message = "Configuration saved";
-      if (reloadType === "full") {
-        message += " • All instances reloaded";
-      } else if (reloadType === "multi_arr" && affectedInstances?.length) {
-        message += ` • Reloaded ${affectedInstances.length} instances: ${affectedInstances.join(", ")}`;
-      } else if (reloadType === "single_arr" && affectedInstances?.length) {
-        message += ` • Reloaded: ${affectedInstances.join(", ")}`;
-      } else if (reloadType === "webui") {
-        message += " • WebUI restarting...";
-        window.setTimeout(() => window.location.reload(), 500);
-      } else if (reloadType === "frontend") {
-        message += " • Theme/display settings updated";
-      }
+      const message = formatConfigSaveMessage(
+        reloadType,
+        configReloaded,
+        affectedInstances,
+        changedKeys
+      );
       push(message, "success");
+
+      if (shouldRefreshMetaAfterSave(reloadType, changedKeys)) {
+        try {
+          await refreshUrlBaseFromMeta();
+        } catch {
+          // meta refresh failed; config was saved — user can reload manually if needed
+        }
+      }
+
+      if (shouldReloadPageAfterSave(reloadType, changedKeys)) {
+        window.setTimeout(() => window.location.reload(), 500);
+      }
 
       if (configReloaded && "caches" in window) {
         try {
@@ -2372,6 +581,81 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
     [loadConfig, push]
   );
 
+  const persistPendingDelete = useCallback(async () => {
+    if (!pendingDelete || !formState || deletingSection) {
+      return;
+    }
+    const { kind, key } = pendingDelete;
+    if (!(key in formState)) {
+      setPendingDelete(null);
+      return;
+    }
+
+    setDeletingSection(true);
+    try {
+      const changes = buildSectionDeleteChanges(key, originalConfig, pendingRenames);
+      if (changes === null) {
+        const diskKey = resolveSectionDiskKey(key, pendingRenames);
+        setFormState(
+          produce(formState, (draft) => {
+            delete draft[key];
+          })
+        );
+        setPendingRenames((prev) => prunePendingRenames(prev, [key, diskKey]));
+        if (kind === "qbit") {
+          setActiveQbitKey(null);
+        } else {
+          setActiveArrKey(null);
+        }
+        setPendingDelete(null);
+        push(`${key} removed`, "success");
+        return;
+      }
+
+      const { configReloaded, reloadType, affectedInstances } = await updateConfig({
+        changes,
+      });
+      setServerValidationErrors([]);
+      if (kind === "qbit") {
+        setActiveQbitKey(null);
+      } else {
+        setActiveArrKey(null);
+      }
+      setPendingDelete(null);
+      const savedKeys = sectionKeysFromChanges(changes);
+      savedKeys.push(key, resolveSectionDiskKey(key, pendingRenames));
+      await applyConfigSaveResult(
+        configReloaded,
+        reloadType,
+        affectedInstances,
+        savedKeys,
+        Object.keys(changes)
+      );
+    } catch (error) {
+      setPendingDelete(null);
+      if (error instanceof ConfigApiError && error.validationErrors.length) {
+        const apiErrors = validationErrorsFromApi(error.validationErrors);
+        setServerValidationErrors(apiErrors);
+        push(error.message, "error");
+        return;
+      }
+      push(
+        error instanceof Error ? error.message : "Failed to delete configuration section",
+        "error"
+      );
+    } finally {
+      setDeletingSection(false);
+    }
+  }, [
+    pendingDelete,
+    formState,
+    deletingSection,
+    originalConfig,
+    pendingRenames,
+    push,
+    applyConfigSaveResult,
+  ]);
+
   const saveSection = useCallback(
     async (sectionKey: string): Promise<boolean> => {
       if (!formState) return false;
@@ -2385,6 +669,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
         );
         if (validationErrors.length) {
           push(formatValidationErrors(validationErrors), "error");
+          focusFirstValidationError(validationErrors);
           return false;
         }
 
@@ -2400,6 +685,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
         }
 
         const { configReloaded, reloadType, affectedInstances } = await updateConfig({ changes });
+        setServerValidationErrors([]);
         const savedKeys = sectionKeysFromChanges(changes);
         for (const [oldName, newName] of pendingRenames) {
           if (oldName === sectionKey || newName === sectionKey) {
@@ -2410,10 +696,18 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           configReloaded,
           reloadType,
           affectedInstances,
-          savedKeys
+          savedKeys,
+          Object.keys(changes)
         );
         return true;
       } catch (error) {
+        if (error instanceof ConfigApiError && error.validationErrors.length) {
+          const apiErrors = validationErrorsFromApi(error.validationErrors);
+          setServerValidationErrors(apiErrors);
+          push(error.message, "error");
+          focusFirstValidationError(apiErrors);
+          return false;
+        }
         push(
           error instanceof Error ? error.message : "Failed to update configuration",
           "error"
@@ -2425,47 +719,6 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
     },
     [formState, originalConfig, pendingRenames, push, applyConfigSaveResult]
   );
-
-  const handleSubmit = useCallback(async () => {
-    if (!formState) return;
-    setSaving(true);
-    try {
-      const changedSections = getChangedSectionKeys(formState, originalConfig, pendingRenames);
-      const validationErrors = validateSectionsForSave(
-        formState,
-        changedSections,
-        originalConfig,
-        true
-      );
-      if (validationErrors.length) {
-        push(formatValidationErrors(validationErrors), "error");
-        setSaving(false);
-        return;
-      }
-
-      const changes = buildAllChanges(formState, originalConfig, pendingRenames);
-      if (Object.keys(changes).length === 0) {
-        push("No changes detected", "info");
-        setSaving(false);
-        return;
-      }
-
-      const { configReloaded, reloadType, affectedInstances } = await updateConfig({ changes });
-      await applyConfigSaveResult(
-        configReloaded,
-        reloadType,
-        affectedInstances,
-        "all"
-      );
-    } catch (error) {
-      push(
-        error instanceof Error ? error.message : "Failed to update configuration",
-        "error"
-      );
-    } finally {
-      setSaving(false);
-    }
-  }, [formState, originalConfig, pendingRenames, push, applyConfigSaveResult]);
 
   if (loading || !formState) {
     return (
@@ -2548,23 +801,6 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
                         </dl>
                         <div className="config-arr-actions">
                           <button
-                            className="btn danger"
-                            type="button"
-                            onClick={() => deleteQbitInstance(key)}
-                          >
-                            <IconImage src={DeleteIcon} />
-                            Delete
-                          </button>
-                          <button
-                            className="btn secondary"
-                            type="button"
-                            disabled={savingSection === key || saving}
-                            onClick={() => void saveSection(key)}
-                          >
-                            <IconImage src={SaveIcon} />
-                            {savingSection === key ? "Saving..." : "Save"}
-                          </button>
-                          <button
                             className="btn primary"
                             type="button"
                             onClick={() => setActiveQbitKey(key)}
@@ -2602,80 +838,68 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
                        )}
                      </summary>
                     <div className="config-arr-grid">
-                      {group.items.map(([key, value]) => {
-                        const uri = getValue(value as ConfigDocument, ["URI"]);
-                        const category = getValue(value as ConfigDocument, ["Category"]);
-                        const managed = getValue(value as ConfigDocument, ["Managed"]);
-                        const canDelete = group.type === "radarr" || group.type === "sonarr" || group.type === "lidarr";
-                        return (
-                          <div className="card config-card config-arr-card" key={key}>
-                            <div className="card-header">{key}</div>
-                            <div className="card-body">
-                              <dl className="config-arr-summary">
-                                <div className="config-arr-summary__item">
-                                  <dt>Managed</dt>
-                                  <dd>{managed ? "Enabled" : "Disabled"}</dd>
-                                </div>
-                                <div className="config-arr-summary__item">
-                                  <dt>Category</dt>
-                                  <dd>{category ? String(category) : "-"}</dd>
-                                </div>
-                                <div className="config-arr-summary__item">
-                                  <dt>URI</dt>
-                                  <dd className="config-arr-summary__uri">
-                                    {uri ? String(uri) : "-"}
-                                  </dd>
-                                </div>
-                              </dl>
-                              <div className="config-arr-actions">
-                                {canDelete ? (
+                      {group.items.length === 0 ? (
+                        <div className="empty-state config-arr-empty">
+                          No {group.label.replace(/ Instances$/i, "")} instances
+                          configured. Use Add Instance to create one.
+                        </div>
+                      ) : (
+                        group.items.map(([key, value]) => {
+                          const uri = getValue(value as ConfigDocument, ["URI"]);
+                          const category = getValue(value as ConfigDocument, [
+                            "Category",
+                          ]);
+                          const managed = getValue(value as ConfigDocument, [
+                            "Managed",
+                          ]);
+                          return (
+                            <div
+                              className="card config-card config-arr-card"
+                              key={key}
+                            >
+                              <div className="card-header">{key}</div>
+                              <div className="card-body">
+                                <dl className="config-arr-summary">
+                                  <div className="config-arr-summary__item">
+                                    <dt>Managed</dt>
+                                    <dd>
+                                      {managed ? "Enabled" : "Disabled"}
+                                    </dd>
+                                  </div>
+                                  <div className="config-arr-summary__item">
+                                    <dt>Category</dt>
+                                    <dd>
+                                      {category ? String(category) : "-"}
+                                    </dd>
+                                  </div>
+                                  <div className="config-arr-summary__item">
+                                    <dt>URI</dt>
+                                    <dd className="config-arr-summary__uri">
+                                      {uri ? String(uri) : "-"}
+                                    </dd>
+                                  </div>
+                                </dl>
+                                <div className="config-arr-actions">
                                   <button
-                                    className="btn danger"
+                                    className="btn primary"
                                     type="button"
-                                    onClick={() => deleteArrInstance(key)}
+                                    onClick={() => setActiveArrKey(key)}
                                   >
-                                    <IconImage src={DeleteIcon} />
-                                    Delete
+                                    <IconImage src={ConfigureIcon} />
+                                    Configure
                                   </button>
-                                ) : null}
-                                <button
-                                  className="btn secondary"
-                                  type="button"
-                                  disabled={savingSection === key || saving}
-                                  onClick={() => void saveSection(key)}
-                                >
-                                  <IconImage src={SaveIcon} />
-                                  {savingSection === key ? "Saving..." : "Save"}
-                                </button>
-                                <button
-                                  className="btn primary"
-                                  type="button"
-                                  onClick={() => setActiveArrKey(key)}
-                                >
-                                  <IconImage src={ConfigureIcon} />
-                                  Configure
-                                </button>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })
+                      )}
                     </div>
                   </details>
                 </section>
               ))}
             </div>
           ) : null}
-          <div className="config-footer">
-            <button
-              className="btn primary"
-              onClick={() => void handleSubmit()}
-              disabled={saving}
-            >
-              <IconImage src={SaveIcon} />
-              Save + Live Reload
-            </button>
-          </div>
         </div>
       </section>
       {activeArrKey && formState ? (
@@ -2686,7 +910,15 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           onRename={handleRenameSection}
           onClose={() => setActiveArrKey(null)}
           onSave={() => saveSection(activeArrKey)}
+          onDelete={
+            /^(radarr|sonarr|lidarr)/i.test(activeArrKey)
+              ? () => requestDeleteArrInstance(activeArrKey)
+              : undefined
+          }
           overlapWarnings={categoryOverlapWarnings}
+          saveDisabled={arrSaveGate.saveDisabled}
+          saveBlockedReason={arrSaveGate.saveBlockedReason}
+          validationErrors={arrSaveGate.validationErrors}
         />
       ) : null}
       {isSettingsOpen ? (
@@ -2697,6 +929,10 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           basePath={[]}
           onChange={handleFieldChange}
           onClose={() => setSettingsOpen(false)}
+          onSave={() => saveSection("Settings")}
+          saveDisabled={settingsSaveGate.saveDisabled}
+          saveBlockedReason={settingsSaveGate.saveBlockedReason}
+          validationErrors={settingsSaveGate.validationErrors}
         />
       ) : null}
       {isWebSettingsOpen ? (
@@ -2707,7 +943,11 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           basePath={[]}
           onChange={handleFieldChange}
           onClose={() => setWebSettingsOpen(false)}
+          onSave={() => saveSection("WebUI")}
           showLiveSettings={true}
+          saveDisabled={webSaveGate.saveDisabled}
+          saveBlockedReason={webSaveGate.saveBlockedReason}
+          validationErrors={webSaveGate.validationErrors}
         />
       ) : null}
       {isAuthSettingsOpen ? (
@@ -2718,7 +958,11 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           basePath={[]}
           onChange={handleFieldChange}
           onClose={() => setAuthSettingsOpen(false)}
+          onSave={() => saveSection("WebUI")}
           onSetPassword={() => setSetPasswordOpen(true)}
+          saveDisabled={webSaveGate.saveDisabled}
+          saveBlockedReason={webSaveGate.saveBlockedReason}
+          validationErrors={webSaveGate.validationErrors}
         />
       ) : null}
       {isSetPasswordOpen ? (
@@ -2732,8 +976,34 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           onRename={handleRenameQbitSection}
           onClose={() => setActiveQbitKey(null)}
           onSave={() => saveSection(activeQbitKey)}
-          onDelete={() => deleteQbitInstance(activeQbitKey)}
+          onDelete={() => requestDeleteQbitInstance(activeQbitKey)}
           overlapWarnings={categoryOverlapWarnings}
+          saveDisabled={qbitSaveGate.saveDisabled}
+          saveBlockedReason={qbitSaveGate.saveBlockedReason}
+          validationErrors={qbitSaveGate.validationErrors}
+        />
+      ) : null}
+      {pendingDelete ? (
+        <ConfirmDialog
+          title={`Remove ${pendingDelete.key}?`}
+          message={
+            pendingDelete.kind === "qbit"
+              ? `This removes ${pendingDelete.key} from the config file and cannot be undone.`
+              : `Delete ${pendingDelete.key}? This action cannot be undone.`
+          }
+          confirmLabel={deletingSection ? "Removing…" : "Remove"}
+          cancelLabel="Cancel"
+          danger
+          onConfirm={() => {
+            if (!deletingSection) {
+              void persistPendingDelete();
+            }
+          }}
+          onCancel={() => {
+            if (!deletingSection) {
+              setPendingDelete(null);
+            }
+          }}
         />
       ) : null}
     </>
@@ -2764,1598 +1034,5 @@ function ConfigSummaryCard({
         </div>
       </div>
     </div>
-  );
-}
-
-
-
-interface FieldGroupProps {
-  title: string | null;
-  fields: FieldDefinition[];
-  state: ConfigDocument | ConfigDocument[keyof ConfigDocument] | null;
-  basePath: string[];
-  onChange: (path: string[], def: FieldDefinition, value: unknown) => void;
-  onRenameSection?: (oldName: string, newName: string) => void;
-  defaultOpen?: boolean;
-  qualityProfiles?: Array<{ id: number; name: string }>;
-  sectionKey?: string;
-  qbitTrackers?: boolean;
-}
-
-/** Regex for valid in-progress numeric input: empty, "-", or a valid number string */
-const NUMERIC_INPUT_RE = /^-?\d*\.?\d*$/;
-
-function NumberInput({
-  value,
-  onChange,
-  placeholder,
-}: {
-  value: unknown;
-  onChange: (v: string) => void;
-  placeholder?: string;
-}): JSX.Element {
-  const n = Number(value);
-  const externalStr = Number.isFinite(n) ? String(n) : "0";
-  const [localValue, setLocalValue] = useState(externalStr);
-  const isEditing = useRef(false);
-
-  useEffect(() => {
-    if (!isEditing.current) {
-      queueMicrotask(() => setLocalValue(externalStr));
-    }
-  }, [externalStr]);
-
-  return (
-    <input
-      type="text"
-      inputMode="decimal"
-      value={localValue}
-      onFocus={() => {
-        isEditing.current = true;
-      }}
-      onBlur={() => {
-        isEditing.current = false;
-        setLocalValue(externalStr);
-      }}
-      onChange={(e) => {
-        const raw = e.target.value;
-        // Only allow numeric characters, optional leading minus, optional decimal
-        if (raw !== "" && !NUMERIC_INPUT_RE.test(raw)) return;
-        setLocalValue(raw);
-        onChange(raw);
-      }}
-      placeholder={placeholder}
-    />
-  );
-}
-
-function DurationInput({
-  value,
-  onChange,
-  placeholder,
-  nativeUnit = "seconds",
-  allowNegative = false,
-}: {
-  value: unknown;
-  onChange: (v: string | number) => void;
-  placeholder?: string;
-  nativeUnit?: "seconds" | "minutes";
-  allowNegative?: boolean;
-}): JSX.Element {
-  const fallback = allowNegative ? -1 : 0;
-  const display = parseDurationDisplay(value, nativeUnit, fallback);
-  const [num, setNum] = useState(display.number);
-  const [unit, setUnit] = useState<DurationUnit>(display.unit);
-  const [rawInput, setRawInput] = useState<string | null>(null);
-  const isEditing = useRef(false);
-  const unitDirty = useRef(false);
-
-  useEffect(() => {
-    if (!isEditing.current) {
-      const d = parseDurationDisplay(value, nativeUnit, fallback);
-      queueMicrotask(() => {
-        setNum(d.number);
-        if (!unitDirty.current) {
-          setUnit(d.unit);
-        }
-      });
-    }
-  }, [value, nativeUnit, fallback]);
-
-  const handleNumChange = (raw: string) => {
-    if (raw !== "" && !NUMERIC_INPUT_RE.test(raw)) return;
-    setRawInput(raw);
-    if (raw === "" || raw === "-") return;
-    const n = Number(raw);
-    if (!Number.isFinite(n)) return;
-    setNum(n);
-    unitDirty.current = false;
-    const out = durationDisplayToValue(n, unit, nativeUnit, allowNegative);
-    onChange(out);
-  };
-
-  const handleUnitChange = (newUnit: DurationUnit) => {
-    setUnit(newUnit);
-    unitDirty.current = true;
-    if (rawInput === "" || rawInput === "-") {
-      return;
-    }
-    const effectiveNum = rawInput !== null ? Number(rawInput) : num;
-    if (!Number.isFinite(effectiveNum)) {
-      return;
-    }
-    setNum(effectiveNum);
-    unitDirty.current = false;
-    const out = durationDisplayToValue(effectiveNum, newUnit, nativeUnit, allowNegative);
-    onChange(out);
-  };
-
-  const handleFocus = () => {
-    isEditing.current = true;
-    unitDirty.current = false;
-    setRawInput(num === -1 && allowNegative ? "" : String(num));
-  };
-
-  const handleBlur = () => {
-    isEditing.current = false;
-    const pendingRaw = rawInput;
-    setRawInput(null);
-
-    if (pendingRaw === "" && allowNegative) {
-      unitDirty.current = false;
-      setNum(-1);
-      onChange(-1);
-      return;
-    }
-
-    if (pendingRaw === "" || pendingRaw === "-") {
-      const d = parseDurationDisplay(value, nativeUnit, fallback);
-      setNum(d.number);
-      if (!unitDirty.current) {
-        setUnit(d.unit);
-      }
-      unitDirty.current = false;
-      return;
-    }
-
-    unitDirty.current = false;
-    const d = parseDurationDisplay(value, nativeUnit, fallback);
-    setNum(d.number);
-    setUnit(d.unit);
-  };
-
-  const handleSetDisabled = () => {
-    if (!allowNegative) return;
-    isEditing.current = false;
-    unitDirty.current = false;
-    setRawInput(null);
-    setNum(-1);
-    setUnit("s");
-    onChange(-1);
-  };
-
-  const isDisabledValue = num === -1 && allowNegative && rawInput === null;
-  const displayVal =
-    rawInput !== null ? rawInput : isDisabledValue ? "" : String(num);
-  const inputPlaceholder =
-    allowNegative && (isDisabledValue || rawInput === "")
-      ? "Disabled"
-      : placeholder;
-
-  return (
-    <div className="duration-input">
-      <input
-        type="text"
-        value={displayVal}
-        onFocus={handleFocus}
-        onBlur={handleBlur}
-        onChange={(e) => handleNumChange(e.target.value)}
-        placeholder={inputPlaceholder}
-      />
-      <select
-        value={unit}
-        onChange={(e) => handleUnitChange(e.target.value as DurationUnit)}
-        aria-label="Duration unit"
-      >
-        {DURATION_UNITS.map((u) => (
-          <option key={u.value} value={u.value}>
-            {u.label}
-          </option>
-        ))}
-      </select>
-      {allowNegative ? (
-        <button
-          type="button"
-          className="btn small ghost duration-input__disabled"
-          onClick={handleSetDisabled}
-        >
-          Use disabled
-        </button>
-      ) : null}
-    </div>
-  );
-}
-
-function FieldGroup({
-  title,
-  fields,
-  state,
-  basePath,
-  onChange,
-  onRenameSection,
-  defaultOpen = false,
-  qualityProfiles = [],
-  sectionKey,
-  qbitTrackers = false,
-}: FieldGroupProps): JSX.Element {
-  const { theme } = useWebUI();
-  const selectStyles = useMemo(() => getSelectStyles(theme === 'dark'), [theme]);
-  const sectionName = sectionKey ?? basePath[0] ?? "";
-
-  if (title === "Quality Profile Mappings") {
-    const mappings = (getValue(state as ConfigDocument, ["EntrySearch", "QualityProfileMappings"]) ?? {}) as Record<string, string>;
-    const mappingEntries = Object.entries(mappings);
-
-    // Check if credentials exist (URI and APIKey)
-    const hasCredentials = Boolean(
-      getValue(state as ConfigDocument, ["URI"]) &&
-        getValue(state as ConfigDocument, ["APIKey"])
-    );
-    const hasProfiles = qualityProfiles.length > 0;
-
-    const handleAddMapping = () => {
-      const nextMappings = { ...mappings, "": "" };
-      onChange([...basePath, "EntrySearch", "QualityProfileMappings"], {} as FieldDefinition, nextMappings);
-    };
-
-    const handleUpdateMapping = (oldKey: string, newKey: string, newValue: string) => {
-      const nextMappings = { ...mappings };
-      if (oldKey !== newKey) {
-        delete nextMappings[oldKey];
-      }
-      if (newKey.trim()) {
-        nextMappings[newKey.trim()] = newValue.trim();
-      }
-      onChange([...basePath, "EntrySearch", "QualityProfileMappings"], {} as FieldDefinition, nextMappings);
-    };
-
-    const handleDeleteMapping = (key: string) => {
-      const nextMappings = { ...mappings };
-      delete nextMappings[key];
-      onChange([...basePath, "EntrySearch", "QualityProfileMappings"], {} as FieldDefinition, nextMappings);
-    };
-
-    return (
-      <details className="config-section" open={defaultOpen}>
-        <summary>{title}</summary>
-        <div className="config-section__body">
-          <div className="field-description" style={{ marginBottom: '1rem' }}>
-            Map main quality profile names to temporary profile names. Items will be downgraded to the temp profile when not found, then upgraded back to the main profile when available.
-          </div>
-
-          {!hasCredentials ? (
-            <div className="alert warning">
-              ⚠️ Please configure URI and API Key first, then click "Test Connection" to load quality profiles
-            </div>
-          ) : !hasProfiles ? (
-            <div className="alert info">
-              ℹ️ Click "Test Connection" above to load quality profiles from your {sectionName} instance
-            </div>
-          ) : (
-            <>
-              <div className="profile-mappings-grid">
-                {mappingEntries.map(([mainProfile, tempProfile], index) => (
-                  <div key={index} className="profile-mapping-row">
-                    <div className="field">
-                      <label>Main Profile</label>
-                      <Select
-                        options={qualityProfiles.map((p) => ({
-                          value: p.name,
-                          label: p.name,
-                        }))}
-                        value={
-                          mainProfile
-                            ? { value: mainProfile, label: mainProfile }
-                            : null
-                        }
-                        onChange={(option) =>
-                          handleUpdateMapping(
-                            mainProfile,
-                            option?.value || "",
-                            tempProfile
-                          )
-                        }
-                        placeholder="Select main profile..."
-                        isClearable
-                        styles={selectStyles}
-                        classNamePrefix="react-select"
-                      />
-                    </div>
-                    <div className="field">
-                      <label>Temp Profile</label>
-                      <Select
-                        options={qualityProfiles.map((p) => ({
-                          value: p.name,
-                          label: p.name,
-                        }))}
-                        value={
-                          tempProfile
-                            ? { value: tempProfile, label: tempProfile }
-                            : null
-                        }
-                        onChange={(option) =>
-                          handleUpdateMapping(
-                            mainProfile,
-                            mainProfile,
-                            option?.value || ""
-                          )
-                        }
-                        placeholder="Select temp profile..."
-                        isClearable
-                        styles={selectStyles}
-                        classNamePrefix="react-select"
-                      />
-                    </div>
-                    <button
-                      className="btn ghost icon-only"
-                      type="button"
-                      onClick={() => handleDeleteMapping(mainProfile)}
-                      title="Delete mapping"
-                    >
-                      <IconImage src={DeleteIcon} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <div className="config-actions">
-                <button className="btn" type="button" onClick={handleAddMapping}>
-                  <IconImage src={AddIcon} />
-                  Add Profile Mapping
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      </details>
-    );
-  }
-
-  if (title === "Trackers") {
-    const trackerPath = qbitTrackers ? ["Trackers"] : ["Torrent", "Trackers"];
-    const trackers = (getValue(state as ConfigDocument, trackerPath) ?? []) as ConfigDocument[];
-    const handleAddTracker = () => {
-      const nextTrackers = [
-        ...trackers,
-        {
-          Name: "",
-          URI: "",
-          Priority: 0,
-          SortTorrents: false,
-          MaximumETA: -1,
-          DownloadRateLimit: -1,
-          UploadRateLimit: -1,
-          MaxUploadRatio: -1,
-          MaxSeedingTime: -1,
-          AddTrackerIfMissing: false,
-          RemoveIfExists: false,
-          SuperSeedMode: false,
-          AddTags: [],
-          HitAndRunMode: "disabled",
-          MinSeedRatio: 1.0,
-          MinSeedingTimeDays: 0,
-          HitAndRunMinimumDownloadPercent: 10,
-          HitAndRunPartialSeedRatio: 1.0,
-          TrackerUpdateBuffer: 0,
-        },
-      ];
-      onChange([...basePath, ...trackerPath], {} as FieldDefinition, nextTrackers);
-    };
-    const handleDeleteTracker = (index: number) => {
-      const nextTrackers = [...trackers];
-      nextTrackers.splice(index, 1);
-      onChange([...basePath, ...trackerPath], {} as FieldDefinition, nextTrackers);
-    };
-    return (
-      <details className="config-section" open={defaultOpen}>
-        <summary>{title}</summary>
-        <div className="config-section__body">
-          {qbitTrackers && (
-            <div className="alert info" style={{ marginBottom: '12px' }}>
-              Shared tracker configs inherited by all Arr instances on this qBit instance.
-            </div>
-          )}
-          {!qbitTrackers && (
-            <div className="alert info" style={{ marginBottom: '12px' }}>
-              Trackers inherited from qBit instance. Add here only to override specific settings.
-            </div>
-          )}
-          <div className="tracker-grid">
-            {trackers.map((tracker, index) => (
-              <TrackerCard
-                key={index}
-                fields={fields}
-                state={tracker}
-                basePath={[...basePath, ...trackerPath, String(index)]}
-                onChange={onChange}
-                onDelete={() => handleDeleteTracker(index)}
-              />
-            ))}
-          </div>
-          <div className="config-actions">
-            <button className="btn" type="button" onClick={handleAddTracker}>
-              <IconImage src={AddIcon} />
-              Add Tracker
-            </button>
-          </div>
-        </div>
-      </details>
-    );
-  }
-
-  const renderedFields = fields.map((field) => {
-    if (field.sectionName) {
-      if (!sectionName) {
-        return null;
-      }
-      const tooltip = getTooltip([sectionName]);
-
-      // Determine expected prefix for Arr instances
-      let expectedPrefix: string | undefined;
-      if (sectionName.startsWith("Radarr")) {
-        expectedPrefix = "Radarr";
-      } else if (sectionName.startsWith("Sonarr")) {
-        expectedPrefix = "Sonarr";
-      } else if (sectionName.startsWith("Lidarr")) {
-        expectedPrefix = "Lidarr";
-      }
-
-      return (
-        <SectionNameField
-          key={`${sectionName}.__name`}
-          label={field.label}
-          tooltip={tooltip}
-          currentName={sectionName}
-          placeholder={field.placeholder}
-          expectedPrefix={expectedPrefix}
-          onRename={(newName) => onRenameSection?.(sectionName, newName)}
-        />
-      );
-    }
-
-    const pathSegments = field.path ?? [];
-    const path = [...basePath, ...pathSegments];
-    const key = path.join('.');
-    const rawValue = path.length > 0
-      ? getValue(state as ConfigDocument, path)
-      : undefined;
-    const formatted =
-      field.format?.(rawValue) ??
-      (field.type === "checkbox" ? Boolean(rawValue) : String(rawValue ?? ""));
-    const tooltip = getTooltip(path);
-    const description =
-      field.description ??
-      extractTooltipSummary(tooltip) ??
-      (field.type === "checkbox"
-        ? `Enable or disable ${field.label}.`
-        : `Set the ${field.label} value.`);
-
-    const isArrInstance =
-      (basePath.length > 0 && SERVARR_SECTION_REGEX.test(basePath[0] ?? "")) ||
-      (!!sectionName && SERVARR_SECTION_REGEX.test(sectionName));
-    const isArrApiKey = isArrInstance && (field.path?.[field.path.length - 1] ?? "") === "APIKey";
-    const fieldClassName = field.fullWidth ? "field field--full-width" : "field";
-
-    if (field.secure) {
-      return (
-        <SecureField
-          key={key}
-          label={field.label}
-          tooltip={tooltip}
-          description={description}
-          value={String(rawValue ?? '')}
-          placeholder={field.placeholder}
-          canRefresh={!isArrApiKey}
-          onChange={(val) => onChange(path, field, val)}
-        />
-      );
-    }
-
-
-
-    if (field.type === "checkbox") {
-      return (
-        <div key={key} className="checkbox-field">
-          <label title={tooltip}>
-            <input
-              type="checkbox"
-              checked={Boolean(formatted)}
-              onChange={(event) => onChange(path, field, event.target.checked)}
-            />
-            {field.label}
-          </label>
-          {description && <div className="field-description">{description}</div>}
-        </div>
-      );
-    }
-    if (field.type === "select") {
-      // Special handling for Theme field - apply immediately without save
-      const isThemeField = field.label === "Theme" && path.join('.') === "WebUI.Theme";
-
-      // Normalize the formatted value for theme field (case-insensitive)
-      let displayValue = formatted;
-      if (isThemeField && typeof formatted === "string") {
-        const normalizedLower = formatted.toLowerCase();
-        if (normalizedLower === "light") {
-          displayValue = "Light";
-        } else if (normalizedLower === "dark") {
-          displayValue = "Dark";
-        } else {
-          // Default to Dark if invalid
-          displayValue = "Dark";
-        }
-      }
-
-      return (
-        <div key={key} className={fieldClassName}>
-          <label title={tooltip}>{field.label}</label>
-          <Select
-            options={(field.options ?? []).map(o => ({ value: o, label: o }))}
-            value={displayValue ? { value: displayValue, label: displayValue } : null}
-            onChange={(option) => {
-              const newValue = option?.value || "";
-              onChange(path, field, newValue);
-
-              // If this is the theme field, apply immediately
-              if (isThemeField && typeof newValue === "string" && newValue) {
-                const theme = newValue.toLowerCase() as "light" | "dark";
-                document.documentElement.setAttribute('data-theme', theme);
-                localStorage.setItem("theme", theme);
-              }
-            }}
-            styles={selectStyles}
-          />
-          {description && <div className="field-description">{description}</div>}
-          {isThemeField && <div className="field-hint">Theme changes apply immediately</div>}
-        </div>
-      );
-    }
-    if (field.type === "number") {
-      return (
-        <div key={key} className={fieldClassName}>
-          <label title={tooltip}>{field.label}</label>
-          <NumberInput
-            value={formatted}
-            onChange={(v) => onChange(path, field, v)}
-            placeholder={field.placeholder}
-          />
-          {description && <div className="field-description">{description}</div>}
-        </div>
-      );
-    }
-    if (field.type === "duration") {
-      return (
-        <div key={key} className={fieldClassName}>
-          <label title={tooltip}>{field.label}</label>
-          <DurationInput
-            value={rawValue}
-            onChange={(v) => onChange(path, field, v)}
-            placeholder={field.placeholder}
-            nativeUnit={field.nativeUnit ?? "seconds"}
-            allowNegative={field.allowNegative ?? false}
-          />
-          {description && <div className="field-description">{description}</div>}
-        </div>
-      );
-    }
-    if (field.type === "password") {
-      return (
-        <div key={key} className={fieldClassName}>
-          <label title={tooltip}>{field.label}</label>
-          <input
-            type="password"
-            value={String(formatted)}
-            onChange={(event) => onChange(path, field, event.target.value)}
-            placeholder={field.placeholder}
-          />
-          {description && <div className="field-description">{description}</div>}
-        </div>
-      );
-    }
-    if (field.type === "tags") {
-      // Ensure we always have an array
-      let tags: string[] = [];
-
-      if (Array.isArray(formatted)) {
-        tags = formatted;
-      } else if (Array.isArray(rawValue)) {
-        tags = rawValue;
-      } else if (typeof formatted === "string" && formatted) {
-        tags = formatted.split(",").map(s => s.trim()).filter(Boolean);
-      } else if (typeof rawValue === "string" && rawValue) {
-        tags = rawValue.split(",").map(s => s.trim()).filter(Boolean);
-      }
-
-      return (
-        <div key={key} className={fieldClassName}>
-          <label title={tooltip}>{field.label}</label>
-          <TagInput
-            value={tags}
-            onChange={(newTags) => {
-              onChange(path, field, newTags);
-            }}
-            placeholder={field.placeholder}
-          />
-          {description && <div className="field-description">{description}</div>}
-        </div>
-      );
-    }
-    return (
-      <div key={key} className={fieldClassName}>
-        <label title={tooltip}>{field.label}</label>
-        <input
-          type="text"
-          value={String(formatted)}
-          onChange={(event) => onChange(path, field, event.target.value)}
-          placeholder={field.placeholder}
-        />
-        {description && <div className="field-description">{description}</div>}
-      </div>
-    );
-  });
-
-  if (title) {
-    return (
-      <details className="config-section" open={defaultOpen}>
-        <summary>{title}</summary>
-        <div className="config-section__body field-grid">{renderedFields}</div>
-      </details>
-    );
-  }
-
-  return <div className="field-grid">{renderedFields}</div>;
-}
-
-function TrackerCard({
-  fields,
-  state,
-  basePath,
-  onChange,
-  onDelete,
-}: {
-  fields: FieldDefinition[];
-  state: ConfigDocument | null;
-  basePath: string[];
-  onChange: (path: string[], def: FieldDefinition, value: unknown) => void;
-  onDelete: () => void;
-}): JSX.Element {
-  const trackerName = (getValue(state, ["Name"]) as string) || "New Tracker";
-  // state is the individual tracker object, so read with basePath=[]
-  // but onChange needs the full basePath to update the correct location in formState
-  const wrappedOnChange = useCallback(
-    (path: string[], def: FieldDefinition, value: unknown) => {
-      onChange([...basePath, ...path], def, value);
-    },
-    [basePath, onChange]
-  );
-  return (
-    <details className="card tracker-card" open>
-      <summary className="card-header">
-        <span>{trackerName}</span>
-        <button className="btn danger ghost" type="button" onClick={onDelete}>
-          <IconImage src={DeleteIcon} />
-        </button>
-      </summary>
-      <div className="card-body">
-        <FieldGroup title={null} fields={fields} state={state} basePath={[]} onChange={wrappedOnChange} />
-      </div>
-    </details>
-  );
-}
-
-interface SectionNameFieldProps {
-  label: string;
-  currentName: string;
-  placeholder?: string;
-  tooltip?: string;
-  expectedPrefix?: string;
-  onRename: (newName: string) => void;
-}
-
-function SectionNameField({
-  label,
-  currentName,
-  placeholder,
-  tooltip,
-  expectedPrefix,
-  onRename,
-}: SectionNameFieldProps): JSX.Element {
-  const [value, setValue] = useState(currentName);
-  const description =
-    extractTooltipSummary(tooltip) ?? `Rename the ${currentName} instance.`;
-
-  useEffect(() => {
-    const id = window.setTimeout(() => {
-      setValue(currentName);
-    }, 0);
-    return () => window.clearTimeout(id);
-  }, [currentName]);
-
-  const commit = () => {
-    const trimmed = value.trim();
-    if (!trimmed) {
-      setValue(currentName);
-      return;
-    }
-
-    let adjustedName = trimmed;
-
-    // Check if this is a qBit instance
-    const isQbitInstance = QBIT_SECTION_REGEX.test(currentName);
-
-    if (isQbitInstance) {
-      // qBit instances must follow qBit-NAME format (or just "qBit" for default)
-      if (trimmed === "qBit") {
-        // Allow default name
-        adjustedName = "qBit";
-      } else if (!trimmed.startsWith("qBit-")) {
-        // If user entered something without the prefix, prepend it
-        adjustedName = `qBit-${trimmed}`;
-      }
-
-      // Validate format
-      if (adjustedName !== "qBit" && !adjustedName.match(/^qBit-.+$/)) {
-        alert(`qBit instance name must match format: qBit-NAME\nExample: qBit-seedbox`);
-        setValue(currentName);
-        return;
-      }
-    } else {
-      // Enforce prefix if specified (for Arr instances)
-      if (expectedPrefix && !trimmed.startsWith(expectedPrefix)) {
-        // If user entered something without the prefix, prepend it
-        adjustedName = expectedPrefix + (trimmed.startsWith("-") ? trimmed : `-${trimmed}`);
-      }
-
-      // Enforce format: (Rad|Son|Lid)arr-.+ (prefix-suffix with at least one character after dash)
-      const formatRegex = /^(Radarr|Sonarr|Lidarr)-.+$/;
-      if (!formatRegex.test(adjustedName)) {
-        // Invalid format - show error and reset
-        alert(`Instance name must match format: ${expectedPrefix || '(Rad|Son|Lid)arr'}-(name)\nExample: ${expectedPrefix || 'Radarr'}-Movies`);
-        setValue(currentName);
-        return;
-      }
-    }
-
-    if (adjustedName !== currentName) {
-      onRename(adjustedName);
-    } else {
-      setValue(currentName); // Reset if no actual change
-    }
-  };
-
-  return (
-    <div className="field">
-      <label className="field-label">
-        <span>{label}</span>
-        {tooltip ? (
-          <span className="help-icon" title={tooltip} aria-label={tooltip}>
-            ?
-          </span>
-        ) : null}
-      </label>
-      {description ? <p className="field-description">{description}</p> : null}
-      <input
-        type="text"
-        value={value}
-        placeholder={placeholder}
-        onChange={(event) => setValue(event.target.value)}
-        onBlur={commit}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") {
-            event.preventDefault();
-            commit();
-          } else if (event.key === "Escape") {
-            event.preventDefault();
-            setValue(currentName);
-          }
-        }}
-      />
-    </div>
-  );
-}
-
-interface SecureFieldProps {
-  label: string;
-  value: string;
-  placeholder?: string;
-  tooltip?: string;
-  description?: string;
-  canRefresh?: boolean;
-  onChange: (value: string) => void;
-}
-
-function SecureField({
-  label,
-  value,
-  placeholder,
-  tooltip,
-  description,
-  canRefresh = true,
-  onChange,
-}: SecureFieldProps): JSX.Element {
-  const [showValue, setShowValue] = useState(false);
-
-  const handleRefresh = () => {
-    const newKey = (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
-      ? crypto.randomUUID().replace(/-/g, "")
-      : Array.from({ length: 32 }, () =>
-          Math.floor(Math.random() * 16).toString(16)
-        ).join("");
-    onChange(newKey);
-  };
-
-  return (
-    <div className="field secure-field">
-      <label title={tooltip}>{label}</label>
-      <div className="secure-field__input-group">
-        <input
-          type={showValue ? "text" : "password"}
-          value={value}
-          placeholder={placeholder}
-          onChange={(event) => onChange(event.target.value)}
-        />
-        <button type="button" className="btn ghost" onClick={() => setShowValue(!showValue)}>
-          <IconImage src={VisibilityIcon} />
-        </button>
-        {canRefresh && (
-          <button type="button" className="btn ghost" onClick={handleRefresh}>
-            <IconImage src={RefreshIcon} />
-          </button>
-        )}
-      </div>
-      {description && <div className="field-description">{description}</div>}
-    </div>
-  );
-}
-
-function CategoryOverlapAlert({ messages }: { messages: string[] }): JSX.Element | null {
-  if (!messages.length) return null;
-  return (
-    <div className="alert warning" style={{ marginBottom: 16 }} role="status">
-      <strong>Category path overlap</strong>
-      <ul style={{ margin: "8px 0 0", paddingLeft: 20 }}>
-        {messages.map((line) => (
-          <li key={line}>{line}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function ArrTorrentSummary({
-  state,
-}: {
-  state: ConfigDocument | ConfigDocument[keyof ConfigDocument] | null;
-}): JSX.Element {
-  const summary = useMemo(
-    () => getArrTorrentHandlingSummary(state as ConfigDocument | null),
-    [state]
-  );
-  return (
-    <div className="torrent-handling-summary" aria-live="polite">
-      <h3>How torrents are handled</h3>
-      <div className="torrent-handling-summary-body markdown-content">
-        <ReactMarkdown>{summary}</ReactMarkdown>
-      </div>
-    </div>
-  );
-}
-
-function ConfigModalPortal({ children }: { children: React.ReactNode }): JSX.Element {
-  return createPortal(children, document.body);
-}
-
-interface ArrInstanceModalProps {
-  keyName: string;
-  state: ConfigDocument | ConfigDocument[keyof ConfigDocument] | null;
-  onChange: (path: string[], def: FieldDefinition, value: unknown) => void;
-  onRename: (oldName: string, newName: string) => void;
-  onClose: () => void;
-  onSave: () => Promise<boolean>;
-  overlapWarnings: string[];
-}
-
-function ArrInstanceModal({
-  keyName,
-  state,
-  onChange,
-  onRename,
-  onClose,
-  onSave,
-  overlapWarnings,
-}: ArrInstanceModalProps): JSX.Element {
-  const { generalFields, entryFields, entryOmbiFields, entryOverseerrFields, torrentFields, seedingFields, trackerFields } =
-    getArrFieldSets(keyName);
-  const { push } = useToast();
-
-  // State for test connection
-  const [testState, setTestState] = useState<{
-    testing: boolean;
-    result: TestConnectionResponse | null;
-  }>({ testing: false, result: null });
-
-  const [qualityProfiles, setQualityProfiles] = useState<
-    Array<{ id: number; name: string }>
-  >([]);
-  const [savingModal, setSavingModal] = useState(false);
-
-  // Helper to get value from state
-  const getValue = (path: string[]): unknown => {
-    if (!state) return undefined;
-    // state is already the Arr instance object, not the full ConfigDocument
-    return get(state, path);
-  };
-  const uriValue = getValue(["URI"]) as string;
-  const apiKeyValue = getValue(["APIKey"]) as string;
-
-  // Clear test state when URI or APIKey changes
-  useEffect(() => {
-    const id = window.setTimeout(() => {
-      setTestState({ testing: false, result: null });
-      setQualityProfiles([]);
-    }, 0);
-    return () => window.clearTimeout(id);
-  }, [uriValue, apiKeyValue]);
-
-  // Auto-test connection when modal opens if credentials exist
-  useEffect(() => {
-    const uri = uriValue;
-    const apiKey = apiKeyValue;
-
-    if (uri && apiKey && !testState.testing && !testState.result) {
-      // Auto-test silently (without toasts)
-      handleTestConnection(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run on mount
-
-  // Test connection handler
-  async function handleTestConnection(silent = false): Promise<boolean> {
-    const uri = getValue(["URI"]) as string;
-    const apiKey = getValue(["APIKey"]) as string;
-    const isApiKeyRedacted = (apiKey ?? "").trim() === REDACTED_PLACEHOLDER;
-
-    // Determine Arr type from keyName
-    const keyLower = keyName.toLowerCase();
-    const arrType = keyLower.includes("radarr")
-      ? "radarr"
-      : keyLower.includes("sonarr")
-        ? "sonarr"
-        : "lidarr";
-
-    if (!isApiKeyRedacted && (!uri || !apiKey)) {
-      if (!silent) {
-        push("Please configure URI and API Key first", "error");
-      }
-      return false;
-    }
-
-    setTestState({ testing: true, result: null });
-
-    try {
-      const result = await testArrConnection(
-        isApiKeyRedacted
-          ? { arrType, instanceKey: keyName }
-          : { arrType, uri: uri ?? "", apiKey: apiKey ?? "" }
-      );
-      setTestState({ testing: false, result });
-
-      if (result.success) {
-        // Cache quality profiles for dropdown use
-        if (result.qualityProfiles) {
-          setQualityProfiles(result.qualityProfiles);
-        }
-        if (!silent) {
-          push(`Connected to ${keyName} successfully!`, "success");
-        }
-        return true;
-      } else {
-        if (!silent) {
-          push(`Connection failed: ${result.message}`, "error");
-        }
-        return false;
-      }
-    } catch {
-      setTestState({ testing: false, result: null });
-      if (!silent) {
-        push("Test connection failed", "error");
-      }
-      return false;
-    }
-  }
-
-  const handleSave = async () => {
-    if (savingModal) return;
-    setSavingModal(true);
-    try {
-      const uri = getValue(["URI"]) as string;
-      const apiKey = getValue(["APIKey"]) as string;
-      const managed = Boolean(getValue(["Managed"]));
-
-      if (managed && uri && apiKey) {
-        const success = await handleTestConnection(false);
-        if (!success) {
-          return;
-        }
-      }
-
-      const saved = await onSave();
-      if (saved) {
-        onClose();
-      }
-    } finally {
-      setSavingModal(false);
-    }
-  };
-
-  return (
-    <ConfigModalPortal>
-      <div className="modal-backdrop" role="presentation">
-        <div
-          className="modal"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="arr-instance-modal-title"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="modal-header">
-            <h2 id="arr-instance-modal-title">
-              Configure <code>{keyName}</code>
-            </h2>
-            <button className="btn ghost" type="button" onClick={safeClick(onClose)}>
-              <IconImage src={CloseIcon} />
-              Close
-            </button>
-          </div>
-        <div className="modal-body">
-          <ArrTorrentSummary state={state} />
-          <CategoryOverlapAlert messages={overlapWarnings} />
-          <FieldGroup
-            title={null}
-            fields={generalFields}
-            state={state}
-            basePath={[]}
-            onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
-            onRenameSection={onRename}
-            sectionKey={keyName}
-            defaultOpen
-          />
-          {testState.result && (
-            <div
-              className={`alert ${testState.result.success ? "success" : "error"}`}
-              style={{ margin: "16px 0" }}
-            >
-              {testState.result.success ? (
-                <>
-                  <strong>✓ {testState.result.message}</strong>
-                  {testState.result.systemInfo && (
-                    <div className="alert-details">
-                      Version: {testState.result.systemInfo.version}
-                      {testState.result.systemInfo.branch &&
-                        ` (${testState.result.systemInfo.branch})`}
-                    </div>
-                  )}
-                  {testState.result.qualityProfiles && (
-                    <div className="alert-details">
-                      Found {testState.result.qualityProfiles.length} quality
-                      profile(s)
-                    </div>
-                  )}
-                </>
-              ) : (
-                <>
-                  <strong>⚠️ Connection Failed</strong>
-                  <br />
-                  {testState.result.message}
-                </>
-              )}
-            </div>
-          )}
-          <FieldGroup
-            title="Entry Search"
-            fields={entryFields}
-            state={state}
-            basePath={[]}
-            onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
-            sectionKey={keyName}
-            defaultOpen
-          />
-          <FieldGroup
-            title="Quality Profile Mappings"
-            fields={[]}
-            state={state}
-            basePath={[]}
-            onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
-            sectionKey={keyName}
-            defaultOpen
-            qualityProfiles={qualityProfiles}
-          />
-          {entryOmbiFields.length > 0 && (
-            <FieldGroup
-              title="Ombi Integration"
-              fields={entryOmbiFields}
-              state={state}
-              basePath={[]}
-              onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
-              sectionKey={keyName}
-            />
-          )}
-          {entryOverseerrFields.length > 0 && (
-            <FieldGroup
-              title="Overseerr Integration"
-              fields={entryOverseerrFields}
-              state={state}
-              basePath={[]}
-              onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
-              sectionKey={keyName}
-            />
-          )}
-          <FieldGroup
-            title="Torrent Handling"
-            fields={torrentFields}
-            state={state}
-            basePath={[]}
-            onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
-            sectionKey={keyName}
-          />
-          <FieldGroup
-            title="Seeding"
-            fields={seedingFields}
-            state={state}
-            basePath={[]}
-            onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
-            sectionKey={keyName}
-          />
-          <FieldGroup
-            title="Trackers"
-            fields={trackerFields}
-            state={state}
-            basePath={[]}
-            onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
-            sectionKey={keyName}
-          />
-        </div>
-        <div className="modal-footer">
-          <button
-            className="btn secondary"
-            type="button"
-            onClick={() => handleTestConnection(false)}
-            disabled={testState.testing}
-          >
-            {testState.testing ? (
-              <>
-                <IconImage src={RefreshIcon} />
-                Testing...
-              </>
-            ) : (
-              "Test"
-            )}
-          </button>
-          <button
-            className="btn primary"
-            type="button"
-            onClick={() => void handleSave()}
-            disabled={savingModal || testState.testing}
-          >
-            <IconImage src={SaveIcon} />
-            {savingModal ? "Saving..." : "Save"}
-          </button>
-        </div>
-      </div>
-    </div>
-    </ConfigModalPortal>
-  );
-}
-
-function QbitTorrentSummary({
-  state,
-}: {
-  state: ConfigDocument | ConfigDocument[keyof ConfigDocument] | null;
-}): JSX.Element {
-  const summary = useMemo(
-    () => getQbitTorrentHandlingSummary(state as ConfigDocument | null),
-    [state]
-  );
-  return (
-    <div className="torrent-handling-summary" aria-live="polite">
-      <h3>How torrents are handled</h3>
-      <div className="torrent-handling-summary-body markdown-content">
-        <ReactMarkdown>{summary}</ReactMarkdown>
-      </div>
-    </div>
-  );
-}
-
-interface QbitInstanceModalProps {
-  keyName: string;
-  state: ConfigDocument | ConfigDocument[keyof ConfigDocument] | null;
-  onChange: (path: string[], def: FieldDefinition, value: unknown) => void;
-  onRename: (oldName: string, newName: string) => void;
-  onClose: () => void;
-  onSave: () => Promise<boolean>;
-  onDelete?: () => void;
-  overlapWarnings: string[];
-}
-
-function QbitInstanceModal({
-  keyName,
-  state,
-  onChange,
-  onRename,
-  onClose,
-  onSave,
-  onDelete,
-  overlapWarnings,
-}: QbitInstanceModalProps): JSX.Element {
-  const [savingModal, setSavingModal] = useState(false);
-
-  const handleDone = async () => {
-    if (savingModal) return;
-    setSavingModal(true);
-    try {
-      const saved = await onSave();
-      if (saved) {
-        onClose();
-      }
-    } finally {
-      setSavingModal(false);
-    }
-  };
-
-  return (
-    <ConfigModalPortal>
-      <div className="modal-backdrop" role="presentation">
-        <div
-          className="modal"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="qbit-instance-modal-title"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="modal-header">
-            <h2 id="qbit-instance-modal-title">
-              Configure <code>{keyName}</code>
-            </h2>
-            <button className="btn ghost" type="button" onClick={safeClick(onClose)}>
-              <IconImage src={CloseIcon} />
-              Close
-            </button>
-          </div>
-        <div className="modal-body">
-          <QbitTorrentSummary state={state} />
-          <CategoryOverlapAlert messages={overlapWarnings} />
-          <FieldGroup
-            title={null}
-            fields={QBIT_FIELDS}
-            state={state}
-            basePath={[]}
-            onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
-            onRenameSection={onRename}
-            sectionKey={keyName}
-            defaultOpen
-          />
-          <FieldGroup
-            title="Trackers"
-            fields={ARR_TRACKER_FIELDS}
-            state={state}
-            basePath={[]}
-            onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
-            defaultOpen={false}
-            qbitTrackers
-          />
-        </div>
-        <div className="modal-footer">
-          {onDelete && (
-            <button
-              className="btn danger"
-              type="button"
-              onClick={safeClick(() => {
-                onDelete();
-                onClose();
-              })}
-            >
-              <IconImage src={DeleteIcon} />
-              Delete
-            </button>
-          )}
-          <button
-            className="btn primary"
-            type="button"
-            onClick={() => void handleDone()}
-            disabled={savingModal}
-          >
-            <IconImage src={SaveIcon} />
-            {savingModal ? "Saving..." : "Save"}
-          </button>
-        </div>
-      </div>
-    </div>
-    </ConfigModalPortal>
-  );
-}
-
-interface SimpleConfigModalProps {
-  title: string;
-  fields: FieldDefinition[];
-  state: ConfigDocument | null;
-  basePath: string[];
-  onChange: (path: string[], def: FieldDefinition, value: unknown) => void;
-  onClose: () => void;
-  showLiveSettings?: boolean;
-  onSetPassword?: () => void;
-}
-
-function SimpleConfigModal({
-  title,
-  fields,
-  state,
-  basePath,
-  onChange,
-  onClose,
-  showLiveSettings = false,
-  onSetPassword,
-}: SimpleConfigModalProps): JSX.Element | null {
-  const webUI = useWebUI();
-
-  if (!state) return null;
-  return (
-    <ConfigModalPortal>
-      <div className="modal-backdrop" role="presentation">
-        <div
-          className="modal"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby={`${title}-modal-title`}
-          onClick={(event) => event.stopPropagation()}
-        >
-          <div className="modal-header">
-            <h2 id={`${title}-modal-title`}>{title}</h2>
-            <button className="btn ghost" type="button" onClick={safeClick(onClose)}>
-              <IconImage src={CloseIcon} />
-              Close
-            </button>
-          </div>
-        <div className="modal-body">
-          <FieldGroup
-            title={null}
-            fields={fields}
-            state={state}
-            basePath={basePath}
-            onChange={onChange}
-            defaultOpen
-          />
-          {showLiveSettings && webUI && (
-            <div className="field-group">
-              <h3 className="field-group-title">Live Settings</h3>
-              <div className="field-group-content">
-                <div className="field">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={webUI.liveArr}
-                      onChange={(e) => webUI.setLiveArr(e.target.checked)}
-                    />
-                    {" "}Live Arr Updates
-                  </label>
-                  <p className="field-description">Enable real-time updates for Arr views</p>
-                </div>
-                <div className="field">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={webUI.groupSonarr}
-                      onChange={(e) => webUI.setGroupSonarr(e.target.checked)}
-                    />
-                    {" "}Group Sonarr by Series
-                  </label>
-                  <p className="field-description">Group Sonarr episodes by series in views</p>
-                </div>
-                <div className="field">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={webUI.groupLidarr}
-                      onChange={(e) => webUI.setGroupLidarr(e.target.checked)}
-                    />
-                    {" "}Group Lidarr by Artist
-                  </label>
-                  <p className="field-description">Group Lidarr albums by artist in views</p>
-                </div>
-                <div className="field">
-                  <label>Theme</label>
-                  <select
-                    value={webUI.theme}
-                    onChange={(e) => webUI.setTheme(e.target.value as "light" | "dark")}
-                  >
-                    <option value="dark">Dark</option>
-                    <option value="light">Light</option>
-                  </select>
-                  <p className="field-description">WebUI theme (Light or Dark)</p>
-                </div>
-              </div>
-            </div>
-          )}
-          {onSetPassword && (
-            <div className="field-group">
-              <h3 className="field-group-title">Password Management</h3>
-              <div className="field-group-content">
-                <div className="field">
-                  <p className="field-description">
-                    Set or change the login password for local auth. The password hash is stored
-                    securely in config and never exposed via the API.
-                  </p>
-                  <button className="btn primary" type="button" onClick={onSetPassword}>
-                    Set Password
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="modal-footer">
-          <button className="btn primary" type="button" onClick={safeClick(onClose)}>
-            <IconImage src={SaveIcon} />
-            Done
-          </button>
-        </div>
-      </div>
-    </div>
-    </ConfigModalPortal>
-  );
-}
-
-interface SetPasswordModalProps {
-  onClose: () => void;
-}
-
-function SetPasswordModal({ onClose }: SetPasswordModalProps): JSX.Element {
-  const [username, setUsername] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [setupToken, setSetupToken] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const { push } = useToast();
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    if (!username.trim()) {
-      setError("Username is required.");
-      return;
-    }
-    if (newPassword.length < 8) {
-      setError("Password must be at least 8 characters.");
-      return;
-    }
-    if (newPassword !== confirm) {
-      setError("Passwords do not match.");
-      return;
-    }
-    setSubmitting(true);
-    try {
-      await apiSetPassword({ username: username.trim(), password: newPassword, setupToken: setupToken || undefined });
-      setSuccess(true);
-      push("Password set successfully.", "success");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to set password.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <ConfigModalPortal>
-      <div className="modal-backdrop" role="presentation">
-        <div
-          className="modal"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="set-password-modal-title"
-          onClick={(e) => e.stopPropagation()}
-          style={{ maxWidth: 480 }}
-        >
-          <div className="modal-header">
-            <h2 id="set-password-modal-title">Set Password</h2>
-            <button className="btn ghost" type="button" onClick={safeClick(onClose)}>
-              <IconImage src={CloseIcon} />
-              Close
-            </button>
-          </div>
-        <div className="modal-body">
-          {success ? (
-            <div style={{ padding: "1rem 0", color: "var(--success)" }}>
-              Password set successfully. Auth is now enabled with local login.
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-              <div className="field">
-                <label htmlFor="sp-username">Username</label>
-                <input
-                  id="sp-username"
-                  type="text"
-                  autoComplete="username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="sp-password">New Password</label>
-                <input
-                  id="sp-password"
-                  type="password"
-                  autoComplete="new-password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  minLength={8}
-                  required
-                />
-                <p className="field-description">Minimum 8 characters.</p>
-              </div>
-              <div className="field">
-                <label htmlFor="sp-confirm">Confirm Password</label>
-                <input
-                  id="sp-confirm"
-                  type="password"
-                  autoComplete="new-password"
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="sp-setup-token">Setup Token (optional for signed-in users)</label>
-                <input
-                  id="sp-setup-token"
-                  type="password"
-                  autoComplete="off"
-                  value={setupToken}
-                  onChange={(e) => setSetupToken(e.target.value)}
-                  placeholder="QBITRR_SETUP_TOKEN or WebUI.Token"
-                />
-                <p className="field-description">
-                  Signed-in users can change the password without this field. Otherwise provide{" "}
-                  <code>QBITRR_SETUP_TOKEN</code> or the <code>WebUI.Token</code> value from{" "}
-                  config.toml.
-                </p>
-              </div>
-              {error && <div style={{ color: "var(--danger)", fontSize: "0.875rem" }}>{error}</div>}
-              <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
-                <button
-                  className="btn ghost"
-                  type="button"
-                  onClick={safeClick(onClose)}
-                  disabled={submitting}
-                >
-                  Cancel
-                </button>
-                <button className="btn primary" type="submit" disabled={submitting}>
-                  {submitting ? "Setting…" : "Set Password"}
-                </button>
-              </div>
-            </form>
-          )}
-        </div>
-        {success && (
-          <div className="modal-footer">
-            <button className="btn primary" type="button" onClick={safeClick(onClose)}>
-              Close
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-    </ConfigModalPortal>
   );
 }

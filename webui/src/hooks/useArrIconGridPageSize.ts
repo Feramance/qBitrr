@@ -8,8 +8,14 @@ import {
 /**
  * Measure `.arr-icon-grid` width and expose {@link roundPageSizeToIconGridRows} when icon mode
  * is active; otherwise pass through base page sizes unchanged (list/table).
+ *
+ * Ignores zero-width measures (keep-alive tabs use `display:none` / `hidden`) and remeasures
+ * when `panelActive` becomes true so column counts recover after unhide.
  */
-export function useArrIconGridPageSize(enabled: boolean): {
+export function useArrIconGridPageSize(
+  enabled: boolean,
+  panelActive: boolean = true,
+): {
   gridRef: (node: HTMLElement | null) => void;
   columnCount: number;
   roundPageSize: (base: number) => number;
@@ -26,10 +32,14 @@ export function useArrIconGridPageSize(enabled: boolean): {
   }, []);
 
   useEffect(() => {
-    if (!enabled || !gridEl) {
+    if (!enabled || !gridEl || !panelActive) {
       return;
     }
     const measure = (width: number) => {
+      // Keep-alive inactive panels report 0 width — do not collapse column count.
+      if (width <= 0) {
+        return;
+      }
       setColumnCount(estimateIconGridColumns(width));
     };
     measure(gridEl.getBoundingClientRect().width);
@@ -41,14 +51,17 @@ export function useArrIconGridPageSize(enabled: boolean): {
     return () => {
       ro.disconnect();
     };
-  }, [enabled, gridEl]);
+  }, [enabled, gridEl, panelActive]);
 
-  const roundPageSize = (base: number): number => {
-    if (!enabled) {
-      return base;
-    }
-    return roundPageSizeToIconGridRows(base, columnCount);
-  };
+  const roundPageSize = useCallback(
+    (base: number): number => {
+      if (!enabled) {
+        return base;
+      }
+      return roundPageSizeToIconGridRows(base, columnCount);
+    },
+    [enabled, columnCount],
+  );
 
   return { gridRef, columnCount, roundPageSize };
 }

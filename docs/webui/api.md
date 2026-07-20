@@ -42,13 +42,13 @@ The base spec is maintained in the repository at `qBitrr/openapi.json` (also shi
 
 ### Keeping the spec aligned with the runtime
 
-Every Flask route registered in `qBitrr/webui.py` should appear under `paths` in `qBitrr/openapi.json` (and vice versa). A static drift check is provided so the two files cannot diverge silently:
+Every Flask route registered under `qBitrr/webui/` should appear under `paths` in `qBitrr/openapi.json` (and vice versa). A static drift check is provided so the two files cannot diverge silently:
 
 ```bash
 make openapi-check          # or: python scripts/openapi_check.py
 ```
 
-The check is also wired into pre-commit (local hook `openapi-check`). It parses the `@app.<method>("/path")` decorators in `qBitrr/webui.py`, walks `paths` in `qBitrr/openapi.json`, and fails on any route that exists in one file but not the other. Path *shape* is what matters; cosmetic parameter renames (e.g. `{id}` ↔ `{entry_id}`) are tolerated.
+The check is also wired into pre-commit (local hook `openapi-check`). It scans `@app.<method>("/path")` and `@_dual_route("/path")` decorators across `qBitrr/webui/**/*.py`, walks `paths` in `qBitrr/openapi.json`, and fails on any route that exists in one place but not the other. Path *shape* is what matters; cosmetic parameter renames (e.g. `{id}` ↔ `{entry_id}`) are tolerated.
 
 If you add or remove an endpoint, update `qBitrr/openapi.json` in the same commit.
 
@@ -199,7 +199,15 @@ Serve service worker for PWA support.
 Cache-Control: no-cache, no-store, must-revalidate
 ```
 
-**Use Case**: Progressive Web App functionality, offline support.
+**Use Case**: Progressive Web App functionality, offline support for static assets.
+
+**Caching behavior** (client `public/sw.js`):
+
+- **`/web/*` and `/api/*`**: network-first (dynamic JSON is never served cache-first).
+- **Static assets** (JS/CSS/fonts/images under the app origin): cache-first.
+- Log tail requests bypass the runtime cache.
+
+The WebUI also keeps a short in-memory TTL on selected GETs (for example `/web/status` ~2s, `/web/config` ~30s, `/web/meta` ~60s unless `force=1`) so overlapping shell and view polls share recent responses.
 
 ---
 
@@ -244,8 +252,6 @@ Get qBittorrent and Arr instance statuses.
   ],
   "webui": {
     "LiveArr": true,
-    "GroupSonarr": true,
-    "GroupLidarr": true,
     "Theme": "Dark",
     "ViewDensity": "Comfortable"
   },
@@ -606,7 +612,7 @@ Get qBittorrent categories managed by qBitrr (qBit-managed and Arr-managed) with
 **Endpoint**:
 - `GET /web/qbit/categories` (public only; no `/api/` variant)
 
-**Authentication**: None (public endpoint).
+**Authentication**: Requires Bearer token or WebUI session when authentication is enabled (`WebUI.AuthDisabled = false`). Same token gate as other protected `/web/*` routes.
 
 **Response**: Array of category objects, each including:
 - `category` - Category name
@@ -615,7 +621,66 @@ Get qBittorrent categories managed by qBitrr (qBit-managed and Arr-managed) with
 - `torrentCount`, `seedingCount`, `totalSize`, `avgRatio`, `avgSeedingTime`
 - `seedingConfig` - Per-category seeding limits (e.g. `maxRatio`, `maxTime`, `removeMode`, `downloadLimit`, `uploadLimit`)
 
-**Use Case**: Category management UI, seeding stats display.
+**Use Case**: Category management UI, seeding stats display (Processes chips).
+
+---
+
+### Get qBit Overview
+
+Get monitored qBittorrent categories (qBit-managed and Arr-managed) with per-torrent transfer details for the WebUI overview tab.
+
+**Endpoint**:
+- `GET /web/qbit/overview` (public only; no `/api/` variant)
+
+**Authentication**: Requires Bearer token or WebUI session when authentication is enabled (`WebUI.AuthDisabled = false`). Same token gate as other protected `/web/*` routes.
+
+**Query Parameters**:
+- `instance` (optional) - qBittorrent instance name (e.g. `qBit`). Omit or pass `all` to include every configured client.
+
+**Response**:
+```json
+{
+  "instances": ["qBit"],
+  "categories": [
+    {
+      "category": "movies",
+      "qbitInstance": "qBit",
+      "managedBy": "arr",
+      "arrName": "Radarr",
+      "torrentCount": 2,
+      "seedingCount": 1,
+      "totalSize": 123456789,
+      "avgRatio": 1.2,
+      "avgSeedingTime": 3600,
+      "seedingConfig": {
+        "maxRatio": -1,
+        "maxTime": -1,
+        "removeMode": -1,
+        "downloadLimit": -1,
+        "uploadLimit": -1
+      },
+      "torrents": [
+        {
+          "hash": "…",
+          "name": "Example",
+          "state": "uploading",
+          "progress": 1.0,
+          "size": 1000,
+          "dlspeed": 0,
+          "upspeed": 50,
+          "ratio": 1.5,
+          "tags": ["qbitrr"]
+        }
+      ]
+    }
+  ],
+  "ready": true
+}
+```
+
+qBit-managed categories are scoped to a single qBit client (`qbitInstance`). Arr-managed categories appear **once per Arr** (torrents aggregated across the in-scope client(s); `qbitInstance` is the selected client, or `"all"` when viewing every client). Each category may include `torrentsTruncated: true` when the torrent list was capped server-side. Torrent objects use camelCase fields aligned with qBittorrent `torrents/info` (hash, name, state, progress, speeds, peers, limits, etc.). Path and tracker fields are omitted from this payload.
+
+**Use Case**: qBittorrent WebUI tab — instance picker + collapsible category sections with List-style torrent rows.
 
 ---
 
@@ -654,84 +719,92 @@ Get torrent distribution statistics across all categories.
 
 ## Log Endpoints
 
+All log routes require authentication when WebUI auth is enabled (`/api/*` Bearer or `/web/*` session). See [Logs View](logs.md) for UI behavior.
+
 ### List Log Files
 
-Get all available log files.
-
-**Endpoints**:
-- `GET /api/logs` (requires auth)
-- `GET /web/logs` (public)
+**Endpoints**: `GET /api/logs`, `GET /web/logs`
 
 **Response**:
 ```json
 {
-  "files": ["Main.log", "WebUI.log"]
+  "files": ["All.log", "Main.log", "WebUI.log", "Main.log.old"]
 }
 ```
 
-**Fields**:
-
-- `files` - Array of log filenames (use with `/api/logs/<filename>` to get content)
-
-**Log Rotation**: Log files rotate at 10 MB, keeping 5 backups. Older backups appear as `Main.log.1`, `Main.log.2`, etc.
+On restart, active logs are renamed to `*.log.old` (not size-based numbered rotation).
 
 ---
 
-### Get Log Content
+### Get Log Content (tail / delta)
 
-Stream log file content as plain text.
+**Endpoints**: `GET /api/logs/<name>`, `GET /web/logs/<name>`
 
-**Endpoints**:
-- `GET /api/logs/<name>` (requires auth)
-- `GET /web/logs/<name>` (public)
+**Query parameters**:
 
-**Path Parameters**:
+| Param | Description |
+|-------|-------------|
+| `format=json` | Return JSON `LogTailPayload` |
+| `lines` | Tail window (default 2000, max 50000) |
+| `offset` | Skip N lines from end (older chunks) |
+| `since_bytes` | Incremental append from byte offset (implies JSON) |
+| `inode` | Detect rotation when inode changes |
+| `around_line` | Window centered on 1-based line number |
 
-- `name` (string, required) - Log filename (e.g., `Main.log`)
-
-**Response**: Plain text (MIME type: `text/plain; charset=utf-8`)
-
-**Headers**:
-```http
-Cache-Control: no-cache
-Content-Type: text/plain; charset=utf-8
+**JSON response** (`format=json` or `since_bytes`):
+```json
+{
+  "content": "...",
+  "next_bytes": 123456,
+  "size": 123456,
+  "inode": 42,
+  "rotated": false,
+  "truncated": false
+}
 ```
+
+Legacy callers without `format=json` still receive `text/plain` (full file or `lines`/`offset` tail).
 
 **Example**:
 ```bash
-curl http://localhost:6969/web/logs/Main.log
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:6969/api/logs/Main.log?format=json&lines=2000"
 ```
 
-**Behavior**:
+---
 
-- Reads entire log file into memory
-- Returns full content (supports dynamic loading in LazyLog component)
-- Invalid UTF-8 sequences ignored (errors="ignore")
+### Live log SSE stream
+
+**Endpoints**: `GET /api/logs/<name>/stream`, `GET /web/logs/<name>/stream`
+
+**Query**: `since_bytes`, `inode`, `lines`
+
+**Response**: `text/event-stream` with events `append`, `rotated`, `ping`, `reconnect`.
+
+Browsers should use `/web/logs/<name>/stream` with a session cookie (`EventSource` cannot set `Authorization`). Connections auto-close after ~5 minutes with a `reconnect` event; the client reconnects with the last cursor.
+
+---
+
+### Search log file
+
+**Endpoints**: `GET /api/logs/<name>/search`, `GET /web/logs/<name>/search`
+
+**Query**: `q` (required), `case`, `regex`, `max_matches`, `context`, `include_rotated`
+
+Scans the selected file and optional rotated siblings (`name*`) line-by-line with match/byte/time caps.
 
 ---
 
 ### Download Log File
 
-Download log file as attachment.
+**Endpoints**: `GET /api/logs/<name>/download`, `GET /web/logs/<name>/download`
 
-**Endpoints**:
-- `GET /api/logs/<name>/download` (requires auth)
-- `GET /web/logs/<name>/download` (public)
-
-**Path Parameters**:
-
-- `name` (string, required) - Log filename
-
-**Response**: File attachment (MIME type: `application/octet-stream`)
-
-**Headers**:
-```http
-Content-Disposition: attachment; filename="Main.log"
-```
+**Response**: File attachment (`Content-Disposition: attachment`).
 
 **Example**:
 ```bash
-curl -O http://localhost:6969/web/logs/Main.log/download
+curl -H "Authorization: Bearer $TOKEN" \
+  -O http://localhost:6969/api/logs/Main.log/download
 ```
 
 ---
@@ -740,7 +813,7 @@ curl -O http://localhost:6969/web/logs/Main.log/download
 
 ### Arr poster thumbnails (cached)
 
-Read-only image bytes for browse **Icon** tiles and detail modals. The server asks each Arr instance for the entity (movie, series, or **Lidarr artist**) and only serves images from **that same Arr host** (for example `MediaCover` paths under the Arr base URL). Metadata that points at external CDNs is ignored; if no same-host image exists, the route returns **404** and the WebUI shows a built-in placeholder. qBitrr downloads bytes from the Arr URL using the instance API key, caches them under the qBitrr data directory, and returns them with long-cache headers when possible. For Lidarr artists, when the JSON payload has no usable same-host URL, qBitrr may probe `MediaCover` paths on that Arr host before giving up. Cache files written before this policy may still contain older bytes until cleared.
+Read-only image bytes for browse **Icon** tiles and detail modals. qBitrr prefers deterministic same-host **MediaCover** URLs (poster-250 / poster-500 before full-size), then falls back to the Arr entity JSON image list. Only images on **that Arr host** are used; external CDN metadata is ignored. Downloaded bytes are resized (longest edge 250px), encoded as **WebP** (JPEG fallback), and stored under the qBitrr data directory with strong ETags. Parallel requests for the same entry share a single fetch (single-flight). Cache key version `v3` — older full-size cache files are not reused. If no same-host image exists, the route returns **404** and the WebUI shows a built-in placeholder.
 
 **Endpoints** (each has a `/api` and `/web` mirror; behavior is identical):
 
@@ -750,9 +823,9 @@ Read-only image bytes for browse **Icon** tiles and detail modals. The server as
 | `GET` | `/api/sonarr/<category>/series/<id>/thumbnail` · `/web/sonarr/<category>/series/<id>/thumbnail` |
 | `GET` | `/api/lidarr/<category>/artist/<id>/thumbnail` · `/web/lidarr/<category>/artist/<id>/thumbnail` |
 
-**Parameters**: `category` is the qBitrr Arr instance category; `id` is the Arr database id for that entity (movie, series, or Lidarr artist). Optional `?token=<WebUI.Token>` works for `<img src>` when not using a session cookie.
+**Parameters**: `category` is the qBitrr Arr instance category; `id` is the Arr database id for that entity (movie, series, or Lidarr artist). Optional `?token=<WebUI.Token>` remains accepted for non-browser clients; the WebUI Icon view uses session-cookie auth without embedding the token in `<img src>`.
 
-**Responses**: `200` with an image body (or `304` when `If-None-Match` matches), `401` if unauthorized, `404` if the entity or image cannot be resolved.
+**Responses**: `200` with an image body (or `304` when `If-None-Match` matches), `401` if unauthorized, `404` if the entity or image cannot be resolved. Successful responses use `Cache-Control: private, max-age=86400`.
 
 These routes are listed in `qBitrr/openapi.json` (both `/api` and `/web` variants).
 
@@ -941,10 +1014,9 @@ The `missing` and `reason` filters are applied at the album level via an `EXISTS
 
 Browse Lidarr album library from cached database.
 
-**Endpoints**:
-- `GET /web/lidarr/<category>/albums` (public)
-
-**Note**: There is no `/api/lidarr/<category>/albums` endpoint. Use `/web/lidarr/<category>/albums` instead.
+**Endpoints** (`dual_route` — `/api` and `/web` mirrors; behavior is identical):
+- `GET /api/lidarr/<category>/albums` (requires auth)
+- `GET /web/lidarr/<category>/albums` (public / session)
 
 **Path Parameters**:
 
@@ -1090,7 +1162,6 @@ Fetch current configuration from disk.
     "Port": 6969,
     "Token": "abc123...",
     "LiveArr": false,
-    "GroupSonarr": true,
     "Theme": "Dark"
   },
   "qBit": {
@@ -1169,15 +1240,17 @@ Apply changes to configuration and trigger reload.
 }
 ```
 
-**Reload Types**:
+**Reload Types** (classified by `qBitrr/config_reload_policy.py`; see also [Config file → Live config reload](../configuration/config-file.md#live-config-reload-webui-saves) and [Config editor](config-editor.md#reload-strategies)):
 
 | Type | Description | Behavior |
 |------|-------------|----------|
 | `frontend` | Frontend-only changes | No reload (e.g., `WebUI.Theme`) |
-| `webui` | WebUI server settings | Restart WebUI server |
-| `single_arr` | One Arr instance | Reload that instance only |
-| `multi_arr` | Multiple Arr instances | Reload each instance sequentially |
-| `full` | Global settings | Reload all components |
+| `live` | Global or Arr loop settings | No full Arr respawn/DB wipe; LIVE attrs via `_sync_loop_settings_from_config` → `_apply_arr_live_attrs_from_config`; supervisor may start/stop the search worker when `SearchMissing` changes |
+| `qbit_hot` | qBit category seeding | Refresh in-memory qBit category managers without respawn |
+| `webui` | WebUI server settings | Host/Port rebind Waitress; Token/UrlBase soft-apply when possible |
+| `single_arr` | One Arr instance | Respawn that instance (preserve or reset search DB depending on keys) |
+| `multi_arr` | Multiple Arr instances | Respawn each affected instance sequentially |
+| `full` | Global / PlaceHolder rebuild | Reload all components — PlaceHolder renames (`FailedCategory` / `RecheckCategory`) preserve Arr search DBs; other full keys wipe them |
 
 **Response** (Validation Error):
 ```json
@@ -1405,9 +1478,10 @@ add_header Access-Control-Allow-Headers "Authorization, Content-Type";
 
 **Not supported**. Use HTTP polling for real-time updates:
 
-- `GET /api/processes` - Poll every 5-10 seconds
-- `GET /api/meta` - Poll every 60 seconds (cached for 1 hour)
-- `GET /api/status` - Poll every 10-30 seconds
+- `GET /api/processes` - Poll about every 2 seconds while the Processes tab is active
+- `GET /api/meta` - Quiet poll about every 5 minutes (forced on tab visibility / update UI); server may cache longer
+- `GET /api/status` - Poll about every 15 seconds for Arr tab visibility
+- Arr catalog endpoints - Poll about every 15 seconds while the Arr tab is active and `WebUI.LiveArr` is enabled
 
 ---
 

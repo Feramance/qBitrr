@@ -1,4 +1,5 @@
 import type { JSX } from "react";
+import { createPortal } from "react-dom";
 import { IconImage } from "./IconImage";
 import CloseIcon from "../icons/close.svg";
 
@@ -21,11 +22,12 @@ export function ConfirmDialog({
   onCancel,
   danger = false,
 }: ConfirmDialogProps): JSX.Element {
-  return (
-    <div className="modal-backdrop" role="presentation">
+  // Portal above other modals (Config instance dialogs also portal to body).
+  return createPortal(
+    <div className="modal-backdrop modal-backdrop--confirm" role="presentation">
       <div
         className="modal"
-        style={{ maxWidth: '500px' }}
+        style={{ maxWidth: "500px" }}
         role="dialog"
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
@@ -33,7 +35,12 @@ export function ConfirmDialog({
       >
         <div className="modal-header">
           <h2 id="confirm-dialog-title">{title}</h2>
-          <button className="btn ghost" onClick={onCancel}>
+          <button
+            className="btn ghost"
+            type="button"
+            onClick={onCancel}
+            aria-label="Close"
+          >
             <IconImage src={CloseIcon} />
           </button>
         </div>
@@ -41,17 +48,19 @@ export function ConfirmDialog({
           <p style={{ margin: 0, lineHeight: 1.6 }}>{message}</p>
         </div>
         <div className="modal-footer">
-          <button className="btn ghost" onClick={onCancel}>
+          <button className="btn ghost" type="button" onClick={onCancel}>
             {cancelLabel}
           </button>
           <button
-            className={`btn ${danger ? 'danger' : 'primary'}`}
+            className={`btn ${danger ? "danger" : "primary"}`}
+            type="button"
             onClick={onConfirm}
           >
             {confirmLabel}
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

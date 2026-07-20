@@ -1,46 +1,54 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type JSX, type ReactNode } from "react";
 import { getConfig, updateConfig } from "../api/client";
 import { useToast } from "./ToastContext";
+import { createPersistedBooleanSetter } from "./webUISettingSetters";
 
 type ViewDensity = "comfortable" | "compact";
 type Theme = "light" | "dark";
 
 interface WebUISettings {
   liveArr: boolean;
-  groupSonarr: boolean;
-  groupLidarr: boolean;
   viewDensity: ViewDensity;
   theme: Theme;
 }
 
 interface WebUIContextValue {
   liveArr: boolean;
-  groupSonarr: boolean;
-  groupLidarr: boolean;
   viewDensity: ViewDensity;
   theme: Theme;
   setLiveArr: (value: boolean) => void;
-  setGroupSonarr: (value: boolean) => void;
-  setGroupLidarr: (value: boolean) => void;
   setViewDensity: (value: ViewDensity) => void;
   setTheme: (value: Theme) => void;
-  loading: boolean;
 }
 
 const WebUIContext = createContext<WebUIContextValue | null>(null);
 
+function applyThemeEarly(): void {
+  try {
+    const storedTheme = localStorage.getItem("theme");
+    const theme = storedTheme === "light" || storedTheme === "dark" ? storedTheme : "dark";
+    document.documentElement.setAttribute("data-theme", theme);
+  } catch {
+    document.documentElement.setAttribute("data-theme", "dark");
+  }
+}
+
+applyThemeEarly();
+
 export function WebUIProvider({ children }: { children: ReactNode }): JSX.Element {
-  const [settings, setSettings] = useState<WebUISettings>({
-    liveArr: true,
-    groupSonarr: true,
-    groupLidarr: true,
-    viewDensity: "comfortable",
-    theme: "dark",
+  const [settings, setSettings] = useState<WebUISettings>(() => {
+    const storedDensity = localStorage.getItem("viewDensity") as ViewDensity | null;
+    const storedTheme = localStorage.getItem("theme") as Theme | null;
+    return {
+      liveArr: true,
+      viewDensity: storedDensity === "compact" ? "compact" : "comfortable",
+      theme: storedTheme === "light" ? "light" : "dark",
+    };
   });
-  const [loading, setLoading] = useState(true);
   const { push } = useToast();
 
-  // Load initial settings
+  // Load settings from backend only after AuthGate has authenticated (this provider
+  // mounts inside the authenticated tree — see App.tsx).
   useEffect(() => {
     const loadSettings = async () => {
       try {
@@ -69,8 +77,6 @@ export function WebUIProvider({ children }: { children: ReactNode }): JSX.Elemen
 
         setSettings({
           liveArr: webui?.LiveArr === true,
-          groupSonarr: webui?.GroupSonarr === true,
-          groupLidarr: webui?.GroupLidarr === true,
           viewDensity,
           theme,
         });
@@ -79,8 +85,6 @@ export function WebUIProvider({ children }: { children: ReactNode }): JSX.Elemen
         document.documentElement.setAttribute('data-theme', theme);
       } catch {
         // settings load failed, defaults will be used
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -96,20 +100,16 @@ export function WebUIProvider({ children }: { children: ReactNode }): JSX.Elemen
     }
   }, []);
 
-  const setLiveArr = useCallback((value: boolean) => {
-    setSettings(prev => ({ ...prev, liveArr: value }));
-    void saveSettings("LiveArr", value);
-  }, [saveSettings]);
-
-  const setGroupSonarr = useCallback((value: boolean) => {
-    setSettings(prev => ({ ...prev, groupSonarr: value }));
-    void saveSettings("GroupSonarr", value);
-  }, [saveSettings]);
-
-  const setGroupLidarr = useCallback((value: boolean) => {
-    setSettings(prev => ({ ...prev, groupLidarr: value }));
-    void saveSettings("GroupLidarr", value);
-  }, [saveSettings]);
+  const setLiveArr = useMemo(
+    () =>
+      createPersistedBooleanSetter<WebUISettings, "liveArr">(
+        setSettings,
+        saveSettings,
+        "liveArr",
+        "LiveArr",
+      ),
+    [saveSettings],
+  );
 
   const setViewDensity = useCallback((value: ViewDensity) => {
     setSettings(prev => ({ ...prev, viewDensity: value }));
@@ -133,17 +133,12 @@ export function WebUIProvider({ children }: { children: ReactNode }): JSX.Elemen
 
   const value = useMemo<WebUIContextValue>(() => ({
     liveArr: settings.liveArr,
-    groupSonarr: settings.groupSonarr,
-    groupLidarr: settings.groupLidarr,
     viewDensity: settings.viewDensity,
     theme: settings.theme,
     setLiveArr,
-    setGroupSonarr,
-    setGroupLidarr,
     setViewDensity,
     setTheme,
-    loading,
-  }), [settings, setLiveArr, setGroupSonarr, setGroupLidarr, setViewDensity, setTheme, loading]);
+  }), [settings, setLiveArr, setViewDensity, setTheme]);
 
   return <WebUIContext.Provider value={value}>{children}</WebUIContext.Provider>;
 }

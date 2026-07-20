@@ -28,3 +28,10 @@ webui/dist/
 logs/
 *.log
 *.md
+
+# Never bake local secrets / compose test state into image layers
+.env
+*.env
+.env.*
+.compose-test/
+docker-compose.override.yml

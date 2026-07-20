@@ -34,7 +34,8 @@ _db: SqliteDatabase | None = None
 _DB_SCHEMA_VERSION_COMPOSITE_PK = 1
 _DB_SCHEMA_VERSION_DENORMALIZED_CATALOG = 2
 _DB_SCHEMA_VERSION_LIDARR_TRACK_DURATION_SECONDS = 3
-_TARGET_DB_SCHEMA_VERSION = _DB_SCHEMA_VERSION_LIDARR_TRACK_DURATION_SECONDS
+_DB_SCHEMA_VERSION_ARTIST_PROFILE_SWITCH = 4
+_TARGET_DB_SCHEMA_VERSION = _DB_SCHEMA_VERSION_ARTIST_PROFILE_SWITCH
 # Staging table suffix for composite-PK rebuild only (historical label; not bumped with TARGET).
 _LEGACY_ARR_FILE_STAGING_SCHEMA_VERSION = _DB_SCHEMA_VERSION_DENORMALIZED_CATALOG
 _ARR_FILE_TABLE_MODELS = (
@@ -702,12 +703,52 @@ def _migrate_v3_lidarr_track_duration_seconds(db: SqliteDatabase) -> bool:
         return False
 
 
+def _migrate_v4_artist_profile_switch_columns(db: SqliteDatabase) -> bool:
+    """Add temp quality-profile switch columns to ``ArtistFilesModel``.
+
+    Peewee model fields ``LastProfileSwitchTime``, ``CurrentProfileId``, and
+    ``OriginalProfileId`` were added for Lidarr artist temp-profile tracking, but
+    ``create_tables(..., safe=True)`` does not ALTER existing tables. Without this
+    migration, Lidarr artist catalog queries fail with ``no such column``.
+
+    Returns ``True`` on success so :func:`_apply_db_schema_migrations` can bump
+    ``user_version``.
+    """
+    tn = ArtistFilesModel._meta.table_name
+    if not _table_exists(db, tn):
+        return True
+    additions = [
+        ("LastProfileSwitchTime", "DATETIME"),
+        ("CurrentProfileId", "INTEGER"),
+        ("OriginalProfileId", "INTEGER"),
+    ]
+    try:
+        have = set(_get_table_columns(db, tn))
+        for col_name, col_def in additions:
+            if col_name in have:
+                continue
+            db.execute_sql(
+                f"ALTER TABLE {_quote_identifier(tn)} "
+                f"ADD COLUMN {_quote_identifier(col_name)} {col_def}"
+            )
+            logger.info("Added column %s.%s", tn, col_name)
+            have.add(col_name)
+        return True
+    except Exception as e:
+        logger.warning(
+            "ArtistFilesModel profile-switch column migration failed: %s",
+            e,
+        )
+        return False
+
+
 def _apply_db_schema_migrations(db: SqliteDatabase) -> None:
     """Run idempotent DB schema migrations guarded by user_version.
 
     Version 1: composite primary keys on Arr file tables (:func:`_migrate_arr_file_table_constraints`).
     Version 2: denormalized catalog columns (:func:`_migrate_v2_catalog_denormalized_columns`).
     Version 3: Lidarr ``TrackFiles.Duration`` ms legacy cleanup (:func:`_migrate_v3_lidarr_track_duration_seconds`).
+    Version 4: Lidarr artist temp-profile columns (:func:`_migrate_v4_artist_profile_switch_columns`).
 
     Earlier versions bump first so a failing later migration does not force earlier steps to rerun.
     Each step advances ``user_version`` only on success (H-4 pattern).
@@ -757,7 +798,7 @@ def _apply_db_schema_migrations(db: SqliteDatabase) -> None:
         if _migrate_v3_lidarr_track_duration_seconds(db):
             _set_db_schema_version(db, _DB_SCHEMA_VERSION_LIDARR_TRACK_DURATION_SECONDS)
             logger.info(
-                "Database schema upgrade complete (user_version=%d).",
+                "Database Lidarr track duration migration complete (user_version=%d).",
                 _DB_SCHEMA_VERSION_LIDARR_TRACK_DURATION_SECONDS,
             )
         else:
@@ -765,6 +806,25 @@ def _apply_db_schema_migrations(db: SqliteDatabase) -> None:
                 "Database schema kept at version %d; v%d migration will retry on next start.",
                 current_version,
                 _DB_SCHEMA_VERSION_LIDARR_TRACK_DURATION_SECONDS,
+            )
+            return
+
+    current_version = _get_db_schema_version(db)
+    if current_version >= _TARGET_DB_SCHEMA_VERSION:
+        return
+
+    if current_version < _DB_SCHEMA_VERSION_ARTIST_PROFILE_SWITCH:
+        if _migrate_v4_artist_profile_switch_columns(db):
+            _set_db_schema_version(db, _DB_SCHEMA_VERSION_ARTIST_PROFILE_SWITCH)
+            logger.info(
+                "Database schema upgrade complete (user_version=%d).",
+                _DB_SCHEMA_VERSION_ARTIST_PROFILE_SWITCH,
+            )
+        else:
+            logger.warning(
+                "Database schema kept at version %d; v%d migration will retry on next start.",
+                current_version,
+                _DB_SCHEMA_VERSION_ARTIST_PROFILE_SWITCH,
             )
 
 

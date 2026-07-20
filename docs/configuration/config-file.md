@@ -16,6 +16,7 @@ This comprehensive guide explains every setting in qBitrr's `config.toml` config
 - [Complete Minimal Config](#complete-minimal-config)
 - [Advanced/Hidden Settings](#advancedhidden-settings)
 - [Edge Case Behaviors](#edge-case-behaviors)
+- [Live config reload (WebUI saves)](#live-config-reload-webui-saves)
 - [Implementation Details](#implementation-details-not-user-configurable)
 - [See Also](#see-also)
 
@@ -86,7 +87,7 @@ qBitrr's configuration is organized into several sections:
 
 1. **[Settings](#settings-section)** - Global qBitrr settings
 2. **[WebUI](#webui-section)** - Web interface configuration
-3. **[qBit](#qbit-section)** - qBittorrent connection
+3. **[qBit](#qbit-section)** / **[qBit-*](#qbit-section)** - qBittorrent connection (optional; absence disables qBit)
 4. **[Sonarr-*](#arr-sections)** - Sonarr instance configuration
 5. **[Radarr-*](#arr-sections)** - Radarr instance configuration
 6. **[Lidarr-*](#arr-sections)** - Lidarr instance configuration
@@ -575,7 +576,7 @@ FFprobeAutoUpdate = true
 **Type:** Boolean
 **Default:** `true`
 
-Automatically download and update FFprobe binary for media file validation.
+Automatically download and update FFprobe binary for media file validation. Downloads use HTTPS and an allowlisted host (ffbinaries.com / GitHub release assets); SHA-256 is verified when the upstream API provides a checksum. Prefer a distro/system `ffprobe` in Docker when available.
 
 When `true`:
 
@@ -767,8 +768,6 @@ Host = "0.0.0.0"
 Port = 6969
 Token = ""
 LiveArr = true
-GroupSonarr = true
-GroupLidarr = true
 Theme = "Dark"
 ViewDensity = "Comfortable"
 ```
@@ -866,48 +865,22 @@ LiveArr = true
 
 **Type:** Boolean
 **Default:** `true`
+**Label:** Live (app-bar switch)
 
-Enable live updates in Arr views (Radarr/Sonarr/Lidarr tabs).
+Enable live updates for Arr catalogs and the qBittorrent overview.
 
 When `true`:
 
-- Real-time status updates
-- Progress bars update live
-- No manual refresh needed
+- Auto-refresh on active Arr / qBittorrent tabs
+- Progress and status update without a full page reload
 
 When `false`:
 
-- Static snapshots
-- Must manually refresh page
+- No auto-refresh on those views
+- Use the in-page Refresh button
 - Lower resource usage
 
 **Recommendation:** Keep `true` for best UX.
-
----
-
-### GroupSonarr
-
-```toml
-GroupSonarr = true
-```
-
-**Type:** Boolean
-**Default:** `true`
-
-**Reserved.** Not applied by the current WebUI implementation. Behaviour is described in [Web UI → Arr views](../webui/arr-views.md#overview): browse uses series rows; the modal nests seasons and episodes.
-
----
-
-### GroupLidarr
-
-```toml
-GroupLidarr = true
-```
-
-**Type:** Boolean
-**Default:** `true`
-
-**Reserved.** Not applied by the current WebUI implementation. Behaviour is described in [Web UI → Arr views](../webui/arr-views.md#overview): browse uses artist rows; the modal nests albums and tracks.
 
 ---
 
@@ -946,7 +919,7 @@ List view density in the WebUI (e.g. Arr views, process list). `Comfortable` use
 
 ## qBit Section
 
-The `[qBit]` section configures the connection to qBittorrent.
+qBittorrent connection sections use `[qBit]` or `[qBit-<name>]` (same naming idea as Arr instances). qBit is optional: if no matching section exists, qBitrr treats qBit as disabled. Adding a section enables it; set `Disabled = true` on an instance to keep the section without connecting.
 
 ### Complete qBit Example
 
@@ -962,6 +935,11 @@ ManagedCategories = []
 # subcategory beneath them ("seed" then matches "seed/tleech", "seed/longterm",
 # etc.). Defaults to false (exact match), preserving existing behaviour.
 MatchSubcategories = false
+
+# Named form is equally valid (and can be the only qBit section):
+# [qBit-General]
+# Host = "192.168.1.100"
+# Port = 8080
 ```
 
 For detailed qBittorrent configuration, including `[qBit.CategorySeeding]` for per-category seeding settings, plus the dedicated **[Subcategories](qbittorrent.md#subcategories-qbittorrent-46)** section covering full-path values, the `MatchSubcategories` opt-in, and migration tips, see the [qBittorrent Configuration Guide](qbittorrent.md).
@@ -1265,7 +1243,7 @@ qBitrr uses infinite retry loops in specific scenarios for reliability:
 
 #### Quality Profile Fetching (Startup)
 
-**Location:** `arss.py`
+**Location:** `qBitrr/arss/` (concrete Arr classes)
 **Behavior:** Retries forever until Arr responds with quality profiles
 
 **Retry Strategy:**
@@ -1280,7 +1258,7 @@ qBitrr uses infinite retry loops in specific scenarios for reliability:
 
 #### Search Command Posting
 
-**Location:** `arss.py`
+**Location:** `qBitrr/arss/` (search handlers)
 **Behavior:** Retries search API call until network succeeds
 
 **Retry Strategy:**
@@ -1295,6 +1273,79 @@ qBitrr uses infinite retry loops in specific scenarios for reliability:
 **Impact:** Search processing pauses during Arr downtime but resumes automatically when Arr recovers.
 
 **Note:** `Searched=True` only set AFTER successful API call, so failed searches are retried.
+
+---
+
+## Live config reload (WebUI saves)
+
+When you save changes from the WebUI config editor, qBitrr classifies each key (`qBitrr/config_reload_policy.py`) and applies the lightest reload that is safe. Worker processes re-read `config.toml` on their next loop iteration via `sync_config_from_disk()`.
+
+### Live (no worker restart)
+
+These take effect on the next loop without killing Arr or qBit workers:
+
+| Key prefix | Examples |
+|------------|----------|
+| `Settings.*` | `ConsoleLevel`, `LoopSleepTimer`, `SearchLoopDelay`, `NoInternetSleepTimer`, `CompletedDownloadFolder`, `AutoPauseResume`, `PingURLS`, `IgnoreTorrentsYoungerThan`, `FFprobeAutoUpdate`, `AutoUpdateEnabled`, `AutoUpdateCron`, `FreeSpace`, `FreeSpaceFolder` |
+| Arr timers / ETA | `*.RssSyncTimer`, `*.RefreshDownloadsTimer`, `*.Torrent.IgnoreTorrentsYoungerThan`, `*.Torrent.MaximumETA`, `*.Torrent.StalledDelay` |
+| Arr `Torrent.*` (LIVE) | `AutoDelete`, `CaseSensitiveMatches`, exclusion/allowlist regexes, `DoNotRemoveSlow`, `ReSearchStalled`, `MaximumDeletablePercentage`, `SeedingMode.*`, `Trackers` (merged with `qBit.Trackers`) |
+| Arr `EntrySearch.*` (LIVE) | `SearchMissing`, `DoUpgradeSearch`, `QualityUnmetSearch`, `CustomFormatUnmetSearch`, `ForceMinimumCustomFormat`, `AlsoSearchSpecials`, `Unmonitored`, `SearchByYear`, `SearchInReverse`, `SearchLimit`, `SearchBySeries`, `SearchAgainOnSearchCompletion`, `PrioritizeTodaysReleases`, `SearchRequestsEvery`, Ombi/Overseerr enable+URI+key+`ApprovedOnly`+`Is4K`+request-provider `SkipTLSVerify` |
+| Arr other LIVE | `ReSearch`, `ArrErrorCodesToBlocklist` |
+
+Arr LIVE workers re-read disk each loop via `_sync_loop_settings_from_config()` → `_apply_arr_live_attrs_from_config()`. Main-process managed objects apply the same LIVE attrs via `apply_config_refresh()` on WebUI live saves (dual ownership). LIVE still avoids a full Arr respawn / DB wipe; when `SearchMissing` changes, the supervisor may start or stop that instance's search worker only.
+
+**Not** applied live (require Arr respawn — see preserve-db below): `URI`, `APIKey`, servarr `SkipTLSVerify`, `Category`, `Managed`, `importMode`. Quality-profile / temp-profile keys require reset-db respawn.
+
+API response: `"reloadType": "live"`, `"configReloaded": true`.
+
+### qBit hot reload (no worker respawn)
+
+qBit-managed category seeding updates in-process:
+
+| Key prefix | Examples |
+|------------|----------|
+| `qBit.*` / `qBit-*.*` | `ManagedCategories`, `MatchSubcategories`, `CategorySeeding.*`, `Trackers` |
+
+API response: `"reloadType": "qbit_hot"`.
+
+### Arr reload preserving search DB
+
+Connection or identity changes respawn that Arr instance's workers but **keep** its search database:
+
+| Keys | Examples |
+|------|----------|
+| Per-instance | `URI`, `APIKey`, `SkipTLSVerify`, `Category`, `Managed`, `importMode` |
+
+API response: `"reloadType": "single_arr"` or `"multi_arr"`.
+
+### Arr reload resetting search DB
+
+Quality-profile / temp-profile mapping changes reset search state:
+
+| Keys | Examples |
+|------|----------|
+| `*.EntrySearch.*` | `QualityProfileMappings`, `MainQualityProfile`, `TempQualityProfile`, `UseTempForMissing`, `KeepTempProfile`, `ForceResetTempProfiles`, profile timeout/retry keys |
+
+Same API response as preserve-db reload; database files are deleted before respawn.
+
+### Full restart required
+
+| Category | Examples |
+|----------|----------|
+| qBit connection | `qBit.Disabled`, `Host`, `Port`, `UserName`, `Password`, `SkipTLSVerify` |
+| Settings (logging / process gates) | `Logging`, `Tagless`, `AutoRestartProcesses`, restart limit/window/delay |
+| PlaceHolder categories | `Settings.FailedCategory`, `Settings.RecheckCategory` — registered at ArrManager init; renames need a full rebuild so PlaceHolder workers track the new category strings (**Arr search DBs are preserved**) |
+| Unknown keys | Any unrecognized top-level section |
+
+API response: `"reloadType": "full"` — all workers are stopped and respawned. Arr search DBs are wiped for Tagless/Logging/qBit connection/etc.; PlaceHolder-only renames preserve them.
+
+### WebUI-only
+
+| Keys | Behavior |
+|------|----------|
+| `WebUI.Theme`, `WebUI.ViewDensity`, `WebUI.LiveArr`, … | `"reloadType": "frontend"` — no backend reload |
+| `WebUI.Host`, `WebUI.Port` | `"reloadType": "webui"` — Waitress close/rebind on the new host/port |
+| `WebUI.Token`, `WebUI.UrlBase`, OIDC, … | `"reloadType": "webui"` — soft-apply when possible; OIDC/auth changes may still restart WebUI |
 
 ---
 

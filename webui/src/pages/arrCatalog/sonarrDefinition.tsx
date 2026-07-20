@@ -12,36 +12,48 @@ import {
 import { getSonarrSeries } from "../../api/client";
 import type {
   ArrInfo,
-  SonarrSeason,
   SonarrSeriesEntry,
   SonarrSeriesResponse,
 } from "../../api/types";
 import { ArrMiniProgress } from "../../components/arr/ArrMiniProgress";
 import {
+  ArrListProgressCell,
+  ArrMonitoredBadge,
+  ArrReasonBadge,
+} from "../../components/arr/ArrStatusCells";
+import {
   type SonarrSeriesGroup,
   SonarrSeriesGroupDetailBody,
 } from "../../components/arr/SonarrSeriesGroupDetailBody";
-import { StableTable } from "../../components/StableTable";
-import { INSTANCE_VIEW_POLL_INTERVAL_MS } from "../../constants/arrAggregateFetch";
-import { ARR_CATALOG_SYNC_HINT } from "../../constants/arrCatalogMessages";
+import { ArrCatalogStandardBody } from "./ArrCatalogStandardBody";
 import { useInterval } from "../../hooks/useInterval";
 import { useRowsStore } from "../../hooks/useRowsStore";
 import { arraysEqual } from "../../utils/dataSync";
+import { normalizeNumericId } from "../../utils/normalizeNumericId";
 import { sonarrSeriesThumbnailUrl } from "../../utils/arrThumbnailUrl";
 import type { RowsStore } from "../../utils/rowsStore";
 import { ArrCatalogIconTile } from "./ArrCatalogIconTile";
-import {
-  ArrCatalogBodyChrome,
-  ArrCatalogPagination,
-} from "./ArrCatalogBodyChrome";
+import { createStandardArrFilters } from "./createStandardArrFilters";
+import { INSTANCE_VIEW_POLL_INTERVAL_MS } from "../../constants/arrAggregateFetch";
 import type {
   ArrCatalogDefinition,
   ArrCatalogInstancePipelineParams,
   ArrCatalogInstancePipelineState,
   ArrCatalogSummary,
+  AnyArrCatalogDefinition,
 } from "./definition";
-import { ARR_CATALOG_REGISTRY } from "./registry";
-import { categoryForInstanceLabel } from "./utils";
+import {
+  isEmptyStateReady,
+  useCatalogEmptyStateTracker,
+  useCatalogIconGridRefetch,
+  useCatalogPageCache,
+  useCatalogSearchRegistration,
+} from "./useCatalogFetchPrimitives";
+import {
+  filterSeriesEntriesForMissing,
+  filterSeriesEntryByReason,
+} from "./sonarrCatalogModes";
+import { categoryForInstanceLabel, softCapCachedPages, visibleRowsForCachedPage } from "./utils";
 
 const SONARR_PAGE_SIZE = 25;
 
@@ -69,16 +81,7 @@ const SONARR_INSTANCE_PAGE_HASH_FIELDS: (keyof SonarrSeriesComparable)[] = [
 ];
 
 function normalizeSonarrSeriesId(value: unknown): number | undefined {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === "string" && value.trim() !== "") {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-  }
-  return undefined;
+  return normalizeNumericId(value);
 }
 
 function getSonarrSeriesEntryKey(entry: SonarrSeriesComparable): string {
@@ -89,50 +92,7 @@ function getSonarrSeriesEntryKey(entry: SonarrSeriesComparable): string {
   return `t:${String(entry.series?.["title"] ?? "")}`;
 }
 
-function filterSeriesEntriesForMissing(
-  seriesEntries: SonarrSeriesEntry[],
-  onlyMissing: boolean,
-): SonarrSeriesEntry[] {
-  if (!onlyMissing) return seriesEntries;
-  const result: SonarrSeriesEntry[] = [];
-  for (const entry of seriesEntries) {
-    const seasons = entry.seasons ?? {};
-    const filteredSeasons: Record<string, SonarrSeason> = {};
-    for (const [seasonNumber, season] of Object.entries(seasons)) {
-      const episodes = (season.episodes ?? []).filter((ep) => !ep.hasFile);
-      if (!episodes.length) continue;
-      filteredSeasons[seasonNumber] = { ...season, episodes };
-    }
-    if (Object.keys(filteredSeasons).length === 0) continue;
-    result.push({ ...entry, seasons: filteredSeasons });
-  }
-  return result;
-}
-
-function filterSeriesEntryByReason(
-  entry: SonarrSeriesEntry,
-  reasonFilter: string,
-): SonarrSeriesEntry | null {
-  if (reasonFilter === "all") return entry;
-  const seasons = entry.seasons ?? {};
-  const next: Record<string, SonarrSeason> = {};
-  for (const [sn, season] of Object.entries(seasons)) {
-    const eps = (season.episodes ?? []).filter((ep) => {
-      const r = ep.reason as string | null | undefined;
-      if (reasonFilter === "Not being searched") {
-        return r === "Not being searched" || !r;
-      }
-      return r === reasonFilter;
-    });
-    if (eps.length) {
-      next[sn] = { ...season, episodes: eps };
-    }
-  }
-  if (!Object.keys(next).length) return null;
-  return { ...entry, seasons: next };
-}
-
-export function seriesEntryToGroup(
+function seriesEntryToGroup(
   entry: SonarrSeriesEntry,
   instanceLabel: string,
 ): SonarrSeriesGroup {
@@ -239,14 +199,12 @@ function useSonarrInstancePipeline(
   const [emptyStateReady, setEmptyStateReady] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
-  const pagesRef = useRef<Record<number, SonarrSeriesEntry[]>>({});
-  const keyRef = useRef<string>("");
+  const { pagesRef, keyRef, wipePages } = useCatalogPageCache<SonarrSeriesEntry>();
+  const emptyTracker = useCatalogEmptyStateTracker();
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
   const prevSelectionRef = useRef<string | null>(selection);
   const prevOnlyMissingRef = useRef(filters.onlyMissing);
-  const sawNonEmptyRef = useRef(false);
-  const stableEmptyStreakRef = useRef(0);
 
   const rowsStoreOpts = useMemo(
     () => ({
@@ -279,14 +237,14 @@ function useSonarrInstancePipeline(
         const keyChanged = keyRef.current !== key;
         if (keyChanged) {
           keyRef.current = key;
-          pagesRef.current = {};
+          const wiped = wipePages();
+          pagesRef.current = wiped;
           setPages({});
           setTotalItems(0);
           setTotalPages(1);
           setPage(0);
           setEmptyStateReady(false);
-          sawNonEmptyRef.current = false;
-          stableEmptyStreakRef.current = 0;
+          emptyTracker.resetEmptyState();
         }
         const effectivePageIdx = keyChanged ? 0 : pageIdx;
         const ps = roundPageSize(SONARR_PAGE_SIZE);
@@ -310,12 +268,11 @@ function useSonarrInstancePipeline(
         const hasCatalogData = series.length > 0 || total > 0;
 
         if (hasCatalogData) {
-          sawNonEmptyRef.current = true;
-          stableEmptyStreakRef.current = 0;
+          emptyTracker.noteCatalogData(true);
           setEmptyStateReady((prev) => (prev ? prev : true));
         } else {
-          stableEmptyStreakRef.current += 1;
-          const ready = sawNonEmptyRef.current || stableEmptyStreakRef.current >= 2;
+          emptyTracker.noteCatalogData(false);
+          const ready = isEmptyStateReady(emptyTracker, false);
           setEmptyStateReady((prev) => (prev === ready ? prev : ready));
         }
 
@@ -331,10 +288,13 @@ function useSonarrInstancePipeline(
             SONARR_INSTANCE_PAGE_HASH_FIELDS,
           );
 
-        const next = { ...prev, [resolvedPage]: series };
+        const next = softCapCachedPages(
+          { ...prev, [resolvedPage]: series },
+          resolvedPage,
+        ) as Record<number, SonarrSeriesEntry[]>;
         pagesRef.current = next;
         if (pageChanged) {
-          setPages(next);
+          setPages({ ...next });
           setLastUpdated(new Date().toLocaleTimeString());
         }
 
@@ -362,12 +322,15 @@ function useSonarrInstancePipeline(
         );
         setTotalItems((ti) => (ti === total ? ti : total));
       } catch (error) {
-        pushToast(
-          error instanceof Error
-            ? error.message
-            : `Failed to load ${category} series`,
-          "error",
-        );
+        // Background Live polls must stay silent; only toast user-visible loads.
+        if (showLoading) {
+          pushToast(
+            error instanceof Error
+              ? error.message
+              : `Failed to load ${category} series`,
+            "error",
+          );
+        }
       } finally {
         if (showLoading) setLoading(false);
       }
@@ -389,13 +352,13 @@ function useSonarrInstancePipeline(
     const onlyMissingChanged =
       prevOnlyMissingRef.current !== filters.onlyMissing;
     if (selectionChanged) {
-      pagesRef.current = {};
+      const wiped = wipePages();
+      pagesRef.current = wiped;
       setPages({});
       setPage(0);
       setTotalPages(1);
       setEmptyStateReady(false);
-      sawNonEmptyRef.current = false;
-      stableEmptyStreakRef.current = 0;
+      emptyTracker.resetEmptyState();
       prevSelectionRef.current = selection;
     }
     if (onlyMissingChanged) {
@@ -421,19 +384,13 @@ function useSonarrInstancePipeline(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selection]);
 
-  // Search handler.
-  useEffect(() => {
-    if (!active) return;
-    const handler = (term: string) => {
-      if (!selection) return;
-      setPage(0);
-      void fetchInstanceRef.current(selection, 0, term, {
-        showLoading: true,
-        missingOnly: filtersRef.current.onlyMissing,
-      });
-    };
-    return registerSearchHandler(handler);
-  }, [active, selection, registerSearchHandler]);
+  useCatalogSearchRegistration(active, selection, registerSearchHandler, (term) => {
+    setPage(0);
+    void fetchInstanceRef.current(selection!, 0, term, {
+      showLoading: true,
+      missingOnly: filtersRef.current.onlyMissing,
+    });
+  });
 
   // Background polling.
   useInterval(
@@ -450,19 +407,21 @@ function useSonarrInstancePipeline(
     active && polling && selection ? INSTANCE_VIEW_POLL_INTERVAL_MS : null,
   );
 
-  // Re-fetch on icon-grid resize so per-page rows match the visible grid.
-  useEffect(() => {
-    if (!active) return;
-    if (!selection) return;
-    if (browseMode !== "icon") return;
-    void fetchInstanceRef.current(selection, page, query, {
-      showLoading: false,
-      missingOnly: filtersRef.current.onlyMissing,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, selection, browseMode, iconInstancePageSize]);
+  useCatalogIconGridRefetch(
+    active,
+    selection,
+    browseMode,
+    iconInstancePageSize,
+    () => {
+      void fetchInstanceRef.current(selection!, page, query, {
+        showLoading: false,
+        missingOnly: filtersRef.current.onlyMissing,
+      });
+    },
+  );
 
   const allSeries = useMemo<SonarrSeriesEntry[]>(() => {
+    // Catalog-empty checks use any cached page; display uses the current server page.
     const sortedKeys = Object.keys(pages)
       .map(Number)
       .sort((a, b) => a - b);
@@ -474,38 +433,35 @@ function useSonarrInstancePipeline(
     return out;
   }, [pages]);
 
-  const filteredGroups = useMemo<SonarrSeriesGroupRow[]>(() => {
-    const missingFiltered = filterSeriesEntriesForMissing(
-      allSeries,
-      filters.onlyMissing,
-    );
-    const withReason: SonarrSeriesEntry[] = [];
-    for (const entry of missingFiltered) {
-      const f = filterSeriesEntryByReason(entry, filters.reasonFilter);
-      if (f) withReason.push(f);
-    }
-    const q = (globalSearchRef.current || "").trim().toLowerCase();
-    const filtered = q
-      ? withReason.filter((e) => {
-          const t = (e.series?.["title"] as string | undefined) || "";
-          return t.toLowerCase().includes(q);
-        })
-      : withReason;
-    return filtered.map(
+  const visibleRows = useMemo<SonarrSeriesGroupRow[]>(() => {
+    const pageSeries = visibleRowsForCachedPage(pages, page, (rows) => {
+      const missingFiltered = filterSeriesEntriesForMissing(
+        [...rows],
+        filters.onlyMissing,
+      );
+      const withReason: SonarrSeriesEntry[] = [];
+      for (const entry of missingFiltered) {
+        const f = filterSeriesEntryByReason(entry, filters.reasonFilter);
+        if (f) withReason.push(f);
+      }
+      const q = (globalSearchRef.current || "").trim().toLowerCase();
+      if (!q) return withReason;
+      return withReason.filter((e) => {
+        const t = (e.series?.["title"] as string | undefined) || "";
+        return t.toLowerCase().includes(q);
+      });
+    });
+    return pageSeries.map(
       (e) => seriesEntryToGroup(e, instanceLabel) as SonarrSeriesGroupRow,
     );
   }, [
-    allSeries,
+    pages,
+    page,
     filters.onlyMissing,
     filters.reasonFilter,
     instanceLabel,
     globalSearchRef,
   ]);
-
-  const visibleRows = useMemo<SonarrSeriesGroupRow[]>(
-    () => filteredGroups.slice(page * pageSize, page * pageSize + pageSize),
-    [filteredGroups, page, pageSize],
-  );
 
   // Push the current page slice through the row store.
   useEffect(() => {
@@ -556,40 +512,80 @@ function useSonarrInstancePipeline(
   };
 }
 
-function buildSonarrInstanceColumns(): ColumnDef<SonarrSeriesGroupRow>[] {
-  return [
-    {
-      accessorKey: "series" as const,
-      header: "Series",
-      cell: (info) => String(info.getValue() ?? ""),
-    },
-    {
-      id: "episodes",
-      header: "Episodes",
-      cell: ({ row }) => row.original.episodes.length,
-    },
-    {
-      accessorKey: "qualityProfileName" as const,
-      header: "Quality profile",
-      cell: (info) =>
-        (info.getValue() as string | null | undefined) || "—",
-    },
-  ];
+function sonarrSeriesMonitored(group: SonarrSeriesGroupRow): boolean {
+  return group.episodes.some((ep) => ep.monitored);
 }
 
-function buildSonarrAggColumns(
+function sonarrSeriesReason(group: SonarrSeriesGroupRow): string | null {
+  const active = group.episodes
+    .map((ep) => (typeof ep.reason === "string" ? ep.reason.trim() : ""))
+    .find((r) => r.length > 0);
+  return active ?? null;
+}
+
+/** Module-level column defs — stable identity across renders for StableTable memo. */
+const SONARR_INSTANCE_COLUMNS: ColumnDef<SonarrSeriesGroupRow>[] = [
+  {
+    accessorKey: "series" as const,
+    header: "Series",
+    cell: (info) => String(info.getValue() ?? ""),
+  },
+  {
+    id: "progress",
+    header: "Progress",
+    cell: ({ row }) => {
+      const mon = row.original.episodes.filter((e) => e.monitored);
+      const available = mon.filter((e) => e.hasFile).length;
+      const missing = Math.max(0, mon.length - available);
+      return (
+        <ArrListProgressCell
+          label="Episodes"
+          available={available}
+          missing={missing}
+        />
+      );
+    },
+    size: 140,
+  },
+  {
+    id: "monitored",
+    header: "Monitored",
+    cell: ({ row }) => (
+      <ArrMonitoredBadge monitored={sonarrSeriesMonitored(row.original)} />
+    ),
+    size: 120,
+  },
+  {
+    accessorKey: "qualityProfileName" as const,
+    header: "Quality profile",
+    cell: (info) =>
+      (info.getValue() as string | null | undefined) || "—",
+  },
+  {
+    id: "reason",
+    header: "Reason",
+    cell: ({ row }) => (
+      <ArrReasonBadge reason={sonarrSeriesReason(row.original)} />
+    ),
+    size: 140,
+  },
+];
+
+const SONARR_AGG_COLUMNS_SINGLE = SONARR_INSTANCE_COLUMNS;
+
+const SONARR_AGG_COLUMNS_MULTI: ColumnDef<SonarrSeriesGroupRow>[] = [
+  {
+    accessorKey: "instance" as const,
+    header: "Instance",
+    cell: (info) => String(info.getValue() ?? ""),
+  },
+  ...SONARR_INSTANCE_COLUMNS,
+];
+
+function getSonarrAggColumns(
   instanceCount: number,
 ): ColumnDef<SonarrSeriesGroupRow>[] {
-  const base: ColumnDef<SonarrSeriesGroupRow>[] = [];
-  if (instanceCount > 1) {
-    base.push({
-      accessorKey: "instance" as const,
-      header: "Instance",
-      cell: (info) => String(info.getValue() ?? ""),
-    });
-  }
-  base.push(...buildSonarrInstanceColumns());
-  return base;
+  return instanceCount > 1 ? SONARR_AGG_COLUMNS_MULTI : SONARR_AGG_COLUMNS_SINGLE;
 }
 
 export const SONARR_DEFINITION: ArrCatalogDefinition<
@@ -608,34 +604,7 @@ export const SONARR_DEFINITION: ArrCatalogDefinition<
   allInstancesLabel: "All Sonarr",
   searchPlaceholder: "Filter series or episodes",
   initialFilters: { onlyMissing: false, reasonFilter: "all" },
-  filterControls: [
-    {
-      id: "status",
-      label: "Status",
-      mode: "always",
-      options: [
-        { value: "all", label: "All Episodes" },
-        { value: "missing", label: "Missing Only" },
-      ],
-      getValue: (f) => (f.onlyMissing ? "missing" : "all"),
-      setValue: (prev, next) => ({ ...prev, onlyMissing: next === "missing" }),
-    },
-    {
-      id: "reason",
-      label: "Search Reason",
-      mode: "always",
-      options: [
-        { value: "all", label: "All Reasons" },
-        { value: "Not being searched", label: "Not Being Searched" },
-        { value: "Missing", label: "Missing" },
-        { value: "Quality", label: "Quality" },
-        { value: "CustomFormat", label: "Custom Format" },
-        { value: "Upgrade", label: "Upgrade" },
-      ],
-      getValue: (f) => f.reasonFilter,
-      setValue: (prev, next) => ({ ...prev, reasonFilter: next }),
-    },
-  ],
+  filterControls: createStandardArrFilters<SonarrFilters>("All Episodes"),
   aggregate: {
     basePageSize: SONARR_PAGE_SIZE,
     initialRollup: null,
@@ -742,13 +711,13 @@ export const SONARR_DEFINITION: ArrCatalogDefinition<
       category={String(extras.category ?? "")}
     />
   ),
-  buildAggregateColumns: buildSonarrAggColumns,
-  buildInstanceColumns: buildSonarrInstanceColumns,
   renderAggregateBody: (props) => <SonarrAggregateBody {...props} />,
   renderInstanceBody: (props) => <SonarrInstanceBody {...props} />,
 };
 
-ARR_CATALOG_REGISTRY.sonarr = SONARR_DEFINITION;
+export function getSonarrCatalogDefinition(): AnyArrCatalogDefinition {
+  return SONARR_DEFINITION;
+}
 
 interface SonarrAggregateBodyProps {
   readonly rows: ReadonlyArray<SonarrSeriesGroupRow>;
@@ -793,7 +762,37 @@ function SonarrAggregateBody({
   instances,
   instanceCount,
 }: SonarrAggregateBodyProps): JSX.Element {
-  const columns = buildSonarrAggColumns(instanceCount);
+  const columns = useMemo(
+    () => getSonarrAggColumns(instanceCount),
+    [instanceCount],
+  );
+  const renderIconTile = useCallback(
+    (g: SonarrSeriesGroupRow) => {
+      const cat = categoryForInstanceLabel([...instances], g.instance);
+      const sid = g.seriesId;
+      const thumb =
+        sid != null && cat ? sonarrSeriesThumbnailUrl(cat, sid) : "";
+      return (
+        <ArrCatalogIconTile
+          key={`${g.instance}-${String(g.seriesId ?? "")}-${g.series}`}
+          posterSrc={thumb}
+          onClick={() => onRowSelect(g)}
+        >
+          {instanceCount > 1 ? (
+            <div className="arr-movie-tile__instance">{g.instance}</div>
+          ) : null}
+          <div className="arr-movie-tile__title">{g.series}</div>
+          <div className="arr-movie-tile__stats arr-movie-tile__stats--sonarr-episodes">
+            {sonarrMonitoredEpisodeProgress(g)}
+          </div>
+          <div className="arr-movie-tile__quality">
+            {g.qualityProfileName ?? "—"}
+          </div>
+        </ArrCatalogIconTile>
+      );
+    },
+    [instances, instanceCount, onRowSelect],
+  );
   const waitingForStableEmpty =
     instanceCount > 0 && !emptyStateReady && total === 0;
   const effectiveLoading = loading || waitingForStableEmpty;
@@ -829,69 +828,33 @@ function SonarrAggregateBody({
     !effectiveLoading && total === 0 && summary.total === 0 && instanceCount > 0;
 
   return (
-    <ArrCatalogBodyChrome
+    <ArrCatalogStandardBody
       summaryLine={summaryLine}
       onRefresh={onRefresh}
       loading={effectiveLoading}
       loadingHint="Loading Sonarr library…"
-      footer={
-        total > 0 ? (
-          <ArrCatalogPagination
-            page={page}
-            totalPages={totalPages}
-            total={total}
-            itemNoun="series"
-            pageSize={aggregatePageSize}
-            loading={effectiveLoading}
-            onPageChange={onPageChange}
-          />
-        ) : null
-      }
-    >
-      {showCatalogEmptyHint ? (
-        <div className="hint">
-          <p>No episodes found in the database.</p>
-          <p>{ARR_CATALOG_SYNC_HINT}</p>
-        </div>
-      ) : !total ? (
-        <div className="hint">No series found.</div>
-      ) : browseMode === "list" ? (
-        <StableTable<SonarrSeriesGroupRow>
-          rowsStore={rowsStore}
-          rowOrder={rowOrder}
-          columns={columns}
-          getRowKey={sonarrGroupRowKey}
-          onRowClick={onRowSelect}
-        />
-      ) : (
-        <div className="arr-icon-grid" ref={iconGridRef}>
-          {rows.map((g) => {
-            const cat = categoryForInstanceLabel([...instances], g.instance);
-            const sid = g.seriesId;
-            const thumb =
-              sid != null && cat ? sonarrSeriesThumbnailUrl(cat, sid) : "";
-            return (
-              <ArrCatalogIconTile
-                key={`${g.instance}-${String(g.seriesId ?? "")}-${g.series}`}
-                posterSrc={thumb}
-                onClick={() => onRowSelect(g)}
-              >
-                {instanceCount > 1 ? (
-                  <div className="arr-movie-tile__instance">{g.instance}</div>
-                ) : null}
-                <div className="arr-movie-tile__title">{g.series}</div>
-                <div className="arr-movie-tile__stats arr-movie-tile__stats--sonarr-episodes">
-                  {sonarrMonitoredEpisodeProgress(g)}
-                </div>
-                <div className="arr-movie-tile__quality">
-                  {g.qualityProfileName ?? "—"}
-                </div>
-              </ArrCatalogIconTile>
-            );
-          })}
-        </div>
-      )}
-    </ArrCatalogBodyChrome>
+      emptyOrder="syncFirst"
+      showCatalogEmptyHint={showCatalogEmptyHint}
+      hasRows={total > 0}
+      catalogEmptyMessage="No episodes found in the database."
+      noMatchMessage="No series found."
+      showPagination={totalPages > 1}
+      page={page}
+      totalPages={totalPages}
+      total={total}
+      itemNoun="series"
+      pageSize={aggregatePageSize}
+      onPageChange={onPageChange}
+      browseMode={browseMode}
+      rows={rows}
+      rowOrder={rowOrder}
+      rowsStore={rowsStore}
+      columns={columns}
+      getRowKey={sonarrGroupRowKey}
+      onRowSelect={onRowSelect}
+      iconGridRef={iconGridRef}
+      renderIconTile={renderIconTile}
+    />
   );
 }
 
@@ -909,7 +872,6 @@ interface SonarrInstanceBodyProps {
   readonly browseMode: "list" | "icon";
   readonly iconGridRef: RefCallback<HTMLElement | null>;
   readonly category: string;
-  readonly instanceLabel: string;
   readonly showCatalogEmptyHint: boolean;
   readonly onRowSelect: (row: SonarrSeriesGroupRow) => void;
   readonly setPage: (page: number) => void;
@@ -959,73 +921,62 @@ function SonarrInstanceBody({
     </>
   );
 
-  const columns = buildSonarrInstanceColumns();
+  const columns = SONARR_INSTANCE_COLUMNS;
+  const renderIconTile = useCallback(
+    (g: SonarrSeriesGroupRow) => {
+      const sid = g.seriesId;
+      const thumb =
+        sid != null && category ? sonarrSeriesThumbnailUrl(category, sid) : "";
+      return (
+        <ArrCatalogIconTile
+          key={`${g.instance}-${String(g.seriesId ?? "")}-${g.series}`}
+          posterSrc={thumb}
+          onClick={() => onRowSelect(g)}
+        >
+          <div className="arr-movie-tile__title">{g.series}</div>
+          <div className="arr-movie-tile__stats arr-movie-tile__stats--sonarr-episodes">
+            {sonarrMonitoredEpisodeProgress(g)}
+          </div>
+          <div className="arr-movie-tile__quality">
+            {g.qualityProfileName ?? "—"}
+          </div>
+        </ArrCatalogIconTile>
+      );
+    },
+    [category, onRowSelect],
+  );
 
   return (
-    <ArrCatalogBodyChrome
+    <ArrCatalogStandardBody
       summaryLine={summaryLine}
       onRefresh={refresh}
       loading={effectiveLoading}
       loadingHint="Loading series…"
-      footer={
-        totalPages > 1 ? (
-          <ArrCatalogPagination
-            page={page}
-            totalPages={totalPages}
-            total={totalItems}
-            itemNoun="series"
-            pageSize={pageSize}
-            loading={effectiveLoading}
-            onPageChange={setPage}
-          />
-        ) : null
+      emptyOrder="syncFirst"
+      showCatalogEmptyHint={showCatalogEmptyHint}
+      hasRows={visibleRows.length > 0}
+      catalogEmptyMessage="No series rows in the local catalog yet."
+      noMatchMessage={
+        isFiltered
+          ? "No episodes match the current filter."
+          : "No series found."
       }
-    >
-      {showCatalogEmptyHint ? (
-        <div className="hint">
-          <p>No series rows in the local catalog yet.</p>
-          <p>{ARR_CATALOG_SYNC_HINT}</p>
-        </div>
-      ) : visibleRows.length === 0 && isFiltered ? (
-        <div className="hint">No episodes match the current filter.</div>
-      ) : visibleRows.length ? (
-        browseMode === "list" ? (
-          <StableTable<SonarrSeriesGroupRow>
-            rowsStore={rowsStore}
-            rowOrder={rowOrder}
-            columns={columns}
-            getRowKey={sonarrGroupRowKey}
-            onRowClick={onRowSelect}
-          />
-        ) : (
-          <div className="arr-icon-grid" ref={iconGridRef}>
-            {visibleRows.map((g) => {
-              const sid = g.seriesId;
-              const thumb =
-                sid != null && category
-                  ? sonarrSeriesThumbnailUrl(category, sid)
-                  : "";
-              return (
-                <ArrCatalogIconTile
-                  key={`${g.instance}-${String(g.seriesId ?? "")}-${g.series}`}
-                  posterSrc={thumb}
-                  onClick={() => onRowSelect(g)}
-                >
-                  <div className="arr-movie-tile__title">{g.series}</div>
-                  <div className="arr-movie-tile__stats arr-movie-tile__stats--sonarr-episodes">
-                    {sonarrMonitoredEpisodeProgress(g)}
-                  </div>
-                  <div className="arr-movie-tile__quality">
-                    {g.qualityProfileName ?? "—"}
-                  </div>
-                </ArrCatalogIconTile>
-              );
-            })}
-          </div>
-        )
-      ) : (
-        <div className="hint">No series found.</div>
-      )}
-    </ArrCatalogBodyChrome>
+      showPagination={totalPages > 1}
+      page={page}
+      totalPages={totalPages}
+      total={totalItems}
+      itemNoun="series"
+      pageSize={pageSize}
+      onPageChange={setPage}
+      browseMode={browseMode}
+      rows={visibleRows}
+      rowOrder={rowOrder}
+      rowsStore={rowsStore}
+      columns={columns}
+      getRowKey={sonarrGroupRowKey}
+      onRowSelect={onRowSelect}
+      iconGridRef={iconGridRef}
+      renderIconTile={renderIconTile}
+    />
   );
 }

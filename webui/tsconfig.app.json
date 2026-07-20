@@ -26,6 +26,10 @@
     "useDefineForClassFields": true,
     "verbatimModuleSyntax": true
   },
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx"
+  ],
   "include": [
     "src"
   ]

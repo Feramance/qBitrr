@@ -81,21 +81,37 @@ ProcessRestartWindow = 300
 ProcessRestartDelay = 5
 
 [WebUI]
-# WebUI listen host (default 0.0.0.0)
+# WebUI listen host (default 0.0.0.0; use 127.0.0.1 for localhost-only)
 Host = "0.0.0.0"
 
 # WebUI listen port (default 6969)
 Port = 6969
 
-# Optional bearer token to secure WebUI/API.
-# Set a non-empty value to require Authorization: Bearer <token>.
+# Bearer token used when authentication is enabled; does not enable auth by itself.
+# Available via /api/token and /web/token when authorized (including when AuthDisabled).
+# Send as Authorization: Bearer <token> on API requests when auth is required.
 Token = ""
 
-# Disable all auth — set to false to require login (default true for backward compat)
-AuthDisabled = true
+# When true, login is not required and the full admin API is open to anyone who can
+# reach the WebUI port (including token retrieval, config writes, and self-update).
+# New installs default to false (login required). Legacy configs missing this key
+# still treat auth as disabled for backward compatibility.
+AuthDisabled = false
+
+# Required acknowledgment when AuthDisabled is true and Host is 0.0.0.0 or ::.
+# Set to true only if you intentionally expose an unauthenticated admin WebUI
+# (e.g. behind a reverse proxy that already authenticates clients).
+# Legacy configs missing this key keep warn-only behavior; new installs default false.
+AllowInsecureExposure = false
+
+# Allow authentication via ?token= query parameter (insecure: leaks in logs/history).
+# Prefer Authorization: Bearer. Legacy configs missing this key still accept query tokens.
+AllowInsecureTokenQuery = false
 
 # Set to true when the WebUI is reached over HTTPS (e.g. behind a reverse proxy).
 # When true, the app trusts X-Forwarded-Proto and sets the session cookie as Secure. Leave false for plain HTTP.
+# Only enable behind a trusted proxy that overwrites X-Forwarded-* headers (spoofed
+# X-Forwarded-For can bypass login rate limits if the app is reachable directly).
 BehindHttpsProxy = false
 
 # Public URL path prefix when served behind a reverse proxy (no trailing slash).
@@ -135,12 +151,6 @@ RequireHttpsMetadata = true
 
 # Enable live updates for Arr views
 LiveArr = true
-
-# Reserved (no effect in current WebUI): browse is series rows + detail modal
-GroupSonarr = true
-
-# Reserved (no effect in current WebUI): browse is artist rows + detail modal
-GroupLidarr = true
 
 # WebUI theme (Light or Dark)
 Theme = "Dark"

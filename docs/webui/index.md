@@ -36,9 +36,7 @@ Port = 6969
 Token = ""
 
 # WebUI-specific display settings
-LiveArr = true        # Enable live Arr instance views
-GroupSonarr = true    # Reserved (no effect today); Sonarr browse uses series rows + modal
-GroupLidarr = true    # Reserved (no effect today); Lidarr browse uses artist rows + modal
+LiveArr = true        # Live updates for Arr catalogs + qBittorrent overview
 Theme = "Dark"        # Dark | Light | Auto
 ```
 
@@ -227,10 +225,9 @@ Browse and manage your media libraries directly from qBitrr.
   - Next airing episode
   - Download progress
 
-- **Grouping**
-  - Group episodes by series (default)
-  - Flat view (all episodes)
-  - Group by season
+- **Browse shape**
+  - Series rows on the main table; seasons and episodes open in the detail modal
+  - Flat episode lists are not offered (permanently removed)
 
 - **Episode Filtering**
   - Missing episodes
@@ -265,9 +262,9 @@ Browse and manage your media libraries directly from qBitrr.
   - Quality (FLAC, MP3, etc.)
   - Download status
 
-- **Grouping**
-  - Group albums by artist (default)
-  - Flat view (all albums)
+- **Browse shape**
+  - Artist rows on the main table; albums and tracks open in the detail modal
+  - Flat album lists are not offered (permanently removed)
 
 - **Filtering**
   - By artist
@@ -293,31 +290,43 @@ Browse and manage your media libraries directly from qBitrr.
 
 ---
 
-### 📦 qBittorrent Categories
+### 📦 qBittorrent Overview
 
-View and monitor all qBittorrent categories — both qBit-managed and Arr-managed — from a unified dashboard.
+Monitored-category torrent overview for qBit-managed and Arr-managed categories — not a full qBittorrent client.
+
+The **qBittorrent** nav tab appears only when at least one qBittorrent instance is configured and enabled (same pattern as the Radarr/Sonarr/Lidarr tabs).
 
 **Features:**
 
+- **Layout**
+  - Same card shell as Arr/Processes (`card` header + sidebar/pane split)
+  - Summary counts and Refresh live in the right pane (Arr catalog body chrome)
+
+- **Instance picker**
+  - Select a qBittorrent client or **All qBittorrent** (when more than one is configured)
+  - Same sidebar / mobile select pattern as the Arr catalog views
+
+- **Search**
+  - Filter categories and torrents by name/tags (client-side), cleared when switching instance
+
 - **Category Overview**
-  - Total category count across all qBittorrent instances
+  - Total category count for the selected (or filtered) scope
   - Breakdown of qBit-managed vs. Arr-managed categories
   - Aggregate torrent count, seeding count, and total size
 
-- **Category Table**
-  - Category name
-  - Managed By indicator (qBit or Arr badge)
-  - Instance name (for multi-instance setups)
-  - Torrent count and seeding count
-  - Total size
-  - Average ratio and average seeding time
-  - Configured max ratio and max seeding time
-  - Removal mode (Never, On Ratio, On Time, Ratio OR Time, Ratio AND Time)
+- **Collapsible category sections**
+  - Category name, managed-by badge, qBit instance (in All view)
+  - Torrent / seeding counts, total size, and seeding-policy summary
+  - Expand a section to list torrents currently in that category
+
+- **Torrent list rows** (VueTorrent List-inspired)
+  - State-colored left border, torrent name, wrapping labeled metrics
+  - Progress bar, speeds, size/transfer, peers/seeds, state, ratio, tags, and more
+  - Read-only overview — no pause/delete/add actions
 
 - **Live Updates**
-  - Auto-refresh every 1 second when "Live Arr" is enabled
-  - Auto-refresh every 30 seconds otherwise
-  - Manual refresh button
+  - Auto-refresh every 5 seconds when the app-bar **Live** switch is on and the tab is active
+  - Manual refresh button (also works when Live is off)
 
 **Use Cases:**
 
@@ -360,9 +369,9 @@ Edit your qBitrr configuration without leaving the browser.
   - Download configuration file
 
 - **Apply Changes**
-  - Per-instance save for each qBittorrent and Arr instance
-  - Save all changed sections with **Save + Live Reload**
-  - Restart qBitrr with new config
+  - Per-instance / modal Save for Settings, WebUI, qBittorrent, and each Arr instance
+  - Intelligent live reload after save (`live`, `qbit_hot`, Arr preserve/reset, or full restart)
+  - Restart qBitrr with new config when a full restart is required
   - Restart specific Arr instances only
   - Rollback on failure
 
@@ -440,10 +449,10 @@ The WebUI uses a tab-based navigation system:
 |-----|------|---------|
 | **Processes** | 🔄 | Process management and control |
 | **Logs** | 📋 | Live log viewer with filtering |
-| **Radarr** | 🎬 | Radarr movie library views |
-| **Sonarr** | 📺 | Sonarr TV series views |
-| **Lidarr** | 🎵 | Lidarr music library views |
-| **qBittorrent** | 📦 | qBit category management and seeding stats |
+| **Radarr** | 🎬 | Radarr movie library views (when a Radarr instance is configured) |
+| **Sonarr** | 📺 | Sonarr TV series views (when a Sonarr instance is configured) |
+| **Lidarr** | 🎵 | Lidarr music library views (when a Lidarr instance is configured) |
+| **qBittorrent** | 📦 | Monitored-category torrent overview (when a qBit instance is configured) |
 | **Config** | ⚙️ | Configuration editor |
 | **API** | 🔌 | API documentation and testing |
 

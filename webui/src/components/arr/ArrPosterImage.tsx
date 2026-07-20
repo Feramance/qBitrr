@@ -6,6 +6,12 @@ import {
   type SyntheticEvent,
 } from "react";
 import { enqueuePosterReveal } from "../../utils/posterLoadQueue";
+import {
+  POSTER_MAX_RETRIES,
+  posterRetryBackoffMs,
+  withPosterRetryParam,
+} from "../../utils/posterRetry";
+import { observePosterVisibility } from "../../utils/sharedIntersectionObserver";
 
 interface ArrPosterImageProps {
   src: string;
@@ -22,13 +28,12 @@ async function finalizePosterDisplay(img: HTMLImageElement): Promise<void> {
 }
 
 /**
- * Poster for icon browse: intersection-gated reveal + bounded global queue limits
- * parallel thumbnail loads; shows fallback until decoded image displays (no half-painted frame).
+ * Poster for icon browse: shared intersection gate + bounded global queue limits
+ * parallel thumbnail loads; shows fallback until the image is ready to paint.
  *
- * The poster queue slot is held until the underlying `<img>` actually finishes (load, error,
- * or component unmount) — see H-5 in the WebUI plan. The previous implementation released
- * the slot immediately after the React state update, which throttled `setState` calls
- * rather than network requests.
+ * Failed loads retry up to {@link POSTER_MAX_RETRIES} times (backoff + cache-bust) via the
+ * poster queue. The queue slot is released when the network load settles (``onLoad`` /
+ * ``onError``), before awaiting ``decode()``, so decode work does not starve the queue.
  */
 export function ArrPosterImage({
   src,
@@ -38,57 +43,76 @@ export function ArrPosterImage({
   const [failed, setFailed] = useState(false);
   const [released, setReleased] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
   const loadIdRef = useRef(0);
-  // Held while the slot is checked out; called when the image truly finishes (load/error/
+  const attemptRef = useRef(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelledRef = useRef(false);
+  // Held while the slot is checked out; called when the image network settles (load/error/
   // unmount) so we never pin the queue past the lifetime of this poster.
   const releaseSlotRef = useRef<(() => void) | null>(null);
 
-  useEffect(() => {
-    loadIdRef.current += 1;
-    const id = window.setTimeout(() => {
-      setLoaded(false);
-      setFailed(false);
-      setReleased(false);
-    }, 0);
-    // A new src means the previous slot (if any) is no longer the one rendering — drop it.
+  const clearRetryTimer = () => {
+    if (retryTimerRef.current !== null) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
+  };
+
+  const releaseSlot = () => {
     if (releaseSlotRef.current) {
       releaseSlotRef.current();
       releaseSlotRef.current = null;
     }
-    return () => window.clearTimeout(id);
+  };
+
+  const enqueueLoad = () => {
+    return enqueuePosterReveal((release) => {
+      releaseSlotRef.current = release;
+      setReleased(true);
+    });
+  };
+
+  useEffect(() => {
+    cancelledRef.current = false;
+    loadIdRef.current += 1;
+    attemptRef.current = 0;
+    clearRetryTimer();
+    // Reset load state when the poster URL changes (new row / retry base src).
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional reset on src identity change
+    setLoaded(false);
+    setFailed(false);
+    setReleased(false);
+    setAttempt(0);
+    if (releaseSlotRef.current) {
+      releaseSlotRef.current();
+      releaseSlotRef.current = null;
+    }
+    return () => {
+      cancelledRef.current = true;
+      clearRetryTimer();
+    };
   }, [src]);
 
   useEffect(() => {
     const el = rootRef.current;
     if (!el) return;
     let cancelEnqueue: (() => void) | null = null;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) {
-          cancelEnqueue = enqueuePosterReveal((release) => {
-            // Slot is now ours; render the <img>.  Release runs from onLoad/onError below
-            // (or the watchdog inside the queue).
-            releaseSlotRef.current = release;
-            setReleased(true);
-          });
-          observer.disconnect();
-        }
-      },
-      { rootMargin: "200px", threshold: 0.01 },
-    );
-    observer.observe(el);
+    const unobserve = observePosterVisibility(el, () => {
+      cancelEnqueue = enqueueLoad();
+    });
     return () => {
-      observer.disconnect();
-      // If we were waiting for a slot, drop the wait.
+      unobserve();
       if (cancelEnqueue) cancelEnqueue();
     };
+    // Only re-bind visibility when the base src changes; retries re-enqueue directly.
   }, [src]);
 
-  // On unmount, release the slot if we still hold it (no point waiting for a network load
-  // that nobody will see).
   useEffect(() => {
     return () => {
+      cancelledRef.current = true;
+      clearRetryTimer();
       if (releaseSlotRef.current) {
         releaseSlotRef.current();
         releaseSlotRef.current = null;
@@ -101,28 +125,49 @@ export function ArrPosterImage({
     fallbackCls.push(className);
   }
 
-  const releaseSlot = () => {
-    if (releaseSlotRef.current) {
-      releaseSlotRef.current();
-      releaseSlotRef.current = null;
+  const scheduleRetry = () => {
+    const current = attemptRef.current;
+    if (current >= POSTER_MAX_RETRIES) {
+      setFailed(true);
+      releaseSlot();
+      return;
     }
+    releaseSlot();
+    setReleased(false);
+    setLoaded(false);
+    const delay = posterRetryBackoffMs(current);
+    clearRetryTimer();
+    retryTimerRef.current = setTimeout(() => {
+      retryTimerRef.current = null;
+      if (cancelledRef.current) return;
+      const next = current + 1;
+      attemptRef.current = next;
+      setAttempt(next);
+      enqueueLoad();
+    }, delay);
   };
 
   const onImgLoad = (ev: SyntheticEvent<HTMLImageElement>) => {
     const token = loadIdRef.current;
     const img = ev.currentTarget;
+    releaseSlot();
     void finalizePosterDisplay(img).then(() => {
       if (token === loadIdRef.current) {
         setLoaded(true);
       }
-      releaseSlot();
     });
   };
 
   const onImgError = () => {
-    setFailed(true);
-    releaseSlot();
+    if (attemptRef.current >= POSTER_MAX_RETRIES) {
+      setFailed(true);
+      releaseSlot();
+      return;
+    }
+    scheduleRetry();
   };
+
+  const displaySrc = withPosterRetryParam(src, attempt);
 
   if (failed) {
     return (
@@ -143,10 +188,11 @@ export function ArrPosterImage({
       ) : (
         <>
           <img
-            src={src}
+            key={`${src}-${attempt}`}
+            src={displaySrc}
             alt={alt}
             className={[className, "arr-poster-layer"].filter(Boolean).join(" ")}
-            loading="lazy"
+            decoding="async"
             onLoad={onImgLoad}
             onError={onImgError}
           />

@@ -1,12 +1,78 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
+import { createHash } from "node:crypto";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
+
+const SW_VERSION_PLACEHOLDER = "__QBITRR_CACHE_VERSION__";
+
+function resolveCacheVersion(): string {
+  // Prefer packaged app version + short content hash so SW updates track deploys.
+  let packageVersion = "0.0.0";
+  try {
+    const pkg = JSON.parse(readFileSync(resolve(__dirname, "package.json"), "utf8")) as {
+      version?: string;
+    };
+    if (pkg.version) {
+      packageVersion = pkg.version;
+    }
+  } catch {
+    // ignore
+  }
+  try {
+    const setup = readFileSync(resolve(__dirname, "../setup.cfg"), "utf8");
+    const match = setup.match(/^version\s*=\s*(.+)$/m);
+    if (match?.[1]?.trim()) {
+      packageVersion = match[1].trim();
+    }
+  } catch {
+    // ignore
+  }
+  const stamp = createHash("sha256")
+    .update(`${packageVersion}:${process.env.GITHUB_SHA ?? process.env.SOURCE_DATE_EPOCH ?? "dev"}`)
+    .digest("hex")
+    .slice(0, 10);
+  return `${packageVersion}-${stamp}`;
+}
+
+function injectServiceWorkerCacheVersion(): Plugin {
+  const rewriteSw = (filePath: string, cacheVersion: string): void => {
+    if (!existsSync(filePath)) {
+      return;
+    }
+    const source = readFileSync(filePath, "utf8");
+    if (!source.includes(SW_VERSION_PLACEHOLDER)) {
+      return;
+    }
+    writeFileSync(filePath, source.replaceAll(SW_VERSION_PLACEHOLDER, cacheVersion), "utf8");
+  };
+
+  return {
+    name: "inject-sw-cache-version",
+    apply: "build",
+    closeBundle() {
+      // Prefer a content hash of the built HTML so each deploy invalidates SW caches.
+      // Fall back to env/package stamp when index.html is missing.
+      const indexPath = resolve(__dirname, "../qBitrr/static/index.html");
+      let cacheVersion = resolveCacheVersion();
+      if (existsSync(indexPath)) {
+        const packageVersion = cacheVersion.split("-")[0] || "0.0.0";
+        const contentHash = createHash("sha256")
+          .update(readFileSync(indexPath))
+          .digest("hex")
+          .slice(0, 10);
+        cacheVersion = `${packageVersion}-${contentHash}`;
+      }
+      rewriteSw(resolve(__dirname, "../qBitrr/static/sw.js"), cacheVersion);
+    },
+  };
+}
 
 // https://vite.dev/config/
 export default defineConfig({
   // Use relative URLs so the same build works at / and /qbitrr.
   base: "./",
-  plugins: [react()],
+  plugins: [react(), injectServiceWorkerCacheVersion()],
   server: {
     fs: {
       allow: [resolve(__dirname, "..")],
@@ -24,7 +90,23 @@ export default defineConfig({
   build: {
     outDir: resolve(__dirname, "../qBitrr/static"),
     emptyOutDir: true,
-    sourcemap: true,
-    chunkSizeWarningLimit: 1000,
+    sourcemap: false,
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks(id: string): string | undefined {
+          if (id.includes("node_modules/react-dom") || id.includes("node_modules/react/")) {
+            return "react";
+          }
+          if (id.includes("node_modules/react-select")) {
+            return "react-select";
+          }
+          if (id.includes("node_modules/@tanstack/react-table")) {
+            return "table";
+          }
+          return undefined;
+        },
+      },
+    },
   },
 });

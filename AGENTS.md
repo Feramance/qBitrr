@@ -8,14 +8,32 @@
 - **Entry Point**: `qBitrr.main:run` → spawns WebUI, ArrManager loops, auto-update watchers
 - **Key Modules**:
   - `qBitrr/main.py` – orchestrates multiprocessing, launches arr managers and WebUI
-  - `qBitrr/arss.py` – `Arr` (Radarr/Sonarr/Lidarr via `self.type`), `ArrManager`, `PlaceHolderArr`, `FreeSpaceManager`, `TrackerSortManager`; health checks & import logic
+  - `qBitrr/arss/` – Arr package (split from legacy monolith):
+    - `arr_base.py` – `ArrBase` shared torrent pipeline, config, loops, qBit side effects
+    - `radarr.py` / `sonarr.py` / `lidarr.py` – `RadarrArr` / `SonarrArr` / `LidarrArr` concretes
+    - `factory.py` – section name → concrete Arr class + client builder
+    - `arr.py` – compatibility alias (`Arr = ArrBase`)
+    - `manager.py` – `ArrManager` orchestration and instance factory wiring
+    - `placeholder_arr.py` – `PlaceHolderArr` role subclass for special/qBit categories
+    - `torrent_policy.py` – `TorrentPolicyManager` free-space / tracker-sort role worker
+    - `torrent_dispatch.py` / `torrent_limits.py` / `torrent_inspect.py` / `torrent_batch.py` – pipeline roles composed into `ArrBase`
+    - `qbit_side_effects.py` – shared pause/resume/delete helpers
+    - `db_queries.py` / `request_providers.py` – DB search selection and Ombi/Overseerr leaves
+    - `db_update_handlers.py` – per-Arr-type DB update leaf functions
+    - `arr_shared.py` – shared imports/constants for arss submodules
+  - `qBitrr/arr_client.py` – Pyarr v6 client builders and shared JSON types
   - `qBitrr/arr_tracker_index.py` – shared tracker config → derived URI/host sets (`build_tracker_index`, `extract_tracker_host`)
-  - `qBitrr/config.py` – TOML config parsing, validation, migrations
-  - `qBitrr/webui.py` – Flask routes for `/api/*` (token-protected) and `/web/*` (helpers)
+  - `qBitrr/qbit_seeding_config.py` – qBit-managed category seeding settings loader
+  - `qBitrr/quality_profile_helpers.py` – shared quality-profile/search-state helpers for db_update paths
+  - `qBitrr/config.py` – TOML config parsing, validation, migrations, live-reload getters
+  - `qBitrr/gen_config/` – config schema builders, validate/fill, and migrations
+  - `qBitrr/config_reload_policy.py` – classifies config key changes into reload strategies (live, qbit_hot, arr preserve/reset DB, full restart)
+  - `qBitrr/process_lifecycle.py` – spawn/restart helpers used by `qBitManager`
+  - `qBitrr/webui/` – Flask WebUI package (`app`, route registrars, catalog queries) for `/api/*` (token-protected) and `/web/*` (helpers)
   - `qBitrr/ffprobe.py` – media file verification via ffprobe
   - `qBitrr/tables.py` – Peewee models for persistent state (downloads, searches, expiry)
-  - `webui/src/` – React dashboard with @mantine/core UI, react-hook-form, @tanstack/react-table
-- **Config**: `~/config/config.toml` (native) or `/config/config.toml` (Docker). Generated on first run via `gen_config.py`
+  - `webui/src/` – React dashboard with custom CSS (`styles.css` + Tailwind), Context API, @tanstack/react-table
+- **Config**: `~/config/config.toml` (native) or `/config/config.toml` (Docker). Generated on first run via `qBitrr/gen_config/`
 - **Logging**: Structured logs in `~/logs/` or `/config/logs`; `Main.log`, `WebUI.log`, per-Arr logs
 - **Deployment**: PyPI package (`qBitrr2`), Docker image (`feramance/qbitrr:latest`), or source install
 
@@ -79,7 +97,7 @@
 - **Import Order**: React → node_modules/@-scoped → local modules → local icons (SVGs)
 - **Hooks**: Declare dependencies correctly; use `useCallback`/`useMemo` for expensive ops
 - **State Management**: Context API (`SearchContext`, `ToastContext`, `WebUIContext`) for global state
-- **UI Library**: @mantine/core v8 for components; follow Mantine conventions (e.g., `sx` prop for inline styles)
+- **UI**: Custom CSS in `webui/src/styles.css` plus Tailwind utilities; prefer existing class patterns (`card`, `btn`, `field`, `modal`) over new component libraries
 
 ### General
 - **Indentation**: 4 spaces (Python), 2 spaces (JS/TS/JSON/YAML)
@@ -95,22 +113,22 @@
 - **User Messages**: Provide actionable error messages; reference config keys, Arr instance names, torrent hashes
 
 ## Architecture & Patterns
-- **Arr / Radarr-Sonarr-Lidarr**: One `Arr` class branches on `self.type` (`"radarr"`, `"sonarr"`, `"lidarr"`). Prefer extracting shared logic into helpers (e.g. `arr_tracker_index.py`) before adding subclasses; per-app handler objects are optional for future refactors
+- **Arr / Radarr-Sonarr-Lidarr**: Prefer per-type subclasses `RadarrArr` / `SonarrArr` / `LidarrArr` of `ArrBase` (not `if self.type` branches). Put type-specific models, `db_update`, search/re-search, and feature gates on the concrete class. Shared torrent pipeline stays on `ArrBase`. `self.type` remains a string tag for logging/DB/leaf helpers.
 - **Multiprocessing**: `pathos.multiprocessing` for cross-platform support; each Arr instance runs in a separate process
 - **Threading**: WebUI runs in main thread; auto-update, network monitor, and FFprobe downloads in background threads
 - **Database**: Peewee ORM with SQLite (thread-safe via `db_lock.py`); tables: `DownloadsModel`, `SearchModel`, `EntryExpiry`
 - **Event Loops**: Each ArrManager has a main loop checking qBit torrents every N seconds, triggering health checks, imports, cleanup
 - **Config Migrations**: `apply_config_migrations()` upgrades old configs; bump `CURRENT_CONFIG_VERSION` when schema changes
 - **API Routes**:
-  - `/api/*` – token-protected (check `Settings.WebUIToken`), returns JSON
+  - `/api/*` – protected when `WebUI.AuthDisabled` is false (session cookie or `Authorization: Bearer` with `WebUI.Token`), returns JSON
   - `/web/*` – public helpers (serve UI, version info)
   - `/ui` → serves React SPA from `qBitrr/static/`
 
 ## Development Tips
-- **Config Changes**: Edit `qBitrr/gen_config.py` (MyConfig class); regenerate example via `qbitrr --gen-config`
+- **Config Changes**: Edit `qBitrr/gen_config/` (MyConfig / section builders); regenerate example via `qbitrr --gen-config`
 - **WebUI Changes**: Run `npm run dev` in webui/, API requests proxy to http://localhost:6969
 - **Database Schema**: Modify `qBitrr/tables.py`, add migration logic in `config.py:apply_config_migrations()`
-- **New Arr Type**: Radarr/Sonarr/Lidarr share the `Arr` class (`self.type`); add API branches in `arss.py` and config in `gen_config.py`. Special workers subclass `Arr` (`PlaceHolderArr`, etc.) without calling full `Arr.__init__`. Register new managed instances in `ArrManager.build_arr_instances()` / `main.py` as needed
+- **New Arr Type**: Add a new `ArrBase` subclass under `qBitrr/arss/` (models, `db_update`, re-search, feature gates), register it in `factory.py` / `ArrManager.build_arr_instances()`, and extend config in `gen_config/`. Role workers (`PlaceHolderArr`, `TorrentPolicyManager`) subclass `ArrBase` without calling full Arr `__init__`.
 - **Pre-commit Bypass**: `git commit --no-verify` (discouraged; use for emergency hotfixes only)
 
 ## Testing & Validation
@@ -308,7 +326,7 @@ Each release produces:
 - **Qbittorrent API**: Both qBittorrent 4.x and 5.x are automatically detected and supported
 - **Tagging**: Radarr/Sonarr downloads MUST have tags matching the category configured for qBitrr to track them
 - **Paths**: qBit's "Save Path" must be accessible to Radarr/Sonarr (common issue in Docker with mismatched volumes)
-- **WebUI Token**: If `Settings.WebUIToken` is set, all `/api/*` calls require `X-API-Token` header
+- **WebUI Auth**: Authentication is controlled by `WebUI.AuthDisabled` (not by Token alone). When auth is enabled, `/api/*` requires a session cookie or `Authorization: Bearer <WebUI.Token>`. Token alone does not enable auth. With `AuthDisabled = true` on a public bind, set `WebUI.AllowInsecureExposure = true` to acknowledge full open admin access (including `/api/token` and `/web/token`).
 - **Database Locks**: Use `db_lock.py:database_lock()` context manager for all Peewee queries to avoid conflicts
 
 ## Documentation Maintenance
@@ -344,7 +362,7 @@ When making code changes, update the following documentation as applicable:
 
 #### 3. Configuration Examples
 - **`config.example.toml`**: Update with new config options and examples
-- **`qBitrr/gen_config.py`**: Add new config fields with descriptions
+- **`qBitrr/gen_config/`**: Add new config fields with descriptions
 
 #### 4. API Documentation
 - **`docs/reference/api.md`**: Update if adding/changing WebUI API endpoints

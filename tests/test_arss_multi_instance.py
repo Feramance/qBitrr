@@ -14,6 +14,8 @@ from qBitrr.arss import (
     Arr,
     PlaceHolderArr,
     TorrentPolicyManager,
+)
+from qBitrr.arss.arr_shared import (
     _collect_instance_hash_map_hashes,
     _prune_instance_hash_map,
 )
@@ -150,7 +152,7 @@ class TestProcessFailedRetention(unittest.TestCase):
 
         with (
             patch.object(arr, "_qbit_retry", side_effect=lambda fn, **_: fn()),
-            patch.object(arr, "_get_legacy_default_qbit_client", return_value=legacy_client),
+            patch.object(arr, "_get_primary_qbit_client", return_value=legacy_client),
         ):
             arr._process_failed()
 
@@ -201,7 +203,7 @@ class TestArrPauseResumeRouting(unittest.TestCase):
         client = MagicMock()
         arr.manager.qbit_manager.get_client.return_value = client
 
-        with patch("qBitrr.arss.with_retry", side_effect=lambda fn, **_: fn()):
+        with patch("qBitrr.arss.torrent_batch.with_retry", side_effect=lambda fn, **_: fn()):
             arr._process_paused()
 
         arr.manager.qbit_manager.get_client.assert_called_once_with("vpn")
@@ -215,7 +217,7 @@ class TestArrPauseResumeRouting(unittest.TestCase):
         client.torrents_pause.side_effect = qbittorrentapi.exceptions.APIConnectionError("timeout")
         arr.manager.qbit_manager.get_client.return_value = client
 
-        with patch("qBitrr.arss.with_retry", side_effect=lambda fn, **_: fn()):
+        with patch("qBitrr.arss.torrent_batch.with_retry", side_effect=lambda fn, **_: fn()):
             arr._process_paused()
 
         self.assertEqual(dict(arr.pause_by_instance), {"vpn": {"hash1"}})
@@ -226,7 +228,7 @@ class TestArrPauseResumeRouting(unittest.TestCase):
         client = MagicMock()
         arr.manager.qbit_manager.get_client.return_value = client
 
-        with patch("qBitrr.arss.with_retry", side_effect=lambda fn, **_: fn()):
+        with patch("qBitrr.arss.torrent_batch.with_retry", side_effect=lambda fn, **_: fn()):
             arr._process_resume()
 
         arr.manager.qbit_manager.get_client.assert_called_once_with("vpn")
@@ -239,7 +241,7 @@ class TestArrPauseResumeRouting(unittest.TestCase):
         client = MagicMock()
         arr.manager.qbit_manager.get_client.return_value = client
 
-        with patch("qBitrr.arss.with_retry", side_effect=lambda fn, **_: fn()):
+        with patch("qBitrr.arss.torrent_batch.with_retry", side_effect=lambda fn, **_: fn()):
             arr._process_paused()
 
         arr.pause_by_instance["vpn"].add("hash2")
@@ -251,7 +253,7 @@ class TestArrPauseResumeRouting(unittest.TestCase):
         client = MagicMock()
         arr.manager.qbit_manager.get_client.return_value = client
 
-        with patch("qBitrr.arss.with_retry", side_effect=lambda fn, **_: fn()):
+        with patch("qBitrr.arss.torrent_batch.with_retry", side_effect=lambda fn, **_: fn()):
             arr._process_resume()
 
         arr.resume_by_instance["seedbox"].add("hash2")
@@ -306,10 +308,16 @@ class TestProcessImportsScanFailure(unittest.TestCase):
             torrent.content_path = str(content_path)
             arr.import_torrents = [(torrent, "default")]
 
-            arr.client.post_command.side_effect = ConnectionError("arr offline")
-            with patch.object(arr, "add_tags") as add_tags:
-                with patch("qBitrr.arss.with_retry", side_effect=lambda fn, **_: fn()):
-                    arr._process_imports()
+            with patch(
+                "qBitrr.arss.torrent_batch.execute_command",
+                side_effect=ConnectionError("arr offline"),
+            ):
+                with patch.object(arr, "add_tags") as add_tags:
+                    with patch(
+                        "qBitrr.arss.torrent_batch.with_retry",
+                        side_effect=lambda fn, **_: fn(),
+                    ):
+                        arr._process_imports()
 
             add_tags.assert_not_called()
             self.assertNotIn("abc123", arr.sent_to_scan_hashes)
@@ -327,11 +335,14 @@ class TestProcessImportsScanFailure(unittest.TestCase):
             torrent.content_path = str(content_path)
             arr.import_torrents = [(torrent, "vpn")]
 
-            with patch.object(arr, "add_tags") as add_tags:
-                with patch("qBitrr.arss.with_retry", side_effect=lambda fn, **_: fn()):
-                    arr._process_imports()
-
-            arr.client.post_command.assert_called_once()
+            with patch("qBitrr.arss.torrent_batch.execute_command") as execute_command:
+                with patch.object(arr, "add_tags") as add_tags:
+                    with patch(
+                        "qBitrr.arss.torrent_batch.with_retry",
+                        side_effect=lambda fn, **_: fn(),
+                    ):
+                        arr._process_imports()
+            execute_command.assert_called_once()
             add_tags.assert_called_once_with(torrent, ["qBitrr-imported"], "vpn")
             self.assertIn("abc123", arr.sent_to_scan_hashes)
             self.assertIn(content_path.parent, arr.sent_to_scan)
@@ -346,12 +357,12 @@ class TestRunPeriodicCommand(unittest.TestCase):
         arr.type = "sonarr"
         arr.logger = MagicMock()
         arr.client = MagicMock()
-        arr.client.post_command.side_effect = ValueError(
-            "Expected a dictionary response from the 'command' endpoint"
-        )
-
-        with patch("qBitrr.arss.with_retry", side_effect=lambda fn, **_: fn()):
-            result = arr._run_periodic_command("RssSync")
+        with patch(
+            "qBitrr.arss.arr_base.execute_command",
+            side_effect=ValueError("Expected a dictionary response from the 'command' endpoint"),
+        ):
+            with patch("qBitrr.arss.arr_base.with_retry", side_effect=lambda fn, **_: fn()):
+                result = arr._run_periodic_command("RssSync")
 
         self.assertFalse(result)
         arr.logger.warning.assert_called()
@@ -362,9 +373,9 @@ class TestRunPeriodicCommand(unittest.TestCase):
         arr.type = "sonarr"
         arr.logger = MagicMock()
         arr.client = MagicMock()
-
-        with patch("qBitrr.arss.with_retry", side_effect=lambda fn, **_: fn()):
-            result = arr._run_periodic_command("RssSync")
+        with patch("qBitrr.arss.arr_base.execute_command", return_value={"status": "ok"}):
+            with patch("qBitrr.arss.arr_base.with_retry", side_effect=lambda fn, **_: fn()):
+                result = arr._run_periodic_command("RssSync")
 
         self.assertTrue(result)
 
@@ -398,9 +409,11 @@ class TestLegacyDefaultClientRouting(unittest.TestCase):
         arr.manager.qbit_manager.name_cache = {"hash1": "Example"}
 
         with (
-            patch("qBitrr.arss.AUTO_PAUSE_RESUME", True),
-            patch("qBitrr.arss.with_retry", side_effect=lambda fn, **_: fn()),
-            patch.object(arr, "_get_legacy_default_qbit_client", return_value=legacy_client),
+            patch(
+                "qBitrr.arss.qbit_side_effects.get_auto_pause_resume_effective", return_value=True
+            ),
+            patch("qBitrr.arss.qbit_side_effects.with_retry", side_effect=lambda fn, **_: fn()),
+            patch.object(arr, "_get_primary_qbit_client", return_value=legacy_client),
         ):
             arr._process_paused()
 
@@ -420,7 +433,7 @@ class TestLegacyDefaultClientRouting(unittest.TestCase):
 
         with (
             patch.object(arr, "_qbit_retry", side_effect=lambda fn, **_: fn()),
-            patch.object(arr, "_get_legacy_default_qbit_client", return_value=legacy_client),
+            patch.object(arr, "_get_primary_qbit_client", return_value=legacy_client),
         ):
             arr._process_failed()
 
@@ -460,6 +473,58 @@ class TestWorkerQbitPreflight(unittest.TestCase):
 
         self.assertEqual(ctx.exception.error_type, "no_downloads")
 
+    def test_sync_free_space_settings_updates_threshold_live(self) -> None:
+        arr = TorrentPolicyManager.__new__(TorrentPolicyManager)
+        arr.enable_free_space = True
+        arr.categories = {"movies"}
+        arr.manager = MagicMock()
+        arr.manager.arr_categories = {"movies"}
+        arr.min_free_space = "1GB"
+        arr._min_free_space_bytes = 1024**3
+        arr.completed_folder = Path("/tmp/old")
+        arr._disk_usage_path = Path("/tmp/old")
+        arr._path_for_disk_usage = Path("/tmp/old")
+        arr._free_space_folder_is_auto = False
+
+        with (
+            patch("qBitrr.arss.torrent_policy.sync_config_from_disk"),
+            patch(
+                "qBitrr.arss.torrent_policy.get_free_space_guard_settings",
+                return_value=("5GB", "/data/downloads"),
+            ),
+            patch("qBitrr.arss.torrent_policy.get_auto_pause_resume_effective", return_value=True),
+            patch("qBitrr.arss.torrent_policy.get_effective_qbit_disabled", return_value=False),
+            patch("qBitrr.arss.torrent_policy.parse_size", return_value=5 * 1024**3),
+        ):
+            arr._sync_free_space_settings_from_config()
+
+        self.assertTrue(arr.enable_free_space)
+        self.assertEqual(arr.min_free_space, "5GB")
+        self.assertEqual(arr._min_free_space_bytes, 5 * 1024**3)
+        self.assertEqual(arr.completed_folder, Path("/data/downloads"))
+
+    def test_sync_free_space_settings_disables_when_minus_one(self) -> None:
+        arr = TorrentPolicyManager.__new__(TorrentPolicyManager)
+        arr.enable_free_space = True
+        arr.min_free_space = "5GB"
+        arr._min_free_space_bytes = 5 * 1024**3
+        arr.manager = MagicMock()
+
+        with (
+            patch("qBitrr.arss.torrent_policy.sync_config_from_disk"),
+            patch(
+                "qBitrr.arss.torrent_policy.get_free_space_guard_settings",
+                return_value=("-1", ""),
+            ),
+            patch("qBitrr.arss.torrent_policy.get_auto_pause_resume_effective", return_value=True),
+            patch("qBitrr.arss.torrent_policy.get_effective_qbit_disabled", return_value=False),
+        ):
+            arr._sync_free_space_settings_from_config()
+
+        self.assertFalse(arr.enable_free_space)
+        self.assertEqual(arr.min_free_space, "-1")
+        self.assertEqual(arr._min_free_space_bytes, 0)
+
 
 class TestFilePriorityRouting(unittest.TestCase):
     """Ensure file-priority updates target the owning qBittorrent instance."""
@@ -473,7 +538,7 @@ class TestFilePriorityRouting(unittest.TestCase):
 
         with (
             patch.object(arr, "_get_qbit_client", return_value=client) as get_client,
-            patch("qBitrr.arss.with_retry", side_effect=lambda fn, **_: fn()),
+            patch("qBitrr.arss.torrent_batch.with_retry", side_effect=lambda fn, **_: fn()),
         ):
             arr._process_file_priority()
 
@@ -495,7 +560,7 @@ class TestFilePriorityRouting(unittest.TestCase):
 
         with (
             patch.object(arr, "_get_qbit_client", return_value=client),
-            patch("qBitrr.arss.with_retry", side_effect=lambda fn, **_: fn()),
+            patch("qBitrr.arss.torrent_batch.with_retry", side_effect=lambda fn, **_: fn()),
         ):
             arr._process_file_priority()
 
@@ -512,8 +577,8 @@ class TestFilePriorityRouting(unittest.TestCase):
         )
 
         with (
-            patch.object(arr, "_get_legacy_default_qbit_client", return_value=legacy_client),
-            patch("qBitrr.arss.with_retry", side_effect=lambda fn, **_: fn()),
+            patch.object(arr, "_get_primary_qbit_client", return_value=legacy_client),
+            patch("qBitrr.arss.torrent_batch.with_retry", side_effect=lambda fn, **_: fn()),
         ):
             arr._process_file_priority()
 
@@ -538,7 +603,7 @@ class TestFilePriorityRouting(unittest.TestCase):
         arr.change_priority_by_instance = defaultdict(dict)
         legacy_client = MagicMock()
 
-        with patch.object(arr, "_get_legacy_default_qbit_client", return_value=legacy_client):
+        with patch.object(arr, "_get_primary_qbit_client", return_value=legacy_client):
             arr._process_file_priority()
 
         self.assertEqual(arr.change_priority, {"hash1": [1, 2]})
@@ -555,9 +620,13 @@ class TestLegacyResumeRetry(unittest.TestCase):
         legacy_client = MagicMock()
 
         with (
-            patch("qBitrr.arss.AUTO_PAUSE_RESUME", True),
-            patch("qBitrr.arss.with_retry", side_effect=lambda fn, **_: fn()) as with_retry_mock,
-            patch.object(arr, "_get_legacy_default_qbit_client", return_value=legacy_client),
+            patch(
+                "qBitrr.arss.qbit_side_effects.get_auto_pause_resume_effective", return_value=True
+            ),
+            patch(
+                "qBitrr.arss.qbit_side_effects.with_retry", side_effect=lambda fn, **_: fn()
+            ) as with_retry_mock,
+            patch.object(arr, "_get_primary_qbit_client", return_value=legacy_client),
         ):
             arr._process_resume()
 
@@ -577,7 +646,7 @@ class TestPlaceHolderRecheckRegression(unittest.TestCase):
 
         with (
             patch.object(arr, "_get_qbit_client", return_value=client) as get_client,
-            patch("qBitrr.arss.with_retry", side_effect=lambda fn, **_: fn()),
+            patch("qBitrr.arss.torrent_batch.with_retry", side_effect=lambda fn, **_: fn()),
         ):
             arr._process_errored()
 
@@ -593,7 +662,9 @@ class TestPlaceHolderArrPauseRetention(unittest.TestCase):
         arr = _bare_placeholder_arr()
 
         with (
-            patch("qBitrr.arss.AUTO_PAUSE_RESUME", True),
+            patch(
+                "qBitrr.arss.qbit_side_effects.get_auto_pause_resume_effective", return_value=True
+            ),
             patch.object(arr, "_process_errored"),
             patch.object(arr, "_process_file_priority"),
             patch.object(arr, "_process_failed"),
@@ -605,7 +676,9 @@ class TestPlaceHolderArrPauseRetention(unittest.TestCase):
         arr.pause_by_instance = defaultdict(set, {"vpn": {"hash1"}})
         arr.manager.qbit_manager.get_client.return_value = None
 
-        with patch("qBitrr.arss.AUTO_PAUSE_RESUME", True):
+        with patch(
+            "qBitrr.arss.qbit_side_effects.get_auto_pause_resume_effective", return_value=True
+        ):
             arr._process_paused()
 
         self.assertEqual(dict(arr.pause_by_instance), {"vpn": {"hash1"}})
@@ -615,7 +688,9 @@ class TestPlaceHolderArrPauseRetention(unittest.TestCase):
         arr.resume_by_instance = defaultdict(set, {"vpn": {"hash1"}})
         arr.manager.qbit_manager.get_client.return_value = None
 
-        with patch("qBitrr.arss.AUTO_PAUSE_RESUME", True):
+        with patch(
+            "qBitrr.arss.qbit_side_effects.get_auto_pause_resume_effective", return_value=True
+        ):
             arr._process_resume()
 
         self.assertEqual(dict(arr.resume_by_instance), {"vpn": {"hash1"}})

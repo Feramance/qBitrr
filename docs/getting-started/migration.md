@@ -150,8 +150,6 @@ Host = "0.0.0.0"
 Port = 6969
 Token = "mytoken"
 LiveArr = true
-GroupSonarr = true
-GroupLidarr = true
 Theme = "Dark"
 ```
 

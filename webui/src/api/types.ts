@@ -87,6 +87,62 @@ export interface QbitCategoriesResponse {
   ready: boolean;
 }
 
+/** Per-torrent payload from GET /web/qbit/overview (VueTorrent RawTorrent-aligned). */
+export interface QbitTorrentOverview {
+  hash: string;
+  name: string;
+  category: string;
+  tags: string[];
+  state: string;
+  progress: number;
+  priority: number;
+  eta: number;
+  availability: number;
+  size: number;
+  totalSize: number;
+  downloaded: number;
+  uploaded: number;
+  amountLeft: number;
+  ratio: number;
+  dlspeed: number;
+  upspeed: number;
+  numSeeds: number;
+  numLeechs: number;
+  numComplete: number;
+  numIncomplete: number;
+  addedOn: number;
+  completionOn: number;
+  seedingTime: number;
+  timeActive: number;
+  lastActivity: number;
+  ratioLimit: number;
+  seedingTimeLimit: number;
+  dlLimit: number;
+  upLimit: number;
+}
+
+export interface QbitOverviewCategory {
+  category: string;
+  qbitInstance: string;
+  managedBy: "qbit" | "arr";
+  arrName: string | null;
+  torrentCount: number;
+  seedingCount: number;
+  totalSize: number;
+  avgRatio: number;
+  avgSeedingTime: number;
+  seedingConfig: QbitCategorySeedingConfig;
+  torrents: QbitTorrentOverview[];
+  /** True when the server capped the torrent list for this category. */
+  torrentsTruncated?: boolean;
+}
+
+export interface QbitOverviewResponse {
+  instances: string[];
+  categories: QbitOverviewCategory[];
+  ready: boolean;
+}
+
 export interface StatusResponse {
   qbit: QbitStatus;  // Legacy single-instance (default) for backward compatibility
   qbitInstances: { [instanceName: string]: QbitInstance };  // Multi-instance info
@@ -101,6 +157,31 @@ export interface RestartResponse {
 
 export interface LogsListResponse {
   files: string[];
+}
+
+/** JSON payload for log tail / delta / SSE events. */
+export interface LogTailPayload {
+  content: string;
+  next_bytes: number;
+  size: number;
+  inode: number;
+  rotated: boolean;
+  truncated: boolean;
+}
+
+export interface LogSearchMatch {
+  file: string;
+  line: number;
+  text: string;
+  context_before: string[];
+  context_after: string[];
+}
+
+export interface LogSearchResponse {
+  query: string;
+  truncated: boolean;
+  matches: LogSearchMatch[];
+  files_searched?: string[];
 }
 
 export interface RadarrCounts {
@@ -354,6 +435,14 @@ export interface SetPasswordRequest {
 export interface ConfigUpdateResponse {
   status: string;
   configReloaded: boolean;
-  reloadType: "none" | "frontend" | "webui" | "single_arr" | "multi_arr" | "full";
+  reloadType:
+    | "none"
+    | "frontend"
+    | "webui"
+    | "live"
+    | "qbit_hot"
+    | "single_arr"
+    | "multi_arr"
+    | "full";
   affectedInstances: string[];
 }

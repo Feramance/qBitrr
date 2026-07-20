@@ -7,19 +7,20 @@ import type {
   LoginRequest,
   MetaResponse,
   LogsListResponse,
+  LogSearchResponse,
+  LogTailPayload,
   ProcessesResponse,
   QbitCategoriesResponse,
+  QbitOverviewResponse,
   RadarrMoviesResponse,
   RestartResponse,
   SetPasswordRequest,
   SonarrSeriesResponse,
-  LidarrAlbumsResponse,
   LidarrArtistDetailResponse,
   LidarrArtistsResponse,
-  LidarrTracksResponse,
   StatusResponse,
 } from "./types";
-import { setUrlBaseFromMeta, webPath } from "./urlBase";
+import { clearUrlBaseCache, setUrlBaseFromMeta, webPath } from "./urlBase";
 
 export class AuthError extends Error {
   code?: string;
@@ -30,12 +31,133 @@ export class AuthError extends Error {
   }
 }
 
+/** API field validation error from config save (path is dotted, e.g. Lidarr.URI). */
+export interface ConfigApiValidationError {
+  path: string;
+  message: string;
+}
+
+/** Thrown when config update fails validation; preserves per-field errors for UI. */
+export class ConfigApiError extends Error {
+  validationErrors: ConfigApiValidationError[];
+
+  constructor(message: string, validationErrors: ConfigApiValidationError[] = []) {
+    super(message);
+    this.name = "ConfigApiError";
+    this.validationErrors = validationErrors;
+  }
+}
+
+function parseConfigApiValidationErrors(detail: unknown): ConfigApiValidationError[] {
+  if (!detail || typeof detail !== "object") {
+    return [];
+  }
+  const raw = (detail as Record<string, unknown>).validationErrors;
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  const errors: ConfigApiValidationError[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") {
+      continue;
+    }
+    const path = (item as Record<string, unknown>).path;
+    const message = (item as Record<string, unknown>).message;
+    if (typeof path === "string" && path.trim() && typeof message === "string" && message.trim()) {
+      errors.push({ path: path.trim(), message: message.trim() });
+    }
+  }
+  return errors;
+}
+
+function formatConfigApiValidationErrors(errors: ConfigApiValidationError[]): string {
+  const formatted = errors.map((error) => `${error.path}: ${error.message}`).join("\n");
+  return errors.length === 1
+    ? formatted
+    : `Please resolve the following issues:\n${formatted}`;
+}
+
 const JSON_HEADERS = { "Content-Type": "application/json" } as const;
 const TOKEN_STORAGE_KEYS = ["token", "webui-token", "webui_token"] as const;
 const MAX_AUTH_RETRIES = 1;
 
 // Request deduplication cache
 const inflightRequests = new Map<string, Promise<unknown>>();
+
+/** Short-lived GET response cache (status/config/meta/processes). Arr catalogs use TTL 0. */
+interface TtlCacheEntry {
+  expiresAt: number;
+  value: unknown;
+}
+
+const ttlResponseCache = new Map<string, TtlCacheEntry>();
+
+const GET_TTL_MS: ReadonlyArray<{ match: (path: string) => boolean; ttlMs: number }> = [
+  { match: (path) => path.includes("/web/status"), ttlMs: 2_000 },
+  { match: (path) => path.includes("/web/config"), ttlMs: 30_000 },
+  {
+    match: (path) => path.includes("/web/meta") && !/[?&]force=1(?:&|$)/.test(path),
+    ttlMs: 60_000,
+  },
+  { match: (path) => path.includes("/web/processes"), ttlMs: 800 },
+];
+
+function extractRequestPath(input: RequestInfo | URL): string {
+  const raw = input instanceof Request ? input.url : String(input);
+  try {
+    if (raw.startsWith("http://") || raw.startsWith("https://")) {
+      const url = new URL(raw);
+      return `${url.pathname}${url.search}`;
+    }
+  } catch {
+    // fall through
+  }
+  return raw;
+}
+
+function resolveGetTtlMs(path: string): number {
+  // Arr catalog paged URLs keep their own caches — never TTL here.
+  if (
+    /\/web\/(?:radarr|sonarr|lidarr)\//.test(path) ||
+    /\/web\/arr\//.test(path)
+  ) {
+    return 0;
+  }
+  for (const rule of GET_TTL_MS) {
+    if (rule.match(path)) {
+      return rule.ttlMs;
+    }
+  }
+  return 0;
+}
+
+function readTtlCache<T>(key: string): T | undefined {
+  const entry = ttlResponseCache.get(key);
+  if (!entry) {
+    return undefined;
+  }
+  if (Date.now() > entry.expiresAt) {
+    ttlResponseCache.delete(key);
+    return undefined;
+  }
+  return entry.value as T;
+}
+
+function writeTtlCache(key: string, value: unknown, ttlMs: number): void {
+  if (ttlMs <= 0) {
+    return;
+  }
+  ttlResponseCache.set(key, { value, expiresAt: Date.now() + ttlMs });
+}
+
+/** Invalidate TTL entries whose request path matches any of the substrings. */
+export function invalidateGetCache(pathSubstrings: readonly string[]): void {
+  for (const key of [...ttlResponseCache.keys()]) {
+    if (pathSubstrings.some((part) => key.includes(part))) {
+      ttlResponseCache.delete(key);
+    }
+  }
+}
 
 function createRequestKey(input: RequestInfo | URL, init?: RequestInit): string {
   const url = input instanceof Request ? input.url : String(input);
@@ -125,13 +247,26 @@ async function fetchJson<T>(input: RequestInfo | URL, init?: RequestInit): Promi
   const method = init?.method || "GET";
   if (method === "GET") {
     const key = createRequestKey(input, init);
-    const existingRequest = inflightRequests.get(key) as Promise<T> | undefined;
+    const path = extractRequestPath(input);
+    const ttlMs = resolveGetTtlMs(path);
 
+    if (ttlMs > 0) {
+      const cached = readTtlCache<T>(key);
+      if (cached !== undefined) {
+        return cached;
+      }
+    }
+
+    const existingRequest = inflightRequests.get(key) as Promise<T> | undefined;
     if (existingRequest) {
       return existingRequest;
     }
 
     const promise = fetchWithAuthRetry<T>(input, init, (response) => handleJson<T>(response))
+      .then((value) => {
+        writeTtlCache(key, value, ttlMs);
+        return value;
+      })
       .finally(() => {
         inflightRequests.delete(key);
       });
@@ -167,6 +302,10 @@ async function handleJson<T>(res: Response): Promise<T> {
         message = errorText;
       }
     }
+    const validationErrors = parseConfigApiValidationErrors(detail);
+    if (validationErrors.length) {
+      throw new ConfigApiError(formatConfigApiValidationErrors(validationErrors), validationErrors);
+    }
     throw new Error(message);
   }
   return (await res.json()) as T;
@@ -180,10 +319,20 @@ async function handleText(res: Response): Promise<string> {
 }
 
 export async function getMeta(params?: { force?: boolean }): Promise<MetaResponse> {
+  if (params?.force) {
+    // Forced meta must bypass TTL and drop any soft-cached meta entries.
+    invalidateGetCache(["/web/meta"]);
+  }
   const query = params?.force ? "?force=1" : "";
   const meta = await fetchJson<MetaResponse>(`/web/meta${query}`);
   setUrlBaseFromMeta(meta.url_base);
   return meta;
+}
+
+/** Re-fetch /web/meta and refresh the cached UrlBase prefix (no page reload). */
+export async function refreshUrlBaseFromMeta(): Promise<MetaResponse> {
+  clearUrlBaseCache();
+  return getMeta({ force: true });
 }
 
 export async function getStatus(): Promise<StatusResponse> {
@@ -192,6 +341,21 @@ export async function getStatus(): Promise<StatusResponse> {
 
 export async function getQbitCategories(): Promise<QbitCategoriesResponse> {
   return fetchJson<QbitCategoriesResponse>("/web/qbit/categories");
+}
+
+/** Build path for GET /web/qbit/overview (optional instance filter). */
+export function getQbitOverviewPath(instance?: string): string {
+  if (!instance || instance === "all" || instance === "aggregate") {
+    return "/web/qbit/overview";
+  }
+  const params = new URLSearchParams({ instance });
+  return `/web/qbit/overview?${params.toString()}`;
+}
+
+export async function getQbitOverview(
+  instance?: string
+): Promise<QbitOverviewResponse> {
+  return fetchJson<QbitOverviewResponse>(getQbitOverviewPath(instance));
 }
 
 export async function getProcesses(): Promise<ProcessesResponse> {
@@ -245,8 +409,106 @@ export async function getLogTail(
   return fetchTextResponse(`${base}?${params.toString()}`);
 }
 
+export interface GetLogTailJsonOptions {
+  lines?: number;
+  offset?: number;
+  sinceBytes?: number;
+  inode?: number;
+  aroundLine?: number;
+}
+
+/** Fetch log content as JSON (initial tail, older window, or byte-offset delta). */
+export async function getLogTailJson(
+  name: string,
+  options: GetLogTailJsonOptions = {}
+): Promise<LogTailPayload> {
+  const base = `/web/logs/${encodeURIComponent(name)}`;
+  const params = new URLSearchParams({ format: "json" });
+  if (options.lines != null && options.lines > 0) {
+    params.set("lines", String(options.lines));
+  }
+  if (options.offset != null && options.offset > 0) {
+    params.set("offset", String(options.offset));
+  }
+  if (options.sinceBytes != null) {
+    params.set("since_bytes", String(options.sinceBytes));
+  }
+  if (options.inode != null && options.inode > 0) {
+    params.set("inode", String(options.inode));
+  }
+  if (options.aroundLine != null && options.aroundLine > 0) {
+    params.set("around_line", String(options.aroundLine));
+  }
+  return fetchJson<LogTailPayload>(`${base}?${params.toString()}`);
+}
+
+/** Alias for delta polling. */
+export async function getLogDelta(
+  name: string,
+  sinceBytes: number,
+  inode?: number,
+  lines?: number
+): Promise<LogTailPayload> {
+  return getLogTailJson(name, { sinceBytes, inode, lines });
+}
+
+export interface LogSearchOptions {
+  q: string;
+  caseSensitive?: boolean;
+  regex?: boolean;
+  maxMatches?: number;
+  context?: number;
+  includeRotated?: boolean;
+}
+
+export async function searchLogs(
+  name: string,
+  options: LogSearchOptions
+): Promise<LogSearchResponse> {
+  const params = new URLSearchParams({ q: options.q });
+  if (options.caseSensitive) {
+    params.set("case", "1");
+  }
+  if (options.regex) {
+    params.set("regex", "1");
+  }
+  if (options.maxMatches != null) {
+    params.set("max_matches", String(options.maxMatches));
+  }
+  if (options.context != null) {
+    params.set("context", String(options.context));
+  }
+  if (options.includeRotated === false) {
+    params.set("include_rotated", "0");
+  }
+  return fetchJson<LogSearchResponse>(
+    `/web/logs/${encodeURIComponent(name)}/search?${params.toString()}`
+  );
+}
+
 export function getLogDownloadUrl(name: string): string {
   return webPath(`/web/logs/${encodeURIComponent(name)}/download`);
+}
+
+/** Session-cookie EventSource URL for live log SSE (use /web/*, not Bearer). */
+export function getLogStreamUrl(
+  name: string,
+  sinceBytes: number,
+  inode?: number,
+  lines?: number
+): string {
+  const params = new URLSearchParams({
+    since_bytes: String(sinceBytes),
+  });
+  if (inode != null && inode > 0) {
+    params.set("inode", String(inode));
+  }
+  if (lines != null && lines > 0) {
+    params.set("lines", String(lines));
+  }
+  return webPath(
+    `/web/logs/${encodeURIComponent(name)}/stream?${params.toString()}`
+  );
 }
 
 export type ArrOpenItemKind = "movie" | "series" | "artist";
@@ -310,25 +572,6 @@ export async function getSonarrSeries(
   );
 }
 
-export async function getLidarrAlbums(
-  category: string,
-  page: number,
-  pageSize: number,
-  query?: string
-): Promise<LidarrAlbumsResponse> {
-  const params = new URLSearchParams();
-  params.set("page", page.toString());
-  params.set("page_size", pageSize.toString());
-  if (query) {
-    params.set("q", query);
-  }
-  // Always include tracks
-  params.set("include_tracks", "true");
-  return fetchJson<LidarrAlbumsResponse>(
-    `/web/lidarr/${encodeURIComponent(category)}/albums?${params}`
-  );
-}
-
 export async function getLidarrArtists(
   category: string,
   page: number,
@@ -371,23 +614,6 @@ export async function getLidarrArtistDetail(
   );
 }
 
-export async function getLidarrTracks(
-  category: string,
-  page: number,
-  pageSize: number,
-  query?: string
-): Promise<LidarrTracksResponse> {
-  const params = new URLSearchParams();
-  params.set("page", page.toString());
-  params.set("page_size", pageSize.toString());
-  if (query) {
-    params.set("q", query);
-  }
-  return fetchJson<LidarrTracksResponse>(
-    `/web/lidarr/${encodeURIComponent(category)}/tracks?${params}`
-  );
-}
-
 export async function restartArr(category: string): Promise<void> {
   await fetchJson<void>(
     `/web/arr/${encodeURIComponent(category)}/restart`,
@@ -417,10 +643,12 @@ export async function getConfig(): Promise<ConfigDocument> {
 export async function updateConfig(
   payload: ConfigUpdatePayload
 ): Promise<ConfigUpdateResponse> {
-  return fetchJson<ConfigUpdateResponse>("/web/config", {
+  const result = await fetchJson<ConfigUpdateResponse>("/web/config", {
     method: "POST",
     body: JSON.stringify(payload),
   });
+  invalidateGetCache(["/web/config", "/web/meta"]);
+  return result;
 }
 
 export async function triggerUpdate(): Promise<void> {
@@ -488,6 +716,7 @@ export async function setPassword(req: SetPasswordRequest): Promise<{ success: b
 export async function logout(): Promise<void> {
   await fetch(webPath("/web/logout"), { method: "POST", credentials: "include" });
   clearStoredToken();
+  invalidateGetCache(["/web/config", "/web/meta", "/web/status", "/web/processes"]);
 }
 
 export async function fetchWebToken(): Promise<string | null> {

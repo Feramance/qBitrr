@@ -16,8 +16,8 @@ qBitrr's Arr views offer:
 - **Request Tracking**: Identify items added via Overseerr/Ombi integration
 - **Pagination**: Handle large libraries with server-side pagination
 - **List and Icon**: Toolbar **View** control on each Arr page — **List** is a text-only table (no poster column in the browse surface); **Icon** is a responsive tile grid with cached posters or cover art. The choice is stored in `localStorage` (default: Icon).
-- **Detail modals**: Click a row/card to open a modal. Radarr shows a single movie payload. Sonarr groups **series → season → episode** in the modal. **Lidarr groups artist → albums → tracks** (each album is a section with track rows)—not nested tables on the main browse surface.
-- **Posters**: Thumbnails are served by the WebUI (disk cache, Arr API source) at `/web/.../thumbnail` and mirrored under `/api/...` (see [WebUI API](api.md#arr-poster-thumbnails-cached)). Images may append `?token=` when the session cookie is not used.
+- **Detail modals**: Click a row/card to open a modal. Radarr shows a single movie payload. Sonarr groups **series → season → episode** in the modal. **Lidarr groups artist → albums → tracks** (each album is a section with track rows)—not nested tables on the main browse surface. Flat episode-list / flat album-list browse modes are permanently removed; hierarchy is always series/artist on the table and seasons/episodes or albums/tracks in the detail modal.
+- **Posters**: Thumbnails are served by the WebUI (disk cache of ~250px WebP/JPEG tiles sourced from Arr `MediaCover`, falling back to entity image URLs on the same Arr host) at `/web/.../thumbnail` and mirrored under `/api/...` (see [WebUI API](api.md#arr-poster-thumbnails-cached)). Same-origin `<img>` requests use the session cookie (no `?token=` on poster URLs). Failed thumbnail loads retry up to 3 times (with short backoff) before showing the placeholder.
 
 Multi-level detail in the modal (browse row is the top level):
 
@@ -341,43 +341,46 @@ See [WebUI API](api.md#lidarr-artists) for query parameters.
 
 ## Configuration
 
-### Live Arr Mode
+### Live Mode
 
-**Path**: `Settings.WebUI.LiveArr`
+**Path**: `WebUI.LiveArr`
 **Type**: `bool`
-**Default**: `false`
+**Default**: `true`
+**App bar control**: **Live** switch
 
-When enabled, bypasses database cache and fetches live data directly from Arr APIs on every page load.
+When enabled, Arr catalogs (Radarr/Sonarr/Lidarr) and the qBittorrent overview auto-refresh while their tab is active. When disabled, those views stop polling; use the in-page Refresh button for updates. Processes and Logs are not gated by this setting.
 
 **Pros**:
 - Always up-to-date (no sync delay)
-- Reflects immediate changes in Arr
+- Reflects immediate changes in Arr and qBittorrent
 
 **Cons**:
-- Slower page loads (API latency)
-- Higher load on Arr instances
-- No offline browsing
+- Higher load on Arr / qBittorrent APIs while tabs are open
 
 **Example**:
 ```toml
 [WebUI]
-LiveArr = false  # Use database cache (recommended)
+LiveArr = false  # Manual refresh only for Arr and qBit overview
 ```
 
-### WebUI.GroupSonarr / WebUI.GroupLidarr
+### Tab keep-alive and polling
 
-**Paths**: `Settings.WebUI.GroupSonarr`, `Settings.WebUI.GroupLidarr`
-**Type**: `bool` each
-**Default**: `true` each
+Visited tabs stay mounted and are hidden (`display: none`) on switch so Arr browse state (filters, page, selection) survives tab changes. Background tabs do **not** poll: Processes, Logs, Arr catalogs, and qBittorrent categories only refresh while their tab is the active one (and, where applicable, when live mode is on).
 
-These keys remain in [`config.toml`](../configuration/config-file.md) for compatibility; the React WebUI does **not** branch on them. Sonarr browsing is series-row + modal (`series → seasons → episodes`). Lidarr browsing is artist-row + modal (`artist → albums → tracks`).
+| Surface | Interval | Gate |
+|---------|----------|------|
+| Processes | 2s | Tab active |
+| Logs (live updates) | 2s | Tab active and live toggle on |
+| qBittorrent overview | 5s | Tab active and `WebUI.LiveArr` |
+| Arr catalog (instance + aggregate) | 15s | Tab active and `WebUI.LiveArr` (and no blocking global search) |
+| AppShell `/web/status` (Arr tab visibility) | 15s | Always while shell is open |
+| AppShell meta (quiet) | 5 min | Soft refresh; forced on visibility |
 
-**Example**:
-```toml
-[WebUI]
-GroupSonarr = true
-GroupLidarr = true
-```
+**Icon grid / posters**: Icon layout page size is measured only when the Arr tab is visible (zero-width / hidden measures are ignored). Returning to a kept-alive Arr tab remeasures the grid and re-observes poster images so tiles and thumbnails recover after hide/show.
+
+### Browse layout
+
+Sonarr browsing is always series-row + modal (`series → seasons → episodes`). Lidarr browsing is always artist-row + modal (`artist → albums → tracks`).
 
 ---
 

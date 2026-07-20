@@ -41,6 +41,11 @@ export function setUrlBaseFromMeta(base: string | undefined): void {
   }
 }
 
+/** Drop cached UrlBase so the next meta fetch or pathname derivation picks up changes. */
+export function clearUrlBaseCache(): void {
+  cachedUrlBaseFromMeta = null;
+}
+
 /** Prefix an app-relative path (must start with /) with the active UrlBase. */
 export function webPath(path: string): string {
   if (!path.startsWith("/")) {

@@ -36,16 +36,21 @@ from qBitrr.env_config import ENVIRO_CONFIG
 from qBitrr.ffprobe import FFprobeDownloader
 from qBitrr.home_path import APPDATA_FOLDER
 from qBitrr.logger import run_logs
+from qBitrr.process_lifecycle import ProcessLifecycle
 from qBitrr.qbit_category_manager import qBitCategoryManager
-from qBitrr.utils import ExpiringSet, mask_secret
+from qBitrr.qbit_seeding_config import load_qbit_seeding_config
+from qBitrr.utils import ExpiringSet, mask_secret, qbit_sections
 from qBitrr.versioning import fetch_latest_release
 from qBitrr.webui import WebUI
 
 if CONFIG_EXISTS:
     from qBitrr.arss import ArrManager
 else:
-    print("Configuration not found. Please create a config file and restart.")
-    sys.exit(1)
+    ArrManager = None  # type: ignore[misc, assignment]
+    print(
+        "Configuration was generated or is incomplete. "
+        "Update config.toml for your environment, then restart."
+    )
 
 logger = logging.getLogger("qBitrr")
 run_logs(logger, "Main")
@@ -83,7 +88,7 @@ def _delete_all_databases() -> None:
         logger.debug("No old database files found to delete on startup")
 
 
-class qBitManager:
+class qBitManager(ProcessLifecycle):
     min_supported_version = VersionClass("4.3.9")
     soft_not_supported_supported_version = VersionClass("4.4.4")
     # max_supported_version = VersionClass("5.1.2")
@@ -471,14 +476,16 @@ class qBitManager:
             self.logger.debug("qBit disabled or search-only mode; skipping instance init")
             return
 
-        for section in CONFIG.sections():
-            if section == "qBit" or section.startswith("qBit-"):
-                try:
-                    self._init_instance(section, section)
-                    self.logger.info("Initialized qBit instance: %s", section)
-                except Exception as e:
-                    self.logger.error("Failed to initialize qBit instance '%s': %s", section, e)
-                    self.instance_health[section] = False
+        for section in qbit_sections(CONFIG):
+            if CONFIG.get(f"{section}.Disabled", fallback=False):
+                self.logger.info("Skipping disabled qBit instance: %s", section)
+                continue
+            try:
+                self._init_instance(section, section)
+                self.logger.info("Initialized qBit instance: %s", section)
+            except Exception as e:
+                self.logger.error("Failed to initialize qBit instance '%s': %s", section, e)
+                self.instance_health[section] = False
 
         # Set current_qbit_version from the first initialized instance (for legacy compatibility)
         if self.qbit_versions:
@@ -551,82 +558,17 @@ class qBitManager:
         # Load qBit category management config for this instance
         managed_categories = CONFIG.get(f"{section_name}.ManagedCategories", fallback=[])
         if managed_categories:
-            # Load default seeding settings
-            default_seeding = {}
-            seeding_keys = [
-                "DownloadRateLimitPerTorrent",
-                "UploadRateLimitPerTorrent",
-                "MaxUploadRatio",
-                "MaxSeedingTime",
-                "RemoveTorrent",
-            ]
-            for key in seeding_keys:
-                if key == "MaxSeedingTime":
-                    value = CONFIG.get_duration(
-                        f"{section_name}.CategorySeeding.{key}", fallback=-1
-                    )
-                else:
-                    value = CONFIG.get(f"{section_name}.CategorySeeding.{key}", fallback=-1)
-                default_seeding[key] = value
-
-            # Load HnR protection settings
-            hnr_keys = {
-                "HitAndRunMode": "disabled",
-                "MinSeedRatio": 1.0,
-                "MinSeedingTimeDays": 0,
-                "HitAndRunPartialSeedRatio": 1.0,
-                "TrackerUpdateBuffer": 0,
-            }
-            for key, fallback in hnr_keys.items():
-                if key == "TrackerUpdateBuffer":
-                    default_seeding[key] = CONFIG.get_duration(
-                        f"{section_name}.CategorySeeding.{key}", fallback=fallback
-                    )
-                else:
-                    default_seeding[key] = CONFIG.get(
-                        f"{section_name}.CategorySeeding.{key}", fallback=fallback
-                    )
-
-            # Load per-category overrides
-            category_overrides = {}
-            categories_list = CONFIG.get(f"{section_name}.CategorySeeding.Categories", fallback=[])
-            for cat_config in categories_list:
-                if isinstance(cat_config, dict) and "Name" in cat_config:
-                    cat_name = cat_config["Name"]
-                    category_overrides[cat_name] = cat_config
-
-            # Load qBit-level shared trackers
-            instance_trackers = CONFIG.get(f"{section_name}.Trackers", fallback=[])
-
-            # Stalled handling for qBit-managed categories (same semantics as Arr)
-            stalled_delay = CONFIG.get_duration(
-                f"{section_name}.CategorySeeding.StalledDelay", fallback=-1, unit="minutes"
-            )
-            ignore_younger = CONFIG.get_duration(
-                f"{section_name}.CategorySeeding.IgnoreTorrentsYoungerThan",
-                fallback=CONFIG.get_duration("Settings.IgnoreTorrentsYoungerThan", fallback=180),
-            )
-
-            match_subcategories = bool(
-                CONFIG.get(f"{section_name}.MatchSubcategories", fallback=False)
-            )
-
-            # Store config for later initialization
+            seeding = load_qbit_seeding_config(section_name)
             self.qbit_category_configs[instance_name] = {
                 "managed_categories": managed_categories,
-                "default_seeding": default_seeding,
-                "category_overrides": category_overrides,
-                "trackers": instance_trackers,
-                "stalled_delay": stalled_delay,
-                "ignore_torrents_younger_than": ignore_younger,
-                "match_subcategories": match_subcategories,
+                **seeding,
             }
             self.logger.debug(
                 "Loaded qBit category config for '%s': %d managed categories "
                 "(MatchSubcategories=%s)",
                 instance_name,
                 len(managed_categories),
-                match_subcategories,
+                seeding["match_subcategories"],
             )
 
     def create_client_for_instance(self, instance_name: str) -> qbittorrentapi.Client:
@@ -731,78 +673,108 @@ class qBitManager:
         if QBIT_DISABLED or SEARCH_ONLY:
             return
 
-        seeding_keys = [
-            "DownloadRateLimitPerTorrent",
-            "UploadRateLimitPerTorrent",
-            "MaxUploadRatio",
-            "MaxSeedingTime",
-            "RemoveTorrent",
-        ]
-        hnr_keys = {
-            "HitAndRunMode": "disabled",
-            "MinSeedRatio": 1.0,
-            "MinSeedingTimeDays": 0,
-            "HitAndRunPartialSeedRatio": 1.0,
-            "TrackerUpdateBuffer": 0,
-        }
-
-        def _load_category_config(section_name: str, instance_name: str):
-            managed_categories = CONFIG.get(f"{section_name}.ManagedCategories", fallback=[])
+        rebuilt: dict[str, dict] = {}
+        for section in qbit_sections(CONFIG):
+            if CONFIG.get(f"{section}.Disabled", fallback=False):
+                continue
+            managed_categories = CONFIG.get(f"{section}.ManagedCategories", fallback=[])
             if not managed_categories:
-                return
-            default_seeding = {}
-            for key in seeding_keys:
-                if key == "MaxSeedingTime":
-                    default_seeding[key] = CONFIG.get_duration(
-                        f"{section_name}.CategorySeeding.{key}", fallback=-1
-                    )
-                else:
-                    default_seeding[key] = CONFIG.get(
-                        f"{section_name}.CategorySeeding.{key}", fallback=-1
-                    )
-            for key, fallback in hnr_keys.items():
-                if key == "TrackerUpdateBuffer":
-                    default_seeding[key] = CONFIG.get_duration(
-                        f"{section_name}.CategorySeeding.{key}", fallback=fallback
-                    )
-                else:
-                    default_seeding[key] = CONFIG.get(
-                        f"{section_name}.CategorySeeding.{key}", fallback=fallback
-                    )
-            category_overrides = {}
-            for cat_config in CONFIG.get(
-                f"{section_name}.CategorySeeding.Categories", fallback=[]
-            ):
-                if isinstance(cat_config, dict) and "Name" in cat_config:
-                    category_overrides[cat_config["Name"]] = cat_config
-            trackers = CONFIG.get(f"{section_name}.Trackers", fallback=[])
-            stalled_delay = CONFIG.get_duration(
-                f"{section_name}.CategorySeeding.StalledDelay", fallback=-1, unit="minutes"
-            )
-            ignore_younger = CONFIG.get_duration(
-                f"{section_name}.CategorySeeding.IgnoreTorrentsYoungerThan",
-                fallback=CONFIG.get_duration("Settings.IgnoreTorrentsYoungerThan", fallback=180),
-            )
-            match_subcategories = bool(
-                CONFIG.get(f"{section_name}.MatchSubcategories", fallback=False)
-            )
-            self.qbit_category_configs[instance_name] = {
+                continue
+            seeding = load_qbit_seeding_config(section)
+            rebuilt[section] = {
                 "managed_categories": managed_categories,
-                "default_seeding": default_seeding,
-                "category_overrides": category_overrides,
-                "trackers": trackers,
-                "stalled_delay": stalled_delay,
-                "ignore_torrents_younger_than": ignore_younger,
-                "match_subcategories": match_subcategories,
+                **seeding,
             }
-
-        for section in CONFIG.sections():
-            if section == "qBit" or section.startswith("qBit-"):
-                _load_category_config(section, section)
+        self.qbit_category_configs.clear()
+        self.qbit_category_configs.update(rebuilt)
 
         self.logger.info(
             "Reloaded qBit category configs: %d instances", len(self.qbit_category_configs)
         )
+
+    def _stop_qbit_category_worker(self, instance_name: str) -> None:
+        """Kill and unregister the category_manager worker for a qBit instance."""
+        to_remove = [
+            proc
+            for proc, meta in list(self._process_registry.items())
+            if meta.get("role") == "category_manager" and meta.get("instance") == instance_name
+        ]
+        for proc in to_remove:
+            try:
+                proc.kill()
+            except Exception:
+                self.logger.debug(
+                    "Hot prune: kill failed for qBit category worker '%s'",
+                    instance_name,
+                    exc_info=True,
+                )
+            try:
+                proc.terminate()
+            except Exception:
+                self.logger.debug(
+                    "Hot prune: terminate failed for qBit category worker '%s'",
+                    instance_name,
+                    exc_info=True,
+                )
+            try:
+                self.child_processes.remove(proc)
+            except Exception:
+                self.logger.debug(
+                    "Hot prune: child_processes.remove failed for '%s'",
+                    instance_name,
+                    exc_info=True,
+                )
+            self._process_registry.pop(proc, None)
+
+    def _prune_stale_qbit_runtime(self) -> None:
+        """Drop clients/managers/registry entries for qBit sections no longer in config."""
+        if QBIT_DISABLED or SEARCH_ONLY:
+            valid: set[str] = set()
+        else:
+            valid = {
+                s for s in qbit_sections(CONFIG) if not CONFIG.get(f"{s}.Disabled", fallback=False)
+            }
+
+        for store_name in ("clients", "qbit_versions", "instance_metadata", "instance_health"):
+            store = getattr(self, store_name, None)
+            if not isinstance(store, dict):
+                continue
+            for name in list(store.keys()):
+                if name not in valid:
+                    store.pop(name, None)
+
+        for name in list(self.qbit_category_managers.keys()):
+            if name in self.qbit_category_configs:
+                continue
+            self._stop_qbit_category_worker(name)
+            self.qbit_category_managers.pop(name, None)
+            self.logger.info("Pruned stale qBit category manager '%s' (hot reload)", name)
+
+    def refresh_qbit_hot(self) -> None:
+        """Refresh qBit category configs and in-memory managers without respawning workers."""
+        self._reload_qbit_category_configs()
+        self._prune_stale_qbit_runtime()
+        for instance_name, config in self.qbit_category_configs.items():
+            manager = self.qbit_category_managers.get(instance_name)
+            if manager is not None:
+                manager.refresh_from_config(config)
+            else:
+                try:
+                    self.qbit_category_managers[instance_name] = qBitCategoryManager(
+                        instance_name, self, config
+                    )
+                    self.logger.info(
+                        "Initialized qBit category manager for instance '%s' (hot reload)",
+                        instance_name,
+                    )
+                except Exception as e:
+                    self.logger.error(
+                        "Failed to initialize qBit category manager for '%s': %s",
+                        instance_name,
+                        e,
+                        exc_info=True,
+                    )
+        self.logger.info("Applied qBit hot config refresh")
 
     def _initialize_qbit_category_managers(self) -> None:
         """
@@ -990,25 +962,6 @@ class qBitManager:
         if not (QBIT_DISABLED or SEARCH_ONLY):
             roles.append("torrent")
         return roles
-
-    def _enqueue_failed_spawn(self, arr, role: str) -> None:
-        """Track a failed worker spawn and queue it for periodic retry."""
-        category = getattr(arr, "category", "")
-        key = (category, role)
-        self._failed_spawn_attempts[key] = self._failed_spawn_attempts.get(key, 0) + 1
-        meta = {"category": category, "role": role, "name": getattr(arr, "_name", "")}
-        already_pending = any(
-            m.get("category") == category and m.get("role") == role
-            for _, m in self._pending_spawns
-        )
-        if not already_pending:
-            self._pending_spawns.append((arr, meta))
-
-    def _discard_unstarted_spawn(self, proc) -> None:
-        """Remove a failed or never-started worker from supervisor tracking."""
-        self._process_registry.pop(proc, None)
-        with contextlib.suppress(ValueError):
-            self.child_processes.remove(proc)
 
     def run(self) -> None:
         try:
@@ -1348,154 +1301,27 @@ class qBitManager:
                 if proc.is_alive():
                     proc.join(timeout=1)
 
-    def _should_restart_process(self, category: str, role: str) -> bool:
-        """
-        Determine if a process should be restarted based on restart count and window.
-
-        Tracks restart attempts per (category, role) combination and prevents
-        crash loops by enforcing maximum restart limits within a time window.
-
-        Args:
-            category: The Arr category (e.g., "radarr", "sonarr")
-            role: The process role ("search" or "torrent")
-
-        Returns:
-            bool: True if process should be restarted, False otherwise
-        """
-        key = (category, role)
-        now = time.time()
-
-        # Get restart history for this process type
-        if key not in self._process_restart_counts:
-            self._process_restart_counts[key] = []
-
-        restart_times = self._process_restart_counts[key]
-
-        # Remove timestamps outside the restart window
-        restart_times[:] = [t for t in restart_times if now - t < self.process_restart_window]
-
-        # Check if we've exceeded max restarts
-        if len(restart_times) >= self.max_process_restarts:
-            self.logger.error(
-                "Process %s/%s has failed %d times in %d seconds. Auto-restart disabled for this process.",
-                category,
-                role,
-                len(restart_times),
-                self.process_restart_window,
-            )
-            return False
-
-        return True
-
-    def _restart_process(
-        self, failed_proc: pathos.helpers.mp.Process, meta: dict[str, str]
-    ) -> bool:
-        """
-        Restart a failed worker process.
-
-        Creates a new process instance with the same target function, starts it,
-        and updates all tracking structures to reference the new process.
-
-        Args:
-            failed_proc: The failed process object
-            meta: Process metadata dict with keys: category, name, role
-
-        Returns:
-            bool: True if restart successful, False otherwise
-        """
-        category = meta.get("category", "")
-        role = meta.get("role", "worker")
-        name = meta.get("name", "")
-
-        try:
-            # Wait before restarting
-            if self.process_restart_delay > 0:
-                self.logger.debug(
-                    "Waiting %ds before restarting %s worker for '%s'",
-                    self.process_restart_delay,
-                    role,
-                    category,
-                )
-                time.sleep(self.process_restart_delay)
-
-            # Find the corresponding Arr instance
-            if not self.arr_manager:
-                self.logger.error("ArrManager not available for process restart")
-                return False
-
-            arr = self.arr_manager.managed_objects.get(category)
-            if not arr:
-                self.logger.error("Cannot find Arr instance for category '%s'", category)
-                return False
-
-            # Recreate the process based on role
-            new_proc = None
-            if role == "search" and hasattr(arr, "run_search_loop"):
-                new_proc = pathos.helpers.mp.Process(target=arr.run_search_loop, daemon=False)
-                if hasattr(arr, "process_search_loop"):
-                    arr.process_search_loop = new_proc
-            elif role == "torrent" and hasattr(arr, "run_torrent_loop"):
-                new_proc = pathos.helpers.mp.Process(target=arr.run_torrent_loop, daemon=False)
-                if hasattr(arr, "process_torrent_loop"):
-                    arr.process_torrent_loop = new_proc
-            else:
-                self.logger.error(
-                    "Unknown role '%s' for category '%s' or target method not found",
-                    role,
-                    category,
-                )
-                return False
-
-            if not new_proc:
-                return False
-
-            # Start the new process
-            new_proc.start()
-
-            # Update restart tracking
-            key = (category, role)
-            self._process_restart_counts.setdefault(key, []).append(time.time())
-
-            # Replace in child_processes list
-            with contextlib.suppress(ValueError):
-                self.child_processes.remove(failed_proc)
-            self.child_processes.append(new_proc)
-
-            # Update registry
-            self._process_registry.pop(failed_proc, None)
-            self._process_registry[new_proc] = meta
-
-            self.logger.notice(
-                "Successfully restarted %s worker for category '%s' (restarts in window: %d/%d)",
-                role,
-                category,
-                len(self._process_restart_counts[key]),
-                self.max_process_restarts,
-            )
-
-            return True
-
-        except Exception as e:
-            self.logger.exception(
-                "Failed to restart %s worker for category '%s': %s", role, category, e
-            )
-            return False
-
 
 def _report_config_issues():
     try:
         issues = []
         # Check required settings
-        from qBitrr.config import COMPLETED_DOWNLOAD_FOLDER, CONFIG, FREE_SPACE, FREE_SPACE_FOLDER
+        from qBitrr.config import (
+            CONFIG,
+            FREE_SPACE,
+            FREE_SPACE_FOLDER,
+            get_completed_download_folder_effective,
+        )
 
-        if not COMPLETED_DOWNLOAD_FOLDER or str(COMPLETED_DOWNLOAD_FOLDER).upper() == "CHANGE_ME":
+        completed_folder = get_completed_download_folder_effective()
+        if not completed_folder or str(completed_folder).upper() == "CHANGE_ME":
             issues.append("Settings.CompletedDownloadFolder is missing or set to CHANGE_ME")
         if FREE_SPACE != "-1":
             if not FREE_SPACE_FOLDER or str(FREE_SPACE_FOLDER).upper() == "CHANGE_ME":
                 issues.append("Settings.FreeSpaceFolder must be set when FreeSpace is enabled")
         # Check Arr sections
         for key in CONFIG.sections():
-            m = re.match(r"(rad|son|anim|lid)arr.*", key, re.IGNORECASE)
+            m = re.match(r"(rad|son|lid)arr.*", key, re.IGNORECASE)
             if not m:
                 continue
             managed = CONFIG.get(f"{key}.Managed", fallback=False)
@@ -1525,7 +1351,8 @@ def run():
     _delete_all_databases()
 
     if not CONFIG_EXISTS:
-        sys.exit(1)
+        # First-boot / missing config: exit cleanly after generate (see config.py).
+        sys.exit(0)
     manager = qBitManager()
     run_logs(logger)
     # Early consolidated config validation feedback

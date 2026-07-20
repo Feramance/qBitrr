@@ -1,0 +1,81 @@
+# Test-only stack for finite live smoke (qBittorrent + Radarr + qBitrr).
+# Not for production. See docs/development/testing.md § Live smoke (compose).
+#
+# Usage:
+#   docker compose -f docker-compose.test.yml build
+#   # Phase A (empty config → generate + exit 0):
+#   mkdir -p .compose-test/qbitrr-firstboot
+#   docker compose -f docker-compose.test.yml run --rm --no-deps \
+#     -v "$(pwd)/.compose-test/qbitrr-firstboot:/config" qbitrr
+#   # Full stack (after wiring config.toml — see docs):
+#   docker compose -f docker-compose.test.yml up -d
+
+name: qbitrr-test
+
+services:
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbitrr-test-qbittorrent
+    environment:
+    - PUID=${PUID:-1000}
+    - PGID=${PGID:-1000}
+    - TZ=${TZ:-Etc/UTC}
+    - WEBUI_PORT=8080
+    - TORRENTING_PORT=6881
+    volumes:
+    - ./.compose-test/qbittorrent:/config
+    - ./.compose-test/downloads:/downloads
+    ports:
+    - 18080:8080
+    - 16881:6881
+    - 16881:6881/udp
+    networks:
+    - qbitrr-test
+    restart: unless-stopped
+
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: qbitrr-test-radarr
+    environment:
+    - PUID=${PUID:-1000}
+    - PGID=${PGID:-1000}
+    - TZ=${TZ:-Etc/UTC}
+    volumes:
+    - ./.compose-test/radarr:/config
+    - ./.compose-test/downloads:/downloads
+    - ./.compose-test/media:/movies
+    ports:
+    - 17878:7878
+    networks:
+    - qbitrr-test
+    depends_on:
+    - qbittorrent
+    restart: unless-stopped
+
+  qbitrr:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: qbitrr:test
+    container_name: qbitrr-test-qbitrr
+    environment:
+    - PUID=${PUID:-1000}
+    - PGID=${PGID:-1000}
+    - TZ=${TZ:-Etc/UTC}
+    - UMASK=000
+    volumes:
+    - ./.compose-test/qbitrr:/config
+    - ./.compose-test/downloads:/downloads
+    ports:
+    - 16969:6969
+    networks:
+    - qbitrr-test
+    depends_on:
+    - qbittorrent
+    - radarr
+    # "no" keeps first-boot exit(0) visible; switch to unless-stopped for soak.
+    restart: no
+
+networks:
+  qbitrr-test:
+    name: qbitrr-test

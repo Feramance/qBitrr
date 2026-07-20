@@ -10,17 +10,25 @@ import {
   AGGREGATE_FETCH_CHUNK_SIZE,
   AGGREGATE_POLL_INTERVAL_MS,
 } from "../../constants/arrAggregateFetch";
-import { useDataSync } from "../../hooks/useDataSync";
 import { useDebounce } from "../../hooks/useDebounce";
 import { useInterval } from "../../hooks/useInterval";
 import { useRowsStore } from "../../hooks/useRowsStore";
 import type { Hashable } from "../../utils/dataSync";
-import type { RowsStore } from "../../utils/rowsStore";
+import {
+  createEmptyRowsSnapshot,
+  syncRowsSnapshot,
+  type RowsStore,
+  type RowsStoreSnapshot,
+} from "../../utils/rowsStore";
 import type {
   ArrCatalogAggregateAdapter,
   ArrCatalogSummary,
 } from "./definition";
 import { forEachInstanceChunkedPages } from "./forEachInstanceChunkedPages";
+import {
+  isEmptyStateReady,
+  useCatalogEmptyStateTracker,
+} from "./useCatalogFetchPrimitives";
 
 interface UseAggregateCatalogLoaderParams<
   TAggRow extends Hashable,
@@ -34,6 +42,8 @@ interface UseAggregateCatalogLoaderParams<
   readonly liveArr: boolean;
   readonly globalSearch: string;
   readonly filters: TFilters;
+  /** Default filter state — used to skip filter/sort copies when unchanged. */
+  readonly initialFilters: TFilters;
   readonly adapter: ArrCatalogAggregateAdapter<TAggRow, TAggResp, TFilters, TRollup>;
   readonly aggregatePageSize: number;
   readonly pushToast: (
@@ -71,7 +81,6 @@ export interface UseAggregateCatalogLoaderResult<TAggRow extends Hashable> {
   readonly isAggFiltered: boolean;
   readonly setPage: (page: number) => void;
   readonly refresh: () => void;
-  readonly hasActiveLoad: () => boolean;
 }
 
 export function useAggregateCatalogLoader<
@@ -89,6 +98,7 @@ export function useAggregateCatalogLoader<
     liveArr,
     globalSearch,
     filters,
+    initialFilters,
     adapter,
     aggregatePageSize,
     pushToast,
@@ -106,8 +116,7 @@ export function useAggregateCatalogLoader<
   const aggFetchGenRef = useRef(0);
   const aggActiveLoadsRef = useRef(0);
   const aggRequestKeyRef = useRef("");
-  const sawNonEmptyRef = useRef(false);
-  const stableEmptyStreakRef = useRef(0);
+  const emptyTracker = useCatalogEmptyStateTracker();
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
   const globalSearchRef = useRef(globalSearch);
@@ -115,14 +124,25 @@ export function useAggregateCatalogLoader<
   const aggFilterRef = useRef(aggFilter);
   aggFilterRef.current = aggFilter;
 
-  const dataSyncOpts = useMemo(
+  const fullListSyncOpts = useMemo(
     () => ({
       getKey: adapter.getRowKey,
       hashFields: adapter.hashFields as ReadonlyArray<keyof TAggRow & string>,
     }),
     [adapter.getRowKey, adapter.hashFields],
   );
-  const dataSync = useDataSync<TAggRow>(dataSyncOpts as never);
+  const fullListSyncRef = useRef<RowsStoreSnapshot<TAggRow>>(createEmptyRowsSnapshot());
+  const syncFullList = useCallback(
+    (incoming: TAggRow[]) => {
+      const result = syncRowsSnapshot(fullListSyncRef.current, incoming, fullListSyncOpts as never);
+      fullListSyncRef.current = result.snapshot;
+      return {
+        hasChanges: result.changeKind !== "noop",
+        data: incoming,
+      };
+    },
+    [fullListSyncOpts],
+  );
 
   const rowsStoreOpts = useMemo(
     () => ({
@@ -134,15 +154,27 @@ export function useAggregateCatalogLoader<
   const { snapshot, store } = useRowsStore<TAggRow>(rowsStoreOpts as never);
 
   const filtersKey = useMemo(() => JSON.stringify(filters), [filters]);
+  const initialFiltersKey = useMemo(
+    () => JSON.stringify(initialFilters),
+    [initialFilters],
+  );
+  const searchAndFiltersDefault =
+    !debouncedSearch && filtersKey === initialFiltersKey;
 
+  // Skip filter/sort array copies when search + filters are at defaults and there is
+  // no custom sort (Radarr/Sonarr). Lidarr still sorts when filters are default.
   const filteredRows = useMemo<ReadonlyArray<TAggRow>>(() => {
+    if (searchAndFiltersDefault) {
+      return rows;
+    }
     const filterFn = adapter.filterRows;
     if (!filterFn) return rows;
     return filterFn(rows, filters, debouncedSearch);
-  }, [rows, debouncedSearch, adapter, filtersKey, filters]);
+  }, [rows, debouncedSearch, adapter, filters, searchAndFiltersDefault]);
 
   const sortedRows = useMemo<ReadonlyArray<TAggRow>>(() => {
     const sortFn = adapter.sortRows;
+    // No sort adapter (Radarr/Sonarr): reuse filteredRows reference — no copy.
     if (!sortFn) return filteredRows;
     return sortFn(filteredRows);
   }, [filteredRows, adapter]);
@@ -187,8 +219,7 @@ export function useAggregateCatalogLoader<
       });
       if (aggRequestKeyRef.current !== requestKey) {
         aggRequestKeyRef.current = requestKey;
-        sawNonEmptyRef.current = false;
-        stableEmptyStreakRef.current = 0;
+        emptyTracker.resetEmptyState();
         setEmptyStateReady(false);
       }
       if (showLoading) {
@@ -245,7 +276,7 @@ export function useAggregateCatalogLoader<
           return;
         }
 
-        const syncResult = dataSync.syncData(aggregated);
+        const syncResult = syncFullList(aggregated);
         const rowsChanged = syncResult.hasChanges;
 
         if (rowsChanged) {
@@ -261,12 +292,11 @@ export function useAggregateCatalogLoader<
           newSummary.missing > 0;
 
         if (hasCatalogData) {
-          sawNonEmptyRef.current = true;
-          stableEmptyStreakRef.current = 0;
+          emptyTracker.noteCatalogData(true);
           setEmptyStateReady((prev) => (prev ? prev : true));
         } else {
-          stableEmptyStreakRef.current += 1;
-          const ready = sawNonEmptyRef.current || stableEmptyStreakRef.current >= 2;
+          emptyTracker.noteCatalogData(false);
+          const ready = isEmptyStateReady(emptyTracker, false);
           setEmptyStateReady((prev) => (prev === ready ? prev : ready));
         }
 
@@ -300,12 +330,16 @@ export function useAggregateCatalogLoader<
         }
         setRows([]);
         setSummary(adapter.initialSummary);
-        pushToast(
-          error instanceof Error
-            ? error.message
-            : "Failed to load aggregated catalog data",
-          "error",
-        );
+        setEmptyStateReady(true);
+        // Background Live polls must stay silent; only toast user-visible loads.
+        if (showLoading) {
+          pushToast(
+            error instanceof Error
+              ? error.message
+              : "Failed to load aggregated catalog data",
+            "error",
+          );
+        }
       } finally {
         aggActiveLoadsRef.current -= 1;
         if (gen === aggFetchGenRef.current) {
@@ -315,11 +349,10 @@ export function useAggregateCatalogLoader<
     },
     // `aggFilter` is read via `aggFilterRef` so typing in global search does not
     // change this callback identity (which would retrigger the aggregate load effect).
-    // Use `dataSync.syncData` only: `useDataSync` returns a fresh object each render,
-    // so depending on `dataSync` would recreate this callback every render and re-fire
-    // the aggregate `useEffect` in a tight loop (loading / empty flicker).
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable syncData; whole `dataSync` object is unstable
-    [adapter, instances, dataSync.syncData, pushToast],
+    // Use `syncFullList` only: avoid depending on unstable object identities that would
+    // recreate this callback every render and re-fire the aggregate `useEffect`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable syncFullList; avoid retrigger loops
+    [adapter, instances, syncFullList, pushToast],
   );
 
   // Trigger load when entering aggregate view or when server-side filter params change.
@@ -338,7 +371,7 @@ export function useAggregateCatalogLoader<
     }
   }, [selection, globalSearch]);
 
-  // Polling on visible aggregate view (only when liveArr is enabled).
+  // Polling on visible aggregate view (only when liveArr is enabled and tab is active).
   useInterval(
     () => {
       if (document.visibilityState !== "visible") return;
@@ -350,7 +383,9 @@ export function useAggregateCatalogLoader<
         void loadAggregate({ showLoading: false });
       }
     },
-    selection === "aggregate" && liveArr ? AGGREGATE_POLL_INTERVAL_MS : null,
+    active && selection === "aggregate" && liveArr
+      ? AGGREGATE_POLL_INTERVAL_MS
+      : null,
   );
 
   const refresh = useCallback(() => {
@@ -364,8 +399,6 @@ export function useAggregateCatalogLoader<
     // as filtered. Definitions can override by checking summary mismatch instead.
     return total < rows.length;
   }, [debouncedSearch, adapter.filterRows, total, rows.length]);
-
-  const hasActiveLoad = useCallback(() => aggActiveLoadsRef.current > 0, []);
 
   return {
     rows,
@@ -383,6 +416,5 @@ export function useAggregateCatalogLoader<
     isAggFiltered,
     setPage,
     refresh,
-    hasActiveLoad,
   };
 }

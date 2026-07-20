@@ -292,9 +292,9 @@ Then add `Authorization: Bearer your_secret_token_here` header to API requests.
 
 Yes, but secure it first:
 
-1. Enable `WebUIToken` authentication
+1. Keep `WebUI.AuthDisabled = false` (login required) and use a strong password or OIDC
 2. Use a reverse proxy (nginx, Caddy) with HTTPS
-3. Don't expose port directly to the internet
+3. Don't expose port directly to the internet; if you must use `AuthDisabled = true` on `0.0.0.0`, set `AllowInsecureExposure = true` only behind a proxy that already authenticates clients
 
 ## Advanced Questions
 

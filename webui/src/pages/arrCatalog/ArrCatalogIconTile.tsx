@@ -1,4 +1,4 @@
-import { type JSX, type ReactNode } from "react";
+import { memo, type JSX, type ReactNode } from "react";
 import { ArrPosterImage } from "../../components/arr/ArrPosterImage";
 
 export interface ArrCatalogIconTileProps {
@@ -13,7 +13,7 @@ export interface ArrCatalogIconTileProps {
  * Shared catalog tile chrome for Radarr / Sonarr / Lidarr icon browse mode.
  * Per‑Arr views supply only `posterSrc` and `children`.
  */
-export function ArrCatalogIconTile({
+export const ArrCatalogIconTile = memo(function ArrCatalogIconTile({
   posterSrc,
   onClick,
   children,
@@ -36,4 +36,4 @@ export function ArrCatalogIconTile({
       <div className="arr-movie-tile__meta">{children}</div>
     </button>
   );
-}
+});

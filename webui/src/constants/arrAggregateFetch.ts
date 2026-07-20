@@ -55,25 +55,3 @@ export function summarizeAggregateMonitoredRows<
   const missing = Math.max(0, monitored - available);
   return { available, monitored, missing, total };
 }
-
-/** Lidarr merged rows store `monitored` / `hasFile` on nested `album`. */
-export function summarizeLidarrAlbumAggRows(
-  rows: ReadonlyArray<{ album?: Record<string, unknown> }>
-): AggregateCatalogSummary {
-  let monitored = 0;
-  let available = 0;
-  for (const r of rows) {
-    const a = r.album;
-    const m = Boolean(a?.monitored);
-    const h = Boolean(a?.hasFile);
-    if (m) {
-      monitored += 1;
-      if (h) {
-        available += 1;
-      }
-    }
-  }
-  const total = rows.length;
-  const missing = Math.max(0, monitored - available);
-  return { available, monitored, missing, total };
-}

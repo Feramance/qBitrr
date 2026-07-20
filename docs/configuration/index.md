@@ -47,25 +47,26 @@ Password = "adminadmin"
 
 ### Essential Configuration
 
-These settings are **required** for qBitrr to function:
+These settings are needed for full qBitrr operation. qBittorrent itself is optional: without a `[qBit]` / `[qBit-*]` section, qBit is treated as disabled.
 
-#### 1. qBittorrent Connection
+#### 1. qBittorrent Connection (optional)
 
 **[qBittorrent Configuration Guide](qbittorrent.md)**
 
-Configure connection to your qBittorrent instance:
+Configure connection to your qBittorrent instance when you want torrent processing:
 
 - Host, port, and authentication
+- Section name: `[qBit]` or `[qBit-<name>]` (e.g. `[qBit-General]`)
 - Version-specific settings (v4.x vs v5.x)
 - Docker networking considerations
 - HTTPS/SSL configuration
 
-**Minimum required:**
+**Minimum example:**
 ```toml
 [qBit]
-Host = "http://localhost"
+Host = "localhost"
 Port = 8080
-Username = "admin"
+UserName = "admin"
 Password = "adminadmin"
 ```
 

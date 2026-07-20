@@ -129,8 +129,9 @@ def get_binary_download_url(release_tag: str, logger: logging.Logger) -> dict[st
         ]
 
         error_msg = f"No binary available for {system} {machine}"
-        if any(pattern in unsupported_platforms for pattern in asset_patterns):
-            error_msg += f" (platform {asset_pattern} is not built by release workflow)"
+        matched = next((p for p in asset_patterns if p in unsupported_platforms), None)
+        if matched:
+            error_msg += f" (platform {matched} is not built by release workflow)"
 
         return {
             "url": None,
@@ -359,11 +360,16 @@ def perform_self_update(logger: logging.Logger, target_version: str | None = Non
     elif install_type == "pip":
         logger.debug("PyPI installation detected")
 
-        package = "qBitrr2"
-        if target_version:
-            # Strict version: install exact version
-            version = target_version[1:] if target_version.startswith("v") else target_version
-            package = f"{package}=={version}"
+        if not target_version:
+            logger.error(
+                "Refusing unversioned pip upgrade; a target release version is required "
+                "(install qBitrr2==<version> only)."
+            )
+            return False
+
+        # Strict version: install exact version from the resolved GitHub/PyPI release.
+        version = target_version[1:] if target_version.startswith("v") else target_version
+        package = f"qBitrr2=={version}"
 
         logger.debug("Upgrading package: %s", package)
         try:

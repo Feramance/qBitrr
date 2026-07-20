@@ -1,5 +1,5 @@
 import type { ColumnDef } from "@tanstack/react-table";
-import { type JSX } from "react";
+import { useCallback, useMemo, type JSX } from "react";
 import { getRadarrMovies } from "../../api/client";
 import type {
   ArrInfo,
@@ -7,17 +7,21 @@ import type {
   RadarrMoviesResponse,
 } from "../../api/types";
 import { RadarrMovieDetailBody } from "../../components/arr/RadarrMovieDetailBody";
-import { StableTable } from "../../components/StableTable";
+import {
+  ArrHasFileBadge,
+  ArrMonitoredBadge,
+  ArrReasonBadge,
+} from "../../components/arr/ArrStatusCells";
 import { summarizeAggregateMonitoredRows } from "../../constants/arrAggregateFetch";
-import { ARR_CATALOG_SYNC_HINT } from "../../constants/arrCatalogMessages";
+import { normalizeNumericId } from "../../utils/normalizeNumericId";
 import { radarrMovieThumbnailUrl } from "../../utils/arrThumbnailUrl";
 import { ArrCatalogIconTile } from "./ArrCatalogIconTile";
-import {
-  ArrCatalogBodyChrome,
-  ArrCatalogPagination,
-} from "./ArrCatalogBodyChrome";
-import type { ArrCatalogDefinition } from "./definition";
-import { ARR_CATALOG_REGISTRY } from "./registry";
+import { ArrCatalogStandardBody } from "./ArrCatalogStandardBody";
+import { createStandardArrFilters } from "./createStandardArrFilters";
+import type {
+  AnyArrCatalogDefinition,
+  ArrCatalogDefinition,
+} from "./definition";
 import { useInstancePagedFetch } from "./useInstancePagedFetch";
 import { categoryForInstanceLabel } from "./utils";
 
@@ -53,16 +57,7 @@ const RADARR_AGG_HASH_FIELDS = [
 ] as const;
 
 function normalizeRadarrMovieId(value: unknown): number | undefined {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === "string" && value.trim() !== "") {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-  }
-  return undefined;
+  return normalizeNumericId(value);
 }
 
 function radarrFilterRows<T extends RadarrMovie>(
@@ -85,79 +80,57 @@ function radarrFilterRows<T extends RadarrMovie>(
   return out;
 }
 
-function buildRadarrInstanceColumns(): ColumnDef<RadarrInstanceRow>[] {
-  return [
-    { accessorKey: "title", header: "Title", cell: (info) => info.getValue() },
-    { accessorKey: "year", header: "Year", size: 80 },
-    {
-      accessorKey: "monitored",
-      header: "Monitored",
-      cell: (info) => {
-        const monitored = info.getValue() as boolean;
-        return (
-          <span className={`track-status ${monitored ? "available" : "missing"}`}>
-            {monitored ? "✓" : "✗"}
-          </span>
-        );
-      },
-      size: 100,
+/** Module-level column defs — stable identity across renders for StableTable memo. */
+const RADARR_INSTANCE_COLUMNS: ColumnDef<RadarrInstanceRow>[] = [
+  { accessorKey: "title", header: "Title", cell: (info) => info.getValue() },
+  { accessorKey: "year", header: "Year", size: 80 },
+  {
+    accessorKey: "monitored",
+    header: "Monitored",
+    cell: (info) => (
+      <ArrMonitoredBadge monitored={Boolean(info.getValue())} />
+    ),
+    size: 120,
+  },
+  {
+    accessorKey: "hasFile",
+    header: "Has File",
+    cell: (info) => <ArrHasFileBadge hasFile={Boolean(info.getValue())} />,
+    size: 110,
+  },
+  {
+    accessorKey: "qualityProfileName",
+    header: "Quality Profile",
+    cell: (info) => {
+      const name = info.getValue() as string | null | undefined;
+      return name || "—";
     },
-    {
-      accessorKey: "hasFile",
-      header: "Has File",
-      cell: (info) => {
-        const hasFile = info.getValue() as boolean;
-        return (
-          <span className={`track-status ${hasFile ? "available" : "missing"}`}>
-            {hasFile ? "✓" : "✗"}
-          </span>
-        );
-      },
-      size: 100,
-    },
-    {
-      accessorKey: "qualityProfileName",
-      header: "Quality Profile",
-      cell: (info) => {
-        const name = info.getValue() as string | null | undefined;
-        return name || "—";
-      },
-      size: 150,
-    },
-    {
-      accessorKey: "reason",
-      header: "Reason",
-      cell: (info) => {
-        const reason = info.getValue() as string | null;
-        if (!reason) {
-          return (
-            <span className="table-badge table-badge-reason">
-              Not being searched
-            </span>
-          );
-        }
-        return (
-          <span className="table-badge table-badge-reason">{reason}</span>
-        );
-      },
-      size: 120,
-    },
-  ];
-}
+    size: 150,
+  },
+  {
+    accessorKey: "reason",
+    header: "Reason",
+    cell: (info) => (
+      <ArrReasonBadge reason={info.getValue() as string | null} />
+    ),
+    size: 140,
+  },
+];
 
-function buildRadarrAggColumns(
-  instanceCount: number,
-): ColumnDef<RadarrAggRow>[] {
-  const cols: ColumnDef<RadarrAggRow>[] = [];
-  if (instanceCount > 1) {
-    cols.push({
-      accessorKey: "__instance",
-      header: "Instance",
-      size: 150,
-    });
-  }
-  cols.push(...(buildRadarrInstanceColumns() as ColumnDef<RadarrAggRow>[]));
-  return cols;
+const RADARR_AGG_COLUMNS_SINGLE =
+  RADARR_INSTANCE_COLUMNS as ColumnDef<RadarrAggRow>[];
+
+const RADARR_AGG_COLUMNS_MULTI: ColumnDef<RadarrAggRow>[] = [
+  {
+    accessorKey: "__instance",
+    header: "Instance",
+    size: 150,
+  },
+  ...RADARR_AGG_COLUMNS_SINGLE,
+];
+
+function getRadarrAggColumns(instanceCount: number): ColumnDef<RadarrAggRow>[] {
+  return instanceCount > 1 ? RADARR_AGG_COLUMNS_MULTI : RADARR_AGG_COLUMNS_SINGLE;
 }
 
 function radarrInstanceRowKey(row: RadarrInstanceRow): string {
@@ -202,34 +175,7 @@ export const RADARR_DEFINITION: ArrCatalogDefinition<
   allInstancesLabel: "All Radarr",
   searchPlaceholder: "Filter movies",
   initialFilters: { onlyMissing: false, reasonFilter: "all" },
-  filterControls: [
-    {
-      id: "status",
-      label: "Status",
-      mode: "always",
-      options: [
-        { value: "all", label: "All Movies" },
-        { value: "missing", label: "Missing Only" },
-      ],
-      getValue: (f) => (f.onlyMissing ? "missing" : "all"),
-      setValue: (prev, next) => ({ ...prev, onlyMissing: next === "missing" }),
-    },
-    {
-      id: "reason",
-      label: "Search Reason",
-      mode: "always",
-      options: [
-        { value: "all", label: "All Reasons" },
-        { value: "Not being searched", label: "Not Being Searched" },
-        { value: "Missing", label: "Missing" },
-        { value: "Quality", label: "Quality" },
-        { value: "CustomFormat", label: "Custom Format" },
-        { value: "Upgrade", label: "Upgrade" },
-      ],
-      getValue: (f) => f.reasonFilter,
-      setValue: (prev, next) => ({ ...prev, reasonFilter: next }),
-    },
-  ],
+  filterControls: createStandardArrFilters<RadarrFilters>("All Movies"),
   aggregate: {
     basePageSize: RADARR_PAGE_SIZE,
     initialRollup: null,
@@ -324,8 +270,6 @@ export const RADARR_DEFINITION: ArrCatalogDefinition<
       category={String(extras.category ?? "")}
     />
   ),
-  buildAggregateColumns: buildRadarrAggColumns,
-  buildInstanceColumns: buildRadarrInstanceColumns,
   renderAggregateBody: (props) => (
     <RadarrAggregateBody {...props} />
   ),
@@ -334,7 +278,9 @@ export const RADARR_DEFINITION: ArrCatalogDefinition<
   ),
 };
 
-ARR_CATALOG_REGISTRY.radarr = RADARR_DEFINITION;
+export function getRadarrCatalogDefinition(): AnyArrCatalogDefinition {
+  return RADARR_DEFINITION;
+}
 
 interface RadarrAggregateBodyProps {
   readonly rows: ReadonlyArray<RadarrAggRow>;
@@ -379,7 +325,31 @@ function RadarrAggregateBody({
   instances,
   instanceCount,
 }: RadarrAggregateBodyProps): JSX.Element {
-  const columns = buildRadarrAggColumns(instanceCount);
+  const columns = useMemo(
+    () => getRadarrAggColumns(instanceCount),
+    [instanceCount],
+  );
+  const renderIconTile = useCallback(
+    (row: RadarrAggRow) => {
+      const thumb = radarrAggThumbnail(row, instances);
+      return (
+        <ArrCatalogIconTile
+          key={radarrAggRowKey(row)}
+          posterSrc={thumb}
+          onClick={() => onRowSelect(row)}
+        >
+          {instanceCount > 1 ? (
+            <div className="arr-movie-tile__instance">{row.__instance}</div>
+          ) : null}
+          <div className="arr-movie-tile__title">{row.title}</div>
+          <div className="arr-movie-tile__sub">
+            {row.year != null ? String(row.year) : ""}
+          </div>
+        </ArrCatalogIconTile>
+      );
+    },
+    [instances, instanceCount, onRowSelect],
+  );
   const waitingForStableEmpty =
     instanceCount > 0 && !emptyStateReady && total === 0;
   const effectiveLoading = loading || waitingForStableEmpty;
@@ -410,67 +380,33 @@ function RadarrAggregateBody({
     !effectiveLoading && total === 0 && summary.total === 0 && instanceCount > 0;
 
   return (
-    <ArrCatalogBodyChrome
+    <ArrCatalogStandardBody
       summaryLine={summaryLine}
       onRefresh={onRefresh}
       loading={effectiveLoading}
       loadingHint="Loading Radarr library…"
-      footer={
-        total > 0 ? (
-          <ArrCatalogPagination
-            page={page}
-            totalPages={totalPages}
-            total={total}
-            itemNoun="items"
-            pageSize={aggregatePageSize}
-            loading={effectiveLoading}
-            onPageChange={onPageChange}
-          />
-        ) : null
-      }
-    >
-      {showCatalogEmptyHint ? (
-        <div className="hint">
-          <p>No movies found in the local catalog.</p>
-          <p>{ARR_CATALOG_SYNC_HINT}</p>
-        </div>
-      ) : total ? (
-        browseMode === "list" ? (
-          <StableTable<RadarrAggRow>
-            rowsStore={rowsStore}
-            rowOrder={rowOrder}
-            columns={columns}
-            getRowKey={radarrAggRowKey}
-            onRowClick={onRowSelect}
-          />
-        ) : (
-          <div className="arr-icon-grid" ref={iconGridRef}>
-            {rows.map((row) => {
-              const thumb = radarrAggThumbnail(row, instances);
-              return (
-                <ArrCatalogIconTile
-                  key={radarrAggRowKey(row)}
-                  posterSrc={thumb}
-                  onClick={() => onRowSelect(row)}
-                >
-                  {instanceCount > 1 ? (
-                    <div className="arr-movie-tile__instance">
-                      {row.__instance}
-                    </div>
-                  ) : null}
-                  <div className="arr-movie-tile__title">{row.title}</div>
-                  <div className="arr-movie-tile__sub">
-                    {row.year != null ? String(row.year) : ""}
-                  </div>
-                </ArrCatalogIconTile>
-              );
-            })}
-          </div>
-        )
-      ) : (
-        <div className="hint">No movies found.</div>
-      )}
-    </ArrCatalogBodyChrome>
+      emptyOrder="syncFirst"
+      showCatalogEmptyHint={showCatalogEmptyHint}
+      hasRows={total > 0}
+      catalogEmptyMessage="No movies found in the local catalog."
+      noMatchMessage="No movies found."
+      showPagination={totalPages > 1}
+      page={page}
+      totalPages={totalPages}
+      total={total}
+      itemNoun="items"
+      pageSize={aggregatePageSize}
+      onPageChange={onPageChange}
+      browseMode={browseMode}
+      rows={rows}
+      rowOrder={rowOrder}
+      rowsStore={rowsStore}
+      columns={columns}
+      getRowKey={radarrAggRowKey}
+      onRowSelect={onRowSelect}
+      iconGridRef={iconGridRef}
+      renderIconTile={renderIconTile}
+    />
   );
 }
 
@@ -513,7 +449,28 @@ function RadarrInstanceBody({
   setPage,
   refresh,
 }: RadarrInstanceBodyProps): JSX.Element {
-  const columns = buildRadarrInstanceColumns();
+  const columns = RADARR_INSTANCE_COLUMNS;
+  const renderIconTile = useCallback(
+    (row: RadarrInstanceRow) => {
+      const thumb =
+        row.id != null && category
+          ? radarrMovieThumbnailUrl(category, row.id)
+          : "";
+      return (
+        <ArrCatalogIconTile
+          key={radarrInstanceRowKey(row)}
+          posterSrc={thumb}
+          onClick={() => onRowSelect(row)}
+        >
+          <div className="arr-movie-tile__title">{row.title}</div>
+          <div className="arr-movie-tile__sub">
+            {row.year != null ? String(row.year) : ""}
+          </div>
+        </ArrCatalogIconTile>
+      );
+    },
+    [category, onRowSelect],
+  );
   const waitingForStableEmpty =
     !emptyStateReady && visibleRows.length === 0;
   const effectiveLoading = loading || waitingForStableEmpty;
@@ -526,64 +483,32 @@ function RadarrInstanceBody({
   );
 
   return (
-    <ArrCatalogBodyChrome
+    <ArrCatalogStandardBody
       summaryLine={summaryLine}
       onRefresh={refresh}
       loading={effectiveLoading}
       loadingHint="Loading…"
-      footer={
-        totalPages > 1 ? (
-          <ArrCatalogPagination
-            page={page}
-            totalPages={totalPages}
-            total={totalItems}
-            itemNoun="items"
-            pageSize={pageSize}
-            loading={effectiveLoading}
-            onPageChange={setPage}
-          />
-        ) : null
-      }
-    >
-      {visibleRows.length ? (
-        browseMode === "list" ? (
-          <StableTable<RadarrInstanceRow>
-            rowsStore={rowsStore}
-            rowOrder={rowOrder}
-            columns={columns}
-            getRowKey={radarrInstanceRowKey}
-            onRowClick={onRowSelect}
-          />
-        ) : (
-          <div className="arr-icon-grid" ref={iconGridRef}>
-            {visibleRows.map((row) => {
-              const thumb =
-                row.id != null && category
-                  ? radarrMovieThumbnailUrl(category, row.id)
-                  : "";
-              return (
-                <ArrCatalogIconTile
-                  key={radarrInstanceRowKey(row)}
-                  posterSrc={thumb}
-                  onClick={() => onRowSelect(row)}
-                >
-                  <div className="arr-movie-tile__title">{row.title}</div>
-                  <div className="arr-movie-tile__sub">
-                    {row.year != null ? String(row.year) : ""}
-                  </div>
-                </ArrCatalogIconTile>
-              );
-            })}
-          </div>
-        )
-      ) : showCatalogEmptyHint ? (
-        <div className="hint">
-          <p>No movies in the local catalog.</p>
-          <p>{ARR_CATALOG_SYNC_HINT}</p>
-        </div>
-      ) : (
-        <div className="hint">No movies match the current filters.</div>
-      )}
-    </ArrCatalogBodyChrome>
+      emptyOrder="syncFirst"
+      showCatalogEmptyHint={showCatalogEmptyHint}
+      hasRows={visibleRows.length > 0}
+      catalogEmptyMessage="No movies in the local catalog."
+      noMatchMessage="No movies match the current filters."
+      showPagination={totalPages > 1}
+      page={page}
+      totalPages={totalPages}
+      total={totalItems}
+      itemNoun="items"
+      pageSize={pageSize}
+      onPageChange={setPage}
+      browseMode={browseMode}
+      rows={visibleRows}
+      rowOrder={rowOrder}
+      rowsStore={rowsStore}
+      columns={columns}
+      getRowKey={radarrInstanceRowKey}
+      onRowSelect={onRowSelect}
+      iconGridRef={iconGridRef}
+      renderIconTile={renderIconTile}
+    />
   );
 }

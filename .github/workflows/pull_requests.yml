@@ -8,7 +8,7 @@ defaults:
   run:
     shell: bash
 permissions:
-  contents: write
+  contents: read
 env:
   project-name: qBitrr
 jobs:
@@ -39,6 +39,54 @@ jobs:
       run: |
         TMPDIR=$(mktemp -d)
         QBITRR_OVERRIDES_DATA_PATH="$TMPDIR" python -m unittest discover -s tests -p 'test_*.py' -v
+  frontend-test:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.PAT || github.token }}
+        ref: ${{ github.event.pull_request.head.ref }}
+    - name: Set up Node.js
+      uses: actions/setup-node@v6
+      with:
+        node-version: '22'
+        cache: npm
+        cache-dependency-path: webui/package-lock.json
+    - name: Run frontend tests
+      run: |
+        cd webui
+        npm ci
+        npm run test
+  drift-checks:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.PAT || github.token }}
+        repository: ${{ github.event.pull_request.head.repo.full_name }}
+        ref: ${{ github.event.pull_request.head.ref }}
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: 3.12.2
+        cache: pip
+        cache-dependency-path: |
+          setup.cfg
+          pyproject.toml
+    - name: Install Python dependencies
+      run: |
+        python -m pip install -U pip
+        python -m pip install -e '.[dev]'
+    - name: Check config fields drift
+      run: python scripts/config_fields_check.py --check-reload
+    - name: Check OpenAPI drift
+      run: python scripts/openapi_check.py
   package:
     if: github.event.pull_request.draft == false
     runs-on: ${{ matrix.os }}

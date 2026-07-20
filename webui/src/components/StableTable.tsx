@@ -1,4 +1,9 @@
-import { memo, useCallback, useMemo } from "react";
+import {
+  memo,
+  useCallback,
+  useMemo,
+  type KeyboardEvent,
+} from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -152,6 +157,18 @@ function StableTableInner<TData>(props: StableTableProps<TData>) {
               <tr
                 key={stableKey}
                 onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+                onKeyDown={
+                  onRowClick
+                    ? (event: KeyboardEvent<HTMLTableRowElement>) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          onRowClick(row.original);
+                        }
+                      }
+                    : undefined
+                }
+                tabIndex={onRowClick ? 0 : undefined}
+                role={onRowClick ? "button" : undefined}
                 style={onRowClick ? { cursor: "pointer" } : undefined}
               >
                 {row.getVisibleCells().map((cell) => (
@@ -202,11 +219,25 @@ function StableRowInner<TData extends Hashable>({
     if (onRowClick && item) onRowClick(item);
   }, [onRowClick, item]);
 
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLTableRowElement>) => {
+      if (!onRowClick || !item) return;
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        onRowClick(item);
+      }
+    },
+    [onRowClick, item],
+  );
+
   if (!item) return null;
 
   return (
     <tr
       onClick={onRowClick ? handleClick : undefined}
+      onKeyDown={onRowClick ? handleKeyDown : undefined}
+      tabIndex={onRowClick ? 0 : undefined}
+      role={onRowClick ? "button" : undefined}
       style={onRowClick ? { cursor: "pointer" } : undefined}
     >
       {rowProto.getVisibleCells().map((cell) => {

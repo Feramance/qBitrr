@@ -36,10 +36,10 @@ export default defineConfig([
       'react-hooks/refs': 'off',
       'react-hooks/set-state-in-effect': 'off',
       /**
-       * Definition files co-locate the per-Arr definition constant (used at module
-       * load via `ARR_CATALOG_REGISTRY[kind] = …`) with the body components that
-       * the definition references. Splitting them is unnecessary churn — fast
-       * refresh works fine for the body components themselves at dev time.
+       * Definition files co-locate the per-Arr definition constant (exported via
+       * `getXCatalogDefinition()`) with the body components the definition
+       * references. Splitting them is unnecessary churn — fast refresh works
+       * fine for the body components themselves at dev time.
        */
       'react-refresh/only-export-components': 'off',
     },

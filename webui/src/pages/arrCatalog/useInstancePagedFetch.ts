@@ -7,14 +7,26 @@ import {
   useState,
 } from "react";
 import { INSTANCE_VIEW_POLL_INTERVAL_MS } from "../../constants/arrAggregateFetch";
-import { useDataSync } from "../../hooks/useDataSync";
 import { useInterval } from "../../hooks/useInterval";
 import { useRowsStore } from "../../hooks/useRowsStore";
 import type { Hashable } from "../../utils/dataSync";
+import {
+  createEmptyRowsSnapshot,
+  syncRowsSnapshot,
+  type RowsStoreSnapshot,
+} from "../../utils/rowsStore";
 import type {
   ArrCatalogInstancePipelineParams,
   ArrCatalogInstancePipelineState,
 } from "./definition";
+import {
+  isEmptyStateReady,
+  useCatalogEmptyStateTracker,
+  useCatalogIconGridRefetch,
+  useCatalogPageCache,
+  useCatalogSearchRegistration,
+} from "./useCatalogFetchPrimitives";
+import { softCapCachedPages, visibleRowsForCachedPage } from "./utils";
 
 /**
  * Flat-strategy instance pipeline used by Radarr + Lidarr.
@@ -31,7 +43,7 @@ export interface UseInstancePagedFetchAdapter<
   readonly basePageSize: number;
   /** Stable id used by the row store + diff pipeline. */
   readonly getRowKey: (row: TInstRow) => string;
-  /** Hash fields fed into `useDataSync` and the row store. */
+  /** Hash fields fed into full-list change detection and the visible row store. */
   readonly hashFields: ReadonlyArray<keyof TInstRow & string>;
   /** Build the request key — when this string changes, the page cache is wiped. */
   readonly buildKey: (params: {
@@ -77,12 +89,6 @@ export interface UseInstancePagedFetchAdapter<
   readonly errorMessage: (category: string) => string;
 }
 
-export interface UseInstancePagedFetchResult<TInstRow extends Hashable>
-  extends ArrCatalogInstancePipelineState<TInstRow> {
-  /** Diagnostic: latest server response (used by Lidarr's empty-state copy). */
-  readonly latestResponse: unknown;
-}
-
 export function useInstancePagedFetch<
   TInstRow extends Hashable,
   TResp,
@@ -90,7 +96,7 @@ export function useInstancePagedFetch<
 >(
   shellParams: ArrCatalogInstancePipelineParams<TFilters>,
   adapter: UseInstancePagedFetchAdapter<TInstRow, TResp, TFilters>,
-): UseInstancePagedFetchResult<TInstRow> {
+): ArrCatalogInstancePipelineState<TInstRow> {
   const {
     active,
     selection,
@@ -116,25 +122,37 @@ export function useInstancePagedFetch<
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
 
-  const pagesRef = useRef<Record<number, ReadonlyArray<TInstRow>>>({});
-  const keyRef = useRef<string>("");
+  const { pagesRef, keyRef, wipePages } = useCatalogPageCache<TInstRow>();
+  const emptyTracker = useCatalogEmptyStateTracker();
   const fetchGenRef = useRef(0);
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
   const selectionRef = useRef(selection);
   selectionRef.current = selection;
   const prevSelectionRef = useRef<string | null>(selection);
-  const sawNonEmptyRef = useRef(false);
-  const stableEmptyStreakRef = useRef(0);
 
-  const dataSyncOpts = useMemo(
+  const pageSyncOpts = useMemo(
     () => ({
       getKey: adapter.getRowKey,
       hashFields: adapter.hashFields as ReadonlyArray<keyof TInstRow & string>,
     }),
     [adapter.getRowKey, adapter.hashFields],
   );
-  const dataSync = useDataSync<TInstRow>(dataSyncOpts as never);
+  const pageSyncRef = useRef<RowsStoreSnapshot<TInstRow>>(createEmptyRowsSnapshot());
+  const syncPageRows = useCallback(
+    (incoming: TInstRow[]) => {
+      const result = syncRowsSnapshot(pageSyncRef.current, incoming, pageSyncOpts as never);
+      pageSyncRef.current = result.snapshot;
+      return {
+        hasChanges: result.changeKind !== "noop",
+        data: incoming,
+      };
+    },
+    [pageSyncOpts],
+  );
+  const resetPageSync = useCallback(() => {
+    pageSyncRef.current = createEmptyRowsSnapshot();
+  }, []);
 
   const rowsStoreOpts = useMemo(
     () => ({
@@ -165,14 +183,12 @@ export function useInstancePagedFetch<
         const keyChanged = keyRef.current !== key;
         if (keyChanged) {
           keyRef.current = key;
-          pagesRef.current = {};
-          setPages({});
+          setPages(wipePages());
           setTotalItems(0);
           setTotalPages(1);
           setPage(0);
-          dataSync.reset();
-          sawNonEmptyRef.current = false;
-          stableEmptyStreakRef.current = 0;
+          resetPageSync();
+          emptyTracker.resetEmptyState();
           setEmptyStateReady(false);
         }
         // After a filter/query key change, always request page 0 — the caller may still
@@ -213,16 +229,15 @@ export function useInstancePagedFetch<
         const hasCatalogData = rows.length > 0 || total > 0;
 
         if (hasCatalogData) {
-          sawNonEmptyRef.current = true;
-          stableEmptyStreakRef.current = 0;
+          emptyTracker.noteCatalogData(true);
           setEmptyStateReady((prev) => (prev ? prev : true));
         } else {
-          stableEmptyStreakRef.current += 1;
-          const ready = sawNonEmptyRef.current || stableEmptyStreakRef.current >= 2;
+          emptyTracker.noteCatalogData(false);
+          const ready = isEmptyStateReady(emptyTracker, false);
           setEmptyStateReady((prev) => (prev === ready ? prev : ready));
         }
 
-        const syncResult = dataSync.syncData([...rows]);
+        const syncResult = syncPageRows([...rows]);
         const rowsChanged = syncResult.hasChanges;
 
         // Always persist `pages` when the cache key changed — even if `rowsChanged` is
@@ -240,7 +255,10 @@ export function useInstancePagedFetch<
           setPages((prev) => {
             let next: Record<number, ReadonlyArray<TInstRow>>;
             if (adapter.keepAllPages) {
-              next = { ...prev, [resolvedPage]: syncResult.data };
+              next = softCapCachedPages(
+                { ...prev, [resolvedPage]: syncResult.data },
+                resolvedPage,
+              );
             } else {
               next = { [resolvedPage]: syncResult.data };
             }
@@ -258,19 +276,28 @@ export function useInstancePagedFetch<
         );
         setTotalItems((ti) => (ti === total ? ti : total));
       } catch (error) {
-        pushToast(
-          error instanceof Error ? error.message : adapter.errorMessage(category),
-          "error",
-        );
+        // Background Live polls must stay silent; only toast user-visible loads.
+        if (showLoading) {
+          pushToast(
+            error instanceof Error ? error.message : adapter.errorMessage(category),
+            "error",
+          );
+        }
+        // Allow the empty/error UI to render — otherwise `waitingForStableEmpty`
+        // keeps the spinner forever when no successful response arrived.
+        setEmptyStateReady(true);
       } finally {
-        if (showLoading && gen === fetchGenRef.current) {
+        // Always clear when this is the latest generation. A background poll
+        // (`showLoading: false`) that supersedes an in-flight visible fetch must
+        // still clear the spinner — otherwise loading sticks forever.
+        if (gen === fetchGenRef.current) {
           setLoading(false);
         }
       }
     },
     // `useDataSync` returns a new object each render; depend on stable callbacks only.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable syncData/reset; whole `dataSync` object is unstable
-    [adapter, dataSync.syncData, dataSync.reset, pushToast, roundPageSize],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable sync helpers; avoid retrigger loops
+    [adapter, syncPageRows, resetPageSync, pushToast, roundPageSize],
   );
 
   const fetchInstanceRef = useRef(fetchInstance);
@@ -286,13 +313,11 @@ export function useInstancePagedFetch<
 
     const selectionChanged = prevSelectionRef.current !== selection;
     if (selectionChanged) {
-      pagesRef.current = {};
-      setPages({});
+      setPages(wipePages());
       setTotalPages(1);
       setPage(0);
       setEmptyStateReady(false);
-      sawNonEmptyRef.current = false;
-      stableEmptyStreakRef.current = 0;
+      emptyTracker.resetEmptyState();
       prevSelectionRef.current = selection;
     }
 
@@ -312,16 +337,10 @@ export function useInstancePagedFetch<
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selection]);
 
-  // Search handler — registered once per shell mount with a ref-based closure.
-  useEffect(() => {
-    if (!active) return;
-    const handler = (term: string) => {
-      if (!selection) return;
-      setPage(0);
-      void fetchInstanceRef.current(selection, 0, term, { showLoading: true });
-    };
-    return registerSearchHandler(handler);
-  }, [active, selection, registerSearchHandler]);
+  useCatalogSearchRegistration(active, selection, registerSearchHandler, (term) => {
+    setPage(0);
+    void fetchInstanceRef.current(selection!, 0, term, { showLoading: true });
+  });
 
   // Background polling.
   useInterval(
@@ -337,49 +356,32 @@ export function useInstancePagedFetch<
     active && polling && selection ? INSTANCE_VIEW_POLL_INTERVAL_MS : null,
   );
 
-  // Re-fetch on icon-grid resize so the page-size matches the grid columns.
-  useEffect(() => {
-    if (!active) return;
-    if (!selection) return;
-    if (shellParams.browseMode !== "icon") return;
-    void fetchInstanceRef.current(selection, page, query, {
-      showLoading: false,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, selection, shellParams.browseMode, iconInstancePageSize]);
+  useCatalogIconGridRefetch(
+    active,
+    selection,
+    shellParams.browseMode,
+    iconInstancePageSize,
+    () => {
+      void fetchInstanceRef.current(selection!, page, query, { showLoading: false });
+    },
+  );
 
-  // Build "all cached rows" view used by Radarr's filter-then-paginate pattern.  When
-  // `keepAllPages` is false, this is just the current page (Lidarr).
-  const allRows = useMemo<ReadonlyArray<TInstRow>>(() => {
-    if (!adapter.keepAllPages) {
-      return pages[page] ?? [];
-    }
-    const sortedKeys = Object.keys(pages)
-      .map(Number)
-      .sort((a, b) => a - b);
-    const out: TInstRow[] = [];
-    for (const k of sortedKeys) {
-      const slice = pages[k];
-      if (slice) out.push(...slice);
-    }
-    return out;
-  }, [pages, page, adapter.keepAllPages]);
+  // Display the current server page from the cache. `keepAllPages` only warms
+  // flip-back; it must not concat + absolute-slice (breaks after soft-cap drops
+  // early pages). Lidarr keeps a single page; Radarr filters that page client-side.
+  const allRows = useMemo<ReadonlyArray<TInstRow>>(() => pages[page] ?? [], [pages, page]);
 
   const filteredRows = useMemo<ReadonlyArray<TInstRow>>(() => {
-    const f = adapter.filterRows;
-    if (!f) return allRows;
-    return f(allRows, filtersRef.current);
+    return visibleRowsForCachedPage(pages, page, (rows) => {
+      const f = adapter.filterRows;
+      return f ? f(rows, filtersRef.current) : rows;
+    });
     // `filters` is intentional: the memo reads the latest filter state via the
     // ref, but we still want to recompute when any filter actually changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allRows, adapter, filters]);
+  }, [pages, page, allRows, adapter, filters]);
 
-  const visibleRows = useMemo<ReadonlyArray<TInstRow>>(() => {
-    if (!adapter.keepAllPages) {
-      return filteredRows;
-    }
-    return filteredRows.slice(page * pageSize, page * pageSize + pageSize);
-  }, [filteredRows, page, pageSize, adapter.keepAllPages]);
+  const visibleRows = filteredRows;
 
   // Push the visible slice through the row store for surgical updates.
   useEffect(() => {
@@ -428,6 +430,5 @@ export function useInstancePagedFetch<
     showCatalogEmptyHint,
     setPage: setPagePublic,
     refresh,
-    latestResponse,
   };
 }

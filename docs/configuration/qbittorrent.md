@@ -6,9 +6,11 @@ qBitrr connects to qBittorrent's Web UI to monitor and manage torrents. This pag
 
 ## Basic Connection Settings
 
-All qBittorrent settings are configured in the `[qBit]` section of your `config.toml` file.
+qBittorrent is optional. Add a `[qBit]` or `[qBit-<name>]` section to enable it; if no such section exists, qBitrr treats qBit as disabled (search/Arr-only mode still works).
 
-### Required Settings
+Section names follow the same pattern as Arr instances: bare type (`[qBit]`) or type plus a dash and name (`[qBit-General]`, `[qBit-seedbox]`).
+
+### Connection Settings
 
 ```toml
 [qBit]
@@ -24,11 +26,14 @@ Password = "your-password"
 
 # Optional: set true only if the Web UI uses HTTPS with a self-signed or untrusted certificate
 SkipTLSVerify = false
+
+# Optional: keep the section but skip connecting this instance
+Disabled = false
 ```
 
 When **`SkipTLSVerify`** is **`true`**, qBitrr does not verify the TLS certificate for the qBittorrent Web API. Use only on trusted networks; verification is disabled for that connection (MITM risk).
 
-Additional qBittorrent instances use **`[qBit-<name>]`** with the same keys, including **`SkipTLSVerify`** per instance.
+Additional qBittorrent instances use **`[qBit-<name>]`** with the same keys, including **`SkipTLSVerify`** and **`Disabled`** per instance.
 
 !!! tip "Finding qBittorrent Settings"
     Open qBittorrent → **Tools** → **Options** → **Web UI** tab to find your connection details.
@@ -300,32 +305,34 @@ With multi-instance support, you can configure multiple qBittorrent instances an
 
 ### Configuration Syntax
 
-The default instance is always `[qBit]` (required). Additional instances use the `[qBit-NAME]` syntax where NAME is your custom identifier:
+Use either a bare `[qBit]` section or one or more `[qBit-<name>]` sections. There is no required default instance — qBit is enabled when any matching section exists, and disabled when none do.
 
 ```toml
-[qBit]  # Default instance (REQUIRED)
+[qBit]  # Bare instance name (optional form)
 Host = "localhost"
 Port = 8080
 UserName = "admin"
 Password = "adminpass"
 
-[qBit-seedbox]  # Additional instance (OPTIONAL)
+[qBit-seedbox]  # Named instance (same keys)
 Host = "192.168.1.100"
 Port = 8080
 UserName = "admin"
 Password = "seedboxpass"
 
-[qBit-vpn]  # Another instance (OPTIONAL)
+[qBit-vpn]
 Host = "10.8.0.2"
 Port = 8080
 UserName = "admin"
 Password = "vpnpass"
 ```
 
-!!! warning "Important: Use Dash Notation"
-    Additional instances MUST use dash (`-`) notation, NOT dot (`.`) notation:
+You can run with only named sections (for example just `[qBit-General]`) — a bare `[qBit]` is not created or required.
 
-    - ✅ **Correct:** `[qBit-seedbox]`, `[qBit-vpn]`, `[qBit-remote]`
+!!! warning "Important: Use Dash Notation"
+    Named instances MUST use dash (`-`) notation, NOT dot (`.`) notation:
+
+    - ✅ **Correct:** `[qBit]`, `[qBit-seedbox]`, `[qBit-vpn]`, `[qBit-General]`
     - ❌ **Wrong:** `[qBit.seedbox]`, `[Seedbox]`, `[qbit-seedbox]` (case-sensitive!)
 
 ### WebUI Configuration Management
@@ -339,9 +346,9 @@ qBitrr's WebUI provides a graphical interface for managing multiple qBittorrent 
 - ✅ View all configured instances with status indicators
 - ✅ Add new instances with form validation
 - ✅ Edit existing instance settings (host, port, credentials)
-- ✅ Delete secondary instances (default instance cannot be deleted)
+- ✅ Delete any instance (removing the last one disables qBit until you add one again)
 - ✅ Rename instances while preserving configuration
-- ✅ Enable/disable instances without removing them
+- ✅ Enable/disable instances without removing them (`Disabled = true`)
 
 **Accessing the Config Editor:**
 1. Navigate to `http://your-qbitrr-host:6969/ui`
@@ -709,7 +716,7 @@ The **qBittorrent** tab in the WebUI displays all managed categories with live s
 - **Configured seeding limits** (max ratio, max time, removal mode)
 - **Managed By** indicator showing whether each category is managed by qBit or an Arr instance
 
-Categories refresh automatically — every 1 second when "Live Arr" is enabled, or every 30 seconds otherwise.
+Categories refresh automatically every 5 seconds when the app-bar **Live** switch is on (`WebUI.LiveArr`) and the qBittorrent tab is active. When Live is off, use the Refresh button — there is no background auto-refresh.
 
 !!! warning "Category Conflicts"
     `ManagedCategories` cannot overlap with categories used by Arr instances. The WebUI configuration editor validates this automatically.

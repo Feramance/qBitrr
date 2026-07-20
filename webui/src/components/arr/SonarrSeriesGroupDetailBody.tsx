@@ -1,5 +1,11 @@
 import { useMemo, type JSX } from "react";
 import { getSonarrOpenSeriesUrl } from "../../api/client";
+import { ArrExternalLink, ArrInstanceHint } from "./ArrExternalLink";
+import {
+  ArrHasFileBadge,
+  ArrMonitoredBadge,
+  ArrReasonBadge,
+} from "./ArrStatusCells";
 
 export type SonarrEpisodeRow = {
   __instance: string;
@@ -58,22 +64,11 @@ export function SonarrSeriesGroupDetailBody({
 
   return (
     <div className="stack" style={{ gap: "8px" }}>
-      {openUrl ? (
-        <div className="arr-detail-actions">
-          <a className="btn small outline" href={openUrl} target="_blank" rel="noreferrer">
-            Open in Sonarr
-          </a>
-        </div>
-      ) : null}
-      <p className="hint" style={{ margin: 0 }}>
-        <strong>Instance:</strong> {group.instance}
-        {group.qualityProfileName ? (
-          <>
-            {" "}
-            • <strong>Profile:</strong> {group.qualityProfileName}
-          </>
-        ) : null}
-      </p>
+      <ArrExternalLink href={openUrl} arrName="Sonarr" />
+      <ArrInstanceHint
+        instanceLabel={group.instance}
+        qualityProfileName={group.qualityProfileName}
+      />
       {bySeason.map(([season, eps]) => (
         <details
           key={season}
@@ -103,34 +98,14 @@ export function SonarrSeriesGroupDetailBody({
                     <td data-label="Episode">{ep.episode}</td>
                     <td data-label="Title">{ep.title}</td>
                     <td data-label="Monitored">
-                      <span
-                        className={`track-status ${
-                          ep.monitored ? "available" : "missing"
-                        }`}
-                      >
-                        {ep.monitored ? "✓" : "✗"}
-                      </span>
+                      <ArrMonitoredBadge monitored={ep.monitored} />
                     </td>
                     <td data-label="File">
-                      <span
-                        className={`track-status ${
-                          ep.hasFile ? "available" : "missing"
-                        }`}
-                      >
-                        {ep.hasFile ? "✓" : "✗"}
-                      </span>
+                      <ArrHasFileBadge hasFile={ep.hasFile} />
                     </td>
                     <td data-label="Air">{ep.airDate || "—"}</td>
                     <td data-label="Reason">
-                      {ep.reason ? (
-                        <span className="table-badge table-badge-reason">
-                          {ep.reason}
-                        </span>
-                      ) : (
-                        <span className="table-badge table-badge-reason">
-                          Not being searched
-                        </span>
-                      )}
+                      <ArrReasonBadge reason={ep.reason} />
                     </td>
                   </tr>
                 ))}

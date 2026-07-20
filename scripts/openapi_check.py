@@ -3,10 +3,10 @@
 Static drift check between Flask routes registered in :mod:`qBitrr.webui` and the
 OpenAPI document at ``qBitrr/openapi.json``.
 
-The check is intentionally text-based: it parses ``qBitrr/webui.py`` for every
-``@app.<method>("/path")`` decorator and walks the OpenAPI ``paths`` object once.
-That keeps it fast and side-effect free (no need to import the WebUI, no DB or
-config dependency, no Flask runtime).
+The check is intentionally text-based: it parses ``qBitrr/webui/`` package sources
+for every ``@app.<method>("/path")`` / ``@_dual_route`` decorator and walks the
+OpenAPI ``paths`` object once. That keeps it fast and side-effect free (no need
+to import the WebUI, no DB or config dependency, no Flask runtime).
 
 Drift directions reported (each is a non-zero exit):
 
@@ -56,8 +56,19 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-WEBUI_PY = REPO_ROOT / "qBitrr" / "webui.py"
+WEBUI_PACKAGE = REPO_ROOT / "qBitrr" / "webui"
 OPENAPI_JSON = REPO_ROOT / "qBitrr" / "openapi.json"
+
+
+def _webui_python_sources() -> str:
+    """Concatenate all ``.py`` sources under the WebUI package for static route scans."""
+    if not WEBUI_PACKAGE.is_dir():
+        return ""
+    parts: list[str] = []
+    for path in sorted(WEBUI_PACKAGE.rglob("*.py")):
+        parts.append(path.read_text(encoding="utf-8"))
+    return "\n".join(parts)
+
 
 # Methods we care about.  ``route`` is the generic flask decorator; the others
 # are the per-method shortcuts used throughout webui.py.
@@ -66,6 +77,12 @@ _DECORATOR_RE = re.compile(
     r"^\s*@app\.(?P<method>get|post|put|delete|patch|route)\(\s*"
     r"(?P<quote>[\"'])(?P<path>[^\"']+)(?P=quote)"
     r"(?:\s*,\s*methods\s*=\s*\[(?P<methods>[^\]]+)\])?",
+    re.MULTILINE,
+)
+_DUAL_ROUTE_RE = re.compile(
+    r"^\s*@_dual_route\(\s*"
+    r"(?P<quote>[\"'])(?P<path>[^\"']+)(?P=quote)"
+    r"(?:\s*,\s*methods\s*=\s*\((?P<methods>[^\)]+)\))?",
     re.MULTILINE,
 )
 _FLASK_PARAM_RE = re.compile(r"<(?:[a-zA-Z_]+:)?([a-zA-Z_][a-zA-Z0-9_]*)>")
@@ -100,6 +117,14 @@ def _parse_flask_routes(source: str) -> set[tuple[str, str]]:
                 out.add((path, m.lower()))
         else:
             out.add((path, method))
+    for match in _DUAL_ROUTE_RE.finditer(source):
+        suffix = match.group("path")
+        methods_raw = match.group("methods") or ""
+        extracted = re.findall(r"['\"]([A-Za-z]+)['\"]", methods_raw) or ["GET"]
+        for m in extracted:
+            method = m.lower()
+            out.add((_normalise_flask_path(f"/api{suffix}"), method))
+            out.add((_normalise_flask_path(f"/web{suffix}"), method))
     for path, method in _DYNAMIC_ROUTES:
         out.add((_normalise_flask_path(path), method))
     return out
@@ -119,14 +144,14 @@ def _parse_openapi(spec: dict) -> set[tuple[str, str]]:
 
 
 def main() -> int:
-    if not WEBUI_PY.is_file():
-        print(f"openapi-check: cannot find {WEBUI_PY}", file=sys.stderr)
+    if not WEBUI_PACKAGE.is_dir():
+        print(f"openapi-check: cannot find {WEBUI_PACKAGE}", file=sys.stderr)
         return 2
     if not OPENAPI_JSON.is_file():
         print(f"openapi-check: cannot find {OPENAPI_JSON}", file=sys.stderr)
         return 2
 
-    flask_routes = _parse_flask_routes(WEBUI_PY.read_text(encoding="utf-8"))
+    flask_routes = _parse_flask_routes(_webui_python_sources())
     try:
         spec = json.loads(OPENAPI_JSON.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
