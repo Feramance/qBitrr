@@ -595,6 +595,8 @@ Interactive chip/tag-based input for managing arrays of strings.
 
 ## Validation System
 
+The form and the **server save-gate** (`POST /api/config` → `validate_config_update`) enforce the same comment-derived constraints from the config field registry / `config.example.toml` (closed enums, FreeSpace format, HnR 0–100, port ranges, `CHANGE_ME` placeholders, UrlBase shape, and AuthDisabled + public-bind acknowledgment). Hand-edited TOML is still soft-checked at process startup (logged warnings only); invalid values are blocked when saving through the WebUI or API.
+
 ### Real-Time Validation
 
 The editor validates fields **on change** and **before save**, displaying inline error messages.
@@ -602,9 +604,9 @@ The editor validates fields **on change** and **before save**, displaying inline
 **Validation Types**:
 
 1. **Type Validation**: Ensure value matches expected type (string, number, boolean)
-2. **Range Validation**: Check numeric fields fall within valid ranges (e.g., port 1-65535)
+2. **Range Validation**: Check numeric fields fall within valid ranges (e.g., port 1-65535, HnR percent 0–100)
 3. **Conditional Validation**: Some fields required only when related fields are set
-4. **Custom Validation**: Field-specific logic (e.g., cron expression format)
+4. **Custom Validation**: Field-specific logic (e.g., cron expression format, FreeSpace units)
 5. **Cross-section categories**: Arr `Category` vs qBit `ManagedCategories` exact duplicates block save; backslashes in category fields block save; parent/child path overlaps show non-blocking warnings in Arr/qBit modals (see [qBittorrent → Subcategories](../configuration/qbittorrent.md#subcategories-qbittorrent-46))
 
 ### Common Validation Rules
@@ -614,16 +616,21 @@ The editor validates fields **on change** and **before save**, displaying inline
 | `CompletedDownloadFolder` | Must not be empty or `CHANGE_ME` |
 | `FreeSpace` | Must be `-1` or number with optional K/M/G/T/P suffix |
 | `FreeSpaceFolder` | Required when `FreeSpace != "-1"` |
+| `ConsoleLevel` | One of CRITICAL, ERROR, WARNING, NOTICE, INFO, DEBUG, TRACE |
 | `WebUI.Port`, `qBit.Port` | Must be 1-65535 |
-| `Arr.URI` | Required when `Arr.Managed = true` |
-| `Arr.APIKey` | Required when `Arr.Managed = true` |
+| `WebUI.UrlBase` | Empty or path starting with `/`, no trailing slash |
+| `WebUI.AllowInsecureExposure` | Required `true` when `AuthDisabled` and Host is `0.0.0.0` or `::` |
+| `Arr.URI` | Required when `Arr.Managed = true` (not `CHANGE_ME`) |
+| `Arr.APIKey` | Required when `Arr.Managed = true` (not `CHANGE_ME`) |
 | `Arr.Category` | Must not be empty |
 | `Arr.Category`, `qBit.ManagedCategories`, `Settings.FailedCategory`, `Settings.RecheckCategory` | Must not contain `\`; use `/` for hierarchy |
 | `Arr.Category` vs `qBit.ManagedCategories` | Same normalised string cannot appear in both (managed Arr only) |
 | `EntrySearch.SearchLimit` | Must be ≥ 1 |
 | `AutoUpdateCron` | Must contain 5 or 6 space-separated fields |
 | `Torrent.MaximumDeletablePercentage` | Decimal 0–1 (e.g. 0.99 = 99%) |
-| `Torrent.SeedingMode.RemoveTorrent` | Must be -1, 1, 2, 3, or 4 |
+| `CategorySeeding.HitAndRunMinimumDownloadPercent` | 0–100 |
+| `CategorySeeding.HitAndRunMode` / tracker HnR mode | `disabled`, `and`, or `or` |
+| `Torrent.SeedingMode.RemoveTorrent` / `CategorySeeding.RemoveTorrent` | Must be -1, 1, 2, 3, or 4 |
 
 ### Error Display
 

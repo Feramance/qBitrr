@@ -131,6 +131,7 @@ export const GENERATED_SETTINGS_FIELDS: FieldDefinition[] = [
     label: "Max Process Restarts",
     path: ["Settings", "MaxProcessRestarts"],
     type: "number",
+    minimum: 1,
     requiresRestart: true,
   },
   {
@@ -161,6 +162,8 @@ export const GENERATED_WEBUI_FIELDS: FieldDefinition[] = [
     label: "WebUI Port",
     path: ["WebUI", "Port"],
     type: "number",
+    minimum: 1,
+    maximum: 65535,
     requiresRestart: true,
   },
   {
@@ -278,6 +281,8 @@ export const GENERATED_QBIT_FIELDS: FieldDefinition[] = [
     label: "Port",
     path: ["Port"],
     type: "number",
+    minimum: 1,
+    maximum: 65535,
   },
   {
     label: "UserName",
@@ -334,6 +339,7 @@ export const GENERATED_QBIT_FIELDS: FieldDefinition[] = [
     label: "Remove Torrent",
     path: ["CategorySeeding", "RemoveTorrent"],
     type: "select",
+    options: ["-1", "1", "2", "3", "4"],
   },
   {
     label: "Hit and Run Mode",
@@ -355,6 +361,8 @@ export const GENERATED_QBIT_FIELDS: FieldDefinition[] = [
     label: "Hit and Run Minimum Download Percent",
     path: ["CategorySeeding", "HitAndRunMinimumDownloadPercent"],
     type: "number",
+    minimum: 0,
+    maximum: 100,
   },
   {
     label: "Hit and Run Partial Seed Ratio",
@@ -636,6 +644,8 @@ export const GENERATED_ARR_FIELDS: FieldDefinition[] = [
     label: "Maximum Deletable Percentage",
     path: ["Torrent", "MaximumDeletablePercentage"],
     type: "number",
+    minimum: 0,
+    maximum: 1,
   },
   {
     label: "Do Not Remove Slow",
@@ -683,6 +693,7 @@ export const GENERATED_ARR_FIELDS: FieldDefinition[] = [
     label: "Remove Torrent",
     path: ["Torrent", "SeedingMode", "RemoveTorrent"],
     type: "select",
+    options: ["-1", "1", "2", "3", "4"],
   },
   {
     label: "Remove Dead Trackers",

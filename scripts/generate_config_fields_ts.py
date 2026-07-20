@@ -143,6 +143,10 @@ def _parse_config_fields(source: str) -> dict[str, list[dict]]:
                         entry["nativeUnit"] = _const(kw.value)
                     elif kw.arg == "allow_negative":
                         entry["allowNegative"] = bool(_const(kw.value))
+                    elif kw.arg == "minimum":
+                        entry["minimum"] = _const(kw.value)
+                    elif kw.arg == "maximum":
+                        entry["maximum"] = _const(kw.value)
                 sections[self.prefix].append(entry)
             self.generic_visit(node)
 
@@ -199,6 +203,10 @@ def _emit_field(section: str, entry: dict) -> str | None:
         lines.append(f"    nativeUnit: {_ts_string(entry['nativeUnit'])},")
     if entry.get("allowNegative"):
         lines.append("    allowNegative: true,")
+    if entry.get("minimum") is not None:
+        lines.append(f"    minimum: {entry['minimum']},")
+    if entry.get("maximum") is not None:
+        lines.append(f"    maximum: {entry['maximum']},")
     if entry.get("applyLive"):
         lines.append("    applyLive: true,")
     if entry.get("requiresRestart"):

@@ -439,6 +439,8 @@ ARR_FIELDS: tuple[ConfigField, ...] = (
         "Do not delete torrents with higher completion percentage than this setting (0.5 = 50%, 1.0 = 100%)",
         label="Maximum Deletable Percentage",
         kind="number",
+        minimum=0,
+        maximum=1,
     ),
     ConfigField(
         ("Torrent", "DoNotRemoveSlow"),
@@ -519,6 +521,7 @@ ARR_FIELDS: tuple[ConfigField, ...] = (
         "Remove torrent condition (-1=Do not remove, 1=Remove on MaxUploadRatio, 2=Remove on MaxSeedingTime, 3=Remove on MaxUploadRatio or MaxSeedingTime, 4=Remove on MaxUploadRatio and MaxSeedingTime)",
         label="Remove Torrent",
         kind="select",
+        options=("-1", "1", "2", "3", "4"),
     ),
     ConfigField(
         ("Torrent", "SeedingMode", "RemoveDeadTrackers"),

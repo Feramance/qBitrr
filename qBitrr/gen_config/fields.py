@@ -50,6 +50,10 @@ class ConfigField:
     placeholder: str | None = None
     native_unit: Literal["seconds", "minutes"] | None = None
     allow_negative: bool = False
+    """Inclusive lower bound for number/duration values (when set)."""
+    minimum: float | int | None = None
+    """Inclusive upper bound for number/duration values (when set)."""
+    maximum: float | int | None = None
     """When False, omitted from WebUI field inventory / schema UI list."""
     ui_expose: bool = True
     """Restrict Arr template fields to these kinds (``sonarr``/``radarr``/``lidarr``)."""
@@ -187,6 +191,10 @@ def field_to_schema_dict(section: str, cfg: ConfigField) -> dict[str, Any]:
         data["nativeUnit"] = cfg.native_unit
     if cfg.allow_negative:
         data["allowNegative"] = True
+    if cfg.minimum is not None:
+        data["minimum"] = cfg.minimum
+    if cfg.maximum is not None:
+        data["maximum"] = cfg.maximum
     if cfg.arr_kinds is not None:
         data["arrKinds"] = sorted(cfg.arr_kinds)
     return data
@@ -404,6 +412,7 @@ SETTINGS_FIELDS: tuple[ConfigField, ...] = (
         ),
         label="Max Process Restarts",
         kind="number",
+        minimum=1,
     ),
     ConfigField(
         ("ProcessRestartWindow",),
@@ -444,6 +453,8 @@ WEBUI_FIELDS: tuple[ConfigField, ...] = (
         "WebUI listen port (default 6969)",
         label="WebUI Port",
         kind="number",
+        minimum=1,
+        maximum=65535,
     ),
     ConfigField(
         ("Token",),
@@ -646,6 +657,8 @@ QBIT_FIELDS: tuple[ConfigField, ...] = (
         'qbittorrent WebUI Port - Can be found in Options > Web UI (called "Port" on top right corner of the window)',
         label="Port",
         kind="number",
+        minimum=1,
+        maximum=65535,
     ),
     ConfigField(
         ("UserName",),
@@ -741,6 +754,7 @@ QBIT_FIELDS: tuple[ConfigField, ...] = (
         ),
         label="Remove Torrent",
         kind="select",
+        options=("-1", "1", "2", "3", "4"),
     ),
     ConfigField(
         ("CategorySeeding", "HitAndRunMode"),
@@ -772,6 +786,8 @@ QBIT_FIELDS: tuple[ConfigField, ...] = (
         "Minimum download percentage before a torrent is considered for HnR (0-100, default 10)",
         label="Hit and Run Minimum Download Percent",
         kind="number",
+        minimum=0,
+        maximum=100,
     ),
     ConfigField(
         ("CategorySeeding", "HitAndRunPartialSeedRatio"),

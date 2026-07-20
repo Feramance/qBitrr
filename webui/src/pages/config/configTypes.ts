@@ -28,6 +28,10 @@ export interface FieldDefinition {
   nativeUnit?: "seconds" | "minutes";
   /** For type "duration: allow -1 (disabled). */
   allowNegative?: boolean;
+  /** Inclusive lower bound for number fields (from registry). */
+  minimum?: number;
+  /** Inclusive upper bound for number fields (from registry). */
+  maximum?: number;
   /** When true, show hint that the setting applies live without a full restart. */
   applyLive?: boolean;
   /** When true, show hint that saving requires a component or app restart. */

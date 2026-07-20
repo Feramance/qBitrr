@@ -12,6 +12,10 @@ from qBitrr.gen_config.fields_arr import ARR_FIELDS
 _ARR_SECTION_RE = re.compile(r"^(Radarr|Sonarr|Lidarr)([-.].+)?$", re.IGNORECASE)
 _QBIT_SECTION_RE = re.compile(r"^qBit([-].+)?$", re.IGNORECASE)
 _ANIMARR_RE = re.compile(r"^Animarr", re.IGNORECASE)
+_FREE_SPACE_RE = re.compile(r"^-?\d+(\.\d+)?[KMGTP]?$", re.IGNORECASE)
+_CHANGE_ME = "CHANGE_ME"
+# Public bind hosts that require AllowInsecureExposure when AuthDisabled.
+_PUBLIC_BIND_HOSTS = frozenset({"0.0.0.0", "::"})
 
 
 def _field_index() -> dict[str, ConfigField]:
@@ -46,6 +50,37 @@ def _resolve_field(dotted_key: str) -> ConfigField | None:
     return None
 
 
+def _as_number(value: Any) -> float | None:
+    """Parse a numeric config value; return None when not a finite number."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str) and value.strip():
+        try:
+            return float(value)
+        except ValueError:
+            return None
+    return None
+
+
+def _is_change_me(value: Any) -> bool:
+    return isinstance(value, str) and value.strip().upper() == _CHANGE_ME
+
+
+def _check_bounds(field: ConfigField, num: float, label: str) -> str | None:
+    """Enforce minimum/maximum and -1 sentinel floors."""
+    if field.minimum is not None and num < field.minimum:
+        return f"{label} must be >= {field.minimum}"
+    if field.maximum is not None and num > field.maximum:
+        return f"{label} must be <= {field.maximum}"
+    if field.allow_negative and field.minimum is None and num < -1:
+        return f"{label} must be -1 or greater"
+    if not field.allow_negative and field.minimum is None and num < 0:
+        return f"{label} must be >= 0"
+    return None
+
+
 def _validate_value(field: ConfigField, value: Any) -> str | None:
     """Return an error message when ``value`` is invalid for ``field``."""
     label = field.label or field.key
@@ -55,34 +90,30 @@ def _validate_value(field: ConfigField, value: Any) -> str | None:
         return None
 
     kind = field.kind
-    if kind in ("text", "password", "duration"):
+    if kind in ("text", "password"):
         if field.required and (not isinstance(value, str) or not value.strip()):
-            # Allow non-string numbers for duration-like values that arrived as ints
-            if kind == "duration" and isinstance(value, (int, float)):
-                return None
             return f"{label} is required"
-        if isinstance(value, str) or kind == "duration":
+        if isinstance(value, str):
             return None
         return f"{label} must be a string"
+
+    if kind == "duration":
+        num = _as_number(value)
+        if num is None:
+            if field.required:
+                return f"{label} is required"
+            return f"{label} must be a number"
+        return _check_bounds(field, num, label)
 
     if kind == "number":
         if isinstance(value, bool):
             return f"{label} must be a number"
-        if isinstance(value, (int, float)):
-            if not field.allow_negative and value < 0:
-                return f"{label} must be >= 0"
-            return None
-        if isinstance(value, str) and value.strip():
-            try:
-                num = float(value)
-            except ValueError:
-                return f"{label} must be a number"
-            if not field.allow_negative and num < 0:
-                return f"{label} must be >= 0"
-            return None
-        if field.required:
-            return f"{label} is required"
-        return f"{label} must be a number"
+        num = _as_number(value)
+        if num is None:
+            if field.required:
+                return f"{label} is required"
+            return f"{label} must be a number"
+        return _check_bounds(field, num, label)
 
     if kind == "checkbox":
         if isinstance(value, bool):
@@ -100,6 +131,10 @@ def _validate_value(field: ConfigField, value: Any) -> str | None:
         if not isinstance(value, str) or not value.strip():
             return f"{label} is required" if field.required else f"{label} must be a string"
         if field.options and value not in field.options:
+            # Accept display labels that embed the numeric option, e.g. "Do not remove (-1)"
+            match = re.search(r"\((-?\d+)\)", value)
+            if match and match.group(1) in field.options:
+                return None
             return f"{label} must be one of: {', '.join(field.options)}"
         return None
 
@@ -119,12 +154,94 @@ def _validate_value(field: ConfigField, value: Any) -> str | None:
     return None
 
 
+def _validate_path_specific(key: str, value: Any) -> str | None:
+    """Comment/overlay-equivalent checks that are not fully expressed on ConfigField."""
+    if key == "Settings.CompletedDownloadFolder":
+        folder = str(value or "").strip()
+        if not folder or folder.upper() == _CHANGE_ME:
+            return "Completed Download Folder must be set to a valid path"
+        return None
+
+    if key == "Settings.FreeSpace":
+        raw = str(value or "").strip()
+        if not raw:
+            return "Free Space must be provided"
+        if raw == "-1":
+            return None
+        if not _FREE_SPACE_RE.match(raw):
+            return "Free Space must be -1 or a number optionally suffixed with K, M, G, T, or P"
+        return None
+
+    if key == "Settings.AutoUpdateCron":
+        cron = str(value or "").strip()
+        parts = cron.split()
+        if len(parts) < 5 or len(parts) > 6:
+            return "Auto Update Cron must contain 5 or 6 space-separated fields"
+        return None
+
+    if key == "WebUI.UrlBase":
+        raw = str(value or "").strip()
+        if not raw:
+            return None
+        if not raw.startswith("/"):
+            return "UrlBase must start with / (e.g. /qbitrr)"
+        if raw.endswith("/"):
+            return "UrlBase must not end with a trailing slash"
+        if "//" in raw:
+            return "UrlBase is invalid"
+        return None
+
+    return None
+
+
 def _get_nested(config: Any, dotted: str) -> Any:
     """Read a dotted key from a MyConfig-like object."""
     get = getattr(config, "get", None)
     if callable(get):
         return get(dotted, fallback=None)
     return None
+
+
+def _validate_free_space_folder(config: Any) -> list[dict[str, str]]:
+    """Require FreeSpaceFolder when FreeSpace monitoring is enabled."""
+    free_space = _get_nested(config, "Settings.FreeSpace")
+    raw = str(free_space if free_space is not None else "-1").strip()
+    if raw == "-1":
+        return []
+    folder = _get_nested(config, "Settings.FreeSpaceFolder")
+    folder_str = str(folder or "").strip()
+    if not folder_str or folder_str.upper() == _CHANGE_ME:
+        return [
+            {
+                "path": "Settings.FreeSpaceFolder",
+                "message": "Free Space Folder is required when Free Space monitoring is enabled",
+            }
+        ]
+    return []
+
+
+def _validate_webui_insecure_exposure(config: Any) -> list[dict[str, str]]:
+    """Require AllowInsecureExposure when AuthDisabled on a public bind."""
+    auth_disabled = _get_nested(config, "WebUI.AuthDisabled")
+    if auth_disabled is not True:
+        return []
+    host = str(_get_nested(config, "WebUI.Host") or "").strip()
+    if host not in _PUBLIC_BIND_HOSTS:
+        return []
+    allowed = _get_nested(config, "WebUI.AllowInsecureExposure")
+    # Missing key: legacy warn-only at boot; on explicit WebUI saves require acknowledgment
+    # when AuthDisabled is explicitly true (new-install semantics).
+    if allowed is True:
+        return []
+    return [
+        {
+            "path": "WebUI.AllowInsecureExposure",
+            "message": (
+                "AllowInsecureExposure must be true when AuthDisabled is true and "
+                "Host is 0.0.0.0 or ::"
+            ),
+        }
+    ]
 
 
 def _validate_section_invariants(config: Any, section: str) -> list[dict[str, str]]:
@@ -137,11 +254,23 @@ def _validate_section_invariants(config: Any, section: str) -> list[dict[str, st
         uri = _get_nested(config, f"{section}.URI")
         api_key = _get_nested(config, f"{section}.APIKey")
         category = _get_nested(config, f"{section}.Category")
-        if not uri or (isinstance(uri, str) and not uri.strip()):
-            errors.append({"path": f"{section}.URI", "message": "URI is required when Managed"})
-        if not api_key or (isinstance(api_key, str) and not str(api_key).strip()):
+        if not uri or (isinstance(uri, str) and not uri.strip()) or _is_change_me(uri):
             errors.append(
-                {"path": f"{section}.APIKey", "message": "APIKey is required when Managed"}
+                {
+                    "path": f"{section}.URI",
+                    "message": "URI must be set to a valid URL when the instance is managed",
+                }
+            )
+        if (
+            not api_key
+            or (isinstance(api_key, str) and not str(api_key).strip())
+            or _is_change_me(api_key)
+        ):
+            errors.append(
+                {
+                    "path": f"{section}.APIKey",
+                    "message": "APIKey must be provided when the instance is managed",
+                }
             )
         if not category or (isinstance(category, str) and not category.strip()):
             errors.append(
@@ -153,7 +282,7 @@ def _validate_section_invariants(config: Any, section: str) -> list[dict[str, st
             return errors
         host = _get_nested(config, f"{section}.Host")
         port = _get_nested(config, f"{section}.Port")
-        if not host or (isinstance(host, str) and not host.strip()):
+        if not host or (isinstance(host, str) and not host.strip()) or _is_change_me(host):
             errors.append(
                 {"path": f"{section}.Host", "message": "Host is required when qBit is enabled"}
             )
@@ -161,16 +290,23 @@ def _validate_section_invariants(config: Any, section: str) -> list[dict[str, st
             errors.append(
                 {"path": f"{section}.Port", "message": "Port is required when qBit is enabled"}
             )
-        elif isinstance(port, bool) or (
-            not isinstance(port, (int, float))
-            and not (isinstance(port, str) and str(port).strip().isdigit())
-        ):
-            errors.append({"path": f"{section}.Port", "message": "Port must be a number"})
+        else:
+            num = _as_number(port)
+            if num is None or not float(num).is_integer():
+                errors.append({"path": f"{section}.Port", "message": "Port must be a number"})
+            elif num < 1 or num > 65535:
+                errors.append(
+                    {"path": f"{section}.Port", "message": "Port must be between 1 and 65535"}
+                )
     return errors
 
 
 _ARR_INVARIANT_SUFFIXES = frozenset({"Managed", "URI", "APIKey", "Category"})
 _QBIT_INVARIANT_SUFFIXES = frozenset({"Disabled", "Host", "Port"})
+_WEBUI_INSECURE_KEYS = frozenset(
+    {"WebUI.AuthDisabled", "WebUI.Host", "WebUI.AllowInsecureExposure"}
+)
+_FREE_SPACE_KEYS = frozenset({"Settings.FreeSpace", "Settings.FreeSpaceFolder"})
 
 
 def _section_needs_invariant_check(section: str, changed_keys: set[str]) -> bool:
@@ -235,11 +371,14 @@ def validate_config_update(config: Any, changes: dict[str, Any]) -> list[dict[st
             continue
 
         field = _resolve_field(key)
-        if field is None:
-            continue
-        message = _validate_value(field, value)
-        if message:
-            errors.append({"path": key, "message": message})
+        if field is not None:
+            message = _validate_value(field, value)
+            if message:
+                errors.append({"path": key, "message": message})
+
+        path_message = _validate_path_specific(key, value)
+        if path_message:
+            errors.append({"path": key, "message": path_message})
 
     for section in sorted(touched_sections):
         # Renames/deletes null out old leaves; skip invariants when the section is gone.
@@ -247,5 +386,11 @@ def validate_config_update(config: Any, changes: dict[str, Any]) -> list[dict[st
             continue
         if _section_needs_invariant_check(section, changed_keys):
             errors.extend(_validate_section_invariants(config, section))
+
+    if changed_keys & _FREE_SPACE_KEYS:
+        errors.extend(_validate_free_space_folder(config))
+
+    if changed_keys & _WEBUI_INSECURE_KEYS:
+        errors.extend(_validate_webui_insecure_exposure(config))
 
     return errors
