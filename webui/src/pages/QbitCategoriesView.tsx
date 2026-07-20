@@ -155,6 +155,8 @@ export function QbitCategoriesView({ active }: QbitCategoriesViewProps): JSX.Ele
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
+  const [instancesLoaded, setInstancesLoaded] = useState(false);
+  const [overviewLoaded, setOverviewLoaded] = useState(false);
   const { push } = useToast();
   const { liveArr } = useWebUI();
   const isFetching = useRef(false);
@@ -174,6 +176,8 @@ export function QbitCategoriesView({ active }: QbitCategoriesViewProps): JSX.Ele
         error instanceof Error ? error.message : "Failed to load qBit instances",
         "error"
       );
+    } finally {
+      setInstancesLoaded(true);
     }
   }, [push]);
 
@@ -214,6 +218,7 @@ export function QbitCategoriesView({ active }: QbitCategoriesViewProps): JSX.Ele
         }
       } finally {
         isFetching.current = false;
+        setOverviewLoaded(true);
         if (showLoading) {
           setLoading(false);
         }
@@ -221,6 +226,10 @@ export function QbitCategoriesView({ active }: QbitCategoriesViewProps): JSX.Ele
     },
     [push, selection]
   );
+
+  useEffect(() => {
+    setOverviewLoaded(false);
+  }, [selection]);
 
   useEffect(() => {
     if (!active) {
@@ -379,10 +388,15 @@ export function QbitCategoriesView({ active }: QbitCategoriesViewProps): JSX.Ele
     </>
   );
 
-  const showInitialLoading = loading && categories.length === 0;
+  const showInitialLoading =
+    !instancesLoaded ||
+    (Boolean(selection) && !overviewLoaded && categories.length === 0) ||
+    (loading && categories.length === 0);
 
   let body: JSX.Element;
-  if (!instances.length) {
+  if (showInitialLoading) {
+    body = <></>;
+  } else if (!instances.length) {
     body = (
       <div className="hint">
         No qBittorrent instances found. Configure a `[qBit]` section to use this
