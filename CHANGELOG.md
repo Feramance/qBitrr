@@ -1,5 +1,33 @@
 # Changelog
 
+## v5.13.0-1 (20/07/2026)
+
+### 🚀 Features
+- [[minor] Arr hierarchy live-reload hardening, auto-updater channels, and WebUI polish](https://github.com/Feramance/qBitrr/commit/81af7841fe07736216af4278f1e3400dea0e5725) - @Feramance
+- [Add true auto-updater with channels and disable source-build updates.](https://github.com/Feramance/qBitrr/commit/b02f5b136a3b8a2b284956ce878d6d508bb5bd1d) - @Feramance
+
+### 📝 Documentation
+- [docs: fix qBit headless semantics and harden ConfigVersion bumps](https://github.com/Feramance/qBitrr/commit/bfbb655013195af847d4f6c328ce3a125a0de3fe) - @Feramance
+
+### 🔧 Maintenance
+- [Hide qBit empty-state copy until overview loading settles.](https://github.com/Feramance/qBitrr/commit/5b4fee48ec942d2884fab75ae8df2175d0153dc0) - @Feramance
+- [Keep qBit categories collapsed by default on load.](https://github.com/Feramance/qBitrr/commit/dbe99bd60499712e0e1166b2d6e41761e7f8c3ee) - @Feramance
+- [Hide Arr empty-state copy until library loading settles.](https://github.com/Feramance/qBitrr/commit/49c7b4d4cd264090a5d7ff494af385fd0213ec1e) - @Feramance
+- [Reorganize README and document AI-assisted maintenance.](https://github.com/Feramance/qBitrr/commit/bddfe9d7fd98b84554864a493e2f434d1927edda) - @Feramance
+- [Adopt MAJOR.MINOR.PATCH-BUILD versioning with Docker stable/latest/nightly channels.](https://github.com/Feramance/qBitrr/commit/a3519f2e662e435b2b4d2c94d545ef4c9aad981a) - @Feramance
+- [Confidence hardening: Arr hierarchy, Phase2 SoT, CI drift, live smoke (#505)](https://github.com/Feramance/qBitrr/commit/e5e9c766982f6880e877db7cd3754946c32addff) - @Feramance
+- [Bump postcss from 8.5.18 to 8.5.20 in /webui (#512)](https://github.com/Feramance/qBitrr/commit/c4a84a502b4cd1e8b84b5a836b98cba05fd2c48f) - @Feramance
+- [Bump actions/setup-node from 6 to 7 (#498)](https://github.com/Feramance/qBitrr/commit/f6059c6b46597fc3ffb40bbb3a6a54ba13746068) - @Feramance
+- [Bump actions/setup-python from 6 to 7 (#506)](https://github.com/Feramance/qBitrr/commit/a677162fca5ebf5791e02be460d28e3a9c5d6fa0) - @Feramance
+- [Bump typescript-eslint from 8.63.0 to 8.64.0 in /webui (#511)](https://github.com/Feramance/qBitrr/commit/12b7938101c840e864e5e3f68a3db5f1f6656880) - @Feramance
+- [Bump vite from 8.1.4 to 8.1.5 in /webui (#510)](https://github.com/Feramance/qBitrr/commit/7247587a1dbab6a202157565401f5a7650c9b117) - @Feramance
+- [Bump immer from 11.1.11 to 11.1.15 in /webui (#509)](https://github.com/Feramance/qBitrr/commit/8ab5abc942ffa0c18c1234d3c845ebddedf7a533) - @Feramance
+- [Bump autoprefixer from 10.5.2 to 10.5.4 in /webui (#508)](https://github.com/Feramance/qBitrr/commit/4912356873525a848432f5fac0782b863ffc417e) - @Feramance
+- [Bump tailwindcss from 4.3.2 to 4.3.3 in /webui (#507)](https://github.com/Feramance/qBitrr/commit/f7897210b5d3f6bf588d40ec41c51c7e2d1b2e02) - @Feramance
+- [Update Star History chart URLs in README.md](https://github.com/Feramance/qBitrr/commit/fe75c816cd2e163e84185e9597377c2615180694) - @Feramance
+
+---
+
 ## v5.12.12 (17/07/2026)
 
 ### 🐛 Bug Fixes
