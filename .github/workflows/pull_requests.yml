@@ -99,7 +99,7 @@ jobs:
       run: "VERSION=$(python -c \"import configparser; c = configparser.ConfigParser(); c.read('setup.cfg'); print(c['metadata']['version'])\")\necho \"Current version: ${VERSION}\"\necho \"VERSION=${VERSION}\" >> $GITHUB_OUTPUT\n"
       id: current_version
     - name: Set up Node.js
-      uses: actions/setup-node@v6
+      uses: actions/setup-node@v7
       with:
         node-version: '22'
         cache: npm

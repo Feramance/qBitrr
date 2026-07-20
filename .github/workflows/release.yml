@@ -236,7 +236,7 @@ jobs:
         RELEASE_HASH: ${{ needs.prepare_release.outputs.release_hash }}
       run: "ARCHIVE_NAME=\"${{ env.project-name }}-${RELEASE_HASH}-${{ matrix.os }}-${{ matrix.arch }}\"\necho \"Archive name set to: ${ARCHIVE_NAME}\"\necho \"NAME=${ARCHIVE_NAME}\" >> \"${GITHUB_OUTPUT}\"\n"
     - name: Set up Node.js
-      uses: actions/setup-node@v6
+      uses: actions/setup-node@v7
       with:
         node-version: '22'
         cache: npm
@@ -297,7 +297,7 @@ jobs:
         python-version: '3.12'
         cache: pip
     - name: Set up Node.js
-      uses: actions/setup-node@v6
+      uses: actions/setup-node@v7
       with:
         node-version: '22'
         cache: npm
@@ -341,7 +341,7 @@ jobs:
       with:
         python-version: '3.12'
         cache: pip
-    - uses: actions/setup-node@v6
+    - uses: actions/setup-node@v7
       with:
         node-version: latest
         cache: npm
