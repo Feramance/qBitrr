@@ -78,6 +78,7 @@ export function ArrCatalogStandardBody<TRow extends Hashable>({
       onRefresh={onRefresh}
       loading={loading}
       loadingHint={loadingHint}
+      hasRows={hasRows}
       footer={
         showPagination ? (
           <ArrCatalogPagination
@@ -94,6 +95,7 @@ export function ArrCatalogStandardBody<TRow extends Hashable>({
     >
       <ArrCatalogEmptyBranch
         order={emptyOrder}
+        loading={loading}
         showCatalogEmptyHint={showCatalogEmptyHint}
         hasRows={hasRows}
         catalogEmptyMessage={catalogEmptyMessage}

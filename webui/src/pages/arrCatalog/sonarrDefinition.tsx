@@ -470,6 +470,7 @@ function useSonarrInstancePipeline(
 
   const showCatalogEmptyHint =
     !loading &&
+    emptyStateReady &&
     allSeries.length === 0 &&
     totalItems === 0 &&
     response != null;

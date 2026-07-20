@@ -79,6 +79,7 @@ describe("ArrCatalogEmptyBranch ordering", () => {
     render(
       <ArrCatalogEmptyBranch
         order="syncFirst"
+        loading={false}
         showCatalogEmptyHint
         hasRows={false}
         catalogEmptyMessage="Sync empty"
@@ -94,6 +95,7 @@ describe("ArrCatalogEmptyBranch ordering", () => {
     render(
       <ArrCatalogEmptyBranch
         order="noItemsFirst"
+        loading={false}
         showCatalogEmptyHint={false}
         hasRows={false}
         catalogEmptyMessage="Sync empty"
@@ -109,6 +111,41 @@ describe("ArrCatalogEmptyBranch ordering", () => {
     render(
       <ArrCatalogEmptyBranch
         order="syncFirst"
+        loading={false}
+        showCatalogEmptyHint={false}
+        hasRows
+        catalogEmptyMessage="Sync empty"
+        noMatchMessage="No match"
+      >
+        <div>catalog-body</div>
+      </ArrCatalogEmptyBranch>,
+    );
+    expect(screen.getByText(/catalog-body/i)).toBeInTheDocument();
+  });
+
+  it("hides empty hints while loading with no rows", () => {
+    const { container } = render(
+      <ArrCatalogEmptyBranch
+        order="syncFirst"
+        loading
+        showCatalogEmptyHint
+        hasRows={false}
+        catalogEmptyMessage="Sync empty"
+        noMatchMessage="No match"
+      >
+        <div>content</div>
+      </ArrCatalogEmptyBranch>,
+    );
+    expect(container.firstChild).toBeNull();
+    expect(screen.queryByText(/Sync empty/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/No match/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps children while loading when rows exist", () => {
+    render(
+      <ArrCatalogEmptyBranch
+        order="syncFirst"
+        loading
         showCatalogEmptyHint={false}
         hasRows
         catalogEmptyMessage="Sync empty"

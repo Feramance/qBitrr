@@ -12,6 +12,8 @@ interface ArrCatalogBodyChromeProps {
   readonly loading: boolean;
   /** Loading spinner copy (e.g. `"Loading Radarr library…"`). */
   readonly loadingHint: string;
+  /** When false during load, overlay is opaque so empty body does not bleed through. */
+  readonly hasRows: boolean;
   /** Body content: list table, icon grid, or empty-state copy. */
   readonly children: ReactNode;
   /** Optional pagination footer below the body. */
@@ -28,10 +30,15 @@ export function ArrCatalogBodyChrome({
   onRefresh,
   loading,
   loadingHint,
+  hasRows,
   children,
   footer,
 }: ArrCatalogBodyChromeProps): JSX.Element {
   const { liveArr } = useWebUI();
+  const overlayClassName =
+    loading && !hasRows
+      ? "arr-catalog-body__overlay arr-catalog-body__overlay--solid loading"
+      : "arr-catalog-body__overlay loading";
 
   return (
     <div className="stack animate-fade-in">
@@ -60,7 +67,7 @@ export function ArrCatalogBodyChrome({
       <div className="arr-catalog-body">
         {children}
         {loading ? (
-          <div className="arr-catalog-body__overlay loading">
+          <div className={overlayClassName}>
             <span className="spinner" /> {loadingHint}
           </div>
         ) : null}

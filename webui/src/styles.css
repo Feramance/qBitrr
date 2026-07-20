@@ -3583,6 +3583,10 @@ svg[height] {
     pointer-events: none;
 }
 
+.arr-catalog-body__overlay--solid {
+    background: var(--bg);
+}
+
 .appbar__help {
     position: relative;
 }

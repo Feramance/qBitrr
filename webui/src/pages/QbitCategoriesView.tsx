@@ -555,6 +555,7 @@ export function QbitCategoriesView({ active }: QbitCategoriesViewProps): JSX.Ele
               onRefresh={handleRefresh}
               loading={showInitialLoading}
               loadingHint="Loading overview…"
+              hasRows={categories.length > 0}
             >
               {body}
             </ArrCatalogBodyChrome>

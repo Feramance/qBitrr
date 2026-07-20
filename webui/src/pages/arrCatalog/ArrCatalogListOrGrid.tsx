@@ -33,6 +33,7 @@ export type ArrCatalogEmptyBranchOrder = "syncFirst" | "noItemsFirst";
 
 interface ArrCatalogEmptyBranchProps {
   readonly order: ArrCatalogEmptyBranchOrder;
+  readonly loading: boolean;
   readonly showCatalogEmptyHint: boolean;
   readonly hasRows: boolean;
   readonly catalogEmptyMessage: string;
@@ -43,15 +44,20 @@ interface ArrCatalogEmptyBranchProps {
 /**
  * Chooses between sync hint, no-match hint, and catalog content.
  * Sonarr aggregate/instance uses `noItemsFirst`; Radarr/Lidarr use `syncFirst`.
+ * While loading with no rows, renders nothing so empty copy does not sit under the spinner.
  */
 export function ArrCatalogEmptyBranch({
   order,
+  loading,
   showCatalogEmptyHint,
   hasRows,
   catalogEmptyMessage,
   noMatchMessage,
   children,
-}: ArrCatalogEmptyBranchProps): JSX.Element {
+}: ArrCatalogEmptyBranchProps): JSX.Element | null {
+  if (loading && !hasRows) {
+    return null;
+  }
   if (showCatalogEmptyHint) {
     return <ArrCatalogSyncEmptyHint message={catalogEmptyMessage} />;
   }

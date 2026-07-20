@@ -391,11 +391,19 @@ export function useInstancePagedFetch<
   const isCatalogEmpty = adapter.isCatalogEmpty;
   const showCatalogEmptyHint = useMemo(() => {
     if (loading) return false;
+    if (!emptyStateReady) return false;
     if (allRows.length > 0) return false;
     if (!latestResponse) return false;
     if (isCatalogEmpty) return isCatalogEmpty(latestResponse);
     return totalItems === 0;
-  }, [loading, allRows.length, latestResponse, isCatalogEmpty, totalItems]);
+  }, [
+    loading,
+    emptyStateReady,
+    allRows.length,
+    latestResponse,
+    isCatalogEmpty,
+    totalItems,
+  ]);
 
   const setPagePublic = useCallback(
     (next: number) => {
