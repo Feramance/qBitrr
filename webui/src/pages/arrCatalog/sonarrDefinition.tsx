@@ -322,12 +322,15 @@ function useSonarrInstancePipeline(
         );
         setTotalItems((ti) => (ti === total ? ti : total));
       } catch (error) {
-        pushToast(
-          error instanceof Error
-            ? error.message
-            : `Failed to load ${category} series`,
-          "error",
-        );
+        // Background Live polls must stay silent; only toast user-visible loads.
+        if (showLoading) {
+          pushToast(
+            error instanceof Error
+              ? error.message
+              : `Failed to load ${category} series`,
+            "error",
+          );
+        }
       } finally {
         if (showLoading) setLoading(false);
       }

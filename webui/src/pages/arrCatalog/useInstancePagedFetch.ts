@@ -276,10 +276,13 @@ export function useInstancePagedFetch<
         );
         setTotalItems((ti) => (ti === total ? ti : total));
       } catch (error) {
-        pushToast(
-          error instanceof Error ? error.message : adapter.errorMessage(category),
-          "error",
-        );
+        // Background Live polls must stay silent; only toast user-visible loads.
+        if (showLoading) {
+          pushToast(
+            error instanceof Error ? error.message : adapter.errorMessage(category),
+            "error",
+          );
+        }
         // Allow the empty/error UI to render — otherwise `waitingForStableEmpty`
         // keeps the spinner forever when no successful response arrived.
         setEmptyStateReady(true);

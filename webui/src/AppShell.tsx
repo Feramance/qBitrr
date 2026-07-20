@@ -154,7 +154,6 @@ function AppShell({
   const backendReadyRef = useRef(false);
   const backendWarnedRef = useRef(false);
   const backendTimerRef = useRef<number | null>(null);
-  const [reloadKey, setReloadKey] = useState(0);
   const [showWelcomeChangelog, setShowWelcomeChangelog] = useState(false);
 
   // Idle-prefetch lazy route chunks so first visits after cold start are cheaper.
@@ -355,12 +354,9 @@ function AppShell({
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        // Remount only views that benefit from a hard reset; Arr/qBit tabs stay
-        // mounted so browse/expand state persists.
-        if (activeTab === "processes" || activeTab === "logs") {
-          setReloadKey((prev) => prev + 1);
-        }
-        void refreshMeta({ force: true });
+        // Soft-refresh only: keep-alive already preserves tab state. Avoid remount
+        // loads and non-silent meta that toast transient network failures.
+        void refreshMeta({ force: true, silent: true });
         void refreshStatus();
       }
     };
@@ -369,7 +365,7 @@ function AppShell({
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [refreshMeta, refreshStatus, activeTab]);
+  }, [refreshMeta, refreshStatus]);
 
   useEffect(() => {
     const initialId = window.setTimeout(() => {
@@ -780,15 +776,12 @@ function AppShell({
           <div className="view-transition">
             {visitedTabs.has("processes") ? (
               <div hidden={activeTab !== "processes"}>
-                <ProcessesView
-                  key={`processes-${reloadKey}`}
-                  active={activeTab === "processes"}
-                />
+                <ProcessesView active={activeTab === "processes"} />
               </div>
             ) : null}
             {visitedTabs.has("logs") ? (
               <div hidden={activeTab !== "logs"}>
-                <LogsView key={`logs-${reloadKey}`} active={activeTab === "logs"} />
+                <LogsView active={activeTab === "logs"} />
               </div>
             ) : null}
             {visitedTabs.has("radarr") && visibleTabIds.has("radarr") ? (

@@ -203,12 +203,15 @@ export function QbitCategoriesView({ active }: QbitCategoriesViewProps): JSX.Ele
           });
         }
       } catch (error) {
-        push(
-          error instanceof Error
-            ? error.message
-            : "Failed to load qBit overview",
-          "error"
-        );
+        // Background Live polls must stay silent — avoid network-error toast spam.
+        if (showLoading) {
+          push(
+            error instanceof Error
+              ? error.message
+              : "Failed to load qBit overview",
+            "error"
+          );
+        }
       } finally {
         isFetching.current = false;
         if (showLoading) {

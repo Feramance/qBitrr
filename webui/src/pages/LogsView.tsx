@@ -311,10 +311,10 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
       );
       applyPayload(payload, payload.rotated ? "replace" : "append");
       setTransport("poll");
-    } catch (error) {
-      push(describeError(error, `Failed to poll ${selected}`), "error");
+    } catch {
+      // Background delta polls must stay silent — transient failures spam toasts.
     }
-  }, [selected, atTailWindow, applyPayload, push]);
+  }, [selected, atTailWindow, applyPayload]);
 
   const openStream = useCallback(() => {
     if (!selected || offsetFromEndRef.current > 0) return;

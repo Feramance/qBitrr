@@ -331,12 +331,15 @@ export function useAggregateCatalogLoader<
         setRows([]);
         setSummary(adapter.initialSummary);
         setEmptyStateReady(true);
-        pushToast(
-          error instanceof Error
-            ? error.message
-            : "Failed to load aggregated catalog data",
-          "error",
-        );
+        // Background Live polls must stay silent; only toast user-visible loads.
+        if (showLoading) {
+          pushToast(
+            error instanceof Error
+              ? error.message
+              : "Failed to load aggregated catalog data",
+            "error",
+          );
+        }
       } finally {
         aggActiveLoadsRef.current -= 1;
         if (gen === aggFetchGenRef.current) {

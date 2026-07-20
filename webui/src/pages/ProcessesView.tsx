@@ -332,12 +332,15 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
         setQbitCategories(categoriesData.categories);
       }
     } catch (error) {
-      push(
-        error instanceof Error
-          ? error.message
-          : "Failed to load processes list",
-        "error"
-      );
+      // Background polls must stay silent — transient network blips spam toasts otherwise.
+      if (showLoading) {
+        push(
+          error instanceof Error
+            ? error.message
+            : "Failed to load processes list",
+          "error"
+        );
+      }
     } finally {
       isFetching.current = false;
       setHasLoaded(true);
