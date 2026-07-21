@@ -50,7 +50,7 @@ jobs:
         token: ${{ secrets.PAT || github.token }}
         ref: ${{ github.event.pull_request.head.ref }}
     - name: Set up Node.js
-      uses: actions/setup-node@v6
+      uses: actions/setup-node@v7
       with:
         node-version: '22'
         cache: npm
