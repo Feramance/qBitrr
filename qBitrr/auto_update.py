@@ -114,6 +114,15 @@ def get_runtime_overlay_dir() -> Path:
     return Path(HOME_PATH) / RUNTIME_DIR_NAME
 
 
+def _activate_runtime_overlay(runtime: Path) -> None:
+    """Ensure a restarted interpreter imports the Docker runtime overlay first."""
+    runtime_path = str(runtime)
+    existing = os.environ.get("PYTHONPATH")
+    paths = existing.split(os.pathsep) if existing else []
+    if runtime_path not in paths:
+        os.environ["PYTHONPATH"] = os.pathsep.join([runtime_path, *paths])
+
+
 def get_nightly_sha_path() -> Path:
     """Path used to persist the last-applied nightly commit SHA."""
     install_type = get_installation_type()
@@ -648,6 +657,8 @@ def perform_self_update(
             if ok and nightly_sha:
                 write_nightly_sha(nightly_sha)
                 write_overlay_version(f"nightly-{nightly_sha[:7]}")
+            if ok:
+                _activate_runtime_overlay(runtime)
             return ok
         if not target_version:
             logger.error(
@@ -658,6 +669,7 @@ def perform_self_update(
         ok = _pip_install(logger, f"qBitrr2=={version}", target=runtime)
         if ok:
             write_overlay_version(version)
+            _activate_runtime_overlay(runtime)
         return ok
 
     if install_type == "pip":
