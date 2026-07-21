@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -281,6 +282,7 @@ class TestPerformSelfUpdate(unittest.TestCase):
     @mock.patch("qBitrr.auto_update.get_runtime_overlay_dir")
     @mock.patch("qBitrr.auto_update.subprocess.run")
     @mock.patch("qBitrr.auto_update.get_installation_type", return_value="docker")
+    @mock.patch.dict("os.environ", {}, clear=True)
     def test_docker_installs_into_overlay(
         self, _typ: mock.MagicMock, run: mock.MagicMock, overlay_dir: mock.MagicMock
     ) -> None:
@@ -294,6 +296,9 @@ class TestPerformSelfUpdate(unittest.TestCase):
             self.assertIn("--target", args)
             self.assertIn(str(runtime), args)
             self.assertEqual(read_overlay_version(), "1.2.3")
+            # Regression: execv bypasses docker-entrypoint.sh, so a first-time overlay
+            # must be added to the current environment before the process restarts.
+            self.assertEqual(os.environ.get("PYTHONPATH"), str(runtime))
 
 
 class TestBinarySelfUpdate(unittest.TestCase):
