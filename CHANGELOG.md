@@ -1,5 +1,13 @@
 # Changelog
 
+## v5.13.1-1 (21/07/2026)
+
+### 🐛 Bug Fixes
+- [[patch] Fixed autoupdate issues](https://github.com/Feramance/qBitrr/commit/1358ae21a2479b8ff1ad229eabfa72035c09381e) - @Feramance
+- [Fix Docker auto-update restart loading old image code (#515)](https://github.com/Feramance/qBitrr/commit/3d837da5625b3f1caaf9213b041d71b1350dbdfc) - @Feramance
+
+---
+
 ## v5.13.0-1 (20/07/2026)
 
 ### 🚀 Features
