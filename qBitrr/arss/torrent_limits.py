@@ -20,6 +20,7 @@ from qBitrr.arss.arr_shared import (
     _TrackerDataUnavailable,
     with_retry,
 )
+from qBitrr.duration_config import _DURATION_PATTERN, _MAX_DURATION_STRING_LEN, parse_duration
 
 
 class TorrentLimits:
@@ -41,8 +42,10 @@ class TorrentLimits:
                 return value
             try:
                 text = str(value).strip()
-                if not text:
+                if not text or len(text) > _MAX_DURATION_STRING_LEN:
                     return default
+                if _DURATION_PATTERN.match(text):
+                    return parse_duration(text, unit="seconds", fallback=default)
                 return float(text) if "." in text else int(text)
             except (TypeError, ValueError):
                 return default

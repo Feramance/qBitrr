@@ -6,6 +6,7 @@ import re
 from collections.abc import Mapping
 from typing import Any
 
+from qBitrr.duration_config import _DURATION_PATTERN, _MAX_DURATION_STRING_LEN, parse_duration
 from qBitrr.gen_config.fields import QBIT_FIELDS, SETTINGS_FIELDS, WEBUI_FIELDS, ConfigField
 from qBitrr.gen_config.fields_arr import ARR_FIELDS
 
@@ -68,6 +69,28 @@ def _is_change_me(value: Any) -> bool:
     return isinstance(value, str) and value.strip().upper() == _CHANGE_ME
 
 
+def _as_duration(value: Any, *, unit: str) -> float | None:
+    """Parse a duration config value (number or suffixed string) into native units.
+
+    Returns None when ``value`` is not a valid duration expression.
+    """
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str) and value.strip():
+        s = value.strip()
+        if len(s) > _MAX_DURATION_STRING_LEN:
+            return None
+        if _DURATION_PATTERN.match(s):
+            return float(parse_duration(s, unit=unit, fallback=0))
+        try:
+            return float(s)
+        except ValueError:
+            return None
+    return None
+
+
 def _check_bounds(field: ConfigField, num: float, label: str) -> str | None:
     """Enforce minimum/maximum and -1 sentinel floors."""
     if field.minimum is not None and num < field.minimum:
@@ -98,7 +121,8 @@ def _validate_value(field: ConfigField, value: Any) -> str | None:
         return f"{label} must be a string"
 
     if kind == "duration":
-        num = _as_number(value)
+        unit = field.native_unit or "seconds"
+        num = _as_duration(value, unit=unit)
         if num is None:
             if field.required:
                 return f"{label} is required"

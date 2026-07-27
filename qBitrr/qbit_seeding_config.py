@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from qBitrr.config import CONFIG
+from qBitrr.duration_config import parse_duration
 
 _SEEDING_KEYS = (
     "DownloadRateLimitPerTorrent",
@@ -21,6 +22,17 @@ _HNR_KEYS: dict[str, Any] = {
     "HitAndRunPartialSeedRatio": 1.0,
     "TrackerUpdateBuffer": 0,
 }
+
+_DURATION_OVERRIDE_KEYS = frozenset({"MaxSeedingTime", "TrackerUpdateBuffer"})
+
+
+def _normalize_seeding_override(override: dict[str, Any]) -> dict[str, Any]:
+    """Copy a category override and parse duration keys to native seconds."""
+    normalized = dict(override)
+    for key in _DURATION_OVERRIDE_KEYS:
+        if key in normalized:
+            normalized[key] = parse_duration(normalized[key], unit="seconds", fallback=-1)
+    return normalized
 
 
 def load_qbit_seeding_config(
@@ -55,7 +67,7 @@ def load_qbit_seeding_config(
     category_overrides: dict[str, dict] = {}
     for cat_config in CONFIG.get(f"{section}.CategorySeeding.Categories", fallback=[]):
         if isinstance(cat_config, dict) and "Name" in cat_config:
-            category_overrides[cat_config["Name"]] = cat_config
+            category_overrides[cat_config["Name"]] = _normalize_seeding_override(cat_config)
 
     result: dict[str, Any] = {
         "default_seeding": default_seeding,

@@ -104,6 +104,53 @@ class TestValidateConfigUpdate(unittest.TestCase):
         )
         self.assertEqual(errors, [])
 
+    def test_accepts_suffixed_qbit_max_seeding_time(self) -> None:
+        cfg = _config_from_toml(
+            """
+            [qBit]
+            Disabled = false
+            Host = "localhost"
+            Port = 8080
+            """
+        )
+        for value in ("1w", "7d", "1h", "60m", 604800, -1):
+            with self.subTest(value=value):
+                errors = validate_config_update(
+                    cfg, {"qBit.CategorySeeding.MaxSeedingTime": value}
+                )
+                self.assertEqual(errors, [], msg=f"unexpected errors for {value!r}: {errors}")
+
+    def test_rejects_invalid_suffixed_duration(self) -> None:
+        cfg = _config_from_toml(
+            """
+            [qBit]
+            Disabled = false
+            Host = "localhost"
+            Port = 8080
+            """
+        )
+        errors = validate_config_update(cfg, {"qBit.CategorySeeding.MaxSeedingTime": "nope"})
+        self.assertTrue(any(e["path"] == "qBit.CategorySeeding.MaxSeedingTime" for e in errors))
+
+    def test_rejects_middle_space_and_oversized_duration(self) -> None:
+        cfg = _config_from_toml(
+            """
+            [qBit]
+            Disabled = false
+            Host = "localhost"
+            Port = 8080
+            """
+        )
+        for value in ("60 m", "1" * 40):
+            with self.subTest(value=value):
+                errors = validate_config_update(
+                    cfg, {"qBit.CategorySeeding.MaxSeedingTime": value}
+                )
+                self.assertTrue(
+                    any(e["path"] == "qBit.CategorySeeding.MaxSeedingTime" for e in errors),
+                    msg=f"expected rejection for {value!r}: {errors}",
+                )
+
     def test_accepts_negative_one_arr_seeding_rate_limits(self) -> None:
         cfg = _config_from_toml(
             """
