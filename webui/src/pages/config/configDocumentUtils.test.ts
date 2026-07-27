@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildSectionDeleteChanges,
+  ensureArrDefaults,
   fieldErrorDataPath,
   findFieldErrorMessage,
   formatValidationErrors,
@@ -105,5 +106,23 @@ describe("buildSectionDeleteChanges", () => {
       qBit: null,
       "qBit-General": null,
     });
+  });
+});
+
+describe("ensureArrDefaults", () => {
+  it("omits SearchByYear and Ombi/Overseerr for Lidarr", () => {
+    const doc = ensureArrDefaults("Lidarr");
+    const entry = doc.EntrySearch as Record<string, unknown>;
+    expect(entry.SearchByYear).toBeUndefined();
+    expect(entry.Ombi).toBeUndefined();
+    expect(entry.Overseerr).toBeUndefined();
+  });
+
+  it("includes SearchByYear and Ombi/Overseerr for Radarr", () => {
+    const doc = ensureArrDefaults("Radarr");
+    const entry = doc.EntrySearch as Record<string, unknown>;
+    expect(entry.SearchByYear).toBe(true);
+    expect(entry.Ombi).toBeTruthy();
+    expect(entry.Overseerr).toBeTruthy();
   });
 });

@@ -343,7 +343,8 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
         )
 
         self.ignore_torrents_younger_than = CONFIG.get_duration(
-            f"{name}.Torrent.IgnoreTorrentsYoungerThan", fallback=600
+            f"{name}.Torrent.IgnoreTorrentsYoungerThan",
+            fallback=get_ignore_torrents_younger_than_effective(),
         )
         self.maximum_eta = CONFIG.get_duration(f"{name}.Torrent.MaximumETA", fallback=86400)
         self.maximum_deletable_percentage = CONFIG.get(
@@ -1265,6 +1266,7 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
         self.search_command_limit = self._get_search_command_limit()
         self.rss_sync_timer = self._get_rss_sync_timer()
         self.refresh_downloads_timer = self._get_refresh_downloads_timer()
+        self._reconcile_periodic_timer_last_checked()
 
         # --- Arr connection LIVE (not preserve-db identity) ---
         self.re_search = CONFIG.get(f"{name}.ReSearch", fallback=False)
@@ -1408,11 +1410,31 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
         self.search_requests_every_x_seconds = CONFIG.get_duration(
             f"{name}.EntrySearch.SearchRequestsEvery", fallback=300
         )
+        # Re-apply type gates after LIVE re-reads so Lidarr (and future types) cannot
+        # lose SearchByYear / Ombi / Overseerr overrides when keys are missing or present.
+        self._apply_type_feature_gates()
         if self.ombi_search_requests or self.overseerr_requests:
             if getattr(self, "request_search_timer", None) is None:
                 self.request_search_timer = 0
         else:
             self.request_search_timer = None
+
+    def _reconcile_periodic_timer_last_checked(self) -> None:
+        """Keep RssSync/RefreshDownloads last-checked in sync with LIVE timer values.
+
+        Mirrors init: timer ``> 0`` enables the check (epoch if previously disabled);
+        timer ``<= 0`` clears last-checked so the periodic call does not fire every loop.
+        """
+        if self.rss_sync_timer > 0:
+            if getattr(self, "rss_sync_timer_last_checked", None) is None:
+                self.rss_sync_timer_last_checked = datetime(1970, 1, 1)
+        else:
+            self.rss_sync_timer_last_checked = None
+        if self.refresh_downloads_timer > 0:
+            if getattr(self, "refresh_downloads_timer_last_checked", None) is None:
+                self.refresh_downloads_timer_last_checked = datetime(1970, 1, 1)
+        else:
+            self.refresh_downloads_timer_last_checked = None
 
     def apply_config_refresh(self, preserve_db: bool = True) -> None:
         """Refresh in-memory Arr settings from CONFIG without deleting the search DB.
@@ -3394,15 +3416,23 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
                     years_index = 0
                     totcommands = -1
                     timer = datetime.now()
+                years: list[int] = []
+                years_count = 0
                 if self.search_by_year:
+                    years, years_count = self.get_year_search()
+                if self.search_by_year and years:
                     totcommands = -1
                     if years_index == 0:
-                        years, years_count = self.get_year_search()
                         try:
                             self.search_current_year = years[years_index]
                         except Exception:
-                            self.search_current_year = years[: years_index + 1]
+                            self.search_current_year = None
                     self.logger.debug("Current year %s", self.search_current_year)
+                elif self.search_by_year:
+                    self.search_current_year = None
+                    self.logger.debug(
+                        "SearchByYear enabled but no years available; skipping year filter"
+                    )
                 try:
                     _db_maybe_reset_entry_searched_state_fn(self)
                     self.refresh_download_queue()
@@ -3424,7 +3454,7 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
                     # Check for new Overseerr/Ombi requests and trigger searches
                     self.run_request_search()
                     try:
-                        if self.search_by_year:
+                        if self.search_by_year and years and self.search_current_year in years:
                             if years.index(self.search_current_year) != years_count - 1:
                                 years_index += 1
                                 self.search_current_year = years[years_index]
@@ -3506,7 +3536,7 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
                     except DelayLoopException:
                         raise
                     except ValueError:
-                        self.logger.info("Loop completed, restarting it.")
+                        self.logger.exception("Search loop ValueError; restarting loop.")
                         self.loop_completed = True
                     except qbittorrentapi.exceptions.APIConnectionError as e:
                         self.logger.warning(e)

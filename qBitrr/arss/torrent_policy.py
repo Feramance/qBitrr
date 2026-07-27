@@ -178,6 +178,7 @@ class TorrentPolicyManager(ArrBase):
         respawning; tracker-sort ownership and process spawn still follow manager init.
         """
         sync_config_from_disk()
+        self._sync_tracker_sort_settings_from_config()
         free_space, free_space_folder = get_free_space_guard_settings()
         want_enabled = (
             free_space != "-1"
@@ -196,6 +197,16 @@ class TorrentPolicyManager(ArrBase):
             if client is not None:
                 with contextlib.suppress(Exception):
                     client.torrents_create_tags(["qBitrr-free_space_paused"])
+
+    def _sync_tracker_sort_settings_from_config(self) -> None:
+        """Refresh merged tracker index / dead-tracker flags from live CONFIG."""
+        self.monitored_trackers = ArrBase.merge_global_tracker_blocks()
+        bad_msgs = ArrBase.global_bad_tracker_messages_union()
+        self.seeding_mode_global_bad_tracker_msg = bad_msgs
+        self._install_tracker_index(
+            build_tracker_index(self.monitored_trackers, bad_tracker_messages=bad_msgs)
+        )
+        self.remove_dead_trackers = ArrBase.global_remove_dead_trackers_union()
 
     @property
     def is_alive(self) -> bool:

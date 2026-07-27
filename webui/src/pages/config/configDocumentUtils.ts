@@ -292,7 +292,6 @@ export function ensureArrDefaults(type: string): ConfigDocument {
     SearchMissing: true,
     Unmonitored: false,
     SearchLimit: 5,
-    SearchByYear: true,
     SearchInReverse: false,
     SearchRequestsEvery: 300,
     DoUpgradeSearch: false,
@@ -308,25 +307,31 @@ export function ensureArrDefaults(type: string): ConfigDocument {
     QualityProfileMappings: {},
   };
 
+  if (!isLidarr) {
+    entrySearch.SearchByYear = true;
+  }
+
   if (isSonarr) {
     entrySearch.AlsoSearchSpecials = false;
     entrySearch.SearchBySeries = "smart";
     entrySearch.PrioritizeTodaysReleases = true;
   }
 
-  entrySearch.Ombi = {
-    SearchOmbiRequests: false,
-    OmbiURI: "CHANGE_ME",
-    OmbiAPIKey: "CHANGE_ME",
-    ApprovedOnly: true,
-  };
-  entrySearch.Overseerr = {
-    SearchOverseerrRequests: false,
-    OverseerrURI: "CHANGE_ME",
-    OverseerrAPIKey: "CHANGE_ME",
-    ApprovedOnly: true,
-    Is4K: false,
-  };
+  if (!isLidarr) {
+    entrySearch.Ombi = {
+      SearchOmbiRequests: false,
+      OmbiURI: "CHANGE_ME",
+      OmbiAPIKey: "CHANGE_ME",
+      ApprovedOnly: true,
+    };
+    entrySearch.Overseerr = {
+      SearchOverseerrRequests: false,
+      OverseerrURI: "CHANGE_ME",
+      OverseerrAPIKey: "CHANGE_ME",
+      ApprovedOnly: true,
+      Is4K: false,
+    };
+  }
 
   const torrent: Record<string, unknown> = {
     CaseSensitiveMatches: false,

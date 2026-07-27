@@ -520,6 +520,7 @@ class TestPlaceHolderLiveSync(unittest.TestCase):
             arr.completed_folder = old_root / "failed"
             arr.manager = MagicMock()
             arr.manager.completed_folders = {arr.completed_folder}
+            arr.manager.qbit_managed_categories = set()
 
             with (
                 patch("qBitrr.arss.placeholder_arr.sync_config_from_disk"),
@@ -539,6 +540,151 @@ class TestPlaceHolderLiveSync(unittest.TestCase):
             self.assertEqual(arr.completed_folder, new_root / "failed")
             self.assertEqual(arr.manager.completed_folders, {new_root / "failed"})
             self.assertEqual(expiring.call_count, 3)
+
+
+class TestLidarrTypeFeatureGatesLive(unittest.TestCase):
+    """Issue #516: LIVE reload must not undo Lidarr type feature gates."""
+
+    def test_live_sync_keeps_search_by_year_false_for_lidarr(self) -> None:
+        from qBitrr.arss.lidarr import LidarrArr
+
+        arr = _bare_arr_for_refresh()
+        arr.__class__ = LidarrArr
+        arr._name = "Lidarr-Music"
+        arr.search_by_year = False
+        arr.ombi_search_requests = False
+        arr.overseerr_requests = False
+        arr.ombi_uri = None
+        arr.ombi_api_key = None
+        arr.overseerr_uri = None
+        arr.overseerr_api_key = None
+        arr.rss_sync_timer_last_checked = None
+        arr.refresh_downloads_timer_last_checked = None
+
+        def lidarr_config_get(key: str, fallback=None):
+            # Missing SearchByYear / Ombi / Overseerr keys → fallbacks that would undo gates
+            values = {
+                "Lidarr-Music.ReSearch": False,
+                "Lidarr-Music.ArrErrorCodesToBlocklist": [],
+                "Lidarr-Music.Torrent.CaseSensitiveMatches": False,
+                "Lidarr-Music.Torrent.FolderExclusionRegex": None,
+                "Lidarr-Music.Torrent.FileNameExclusionRegex": None,
+                "Lidarr-Music.Torrent.FileExtensionAllowlist": None,
+                "Lidarr-Music.Torrent.AutoDelete": False,
+                "Lidarr-Music.Torrent.MaximumDeletablePercentage": 0.95,
+                "Lidarr-Music.Torrent.DoNotRemoveSlow": False,
+                "Lidarr-Music.Torrent.ReSearchStalled": False,
+                "Lidarr-Music.Torrent.SeedingMode.RemoveDeadTrackers": False,
+                "Lidarr-Music.Torrent.SeedingMode.DownloadRateLimitPerTorrent": -1,
+                "Lidarr-Music.Torrent.SeedingMode.UploadRateLimitPerTorrent": -1,
+                "Lidarr-Music.Torrent.SeedingMode.MaxUploadRatio": -1,
+                "Lidarr-Music.Torrent.SeedingMode.RemoveTorrent": -1,
+                "Lidarr-Music.Torrent.SeedingMode.RemoveTrackerWithMessage": [],
+                "Lidarr-Music.Torrent.Trackers": [],
+                "qBit.Trackers": [],
+                "Lidarr-Music.EntrySearch.SearchAgainOnSearchCompletion": False,
+                "Lidarr-Music.EntrySearch.DoUpgradeSearch": False,
+                "Lidarr-Music.EntrySearch.QualityUnmetSearch": False,
+                "Lidarr-Music.EntrySearch.CustomFormatUnmetSearch": False,
+                "Lidarr-Music.EntrySearch.ForceMinimumCustomFormat": False,
+                "Lidarr-Music.EntrySearch.SearchMissing": True,
+                "Lidarr-Music.EntrySearch.AlsoSearchSpecials": False,
+                "Lidarr-Music.EntrySearch.Unmonitored": False,
+                "Lidarr-Music.EntrySearch.SearchInReverse": False,
+                "Lidarr-Music.EntrySearch.PrioritizeTodaysReleases": True,
+                "Lidarr-Music.EntrySearch.SearchBySeries": False,
+            }
+            return values.get(key, fallback)
+
+        with (
+            patch("qBitrr.arss.arr_base.CONFIG") as mock_config,
+            patch("qBitrr.arss.arr_base.PROCESS_ONLY", False),
+            patch("qBitrr.arss.arr_base.SEARCH_ONLY", True),
+            patch("qBitrr.arss.arr_base.sync_config_from_disk"),
+            patch.object(arr, "_get_ignore_torrents_younger_than", return_value=180),
+            patch.object(arr, "_get_maximum_eta", return_value=86400),
+            patch.object(arr, "_get_search_command_limit", return_value=5),
+            patch.object(arr, "_get_rss_sync_timer", return_value=15),
+            patch.object(arr, "_get_refresh_downloads_timer", return_value=1),
+            patch.object(arr, "_merge_trackers", return_value=[]),
+            patch.object(arr, "_install_tracker_index"),
+            patch("qBitrr.arss.arr_base.build_tracker_index", return_value=MagicMock()),
+        ):
+            mock_config.get.side_effect = lidarr_config_get
+            mock_config.get_duration.side_effect = lambda key, fallback=0, unit=None: fallback
+            arr._apply_arr_live_attrs_from_config()
+
+        self.assertFalse(arr.search_by_year)
+        self.assertFalse(arr.ombi_search_requests)
+        self.assertFalse(arr.overseerr_requests)
+        self.assertIsNone(arr.ombi_uri)
+        self.assertIsNone(arr.overseerr_uri)
+
+
+class TestPeriodicTimerLastCheckedLive(unittest.TestCase):
+    """LIVE timer changes must enable/disable *_last_checked like init."""
+
+    def test_enabling_rss_timer_sets_last_checked(self) -> None:
+        arr = _bare_arr_for_refresh()
+        arr.rss_sync_timer = 0
+        arr.rss_sync_timer_last_checked = None
+        arr.refresh_downloads_timer = 0
+        arr.refresh_downloads_timer_last_checked = None
+
+        with (
+            patch("qBitrr.arss.arr_base.CONFIG") as mock_config,
+            patch("qBitrr.arss.arr_base.PROCESS_ONLY", False),
+            patch("qBitrr.arss.arr_base.SEARCH_ONLY", True),
+            patch("qBitrr.arss.arr_base.sync_config_from_disk"),
+            patch.object(arr, "_get_ignore_torrents_younger_than", return_value=180),
+            patch.object(arr, "_get_maximum_eta", return_value=86400),
+            patch.object(arr, "_get_search_command_limit", return_value=5),
+            patch.object(arr, "_get_rss_sync_timer", return_value=15),
+            patch.object(arr, "_get_refresh_downloads_timer", return_value=1),
+            patch.object(arr, "_merge_trackers", return_value=[]),
+            patch.object(arr, "_install_tracker_index"),
+            patch("qBitrr.arss.arr_base.build_tracker_index", return_value=MagicMock()),
+        ):
+            mock_config.get.side_effect = _live_config_get
+            mock_config.get_duration.side_effect = lambda key, fallback=0, unit=None: fallback
+            arr._apply_arr_live_attrs_from_config()
+
+        self.assertEqual(arr.rss_sync_timer, 15)
+        self.assertIsNotNone(arr.rss_sync_timer_last_checked)
+        self.assertEqual(arr.refresh_downloads_timer, 1)
+        self.assertIsNotNone(arr.refresh_downloads_timer_last_checked)
+
+    def test_disabling_rss_timer_clears_last_checked(self) -> None:
+        from datetime import datetime
+
+        arr = _bare_arr_for_refresh()
+        arr.rss_sync_timer = 15
+        arr.rss_sync_timer_last_checked = datetime(1970, 1, 1)
+        arr.refresh_downloads_timer = 1
+        arr.refresh_downloads_timer_last_checked = datetime(1970, 1, 1)
+
+        with (
+            patch("qBitrr.arss.arr_base.CONFIG") as mock_config,
+            patch("qBitrr.arss.arr_base.PROCESS_ONLY", False),
+            patch("qBitrr.arss.arr_base.SEARCH_ONLY", True),
+            patch("qBitrr.arss.arr_base.sync_config_from_disk"),
+            patch.object(arr, "_get_ignore_torrents_younger_than", return_value=180),
+            patch.object(arr, "_get_maximum_eta", return_value=86400),
+            patch.object(arr, "_get_search_command_limit", return_value=5),
+            patch.object(arr, "_get_rss_sync_timer", return_value=0),
+            patch.object(arr, "_get_refresh_downloads_timer", return_value=0),
+            patch.object(arr, "_merge_trackers", return_value=[]),
+            patch.object(arr, "_install_tracker_index"),
+            patch("qBitrr.arss.arr_base.build_tracker_index", return_value=MagicMock()),
+        ):
+            mock_config.get.side_effect = _live_config_get
+            mock_config.get_duration.side_effect = lambda key, fallback=0, unit=None: fallback
+            arr._apply_arr_live_attrs_from_config()
+
+        self.assertEqual(arr.rss_sync_timer, 0)
+        self.assertIsNone(arr.rss_sync_timer_last_checked)
+        self.assertEqual(arr.refresh_downloads_timer, 0)
+        self.assertIsNone(arr.refresh_downloads_timer_last_checked)
 
 
 if __name__ == "__main__":

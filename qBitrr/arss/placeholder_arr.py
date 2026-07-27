@@ -243,7 +243,7 @@ class PlaceHolderArr(ArrBase):
             self.files_to_cleanup.clear()
 
     def _sync_loop_settings_from_config(self) -> None:
-        """Refresh PlaceHolder age window and completed folder from live Settings."""
+        """Refresh PlaceHolder age window, completed folder, and qBit seeding from live config."""
         sync_config_from_disk()
         ignore_seconds = get_ignore_torrents_younger_than_effective()
         if ignore_seconds != self.ignore_torrents_younger_than:
@@ -258,6 +258,8 @@ class PlaceHolderArr(ArrBase):
             self.manager.completed_folders.discard(self.completed_folder)
             self.completed_folder = new_completed
             self.manager.completed_folders.add(self.completed_folder)
+        if self.category in self.manager.qbit_managed_categories:
+            self._apply_qbit_seeding_config()
 
     def process_torrents(self):
         try:
