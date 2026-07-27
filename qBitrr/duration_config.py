@@ -30,7 +30,10 @@ SUFFIX_TO_MINUTES = {
     "M": 43200,  # 30 days
 }
 
-_DURATION_PATTERN = re.compile(r"^\s*(-?\d+)\s*([sSmMhHdDwWM]?)\s*$")
+# After strip(): digits + optional single-letter suffix only (no ambiguous \\s*).
+# Cap length before matching to bound regex work on adversarial inputs.
+_MAX_DURATION_STRING_LEN = 32
+_DURATION_PATTERN = re.compile(r"^(-?\d+)([sSmMhHdDwWM]?)$")
 
 
 def parse_duration(
@@ -63,7 +66,7 @@ def _parse_duration_core(
     if isinstance(value, float) and value.is_integer():
         return int(value)
     s = str(value).strip()
-    if not s:
+    if not s or len(s) > _MAX_DURATION_STRING_LEN:
         return fallback
     m = _DURATION_PATTERN.match(s)
     if not m:

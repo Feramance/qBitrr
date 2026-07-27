@@ -68,11 +68,18 @@ class TestParseDurationGoldenMaster(unittest.TestCase):
         self.assertEqual(parse_duration("60", unit="seconds"), 60)
         self.assertEqual(parse_duration("2m", unit="seconds"), 120)
         self.assertEqual(parse_duration_to_seconds(None, fallback=99), 99)
+        self.assertEqual(parse_duration("1w", unit="seconds"), 604800)
+        self.assertEqual(parse_duration("-1", unit="seconds"), -1)
 
     def test_minutes_default_suffix_and_sub_one_rounding(self) -> None:
         self.assertEqual(parse_duration_to_minutes("5"), 5)
         self.assertEqual(parse_duration("30s", unit="minutes"), 1)
         self.assertEqual(parse_duration("2h", unit="minutes"), 120)
+
+    def test_rejects_middle_space_and_oversized_input(self) -> None:
+        self.assertEqual(parse_duration("60 m", unit="seconds", fallback=-7), -7)
+        self.assertEqual(parse_duration("1" * 40, unit="seconds", fallback=-7), -7)
+        self.assertEqual(parse_duration("0" + (" " * 40) + "x", unit="seconds", fallback=-7), -7)
 
 
 class TestNormalizeEnumGoldenMaster(unittest.TestCase):

@@ -132,6 +132,25 @@ class TestValidateConfigUpdate(unittest.TestCase):
         errors = validate_config_update(cfg, {"qBit.CategorySeeding.MaxSeedingTime": "nope"})
         self.assertTrue(any(e["path"] == "qBit.CategorySeeding.MaxSeedingTime" for e in errors))
 
+    def test_rejects_middle_space_and_oversized_duration(self) -> None:
+        cfg = _config_from_toml(
+            """
+            [qBit]
+            Disabled = false
+            Host = "localhost"
+            Port = 8080
+            """
+        )
+        for value in ("60 m", "1" * 40):
+            with self.subTest(value=value):
+                errors = validate_config_update(
+                    cfg, {"qBit.CategorySeeding.MaxSeedingTime": value}
+                )
+                self.assertTrue(
+                    any(e["path"] == "qBit.CategorySeeding.MaxSeedingTime" for e in errors),
+                    msg=f"expected rejection for {value!r}: {errors}",
+                )
+
     def test_accepts_negative_one_arr_seeding_rate_limits(self) -> None:
         cfg = _config_from_toml(
             """

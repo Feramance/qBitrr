@@ -6,7 +6,7 @@ import re
 from collections.abc import Mapping
 from typing import Any
 
-from qBitrr.duration_config import _DURATION_PATTERN, parse_duration
+from qBitrr.duration_config import _DURATION_PATTERN, _MAX_DURATION_STRING_LEN, parse_duration
 from qBitrr.gen_config.fields import QBIT_FIELDS, SETTINGS_FIELDS, WEBUI_FIELDS, ConfigField
 from qBitrr.gen_config.fields_arr import ARR_FIELDS
 
@@ -80,6 +80,8 @@ def _as_duration(value: Any, *, unit: str) -> float | None:
         return float(value)
     if isinstance(value, str) and value.strip():
         s = value.strip()
+        if len(s) > _MAX_DURATION_STRING_LEN:
+            return None
         if _DURATION_PATTERN.match(s):
             return float(parse_duration(s, unit=unit, fallback=0))
         try:
