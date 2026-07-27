@@ -121,6 +121,7 @@ jobs:
     outputs:
       release_tag: ${{ steps.check_release.outputs.tag }}
       release_exists: ${{ steps.check_release.outputs.exists }}
+      release_id: ${{ steps.release_id.outputs.id }}
     steps:
     - uses: actions/checkout@v7
       with:
@@ -143,6 +144,7 @@ jobs:
         fi
 
     - name: Create draft release
+      id: create_draft
       if: steps.check_release.outputs.exists != 'true'
       uses: softprops/action-gh-release@v3
       with:
@@ -152,6 +154,34 @@ jobs:
         draft: true
         prerelease: false
         make_latest: false
+
+    - name: Resolve release ID
+      id: release_id
+      env:
+        GH_TOKEN: ${{ secrets.PAT }}
+        TAG: ${{ steps.check_release.outputs.tag }}
+        DRAFT_ID: ${{ steps.create_draft.outputs.id }}
+      run: |
+        if [ -n "${DRAFT_ID}" ]; then
+          echo "id=${DRAFT_ID}" >> "${GITHUB_OUTPUT}"
+          echo "✓ Using softprops draft release ID ${DRAFT_ID}"
+          exit 0
+        fi
+
+        # Prefer published release by tag; fall back to draft match (API lists drafts)
+        RELEASE_ID="$(gh release view "${TAG}" --repo ${{ github.repository }} --json databaseId --jq .databaseId 2>/dev/null || true)"
+        if [ -z "${RELEASE_ID}" ]; then
+          RELEASE_ID="$(gh api "repos/${{ github.repository }}/releases?per_page=100" \
+            --jq ".[] | select(.tag_name == \"${TAG}\") | .id" | head -n1)"
+        fi
+
+        if [ -z "${RELEASE_ID}" ]; then
+          echo "❌ ERROR: Could not resolve release ID for ${TAG}" >&2
+          exit 1
+        fi
+
+        echo "id=${RELEASE_ID}" >> "${GITHUB_OUTPUT}"
+        echo "✓ Resolved existing release ID ${RELEASE_ID} for ${TAG}"
   docker_images:
     name: Publish Docker images
     runs-on: ubuntu-latest
@@ -306,6 +336,11 @@ jobs:
         file_glob: true
         tag: v${{ needs.prepare_release.outputs.new_version }}
         overwrite: true
+        # Draft releases are not findable by tag; target the softprops draft by ID
+        release_id: ${{ needs.create_release.outputs.release_id }}
+        draft: ${{ needs.create_release.outputs.release_exists != 'true' }}
+        release_name: v${{ needs.prepare_release.outputs.new_version }}
+        make_latest: false
   publish_pypi:
     name: Publish to PyPI
     runs-on: ubuntu-latest
@@ -496,10 +531,10 @@ jobs:
         commits = [line for line in commits_cmd.stdout.strip().split('\n')
                    if line and '[skip ci]' not in line and '[ci skip]' not in line]
 
+        # Empty ranges happen on build-only bumps (only [skip ci] version/changelog commits)
         if not commits:
-            print(f"❌ ERROR: No commits found between {prev_tag} and {tag}")
-            print("This should never happen if the version was properly bumped")
-            sys.exit(1)
+            print(f"⚠ No user-facing commits between {prev_tag} and {tag}")
+            print("Writing maintenance stub entry for dependency / automation release")
 
         print(f"Found {len(commits)} commits to include in changelog")
 
@@ -512,10 +547,6 @@ jobs:
         header = f"## v{version} ({date_str})\n"
 
         if header not in content:
-            if not commits:
-                print("❌ ERROR: No commits found for changelog generation!")
-                sys.exit(1)
-
             # Group commits by category
             grouped = {}
             for commit in commits[:50]:  # Limit to 50 commits
@@ -530,6 +561,11 @@ jobs:
                 except ValueError:
                     print(f"⚠ Skipping malformed commit line: {commit}")
                     continue
+
+            if not grouped:
+                grouped['🔧 Maintenance'] = [
+                    f"- Dependency / automation release (no user-facing commits since {prev_tag})"
+                ]
 
             # Build entry with groups
             entry = header
@@ -549,10 +585,6 @@ jobs:
                     for commit_line in grouped[group]:
                         entry += f"{commit_line}\n"
 
-            if not grouped:
-                print("❌ ERROR: No commits were categorized!")
-                sys.exit(1)
-
             entry += "\n---\n\n"
 
             # Insert after "# Changelog\n\n"
@@ -566,6 +598,7 @@ jobs:
                 print(f"✓ Manually generated changelog for v{version}")
             else:
                 print("⚠ Could not find changelog header")
+                sys.exit(1)
         else:
             print(f"✓ Changelog for v{version} already exists")
         PYEOF
