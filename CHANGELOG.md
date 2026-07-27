@@ -1,5 +1,12 @@
 # Changelog
 
+## v5.13.1-2 (27/07/2026)
+
+### 🔧 Maintenance
+- Dependency / automation release (no user-facing commits since v5.13.1-1)
+
+---
+
 ## v5.13.1-1 (21/07/2026)
 
 ### 🐛 Bug Fixes
