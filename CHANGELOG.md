@@ -1,5 +1,13 @@
 # Changelog
 
+## v5.13.3-1 (28/07/2026)
+
+### 🐛 Bug Fixes
+- [[patch] fix: Preserve fractional duration precision (#526)](https://github.com/Feramance/qBitrr/commit/fbd2a142b7f7ec816cca4a54565e922c746bbddc) - @Feramance
+- [fix: Correct v5.13.2-1 changelog and harden release generation](https://github.com/Feramance/qBitrr/commit/a9b176f26d432f76a99d8671ceb09bba82ebf9dc) - @Feramance
+
+---
+
 ## v5.13.2-1 (27/07/2026)
 
 ### 🐛 Bug Fixes
