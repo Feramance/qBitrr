@@ -536,7 +536,7 @@ Numeric field with spinner controls.
 ```
 
 ### Duration Input
-Time fields use a **number input plus unit dropdown** (s, m, h, d, w, M) instead of raw seconds or minutes. When you change a duration and save, the config may store it as a suffixed string (e.g. `MaxSeedingTime = "1w"`, `StalledDelay = "60m"`) for readability; the backend accepts both integers and suffixed strings. Disabled values (`-1`) show an empty field with a **Disabled** placeholder; use **Use disabled** or clear the field and blur to set disabled again.
+Time fields use a **number input plus unit dropdown** (s, m, h, d, w, M) instead of raw seconds or minutes. When you change a duration and save, the config may store it as a suffixed string (e.g. `MaxSeedingTime = "1w"`, `StalledDelay = "60m"`) for readability; the backend accepts both integers and suffixed strings. Fractional values are preserved at the field's native seconds-or-minutes precision instead of being rounded to a whole selected unit. Disabled values (`-1`) show an empty field with a **Disabled** placeholder; use **Use disabled** or clear the field and blur to set disabled again.
 
 ### Checkbox
 Toggle boolean values.
