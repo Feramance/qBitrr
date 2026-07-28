@@ -117,7 +117,8 @@ function toSuffixed(
     baseUnit === "seconds"
       ? SUFFIX_TO_SECONDS[unit]
       : SUFFIX_TO_MINUTES[unit];
-  const n = Math.round(total / mult);
+  const n = total / mult;
+  if (!Number.isInteger(n)) return Math.round(total);
   if (unit === "s" && baseUnit === "seconds") return n;
   if (unit === "m" && baseUnit === "minutes") return n;
   return `${n}${unit}`;
