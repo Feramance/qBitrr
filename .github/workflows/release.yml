@@ -397,6 +397,7 @@ jobs:
     needs:
     - prepare_release
     - publish_pypi
+    - create_release
     if: needs.prepare_release.result == 'success'
     steps:
     - uses: actions/checkout@v7
@@ -479,61 +480,47 @@ jobs:
         version = os.environ['VERSION']
         tag = f"v{version}"
 
-        # Get previous tag - try multiple methods
+        # Previous tag: newest existing tag that is not the release being generated.
+        # The new tag may not exist yet (create_release can run in parallel), so use HEAD
+        # as the end ref instead of requiring the new tag locally.
         prev_tag = ""
+        all_tags_cmd = subprocess.run(
+            ['git', 'tag', '--sort=-version:refname'],
+            capture_output=True, text=True, check=True
+        )
+        tags = [
+            t.strip()
+            for t in all_tags_cmd.stdout.strip().split('\n')
+            if t.strip() and t.strip() != tag
+        ]
+        if tags:
+            prev_tag = tags[0]
+            print(f"Found previous tag: {prev_tag}")
 
-        # Method 1: Try git describe on the current tag's parent
-        try:
-            prev_tag_cmd = subprocess.run(
-                ['git', 'describe', '--tags', '--abbrev=0', f'{tag}^'],
-                capture_output=True, text=True
-            )
-            if prev_tag_cmd.returncode == 0:
-                prev_tag = prev_tag_cmd.stdout.strip()
-                print(f"Found previous tag via describe: {prev_tag}")
-        except:
-            pass
-
-        # Method 2: If that fails, get the second-most recent tag
-        if not prev_tag:
-            try:
-                all_tags_cmd = subprocess.run(
-                    ['git', 'tag', '--sort=-version:refname'],
-                    capture_output=True, text=True
-                )
-                if all_tags_cmd.returncode == 0:
-                    tags = [t.strip() for t in all_tags_cmd.stdout.strip().split('\n') if t.strip()]
-                    # Find current tag and get the one before it
-                    if tag in tags:
-                        tag_idx = tags.index(tag)
-                        if tag_idx + 1 < len(tags):
-                            prev_tag = tags[tag_idx + 1]
-                            print(f"Found previous tag via sorted list: {prev_tag}")
-                    elif len(tags) > 0:
-                        # If current tag not found, use most recent
-                        prev_tag = tags[0]
-                        print(f"Using most recent tag: {prev_tag}")
-            except:
-                pass
-
-        # If we still don't have a previous tag, this is the first release
         if not prev_tag:
             print("⚠ Could not find any previous tag - this appears to be the first release")
             print("❌ ERROR: Cannot generate changelog without a previous reference point")
             sys.exit(1)
 
-        # Get commits between tags
-        print(f"Getting commits between {prev_tag} and {tag}...")
+        # Get commits since previous tag up to current master (includes version bump commit)
+        print(f"Getting commits between {prev_tag} and HEAD...")
         commits_cmd = subprocess.run(
-            ['git', 'log', f'{prev_tag}..{tag}', '--format=%H %s', '--no-merges'],
+            ['git', 'log', f'{prev_tag}..HEAD', '--format=%H %s', '--no-merges'],
             capture_output=True, text=True
         )
-        commits = [line for line in commits_cmd.stdout.strip().split('\n')
-                   if line and '[skip ci]' not in line and '[ci skip]' not in line]
+        if commits_cmd.returncode != 0:
+            print(f"❌ ERROR: git log failed between {prev_tag} and HEAD")
+            print(commits_cmd.stderr.strip())
+            sys.exit(1)
+
+        commits = [
+            line for line in commits_cmd.stdout.strip().split('\n')
+            if line and '[skip ci]' not in line and '[ci skip]' not in line
+        ]
 
         # Empty ranges happen on build-only bumps (only [skip ci] version/changelog commits)
         if not commits:
-            print(f"⚠ No user-facing commits between {prev_tag} and {tag}")
+            print(f"⚠ No user-facing commits between {prev_tag} and HEAD")
             print("Writing maintenance stub entry for dependency / automation release")
 
         print(f"Found {len(commits)} commits to include in changelog")

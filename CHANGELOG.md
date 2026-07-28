@@ -2,8 +2,21 @@
 
 ## v5.13.2-1 (27/07/2026)
 
+### 🐛 Bug Fixes
+- [[patch] fix: Lidarr LIVE search loop (#516) and duration save (#524)](https://github.com/Feramance/qBitrr/commit/eb1a17539401214e38706a05e5a5e89694de3446) - @Feramance
+- [fix: Harden release workflow for empty build changelogs](https://github.com/Feramance/qBitrr/commit/7ebb5b6e780e8425768ff1180c2452104c4a9dc3) - @Feramance
+- [fix: Align react-dom with react 19.2.8 (#523)](https://github.com/Feramance/qBitrr/commit/25fa5651f558c676e3d0ad52e4ef3b2237aef7c5) - @Feramance
+
 ### 🔧 Maintenance
-- Dependency / automation release (no user-facing commits since v5.13.1-2)
+- [Bump jsdom from 29.1.1 to 30.0.0 in /webui (#517)](https://github.com/Feramance/qBitrr/commit/6056d09d6ff160d2808deb3381f183f0ed4143cc) - @Feramance
+- [Bump @testing-library/jest-dom from 6.9.1 to 7.0.0 in /webui (#520)](https://github.com/Feramance/qBitrr/commit/797ab9e622196072fc9f9d139f67656e1d32f3d2) - @Feramance
+- [Bump eslint from 10.7.0 to 10.8.0 in /webui (#521)](https://github.com/Feramance/qBitrr/commit/16d23821902450920e33c2eb9caad3039d000e53) - @Feramance
+- [Bump react from 19.2.7 to 19.2.8 in /webui (#522)](https://github.com/Feramance/qBitrr/commit/c5be26d0ada38ce707a8e14f0987e0ea0970e8df) - @Feramance
+- [Bump typescript-eslint from 8.64.0 to 8.65.0 in /webui (#519)](https://github.com/Feramance/qBitrr/commit/5a0cbdc615571bca4bc1eadd91dacd6632422234) - @Feramance
+- [Bump actions/setup-node from 6 to 7 (#514)](https://github.com/Feramance/qBitrr/commit/0fe84a085af0e61eca62dc7fa322bd0bec796674) - @Feramance
+- [Bump actions/setup-python from 6 to 7 (#513)](https://github.com/Feramance/qBitrr/commit/22c35d22be00c97f532c6f8b1144078c5468eb2b) - @Feramance
+- [Set restart to unless-stopped](https://github.com/Feramance/qBitrr/commit/43e1108d950bf0f981b40d32edda600b181e3f12) - @Feramance
+- [Bump postcss from 8.5.20 to 8.5.23 in /webui (#518)](https://github.com/Feramance/qBitrr/commit/445312313083f3609e380a6101a9b2468d78db7a) - @Feramance
 
 ---
 
