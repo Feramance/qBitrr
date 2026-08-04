@@ -124,6 +124,48 @@ class TestDbGetFilesImplHooks(unittest.TestCase):
         self.assertIs(rows[0][0], episode)
 
 
+class TestSearchLoopYearLoading(unittest.TestCase):
+    def test_arr_outage_during_year_loading_does_not_kill_worker(self) -> None:
+        """Regression: an Arr outage while loading years must back off inside the worker."""
+        from qBitrr.arss.arr_base import ArrBase
+        from qBitrr.arss.arr_shared import PyarrConnectionError
+
+        arr = ArrBase.__new__(ArrBase)
+        arr._name = "Radarr.Test"
+        arr.logger = MagicMock()
+        arr.search_missing = True
+        arr.do_upgrade_search = False
+        arr.quality_unmet_search = False
+        arr.custom_format_unmet_search = False
+        arr.ombi_search_requests = False
+        arr.overseerr_requests = False
+        arr.search_by_year = True
+        arr.loop_completed = False
+        arr.manager = MagicMock()
+        event = MagicMock()
+        event.is_set.side_effect = [False, True]
+        arr.manager.qbit_manager.shutdown_event = event
+
+        with (
+            patch("qBitrr.arss.arr_base.run_logs"),
+            patch.object(arr, "_sync_loop_settings_from_config"),
+            patch.object(
+                arr,
+                "get_year_search",
+                side_effect=PyarrConnectionError("Arr unavailable"),
+            ),
+            patch.object(arr, "_handle_delay_loop_exception") as delay_handler,
+        ):
+            arr.run_search_loop()
+
+        delay_handler.assert_called_once()
+        delay_exc = delay_handler.call_args.args[0]
+        self.assertEqual(delay_exc.error_type, "arr")
+        self.assertEqual(delay_exc.length, 300)
+        self.assertTrue(delay_handler.call_args.kwargs["reset_torrent_scan_delay"])
+        arr.logger.critical.assert_not_called()
+
+
 class TestPreserveVsLiveClassification(unittest.TestCase):
     def test_uri_is_preserve_not_live(self) -> None:
         from qBitrr.config_reload_policy import ReloadCategory, classify_config_key
