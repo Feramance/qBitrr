@@ -3406,6 +3406,8 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
             loop_timer = timedelta(minutes=15)
             timer = datetime.now()
             years_index = 0
+            years: list[int] = []
+            years_count = 0
             totcommands = -1
             self.db_update_processed = False
             event = self.manager.qbit_manager.shutdown_event
@@ -3416,10 +3418,21 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
                     years_index = 0
                     totcommands = -1
                     timer = datetime.now()
-                years: list[int] = []
-                years_count = 0
-                if self.search_by_year:
-                    years, years_count = self.get_year_search()
+                if self.search_by_year and years_index == 0:
+                    try:
+                        years, years_count = self.get_year_search()
+                    except PyarrConnectionError as e:
+                        self.logger.warning(
+                            "Could not reach %s Arr API during search loop: %s",
+                            self._name,
+                            e,
+                        )
+                        self._handle_delay_loop_exception(
+                            DelayLoopException(length=300, error_type="arr"),
+                            event.wait,
+                            reset_torrent_scan_delay=True,
+                        )
+                        continue
                 if self.search_by_year and years:
                     totcommands = -1
                     if years_index == 0:
