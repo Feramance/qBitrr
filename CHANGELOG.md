@@ -1,5 +1,12 @@
 # Changelog
 
+## v5.13.3-2 (03/08/2026)
+
+### 🔧 Maintenance
+- [Bump docker/login-action from 4 to 4.5.2 (#530)](https://github.com/Feramance/qBitrr/commit/f59670943f4669a9af72a47932b6b6b5885e067e) - @Feramance
+
+---
+
 ## v5.13.3-1 (28/07/2026)
 
 ### 🐛 Bug Fixes
