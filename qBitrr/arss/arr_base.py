@@ -11,7 +11,6 @@ import time
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Iterator
 from datetime import datetime, timedelta, timezone
-from multiprocessing import current_process
 from typing import TYPE_CHECKING, Any, ClassVar, NoReturn
 
 import ffmpeg
@@ -781,8 +780,13 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
         )
 
     def _should_use_dedicated_qbit_client(self) -> bool:
-        """Return True when running inside a child worker process."""
-        return current_process().name != "MainProcess"
+        """Return True when running inside a child worker process.
+
+        Workers are spawned via pathos.helpers.mp (multiprocess), which has its
+        own process registry — stdlib multiprocessing.current_process stays
+        MainProcess in those children and must not be used here.
+        """
+        return pathos.helpers.mp.current_process().name != "MainProcess"
 
     def _get_qbit_client(self, instance_name: str = "qBit") -> qbittorrentapi.Client | None:
         """Get a qBit client, creating a dedicated per-process session when needed."""
