@@ -1,4 +1,4 @@
-import type { ColumnDef } from "@tanstack/react-table";
+import type { AppColumnDef } from "../../tableCore";
 import { useCallback, useMemo, type JSX, type RefCallback } from "react";
 import { getLidarrArtists } from "../../api/client";
 import type {
@@ -143,7 +143,7 @@ function lidarrArtistTileStats(
 }
 
 /** Module-level column defs — stable identity across renders for StableTable memo. */
-const LIDARR_INSTANCE_COLUMNS: ColumnDef<LidarrInstanceRow>[] = [
+const LIDARR_INSTANCE_COLUMNS: AppColumnDef<LidarrInstanceRow>[] = [
   {
     id: "artist",
     header: "Artist",
@@ -225,9 +225,9 @@ const LIDARR_INSTANCE_COLUMNS: ColumnDef<LidarrInstanceRow>[] = [
 ];
 
 const LIDARR_AGG_COLUMNS_SINGLE =
-  LIDARR_INSTANCE_COLUMNS as ColumnDef<LidarrAggRow>[];
+  LIDARR_INSTANCE_COLUMNS as AppColumnDef<LidarrAggRow>[];
 
-const LIDARR_AGG_COLUMNS_MULTI: ColumnDef<LidarrAggRow>[] = [
+const LIDARR_AGG_COLUMNS_MULTI: AppColumnDef<LidarrAggRow>[] = [
   {
     id: "instance",
     header: "Instance",
@@ -236,7 +236,7 @@ const LIDARR_AGG_COLUMNS_MULTI: ColumnDef<LidarrAggRow>[] = [
   ...LIDARR_AGG_COLUMNS_SINGLE,
 ];
 
-function getLidarrAggColumns(instanceCount: number): ColumnDef<LidarrAggRow>[] {
+function getLidarrAggColumns(instanceCount: number): AppColumnDef<LidarrAggRow>[] {
   return instanceCount > 1 ? LIDARR_AGG_COLUMNS_MULTI : LIDARR_AGG_COLUMNS_SINGLE;
 }
 

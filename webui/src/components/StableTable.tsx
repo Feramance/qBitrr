@@ -5,11 +5,10 @@ import {
   type KeyboardEvent,
 } from "react";
 import {
-  useReactTable,
-  getCoreRowModel,
+  useTable,
   flexRender,
-  type ColumnDef,
   type Row,
+  type RowData,
   type Table,
 } from "@tanstack/react-table";
 import {
@@ -18,6 +17,11 @@ import {
 } from "../hooks/useRowsStore";
 import type { RowsStore } from "../utils/rowsStore";
 import type { Hashable } from "../utils/dataSync";
+import {
+  coreTableFeatures,
+  type AppColumnDef,
+  type CoreTableFeatures,
+} from "../tableCore";
 
 /**
  * Two render modes:
@@ -34,11 +38,11 @@ import type { Hashable } from "../utils/dataSync";
  * In both modes a `getRowKey` function provides the stable React/tanstack-table id.
  */
 
-type LegacyProps<TData> = {
+type LegacyProps<TData extends RowData> = {
   data: TData[];
   rowsStore?: undefined;
   rowOrder?: undefined;
-  columns: ColumnDef<TData, unknown>[];
+  columns: AppColumnDef<TData, unknown>[];
   getRowKey?: (row: TData) => string;
   onRowClick?: (row: TData) => void;
 };
@@ -51,22 +55,22 @@ type StorefulProps<TData extends Hashable> = {
   data?: undefined;
   rowsStore: RowsStore<TData>;
   rowOrder: readonly string[];
-  columns: ColumnDef<TData, unknown>[];
+  columns: AppColumnDef<TData, unknown>[];
   getRowKey?: (row: TData) => string;
   onRowClick?: (row: TData) => void;
 };
 
-type StableTableProps<TData> =
+type StableTableProps<TData extends RowData> =
   | LegacyProps<TData>
   | (TData extends Hashable ? StorefulProps<TData> : never);
 
-function isStorefulProps<TData>(
+function isStorefulProps<TData extends RowData>(
   props: StableTableProps<TData>,
 ): props is TData extends Hashable ? StorefulProps<TData> : never {
   return (props as { rowsStore?: unknown }).rowsStore !== undefined;
 }
 
-function StableTableInner<TData>(props: StableTableProps<TData>) {
+function StableTableInner<TData extends RowData>(props: StableTableProps<TData>) {
   const { columns, getRowKey, onRowClick } = props;
 
   // Pass `getRowId` so tanstack-table keys row models against our stable id rather than
@@ -108,10 +112,10 @@ function StableTableInner<TData>(props: StableTableProps<TData>) {
   ]);
 
   // eslint-disable-next-line react-hooks/incompatible-library
-  const table = useReactTable({
+  const table = useTable<CoreTableFeatures, TData>({
+    features: coreTableFeatures,
     data: stableData,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
+    columns: columns as AppColumnDef<TData, unknown>[],
     ...(tableGetRowId ? { getRowId: tableGetRowId } : {}),
   });
 
@@ -143,8 +147,8 @@ function StableTableInner<TData>(props: StableTableProps<TData>) {
                   key={stableKey}
                   id={stableKey}
                   rowsStore={storefulRowsStore!}
-                  table={table as unknown as Table<Hashable>}
-                  rowProto={row as unknown as Row<Hashable>}
+                  table={table as unknown as Table<CoreTableFeatures, Hashable>}
+                  rowProto={row as unknown as Row<CoreTableFeatures, Hashable>}
                   onRowClick={
                     onRowClick as unknown as
                       | ((row: Hashable) => void)
@@ -191,8 +195,8 @@ function StableTableInner<TData>(props: StableTableProps<TData>) {
 interface StableRowProps<TData extends Hashable> {
   id: string;
   rowsStore: RowsStore<TData>;
-  table: Table<TData>;
-  rowProto: Row<TData>;
+  table: Table<CoreTableFeatures, TData>;
+  rowProto: Row<CoreTableFeatures, TData>;
   onRowClick?: (row: TData) => void;
 }
 

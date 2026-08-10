@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ColumnDef } from "@tanstack/react-table";
+import type { AppColumnDef } from "../../tableCore";
 import type { Hashable } from "../../utils/dataSync";
 import type { RowsStore } from "../../utils/rowsStore";
 import {
@@ -55,7 +55,7 @@ function makeStore(rows: TestRow[]): RowsStore<TestRow> {
   } as unknown as RowsStore<TestRow>;
 }
 
-const columns: ColumnDef<TestRow, unknown>[] = [{ accessorKey: "title", header: "Title" }];
+const columns: AppColumnDef<TestRow, unknown>[] = [{ accessorKey: "title", header: "Title" }];
 const sampleRows: TestRow[] = [
   { id: "a", title: "Alpha" },
   { id: "b", title: "Beta" },
