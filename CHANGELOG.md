@@ -1,5 +1,18 @@
 # Changelog
 
+## v5.13.3-3 (10/08/2026)
+
+### 🐛 Bug Fixes
+- [fix: keep year-search outages inside worker loop (#528)](https://github.com/Feramance/qBitrr/commit/1927c6e6e7605773fbcb3e38d74a6d4cea12fdc2) - @Feramance
+
+### 🔧 Maintenance
+- [Bump globals from 17.7.0 to 17.8.0 in /webui (#535)](https://github.com/Feramance/qBitrr/commit/8ffd0476fd77d4bccbbb1428649c2c1ec76c9781) - @Feramance
+- [Bump @types/react-dom from 19.2.3 to 19.2.4 in /webui (#536)](https://github.com/Feramance/qBitrr/commit/e9c65be431ce3df08be7b6c6534d77c695b9ead8) - @Feramance
+- [Bump @types/react from 19.2.17 to 19.2.18 in /webui (#537)](https://github.com/Feramance/qBitrr/commit/34b4b4f4eed9e03db19615b703638a19304acd37) - @Feramance
+- [Bump postcss from 8.5.23 to 8.5.25 in /webui (#532)](https://github.com/Feramance/qBitrr/commit/579572b954f9a559a73e089db622461896d96be6) - @Feramance
+
+---
+
 ## v5.13.3-2 (03/08/2026)
 
 ### 🔧 Maintenance
