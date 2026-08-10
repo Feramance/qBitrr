@@ -436,7 +436,7 @@ class SonarrArr(ArrBase):
                 if self.persistent_queue:
                     self.persistent_queue.insert(
                         EntryId=series_id, ArrInstance=self._name
-                    ).on_conflict_ignore()
+                    ).on_conflict_ignore().execute()
         else:
             for object_id in object_ids:
                 episode_found = False
@@ -503,7 +503,7 @@ class SonarrArr(ArrBase):
                     if self.persistent_queue:
                         self.persistent_queue.insert(
                             EntryId=object_id, ArrInstance=self._name
-                        ).on_conflict_ignore()
+                        ).on_conflict_ignore().execute()
 
     def _db_update_single_entry(
         self,

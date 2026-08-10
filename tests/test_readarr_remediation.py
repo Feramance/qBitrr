@@ -152,6 +152,65 @@ class TestUpdateReadarrBook(unittest.TestCase):
             update_readarr_book(arr, db_entry, request=False)
         arr.client.author.get.assert_not_called()
 
+    def test_empty_book_files_despite_stats_marks_missing(self) -> None:
+        """Stats bookFileCount>0 with empty file fetch must not invent BookFileId=1."""
+        arr = self._make_arr()
+        db_entry = {
+            "id": 42,
+            "monitored": True,
+            "title": "Book",
+            "authorId": 7,
+            "authorTitle": "Author",
+            "foreignBookId": None,
+            "releaseDate": "2021-01-01T00:00:00Z",
+            "statistics": {"bookFileCount": 1},
+            "author": {"id": 7, "qualityProfileId": 3},
+        }
+        with (
+            patch(
+                "qBitrr.arss.db_update_handlers.get_readarr_book_files",
+                return_value=[],
+            ),
+            patch("qBitrr.arss.db_update_handlers.resolve_min_format_score", return_value=0),
+            patch(
+                "qBitrr.arss.db_update_handlers.get_profile_name_cached", return_value="Standard"
+            ),
+            patch("qBitrr.arss.db_update_handlers.should_mark_searched", return_value=False),
+            patch("qBitrr.arss.db_update_handlers.refresh_rollups_after_db_update"),
+        ):
+            update_readarr_book(arr, db_entry, request=False)
+
+        insert_call = arr.model_file.insert.call_args
+        self.assertEqual(insert_call.kwargs["BookFileId"], 0)
+        self.assertEqual(insert_call.kwargs["Reason"], "Missing")
+
+
+class TestReadarrReSearchQueue(unittest.TestCase):
+    def test_re_search_persists_queue_with_execute(self) -> None:
+        arr = ReadarrArr.__new__(ReadarrArr)
+        arr._name = "Readarr-Books"
+        arr.logger = MagicMock()
+        arr.client = MagicMock()
+        arr.client.book.get.return_value = {"title": "Book", "authorTitle": "Author"}
+        arr.queue_file_ids = {42}
+        insert_chain = MagicMock()
+        arr.persistent_queue = MagicMock()
+        arr.persistent_queue.insert.return_value = insert_chain
+        insert_chain.on_conflict_ignore.return_value = insert_chain
+
+        with (
+            patch("qBitrr.arss.readarr.with_retry", side_effect=lambda fn, **_: fn()),
+            patch("qBitrr.arss.readarr.execute_command"),
+        ):
+            arr._re_search_failed_media(42)
+
+        arr.persistent_queue.insert.assert_called_once_with(
+            EntryId=42, ArrInstance="Readarr-Books"
+        )
+        insert_chain.on_conflict_ignore.assert_called_once_with()
+        insert_chain.execute.assert_called_once_with()
+        self.assertNotIn(42, arr.queue_file_ids)
+
 
 class TestSearchReadarr(unittest.TestCase):
     def test_issues_book_search_command(self) -> None:
