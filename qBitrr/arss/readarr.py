@@ -237,7 +237,7 @@ class ReadarrArr(ArrBase):
             if self.persistent_queue:
                 self.persistent_queue.insert(
                     EntryId=object_id, ArrInstance=self._name
-                ).on_conflict_ignore()
+                ).on_conflict_ignore().execute()
 
     def _db_update_single_entry(
         self,

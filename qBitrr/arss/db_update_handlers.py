@@ -1175,8 +1175,9 @@ def update_readarr_book(arr: Arr, db_entry: JsonObject, *, request: bool) -> Non
                 book_file_id = int(first_file.get("id") or 1)
                 custom_format = int(first_file.get("customFormatScore", 0) or 0)
             else:
-                book_file_id = 1
-                custom_format = 0
+                # Stats claimed files but none were returned — do not invent a sentinel
+                # BookFileId; treat as missing so search/rollups stay accurate.
+                has_content = False
 
         if has_content and should_mark_searched(
             has_content=True,
