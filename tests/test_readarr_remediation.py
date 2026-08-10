@@ -11,6 +11,7 @@ from qBitrr.arss.db_update_handlers import (
     _parse_readarr_release_date,
     _readarr_release_is_future,
     _readarr_release_year,
+    update_readarr_author,
     update_readarr_book,
 )
 from qBitrr.arss.readarr import ReadarrArr
@@ -210,6 +211,96 @@ class TestReadarrReSearchQueue(unittest.TestCase):
         insert_chain.on_conflict_ignore.assert_called_once_with()
         insert_chain.execute.assert_called_once_with()
         self.assertNotIn(42, arr.queue_file_ids)
+
+
+class TestUpdateReadarrAuthor(unittest.TestCase):
+    def test_stats_without_size_on_disk_marks_not_searched(self) -> None:
+        """bookFileCount/percentOfBooks alone must not mark author searched."""
+        arr = MagicMock()
+        arr._name = "Readarr-Books"
+        arr.search_unmonitored = False
+        arr.use_temp_for_missing = False
+        arr._quality_profile_cache = {}
+        arr.artists_file_model.get_or_none.return_value = None
+        insert_chain = MagicMock()
+        arr.artists_file_model.insert.return_value = insert_chain
+        insert_chain.on_conflict.return_value = insert_chain
+        author_payload = {
+            "authorName": "Author",
+            "qualityProfileId": 3,
+            "statistics": {
+                "bookCount": 5,
+                "sizeOnDisk": 0,
+                "bookFileCount": 2,
+                "percentOfBooks": 40.0,
+            },
+        }
+        with (
+            patch(
+                "qBitrr.arss.db_update_handlers.arr_with_retry",
+                side_effect=lambda fn, **_: fn(),
+            ),
+            patch("qBitrr.arss.db_update_handlers.resolve_min_format_score", return_value=0),
+            patch(
+                "qBitrr.arss.db_update_handlers.get_profile_name_cached", return_value="Standard"
+            ),
+        ):
+            arr.client.author.get.return_value = author_payload
+            update_readarr_author(arr, {"id": 7, "monitored": True})
+
+        insert_call = arr.artists_file_model.insert.call_args
+        self.assertEqual(insert_call.kwargs["Searched"], False)
+
+
+class TestReadarrRefreshDownloads(unittest.TestCase):
+    def test_api_calls_includes_readarr_in_refresh_supported_types(self) -> None:
+        from datetime import timedelta
+        from unittest.mock import PropertyMock
+
+        from qBitrr.arss.arr_base import ArrBase
+
+        arr = ArrBase.__new__(ArrBase)
+        arr._name = "Readarr-Books"
+        arr.type = "readarr"
+        arr.uri = "http://readarr"
+        arr.logger = MagicMock()
+        now = datetime.now()
+        arr.rss_sync_timer_last_checked = now
+        arr.refresh_downloads_timer_last_checked = now - timedelta(hours=1)
+        arr._get_rss_sync_timer = MagicMock(return_value=15)
+        arr._get_refresh_downloads_timer = MagicMock(return_value=1)
+
+        with (
+            patch.object(ArrBase, "is_alive", new_callable=PropertyMock, return_value=True),
+            patch.object(arr, "_run_periodic_command", return_value=True) as run_cmd,
+        ):
+            arr.api_calls()
+
+        run_cmd.assert_called_once_with(
+            "RefreshMonitoredDownloads",
+            supported_types={"radarr", "sonarr", "readarr"},
+        )
+
+    def test_refresh_command_runs_for_readarr_type(self) -> None:
+        from qBitrr.arss.arr_base import ArrBase
+
+        arr = ArrBase.__new__(ArrBase)
+        arr._name = "Readarr-Books"
+        arr.type = "readarr"
+        arr.logger = MagicMock()
+        arr.client = MagicMock()
+        with (
+            patch(
+                "qBitrr.arss.arr_base.execute_command", return_value={"status": "ok"}
+            ) as execute,
+            patch("qBitrr.arss.arr_base.with_retry", side_effect=lambda fn, **_: fn()),
+        ):
+            result = arr._run_periodic_command(
+                "RefreshMonitoredDownloads",
+                supported_types={"radarr", "sonarr", "readarr"},
+            )
+        self.assertTrue(result)
+        execute.assert_called_once_with(arr.client, "RefreshMonitoredDownloads")
 
 
 class TestSearchReadarr(unittest.TestCase):

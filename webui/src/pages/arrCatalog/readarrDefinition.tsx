@@ -1,4 +1,4 @@
-import type { ColumnDef } from "@tanstack/react-table";
+import type { AppColumnDef } from "../../tableCore";
 import { useCallback, useMemo, type JSX, type RefCallback } from "react";
 import { getReadarrAuthors } from "../../api/client";
 import type {
@@ -134,7 +134,7 @@ function readarrAuthorTileStats(
 }
 
 /** Module-level column defs — stable identity across renders for StableTable memo. */
-const READARR_INSTANCE_COLUMNS: ColumnDef<ReadarrInstanceRow>[] = [
+const READARR_INSTANCE_COLUMNS: AppColumnDef<ReadarrInstanceRow>[] = [
   {
     id: "author",
     header: "Author",
@@ -196,9 +196,9 @@ const READARR_INSTANCE_COLUMNS: ColumnDef<ReadarrInstanceRow>[] = [
 ];
 
 const READARR_AGG_COLUMNS_SINGLE =
-  READARR_INSTANCE_COLUMNS as ColumnDef<ReadarrAggRow>[];
+  READARR_INSTANCE_COLUMNS as AppColumnDef<ReadarrAggRow>[];
 
-const READARR_AGG_COLUMNS_MULTI: ColumnDef<ReadarrAggRow>[] = [
+const READARR_AGG_COLUMNS_MULTI: AppColumnDef<ReadarrAggRow>[] = [
   {
     id: "instance",
     header: "Instance",
@@ -207,7 +207,7 @@ const READARR_AGG_COLUMNS_MULTI: ColumnDef<ReadarrAggRow>[] = [
   ...READARR_AGG_COLUMNS_SINGLE,
 ];
 
-function getReadarrAggColumns(instanceCount: number): ColumnDef<ReadarrAggRow>[] {
+function getReadarrAggColumns(instanceCount: number): AppColumnDef<ReadarrAggRow>[] {
   return instanceCount > 1 ? READARR_AGG_COLUMNS_MULTI : READARR_AGG_COLUMNS_SINGLE;
 }
 
