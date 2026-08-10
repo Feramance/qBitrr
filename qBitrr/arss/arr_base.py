@@ -1635,7 +1635,8 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
             < now - timedelta(minutes=self._get_refresh_downloads_timer())
         ):
             if self._run_periodic_command(
-                "RefreshMonitoredDownloads", supported_types={"radarr", "sonarr"}
+                "RefreshMonitoredDownloads",
+                supported_types={"radarr", "sonarr", "readarr"},
             ):
                 self.refresh_downloads_timer_last_checked = now
 

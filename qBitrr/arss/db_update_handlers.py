@@ -1319,10 +1319,8 @@ def update_readarr_author(arr: Arr, db_entry: JsonObject) -> None:
         )
         book_count = int(statistics.get("bookCount", 0) or 0)
         size_on_disk = int(statistics.get("sizeOnDisk", 0) or 0)
-        book_file_count = int(statistics.get("bookFileCount", 0) or 0)
-        percent_of_books = float(statistics.get("percentOfBooks", 0) or 0)
-        has_files = size_on_disk > 0 or book_file_count > 0 or percent_of_books > 0
-        searched = book_count > 0 and has_files
+        # Author is considered searched if it has books and at least some have files
+        searched = book_count > 0 and size_on_disk > 0
 
         profile_switch_timestamp = None
         original_profile_for_db = None
