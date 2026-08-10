@@ -507,7 +507,7 @@ After migrating, verify:
   - Check qBittorrent status: ✅ Connected
 
 - [ ] **Arr connections:**
-  - WebUI → Radarr/Sonarr/Lidarr tabs
+  - WebUI → Radarr/Sonarr/Lidarr/Readarr tabs
   - Verify each shows "Connected"
 
 - [ ] **Torrent monitoring:**

@@ -104,15 +104,16 @@ class TestIterArrSections(unittest.TestCase):
             "Radarr-Movies",
             "Sonarr-TV",
             "Lidarr",
+            "Readarr-Books",
             "Animarr",  # obsolete — must not be treated as an Arr section
             "qBit",
         ]
         self.assertEqual(
             list(iter_arr_sections(config)),
-            ["Radarr-Movies", "Sonarr-TV", "Lidarr"],
+            ["Radarr-Movies", "Sonarr-TV", "Lidarr", "Readarr-Books"],
         )
-        self.assertEqual(ARR_SECTION_PREFIXES, ("Radarr", "Sonarr", "Lidarr"))
-        self.assertEqual(len(ARR_SECTION_PREFIXES), 3)
+        self.assertEqual(ARR_SECTION_PREFIXES, ("Radarr", "Sonarr", "Lidarr", "Readarr"))
+        self.assertEqual(len(ARR_SECTION_PREFIXES), 4)
 
 
 SHARED_ARR_FILE_FIELDS = (

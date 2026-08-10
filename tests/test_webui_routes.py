@@ -16,8 +16,8 @@ from qBitrr.webui import (
     resolve_arr_handler,
 )
 
-# 27 JSON-identical /api + /web pairs via @_dual_route (SSE stream tested separately;
-# 3 divergent pairs tested in TestDivergentRoutePairs). Total dual_route registrations: 28.
+# 31 JSON-identical /api + /web pairs via @_dual_route (SSE stream tested separately;
+# 3 divergent pairs tested in TestDivergentRoutePairs). Total dual_route registrations: 32.
 IDENTICAL_ROUTE_PAIRS: list[tuple[str, str, str]] = [
     ("get", "/openapi.json", ""),
     ("get", "/docs", ""),
@@ -38,6 +38,10 @@ IDENTICAL_ROUTE_PAIRS: list[tuple[str, str, str]] = [
     ("get", "/lidarr/music/artists", ""),
     ("get", "/lidarr/music/artist/1", ""),
     ("get", "/lidarr/music/artist/1/thumbnail", ""),
+    ("get", "/readarr/books/authors", ""),
+    ("get", "/readarr/books/author/1", ""),
+    ("get", "/readarr/books/author/1/thumbnail", ""),
+    ("get", "/arr/books/open/author/1", ""),
     ("get", "/arr", ""),
     ("post", "/update", ""),
     ("get", "/download-update", ""),
@@ -124,20 +128,25 @@ class TestEmptyCatalogPayload(unittest.TestCase):
         self.assertIn("counts_tracks", payload)
         self.assertEqual(payload["albums"], [])
 
+    def test_readarr_authors_shape(self) -> None:
+        payload = empty_catalog_payload("readarr_authors")
+        self.assertIn("book_total", payload)
+        self.assertEqual(payload["authors"], [])
+
 
 class TestDualRouteRegistration(unittest.TestCase):
-    def test_webui_declares_twenty_eight_dual_route_pairs(self) -> None:
+    def test_webui_declares_thirty_one_dual_route_pairs(self) -> None:
         webui_pkg = Path(__file__).resolve().parents[1].joinpath("qBitrr", "webui")
         source = "\n".join(
             path.read_text(encoding="utf-8") for path in sorted(webui_pkg.rglob("*.py"))
         )
         paths = [match.group("path") for match in _DUAL_ROUTE_RE.finditer(source)]
-        self.assertEqual(len(paths), 28, msg=f"dual_route paths: {paths}")
+        self.assertEqual(len(paths), 32, msg=f"dual_route paths: {paths}")
 
 
 class TestIdenticalRoutePairs(_WebUIClientTestCase):
     def test_all_identical_json_pairs_match(self) -> None:
-        self.assertEqual(len(IDENTICAL_ROUTE_PAIRS), 27)
+        self.assertEqual(len(IDENTICAL_ROUTE_PAIRS), 31)
         for method, path, body in IDENTICAL_ROUTE_PAIRS:
             with self.subTest(method=method, path=path):
                 api_resp = getattr(self.client, method)(
@@ -403,6 +412,60 @@ class TestDualRoute(unittest.TestCase):
         client = app.test_client()
         self.assertEqual(client.get("/api/health-check-test").json, {"ok": True})
         self.assertEqual(client.get("/web/health-check-test").json, {"ok": True})
+
+
+class TestArrOpenRedirect(_WebUIClientTestCase):
+    def _set_managed(self, category: str, arr: MagicMock) -> None:
+        arr_manager = MagicMock()
+        arr_manager.managed_objects = {category: arr}
+        self.manager.arr_manager = arr_manager
+
+    def test_readarr_author_returns_302(self) -> None:
+        arr = MagicMock()
+        arr.type = "readarr"
+        arr.uri = "http://readarr:8787"
+        arr.client.author.get.return_value = {
+            "foreignAuthorId": "author-slug",
+            "id": 5,
+        }
+        self._set_managed("readarr-books", arr)
+        resp = self.client.get("/web/arr/readarr-books/open/author/5")
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp.location, "http://readarr:8787/author/author-slug")
+
+    def test_radarr_movie_returns_302(self) -> None:
+        arr = MagicMock()
+        arr.type = "radarr"
+        arr.uri = "http://radarr:7878"
+        arr.client.movie.get.return_value = {"titleSlug": "the-matrix", "id": 42}
+        self._set_managed("radarr-movies", arr)
+        resp = self.client.get("/web/arr/radarr-movies/open/movie/42")
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp.location, "http://radarr:7878/movie/the-matrix")
+
+    def test_sonarr_series_returns_302(self) -> None:
+        arr = MagicMock()
+        arr.type = "sonarr"
+        arr.uri = "http://sonarr:8989"
+        arr.client.series.get.return_value = {"titleSlug": "breaking-bad", "id": 7}
+        self._set_managed("sonarr-tv", arr)
+        resp = self.client.get("/web/arr/sonarr-tv/open/series/7")
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp.location, "http://sonarr:8989/series/breaking-bad")
+
+    def test_lidarr_artist_returns_302(self) -> None:
+        arr = MagicMock()
+        arr.type = "lidarr"
+        arr.uri = "http://lidarr:8686"
+        arr.client.artist.get.return_value = {
+            "foreignArtistId": "artist-guid",
+            "titleSlug": "slug",
+            "id": 99,
+        }
+        self._set_managed("lidarr-music", arr)
+        resp = self.client.get("/web/arr/lidarr-music/open/artist/99")
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp.location, "http://lidarr:8686/artist/artist-guid")
 
 
 if __name__ == "__main__":

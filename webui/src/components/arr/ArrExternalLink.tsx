@@ -2,7 +2,7 @@ import type { JSX } from "react";
 
 interface ArrExternalLinkProps {
   readonly href: string | null;
-  readonly arrName: "Radarr" | "Sonarr" | "Lidarr";
+  readonly arrName: "Radarr" | "Sonarr" | "Lidarr" | "Readarr";
 }
 
 /** Shared "Open in *Arr" action link for detail modals. */

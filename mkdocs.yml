@@ -218,6 +218,7 @@ nav:
     - configuration/arr/radarr.md
     - configuration/arr/sonarr.md
     - configuration/arr/lidarr.md
+    - configuration/arr/readarr.md
   - Torrent Settings: configuration/torrents.md
   - Search & Requests:
     - configuration/search/index.md

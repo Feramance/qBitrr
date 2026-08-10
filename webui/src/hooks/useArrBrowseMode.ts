@@ -17,7 +17,9 @@ function readStored(key: string): ArrBrowseMode {
 /**
  * List = tabular view without browse thumbnails. Icon = tile grid with posters (default).
  */
-export function useArrBrowseMode(appKey: "radarr" | "sonarr" | "lidarr"): {
+export function useArrBrowseMode(
+  appKey: "radarr" | "sonarr" | "lidarr" | "readarr"
+): {
   mode: ArrBrowseMode;
   setMode: (m: ArrBrowseMode) => void;
 } {

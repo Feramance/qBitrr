@@ -489,6 +489,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
       if (category.includes("radarr") || name.includes("radarr")) return "Radarr";
       if (category.includes("sonarr") || name.includes("sonarr")) return "Sonarr";
       if (category.includes("lidarr") || name.includes("lidarr")) return "Lidarr";
+      if (category.includes("readarr") || name.includes("readarr")) return "Readarr";
       if (
         category.includes("qbit") ||
         category.includes("qbittorrent") ||
@@ -504,6 +505,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
     const hasRadarr = arrs.some((arr) => arr.type === "radarr");
     const hasSonarr = arrs.some((arr) => arr.type === "sonarr");
     const hasLidarr = arrs.some((arr) => arr.type === "lidarr");
+    const hasReadarr = arrs.some((arr) => arr.type === "readarr");
 
     const qbitInstanceNames = statusData?.qbitInstances
       ? Object.keys(statusData.qbitInstances)
@@ -518,6 +520,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
       if (app === "Radarr" && !hasRadarr) return;
       if (app === "Sonarr" && !hasSonarr) return;
       if (app === "Lidarr" && !hasLidarr) return;
+      if (app === "Readarr" && !hasReadarr) return;
 
       const kindLower = (proc.kind ?? "").toLowerCase();
       const procCategoryLower = (proc.category ?? "").toLowerCase();
@@ -562,7 +565,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
       }
     }
 
-    const appOrder = ["Radarr", "Sonarr", "Lidarr", "qBittorrent", "Other"];
+    const appOrder = ["Radarr", "Sonarr", "Lidarr", "Readarr", "qBittorrent", "Other"];
 
     const result: AppGroup[] = Array.from(appBuckets.entries())
       .map(([app, instances]) => {

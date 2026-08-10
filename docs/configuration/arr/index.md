@@ -1,6 +1,6 @@
 # Arr Instance Configuration
 
-qBitrr integrates with Radarr, Sonarr, and Lidarr to automate torrent management for your media library.
+qBitrr integrates with Radarr, Sonarr, Lidarr, and Readarr to automate torrent management for your media library.
 
 ## Supported Arr Applications
 
@@ -40,6 +40,22 @@ qBitrr integrates with Radarr, Sonarr, and Lidarr to automate torrent management
 
 **Configuration:** See [Lidarr Configuration Guide](lidarr.md)
 
+### Readarr (Books)
+
+[Readarr](readarr.md) manages your book library.
+
+**Features:**
+- Author → book monitoring
+- Book-level search (`BookSearch`)
+- Quality / temp profiles on authors
+- Ebook extension filtering
+- Instant import via `DownloadedBooksScan`
+
+**Configuration:** See [Readarr Configuration Guide](readarr.md)
+
+!!! note "Readarr upstream"
+    Readarr is largely unmaintained upstream; qBitrr targets the current v1 API.
+
 ## General Configuration
 
 All Arr instances share common configuration options:
@@ -47,12 +63,12 @@ All Arr instances share common configuration options:
 ### Required Settings
 
 ```toml
-[Radarr-Movies]  # or [Sonarr-TV] or [Lidarr-Music]
+[Radarr-Movies]  # or [Sonarr-TV], [Lidarr-Music], [Readarr-Books]
 URI = "http://localhost:7878"
 APIKey = "your-api-key-here"
 ```
 
-- **Section name** - Unique identifier for this instance (for example `Radarr-Movies`)
+- **Section name** - Unique identifier for this instance (for example `Radarr-Movies` or `Readarr-Books`)
 - **URI** - Full URL to the Arr application
 - **APIKey** - API key from Settings → General in the Arr UI
 
@@ -160,6 +176,7 @@ qBitrr uses qBittorrent categories to track which Arr instance owns each torrent
   - `radarr` - For Radarr instances
   - `sonarr` - For Sonarr instances
   - `lidarr` - For Lidarr instances
+  - `readarr-books` - For Readarr instances
 
 - **Custom Categories:**
   ```toml
@@ -615,7 +632,7 @@ If using Overseerr, configure it on every relevant Arr instance:
 [Sonarr-TV.EntrySearch.Overseerr]
 # ... config
 
-# Don't configure on Lidarr (not supported)
+# Don't configure on Lidarr or Readarr (not supported)
 ```
 
 ### 5. Test Before Full Deployment
@@ -739,6 +756,7 @@ Choose your Arr application to configure:
 - [Configure Radarr →](radarr.md)
 - [Configure Sonarr →](sonarr.md)
 - [Configure Lidarr →](lidarr.md)
+- [Configure Readarr →](readarr.md)
 
 Or explore related topics:
 

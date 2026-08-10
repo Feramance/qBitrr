@@ -6,7 +6,7 @@ Welcome! This comprehensive guide will help you install and configure qBitrr for
 
 ## What is qBitrr?
 
-qBitrr is an intelligent automation tool that bridges qBittorrent and the Arr ecosystem (Radarr/Sonarr/Lidarr). It provides:
+qBitrr is an intelligent automation tool that bridges qBittorrent and the Arr ecosystem (Radarr/Sonarr/Lidarr/Readarr). It provides:
 
 - **Intelligent Health Monitoring** - Automatically detect and handle failed/stalled downloads
 - **Instant Imports** - Import media to your library as soon as downloads complete

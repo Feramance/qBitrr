@@ -26,6 +26,7 @@ import LogsIcon from "./icons/log.svg";
 import RadarrIcon from "./icons/radarr.svg";
 import SonarrIcon from "./icons/sonarr.svg";
 import LidarrIcon from "./icons/lidarr.svg";
+import ReadarrIcon from "./icons/readarr.svg";
 import QbitIcon from "./icons/qbittorrent.svg";
 import ConfigIcon from "./icons/gear.svg";
 import logoUrl from "./assets/logo-64.png";
@@ -36,7 +37,7 @@ import {
   type NavigableTab,
 } from "./utils/navigateTab";
 
-type Tab = "processes" | "logs" | "radarr" | "sonarr" | "lidarr" | "qbittorrent" | "config";
+type Tab = "processes" | "logs" | "radarr" | "sonarr" | "lidarr" | "readarr" | "qbittorrent" | "config";
 
 const loadProcessesView = () =>
   import("./pages/ProcessesView").then((module) => ({ default: module.ProcessesView }));
@@ -64,6 +65,7 @@ const TAB_PREFETCHERS: Record<Tab, () => Promise<unknown>> = {
   radarr: loadArrCatalogView,
   sonarr: loadArrCatalogView,
   lidarr: loadArrCatalogView,
+  readarr: loadArrCatalogView,
   qbittorrent: loadQbitCategoriesView,
   config: loadConfigView,
 };
@@ -95,11 +97,13 @@ function AppShell({
     radarr: boolean;
     sonarr: boolean;
     lidarr: boolean;
+    readarr: boolean;
     qbittorrent: boolean;
   }>({
     radarr: false,
     sonarr: false,
     lidarr: false,
+    readarr: false,
     qbittorrent: false,
   });
   const [configDirty, setConfigDirty] = useState(false);
@@ -284,6 +288,7 @@ function AppShell({
           ...(configuredTabs.radarr ? (["radarr"] as Tab[]) : []),
           ...(configuredTabs.sonarr ? (["sonarr"] as Tab[]) : []),
           ...(configuredTabs.lidarr ? (["lidarr"] as Tab[]) : []),
+          ...(configuredTabs.readarr ? (["readarr"] as Tab[]) : []),
           ...(configuredTabs.qbittorrent ? (["qbittorrent"] as Tab[]) : []),
           "config",
         ];
@@ -307,6 +312,7 @@ function AppShell({
         (tab === "radarr" && !configuredTabs.radarr) ||
         (tab === "sonarr" && !configuredTabs.sonarr) ||
         (tab === "lidarr" && !configuredTabs.lidarr) ||
+        (tab === "readarr" && !configuredTabs.readarr) ||
         (tab === "qbittorrent" && !configuredTabs.qbittorrent)
       ) {
         return;
@@ -336,12 +342,14 @@ function AppShell({
         radarr: arrs.some((arr) => arr.type === "radarr"),
         sonarr: arrs.some((arr) => arr.type === "sonarr"),
         lidarr: arrs.some((arr) => arr.type === "lidarr"),
+        readarr: arrs.some((arr) => arr.type === "readarr"),
         qbittorrent: Object.keys(qbitInstances).length > 0,
       };
       setConfiguredTabs((prev) =>
         prev.radarr === nextTabs.radarr &&
         prev.sonarr === nextTabs.sonarr &&
         prev.lidarr === nextTabs.lidarr &&
+        prev.readarr === nextTabs.readarr &&
         prev.qbittorrent === nextTabs.qbittorrent
           ? prev
           : nextTabs
@@ -509,6 +517,9 @@ function AppShell({
     }
     if (configuredTabs.lidarr) {
       nextTabs.push({ id: "lidarr", label: "Lidarr", icon: LidarrIcon });
+    }
+    if (configuredTabs.readarr) {
+      nextTabs.push({ id: "readarr", label: "Readarr", icon: ReadarrIcon });
     }
     if (configuredTabs.qbittorrent) {
       nextTabs.push({ id: "qbittorrent", label: "qBittorrent", icon: QbitIcon });
@@ -797,6 +808,11 @@ function AppShell({
             {visitedTabs.has("lidarr") && visibleTabIds.has("lidarr") ? (
               <div hidden={activeTab !== "lidarr"}>
                 <ArrCatalogView kind="lidarr" active={activeTab === "lidarr"} />
+              </div>
+            ) : null}
+            {visitedTabs.has("readarr") && visibleTabIds.has("readarr") ? (
+              <div hidden={activeTab !== "readarr"}>
+                <ArrCatalogView kind="readarr" active={activeTab === "readarr"} />
               </div>
             ) : null}
             {visitedTabs.has("qbittorrent") && visibleTabIds.has("qbittorrent") ? (

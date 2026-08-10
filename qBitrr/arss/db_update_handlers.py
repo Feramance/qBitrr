@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import sqlite3
 import sys
-from datetime import datetime
-from typing import TYPE_CHECKING
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING, Any
 
 import requests
 from peewee import OperationalError
 from ujson import JSONDecodeError
 
-from qBitrr.arr_client import JsonObject, PyarrResourceNotFound
+from qBitrr.arr_client import JsonObject, PyarrResourceNotFound, get_readarr_book_files
 from qBitrr.arss.arr_shared import (
     _ARR_RETRY_EXCEPTIONS,
     _lidarr_track_duration_seconds,
@@ -34,6 +34,8 @@ from qBitrr.radarr_availability import minimum_availability_check
 from qBitrr.tables import (
     AlbumFilesModel,
     ArtistFilesModel,
+    AuthorFilesModel,
+    BookFilesModel,
     EpisodeFilesModel,
     MoviesFilesModel,
     SeriesFilesModel,
@@ -41,6 +43,37 @@ from qBitrr.tables import (
 
 if TYPE_CHECKING:
     from qBitrr.arss.arr_base import ArrBase as Arr
+
+
+def _parse_readarr_release_date(value: Any) -> datetime | None:
+    """Parse Readarr API ``releaseDate`` values into UTC datetimes for DB storage."""
+    if value is None or value == "":
+        return None
+    if isinstance(value, datetime):
+        return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
+    if not isinstance(value, str):
+        return None
+    for fmt in ("%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%dT%H:%M:%S.%fZ", "%Y-%m-%d"):
+        try:
+            parsed = datetime.strptime(value, fmt)
+            return parsed.replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+    return None
+
+
+def _readarr_release_year(value: Any) -> int | None:
+    """Return calendar year from a Readarr ``releaseDate`` API value."""
+    parsed = _parse_readarr_release_date(value)
+    return parsed.year if parsed is not None else None
+
+
+def _readarr_release_is_future(value: Any) -> bool:
+    """True when *value* parses to a release datetime after now (UTC)."""
+    parsed = _parse_readarr_release_date(value)
+    if parsed is None:
+        return False
+    return parsed > datetime.now(timezone.utc)
 
 
 def _fetch_quality_profile(arr: Arr, quality_profile_id: int) -> JsonObject:
@@ -1068,6 +1101,334 @@ def update_lidarr_artist(arr: Arr, db_entry: JsonObject) -> None:
     else:
         db_commands = arr.artists_file_model.delete().where(
             (arr.artists_file_model.EntryId == EntryId)
+            & (arr.artists_file_model.ArrInstance == arr._name)
+        )
+        db_commands.execute()
+
+
+def update_readarr_book(arr: Arr, db_entry: JsonObject, *, request: bool) -> None:
+    """Update ``BookFilesModel`` from a Readarr book payload (Radarr file + Lidarr hierarchy)."""
+    arr.model_file: BookFilesModel
+    searched = False
+    book_data = arr.model_file.get_or_none(
+        (arr.model_file.EntryId == db_entry["id"]) & (arr.model_file.ArrInstance == arr._name)
+    )
+    if db_entry["monitored"] or arr.search_unmonitored:
+        author_obj = db_entry.get("author", {})
+        if not isinstance(author_obj, dict):
+            author_obj = {}
+        author_id = db_entry.get("authorId") or author_obj.get("id", 0)
+        quality_profile_id = author_obj.get("qualityProfileId")
+        author_cache = getattr(arr, "_readarr_author_profile_cache", None) or {}
+        if quality_profile_id is None and author_id:
+            cached_author = author_cache.get(author_id)
+            if isinstance(cached_author, dict):
+                quality_profile_id = cached_author.get("qualityProfileId")
+                if not author_obj:
+                    author_obj = cached_author
+            else:
+                try:
+                    author_data = (
+                        arr_with_retry(lambda: arr.client.author.get(item_id=author_id)) or {}
+                    )
+                    if isinstance(author_data, dict):
+                        quality_profile_id = author_data.get("qualityProfileId")
+                        if not author_obj:
+                            author_obj = author_data
+                except Exception:
+                    pass
+
+        min_custom_format = resolve_min_format_score(
+            stored_score=getattr(book_data, "MinCustomFormatScore", 0) if book_data else 0,
+            quality_profile_id=quality_profile_id,
+            fetch_profile=lambda qpid: _fetch_quality_profile_cached(arr, qpid),
+            logger=arr.logger,
+            label="Book",
+            entry_id=db_entry.get("id", "Unknown"),
+        )
+
+        statistics = db_entry.get("statistics") or {}
+        has_content = int(statistics.get("bookFileCount", 0) or 0) > 0
+        quality_unmet = False
+        custom_format = 0
+        book_file_id = 0
+        if has_content:
+            book_files: list = []
+            try:
+                book_files = (
+                    arr_with_retry(
+                        lambda: get_readarr_book_files(arr.client, book_id=db_entry["id"])
+                    )
+                    or []
+                )
+            except Exception as e:
+                arr.logger.trace(
+                    "Could not fetch book files for book '%s': %s",
+                    db_entry.get("title", "Unknown"),
+                    str(e),
+                )
+            quality_unmet = any(
+                isinstance(f, dict) and bool(f.get("qualityCutoffNotMet")) for f in book_files
+            )
+            first_file = next((f for f in book_files if isinstance(f, dict)), None)
+            if first_file is not None:
+                book_file_id = int(first_file.get("id") or 1)
+                custom_format = int(first_file.get("customFormatScore", 0) or 0)
+            else:
+                book_file_id = 1
+                custom_format = 0
+
+        if has_content and should_mark_searched(
+            has_content=True,
+            quality_unmet_search=arr.quality_unmet_search,
+            quality_unmet=quality_unmet,
+            custom_format_unmet_search=arr.custom_format_unmet_search,
+            custom_format=custom_format,
+            min_custom_format=min_custom_format,
+        ):
+            searched = True
+            mark_queue_completed(arr.model_queue, db_entry["id"], arr._name)
+
+        title = db_entry.get("title", "Unknown Book")
+        monitored = db_entry.get("monitored", False)
+        author_title = (
+            db_entry.get("authorTitle") or author_obj.get("authorName") or "Unknown Author"
+        )
+        foreign_book_id = db_entry.get("foreignBookId") or ""
+        release_date = _parse_readarr_release_date(db_entry.get("releaseDate"))
+        entry_id = db_entry.get("id", 0)
+        quality_met = compute_quality_met(has_content=has_content, quality_unmet=quality_unmet)
+        custom_format_met = custom_format >= min_custom_format
+
+        quality_profile_name = None
+        if quality_profile_id:
+            quality_profile_name = get_profile_name_cached(
+                quality_profile_id=quality_profile_id,
+                cache=arr._quality_profile_cache,
+                fetch_profile=lambda qpid: _fetch_quality_profile_cached(arr, qpid),
+            )
+
+        if not has_content:
+            reason = "Missing"
+        else:
+            reason = compute_search_reason(
+                has_content=True,
+                quality_unmet_search=arr.quality_unmet_search,
+                quality_unmet=quality_unmet,
+                custom_format_unmet_search=arr.custom_format_unmet_search,
+                custom_format_met=custom_format_met,
+                do_upgrade_search=arr.do_upgrade_search,
+                searched=searched,
+            )
+
+        to_update = {
+            arr.model_file.BookFileId: book_file_id,
+            arr.model_file.Monitored: monitored,
+            arr.model_file.QualityMet: quality_met,
+            arr.model_file.Searched: searched,
+            arr.model_file.Upgrade: False,
+            arr.model_file.MinCustomFormatScore: min_custom_format,
+            arr.model_file.CustomFormatScore: custom_format,
+            arr.model_file.CustomFormatMet: custom_format_met,
+            arr.model_file.Reason: reason,
+            arr.model_file.AuthorTitle: author_title,
+            arr.model_file.AuthorId: author_id,
+            arr.model_file.ForeignBookId: foreign_book_id,
+            arr.model_file.ReleaseDate: release_date,
+            arr.model_file.QualityProfileId: quality_profile_id,
+            arr.model_file.QualityProfileName: quality_profile_name,
+        }
+
+        if request:
+            to_update[arr.model_file.IsRequest] = request
+
+        arr.logger.debug(
+            "Updating database entry | %s - %s [Searched:%s][Upgrade:%s][QualityMet:%s][CustomFormatMet:%s]",
+            author_title.ljust(30, "."),
+            title.ljust(30, "."),
+            str(searched).ljust(5),
+            str(False).ljust(5),
+            str(quality_met).ljust(5),
+            str(custom_format_met).ljust(5),
+        )
+
+        db_commands = arr.model_file.insert(
+            Title=title,
+            Monitored=monitored,
+            AuthorTitle=author_title,
+            AuthorId=author_id,
+            ForeignBookId=foreign_book_id,
+            ReleaseDate=release_date,
+            EntryId=entry_id,
+            Searched=searched,
+            BookFileId=book_file_id,
+            IsRequest=request,
+            QualityMet=quality_met,
+            Upgrade=False,
+            MinCustomFormatScore=min_custom_format,
+            CustomFormatScore=custom_format,
+            CustomFormatMet=custom_format_met,
+            Reason=reason,
+            QualityProfileId=quality_profile_id,
+            QualityProfileName=quality_profile_name,
+            ArrInstance=arr._name,
+        ).on_conflict(
+            conflict_target=[arr.model_file.EntryId, arr.model_file.ArrInstance],
+            update=to_update,
+        )
+        db_commands.execute()
+    else:
+        db_commands = arr.model_file.delete().where(
+            (arr.model_file.EntryId == db_entry["id"]) & (arr.model_file.ArrInstance == arr._name)
+        )
+        db_commands.execute()
+
+
+def update_readarr_author(arr: Arr, db_entry: JsonObject) -> None:
+    """Update ``AuthorFilesModel`` (bound as ``artists_file_model``) from a Readarr author."""
+    arr.artists_file_model: AuthorFilesModel
+    entry_id = db_entry["id"]
+    author_data_row = arr.artists_file_model.get_or_none(
+        (arr.artists_file_model.EntryId == entry_id)
+        & (arr.artists_file_model.ArrInstance == arr._name)
+    )
+    if db_entry["monitored"] or arr.search_unmonitored:
+        author_metadata = (
+            arr_with_retry(lambda eid=entry_id: arr.client.author.get(item_id=eid)) or {}
+        )
+        quality_profile_id = None
+        if isinstance(author_metadata, dict):
+            quality_profile_id = author_metadata.get("qualityProfileId")
+        else:
+            quality_profile_id = getattr(author_metadata, "qualityProfileId", None)
+        if not author_data_row:
+            min_custom_format = resolve_min_format_score(
+                stored_score=0,
+                quality_profile_id=quality_profile_id,
+                fetch_profile=lambda qpid: _fetch_quality_profile_cached(arr, qpid),
+                logger=arr.logger,
+                label="Author",
+                entry_id=entry_id,
+            )
+        else:
+            min_custom_format = getattr(author_data_row, "MinCustomFormatScore", 0)
+
+        statistics = (
+            author_metadata.get("statistics", {}) if isinstance(author_metadata, dict) else {}
+        )
+        book_count = int(statistics.get("bookCount", 0) or 0)
+        size_on_disk = int(statistics.get("sizeOnDisk", 0) or 0)
+        book_file_count = int(statistics.get("bookFileCount", 0) or 0)
+        percent_of_books = float(statistics.get("percentOfBooks", 0) or 0)
+        has_files = size_on_disk > 0 or book_file_count > 0 or percent_of_books > 0
+        searched = book_count > 0 and has_files
+
+        profile_switch_timestamp = None
+        original_profile_for_db = None
+        current_profile_for_db = None
+        if arr.use_temp_for_missing and quality_profile_id:
+            profile_update_needed = False
+            if (
+                searched
+                and quality_profile_id in arr.main_quality_profile_ids.keys()
+                and not arr.keep_temp_profile
+            ):
+                old_profile_id = quality_profile_id
+                main_profile_id = arr.main_quality_profile_ids[quality_profile_id]
+                author_metadata["qualityProfileId"] = main_profile_id
+                profile_update_needed = True
+                quality_profile_id = main_profile_id
+                profile_switch_timestamp = datetime.now()
+                arr.logger.debug(
+                    "Upgrading author '%s' from temp profile (ID:%s) to main profile (ID:%s) [Has files]",
+                    author_metadata.get("authorName", "Unknown"),
+                    old_profile_id,
+                    main_profile_id,
+                )
+            elif (
+                not searched
+                and size_on_disk == 0
+                and quality_profile_id in arr.temp_quality_profile_ids.keys()
+            ):
+                old_profile_id = quality_profile_id
+                temp_profile_id = arr.temp_quality_profile_ids[quality_profile_id]
+                author_metadata["qualityProfileId"] = temp_profile_id
+                profile_update_needed = True
+                profile_switch_timestamp = datetime.now()
+                original_profile_for_db = old_profile_id
+                current_profile_for_db = temp_profile_id
+                quality_profile_id = temp_profile_id
+                arr.logger.debug(
+                    "Downgrading author '%s' from main profile (ID:%s) to temp profile (ID:%s) [No files yet]",
+                    author_metadata.get("authorName", "Unknown"),
+                    old_profile_id,
+                    temp_profile_id,
+                )
+            if profile_update_needed:
+                profile_update_success = arr._retry_profile_switch_update(
+                    lambda: arr.client.author.update(entry_id, author_metadata),
+                    "author",
+                )
+                if not profile_update_success:
+                    profile_switch_timestamp = None
+                    original_profile_for_db = None
+                    current_profile_for_db = None
+
+        title = author_metadata.get("authorName") if isinstance(author_metadata, dict) else None
+        monitored = db_entry["monitored"]
+
+        quality_profile_name = None
+        if quality_profile_id:
+            quality_profile_name = get_profile_name_cached(
+                quality_profile_id=quality_profile_id,
+                cache=arr._quality_profile_cache,
+                fetch_profile=lambda qpid: _fetch_quality_profile_cached(arr, qpid),
+            )
+
+        to_update = {
+            arr.artists_file_model.Monitored: monitored,
+            arr.artists_file_model.Title: title,
+            arr.artists_file_model.Searched: searched,
+            arr.artists_file_model.Upgrade: False,
+            arr.artists_file_model.MinCustomFormatScore: min_custom_format,
+            arr.artists_file_model.BookCount: book_count,
+            arr.artists_file_model.QualityProfileId: quality_profile_id,
+            arr.artists_file_model.QualityProfileName: quality_profile_name,
+        }
+        if arr.use_temp_for_missing and profile_switch_timestamp is not None:
+            to_update[arr.artists_file_model.LastProfileSwitchTime] = profile_switch_timestamp
+            to_update[arr.artists_file_model.OriginalProfileId] = original_profile_for_db
+            to_update[arr.artists_file_model.CurrentProfileId] = current_profile_for_db
+
+        arr.logger.debug(
+            "Updating database entry | %s [Searched:%s][Upgrade:%s]",
+            (title or "Unknown").ljust(60, "."),
+            str(searched).ljust(5),
+            str(False).ljust(5),
+        )
+
+        db_commands = arr.artists_file_model.insert(
+            EntryId=entry_id,
+            Title=title,
+            Searched=searched,
+            Monitored=monitored,
+            Upgrade=False,
+            MinCustomFormatScore=min_custom_format,
+            BookCount=book_count,
+            QualityProfileId=quality_profile_id,
+            QualityProfileName=quality_profile_name,
+            ArrInstance=arr._name,
+        ).on_conflict(
+            conflict_target=[
+                arr.artists_file_model.EntryId,
+                arr.artists_file_model.ArrInstance,
+            ],
+            update=to_update,
+        )
+        db_commands.execute()
+    else:
+        db_commands = arr.artists_file_model.delete().where(
+            (arr.artists_file_model.EntryId == entry_id)
             & (arr.artists_file_model.ArrInstance == arr._name)
         )
         db_commands.execute()

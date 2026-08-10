@@ -16,6 +16,9 @@ from qBitrr.tables import (
     AlbumFilesModel,
     AlbumQueueModel,
     ArtistFilesModel,
+    AuthorFilesModel,
+    BookFilesModel,
+    BookQueueModel,
     EpisodeFilesModel,
     EpisodeQueueModel,
     FilesQueued,
@@ -45,6 +48,8 @@ _ARR_FILE_TABLE_MODELS = (
     SeriesFilesModel,
     ArtistFilesModel,
     TrackFilesModel,
+    BookFilesModel,
+    AuthorFilesModel,
 )
 
 
@@ -213,9 +218,12 @@ def get_database() -> SqliteDatabase:
                 SeriesFilesModel,
                 ArtistFilesModel,
                 TrackFilesModel,
+                BookFilesModel,
+                AuthorFilesModel,
                 MovieQueueModel,
                 EpisodeQueueModel,
                 AlbumQueueModel,
+                BookQueueModel,
                 FilesQueued,
                 TorrentLibrary,
             ]

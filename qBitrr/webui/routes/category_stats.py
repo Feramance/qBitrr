@@ -283,7 +283,7 @@ def build_qbit_overview(
         arr_instance_label = _arr_qbit_instance_label(instances)
         for arr in managed_objects.values():
             arr_type = getattr(arr, "type", None)
-            if arr_type not in ("radarr", "sonarr", "lidarr"):
+            if arr_type not in ("radarr", "sonarr", "lidarr", "readarr"):
                 continue
             category = getattr(arr, "category", None)
             if not category:

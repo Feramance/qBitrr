@@ -126,7 +126,7 @@ curl -H "Authorization: Bearer abc123..." http://localhost:6969/api/processes
 1. [System](#system-endpoints) - Health, status, version info
 2. [Processes](#process-endpoints) - Process monitoring and control
 3. [Logs](#log-endpoints) - Log file access
-4. [Arr Views](#arr-view-endpoints) - Radarr/Sonarr/Lidarr library browsing
+4. [Arr Views](#arr-view-endpoints) - Radarr/Sonarr/Lidarr/Readarr/Readarr library browsing
 5. [Configuration](#configuration-endpoints) - Config management
 6. [Updates](#update-endpoints) - Auto-update and version management
 
@@ -516,7 +516,7 @@ Trigger database rebuild for all Arr instances.
 4. Refreshes cached library data from Arr APIs
 5. Returns immediately (rebuild is asynchronous)
 
-**Use Case**: Force refresh after bulk library changes in Radarr/Sonarr/Lidarr.
+**Use Case**: Force refresh after bulk library changes in Radarr/Sonarr/Lidarr/Readarr.
 
 ---
 
@@ -559,7 +559,7 @@ Restart specific Arr instance (both search and torrent processes).
 
 ### Open Arr Item in Arr UI
 
-Open a specific Radarr/Sonarr/Lidarr item in its native Arr web interface.
+Open a specific Radarr/Sonarr/Lidarr/Readarr/Readarr item in its native Arr web interface.
 
 **Endpoints**:
 - `GET /api/arr/<category>/open/<kind>/<entry_id>` (requires auth)
@@ -568,7 +568,7 @@ Open a specific Radarr/Sonarr/Lidarr item in its native Arr web interface.
 **Path Parameters**:
 
 - `category` (string, required) - Arr instance category key (for example `radarr-4k`)
-- `kind` (string, required) - Target item type: `movie`, `series`, or `artist`
+- `kind` (string, required) - Target item type: `movie`, `series`, `artist`, or `author`
 - `entry_id` (integer, required) - Arr item id in that instance
 
 **Response** (Success): HTTP `302` redirect to the Arr UI page.
@@ -581,12 +581,14 @@ Open a specific Radarr/Sonarr/Lidarr item in its native Arr web interface.
   - Radarr: prefers `titleSlug`, falls back to numeric `entry_id`
   - Sonarr: prefers `titleSlug`, falls back to numeric `entry_id`
   - Lidarr: prefers `foreignArtistId` (then `titleSlug`), falls back to numeric `entry_id`
+  - Readarr: prefers `foreignAuthorId` (then `titleSlug`), falls back to numeric `entry_id`
 
 **Item Targets**:
 
 - `movie` -> `.../movie/<route-token>` (Radarr)
 - `series` -> `.../series/<route-token>` (Sonarr)
 - `artist` -> `.../artist/<route-token>` (Lidarr)
+- `author` -> `.../author/<route-token>` (Readarr)
 
 **Response** (Error):
 ```json
@@ -822,8 +824,9 @@ Read-only image bytes for browse **Icon** tiles and detail modals. qBitrr prefer
 | `GET` | `/api/radarr/<category>/movie/<id>/thumbnail` · `/web/radarr/<category>/movie/<id>/thumbnail` |
 | `GET` | `/api/sonarr/<category>/series/<id>/thumbnail` · `/web/sonarr/<category>/series/<id>/thumbnail` |
 | `GET` | `/api/lidarr/<category>/artist/<id>/thumbnail` · `/web/lidarr/<category>/artist/<id>/thumbnail` |
+| `GET` | `/api/readarr/<category>/author/<id>/thumbnail` · `/web/readarr/<category>/author/<id>/thumbnail` |
 
-**Parameters**: `category` is the qBitrr Arr instance category; `id` is the Arr database id for that entity (movie, series, or Lidarr artist). Optional `?token=<WebUI.Token>` remains accepted for non-browser clients; the WebUI Icon view uses session-cookie auth without embedding the token in `<img src>`.
+**Parameters**: `category` is the qBitrr Arr instance category; `id` is the Arr database id for that entity (movie, series, Lidarr artist, or Readarr author). Optional `?token=<WebUI.Token>` remains accepted for non-browser clients; the WebUI Icon view uses session-cookie auth without embedding the token in `<img src>`.
 
 **Responses**: `200` with an image body (or `304` when `If-None-Match` matches), `401` if unauthorized, `404` if the entity or image cannot be resolved. Successful responses use `Cache-Control: private, max-age=86400`.
 
@@ -1095,6 +1098,38 @@ Browse Lidarr album library from cached database.
 
 ---
 
+### Readarr Authors
+
+Browse Readarr author library from the cached database. Mirrors Lidarr artist filtering: a `Status` (missing only) and `Search Reason` filter, scoped to the authors' books.
+
+**Endpoints**:
+- `GET /api/readarr/<category>/authors` (requires auth)
+- `GET /web/readarr/<category>/authors` (public)
+
+**Path Parameters**:
+
+- `category` (string, required) – Readarr instance category. The literal string `readarr` resolves to the single configured Readarr instance when only one exists.
+
+**Query Parameters**:
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `q` | string | null | Search query (author name) |
+| `page` | integer | 0 | Page number |
+| `page_size` | integer | 50 | Results per page (alias `size` accepted) |
+| `monitored` | boolean | null | Filter by monitored author |
+| `missing` | boolean | false | Restrict to authors with at least one monitored book whose file is missing |
+| `reason` | string | `all` | Restrict to authors with at least one book whose `Reason` matches. Accepted values: `Missing`, `Quality`, `CustomFormat`, `Upgrade`, `Not being searched` (also matches NULL). Use `all` (or omit) for no reason filter. |
+
+**Author detail (modal)**:
+
+- `GET /api/readarr/<category>/author/<author_id>`
+- `GET /web/readarr/<category>/author/<author_id>`
+
+Returns nested book rows for the detail modal (author → books).
+
+---
+
 ### List Arr Instances
 
 Get all configured Arr instances.
@@ -1121,6 +1156,11 @@ Get all configured Arr instances.
       "category": "lidarr",
       "name": "Lidarr",
       "type": "lidarr"
+    },
+    {
+      "category": "readarr-books",
+      "name": "Readarr-Books",
+      "type": "readarr"
     }
   ],
   "ready": true
@@ -1132,7 +1172,7 @@ Get all configured Arr instances.
 - `arr` - Array of Arr instances
 - `arr[].category` - qBittorrent category (used in API paths)
 - `arr[].name` - Friendly display name
-- `arr[].type` - Arr type (`radarr`, `sonarr`, `lidarr`)
+- `arr[].type` - Arr type (`radarr`, `sonarr`, `lidarr`, `readarr`)
 - `ready` - Overall system ready state
 
 ---
@@ -1307,7 +1347,7 @@ Test connection to Arr instance without saving configuration.
 ```
 When `instanceKey` is present, `uri` and `apiKey` are not required.
 
-**Valid Arr Types**: `radarr`, `sonarr`, `lidarr`
+**Valid Arr Types**: `radarr`, `sonarr`, `lidarr`, `readarr`
 
 **Response** (Success):
 ```json

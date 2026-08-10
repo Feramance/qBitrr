@@ -506,7 +506,7 @@ The qBitrr WebUI provides real-time health monitoring:
 - Monitor ETA calculations
 - Track stalled torrent detection
 
-**Arr Tabs (Radarr/Sonarr/Lidarr):**
+**Arr Tabs (Radarr/Sonarr/Lidarr/Readarr):**
 
 - List all managed torrents
 - Color-coded status indicators

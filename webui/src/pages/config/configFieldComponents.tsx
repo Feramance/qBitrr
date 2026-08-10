@@ -509,6 +509,8 @@ export function FieldGroup({
         expectedPrefix = "Sonarr";
       } else if (sectionName.startsWith("Lidarr")) {
         expectedPrefix = "Lidarr";
+      } else if (sectionName.startsWith("Readarr")) {
+        expectedPrefix = "Readarr";
       }
 
       return (
@@ -850,11 +852,11 @@ export function SectionNameField({
         adjustedName = expectedPrefix + (trimmed.startsWith("-") ? trimmed : `-${trimmed}`);
       }
 
-      // Enforce format: (Rad|Son|Lid)arr-.+ (prefix-suffix with at least one character after dash)
-      const formatRegex = /^(Radarr|Sonarr|Lidarr)-.+$/;
+      // Enforce format: (Rad|Son|Lid|Read)arr-.+ (prefix-suffix with at least one character after dash)
+      const formatRegex = /^(Radarr|Sonarr|Lidarr|Readarr)-.+$/;
       if (!formatRegex.test(adjustedName)) {
         // Invalid format - show error and reset
-        alert(`Instance name must match format: ${expectedPrefix || '(Rad|Son|Lid)arr'}-(name)\nExample: ${expectedPrefix || 'Radarr'}-Movies`);
+        alert(`Instance name must match format: ${expectedPrefix || '(Rad|Son|Lid|Read)arr'}-(name)\nExample: ${expectedPrefix || 'Radarr'}-Movies`);
         setValue(currentName);
         return;
       }

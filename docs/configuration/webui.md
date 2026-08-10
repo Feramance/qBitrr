@@ -309,7 +309,7 @@ LiveArr = true
 **Default:** `true`
 **Label:** Live (app-bar switch)
 
-Enable live updates for Arr catalogs (Radarr/Sonarr/Lidarr) and the qBittorrent overview.
+Enable live updates for Arr catalogs (Radarr/Sonarr/Lidarr/Readarr) and the qBittorrent overview.
 
 **When true:**
 - Auto-refresh while the Arr or qBittorrent tab is active

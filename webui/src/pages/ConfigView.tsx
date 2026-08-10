@@ -152,7 +152,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   const groupedArrSections = useMemo(() => {
     const groups: Array<{
       label: string;
-      type: "radarr" | "sonarr" | "lidarr" | "other";
+      type: "radarr" | "sonarr" | "lidarr" | "readarr" | "other";
       items: Array<[string, ConfigDocument]>;
     }> = [];
     const sorted = [...arrSections].sort((a, b) =>
@@ -161,6 +161,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
     const radarr: Array<[string, ConfigDocument]> = [];
     const sonarr: Array<[string, ConfigDocument]> = [];
     const lidarr: Array<[string, ConfigDocument]> = [];
+    const readarr: Array<[string, ConfigDocument]> = [];
     const others: Array<[string, ConfigDocument]> = [];
     for (const entry of sorted) {
       const [key] = entry;
@@ -171,6 +172,8 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
         sonarr.push(entry);
       } else if (keyLower.startsWith("lidarr")) {
         lidarr.push(entry);
+      } else if (keyLower.startsWith("readarr")) {
+        readarr.push(entry);
       } else {
         others.push(entry);
       }
@@ -179,6 +182,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
     groups.push({ label: "Radarr Instances", type: "radarr", items: radarr });
     groups.push({ label: "Sonarr Instances", type: "sonarr", items: sonarr });
     groups.push({ label: "Lidarr Instances", type: "lidarr", items: lidarr });
+    groups.push({ label: "Readarr Instances", type: "readarr", items: readarr });
     if (others.length) {
       groups.push({ label: "Other Instances", type: "other", items: others });
     }
@@ -393,7 +397,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   }, [activeArrKey, arrSections]);
 
   const addArrInstance = useCallback(
-    (type: "radarr" | "sonarr" | "lidarr") => {
+    (type: "radarr" | "sonarr" | "lidarr" | "readarr") => {
       if (!formState) return;
       const prefix = type.charAt(0).toUpperCase() + type.slice(1);
       let index = 1;
@@ -423,7 +427,8 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       if (
         !keyLower.startsWith("radarr") &&
         !keyLower.startsWith("sonarr") &&
-        !keyLower.startsWith("lidarr")
+        !keyLower.startsWith("lidarr") &&
+        !keyLower.startsWith("readarr")
       ) {
         return;
       }
@@ -826,11 +831,11 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
                        <span className="config-arr-group__count">
                          {group.items.length}
                        </span>
-                        {(group.type === "radarr" || group.type === "sonarr" || group.type === "lidarr") && (
+                        {(group.type === "radarr" || group.type === "sonarr" || group.type === "lidarr" || group.type === "readarr") && (
                         <button
                           className="btn small"
                           type="button"
-                          onClick={() => addArrInstance(group.type as "radarr" | "sonarr" | "lidarr")}
+                          onClick={() => addArrInstance(group.type as "radarr" | "sonarr" | "lidarr" | "readarr")}
                         >
                           <IconImage src={AddIcon} />
                           Add Instance
@@ -911,7 +916,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           onClose={() => setActiveArrKey(null)}
           onSave={() => saveSection(activeArrKey)}
           onDelete={
-            /^(radarr|sonarr|lidarr)/i.test(activeArrKey)
+            /^(radarr|sonarr|lidarr|readarr)/i.test(activeArrKey)
               ? () => requestDeleteArrInstance(activeArrKey)
               : undefined
           }

@@ -85,14 +85,16 @@ def register_routes(webui: WebUI) -> None:
     def _ensure_arr_manager_ready() -> bool:
         return getattr(webui.manager, "arr_manager", None) is not None
 
-    def _resolve_managed_lidarr(category: str) -> Any | None:
+    def _resolve_managed_lidarr(
+        category: str, managed: dict[str, Any] | None = None
+    ) -> Any | None:
         """Resolve a Lidarr ``Arr`` from the URL *category* segment.
 
         ``managed_objects`` keys are instance/qBittorrent category strings, not type
         names. Some callers use the type slug ``lidarr`` (e.g. OpenAPI defaults);
         when exactly one Lidarr instance exists, resolve it unambiguously.
         """
-        managed = _managed_objects()
+        managed = managed if managed is not None else _managed_objects()
         if not managed:
             return None
         arr = managed.get(category)
@@ -105,6 +107,27 @@ def register_routes(webui: WebUI) -> None:
         resolved = matches[0] if len(matches) == 1 else None
         return resolved
 
+    def _resolve_managed_readarr(
+        category: str, managed: dict[str, Any] | None = None
+    ) -> Any | None:
+        """Resolve a Readarr ``Arr`` from the URL *category* segment.
+
+        Mirrors :func:`_resolve_managed_lidarr` for the ``readarr`` type slug when
+        exactly one Readarr instance is managed.
+        """
+        managed = managed if managed is not None else _managed_objects()
+        if not managed:
+            return None
+        arr = managed.get(category)
+        if arr is not None:
+            return arr if getattr(arr, "type", None) == "readarr" else None
+        slug = (category or "").strip().lower()
+        if slug != "readarr":
+            return None
+        matches = [a for a in managed.values() if getattr(a, "type", None) == "readarr"]
+        resolved = matches[0] if len(matches) == 1 else None
+        return resolved
+
     def _lidarr_page_size_from_request(default: int = 50) -> int:
         """``page_size`` with ``size`` as alias (some clients send only ``size``)."""
         ps = request.args.get("page_size", type=int)
@@ -114,6 +137,10 @@ def register_routes(webui: WebUI) -> None:
         if sz is not None:
             return min(sz, 1000)
         return default
+
+    def _readarr_page_size_from_request(default: int = 50) -> int:
+        """``page_size`` with ``size`` as alias (some clients send only ``size``)."""
+        return _lidarr_page_size_from_request(default)
 
     @app.get("/health")
     def health():
@@ -414,10 +441,14 @@ def register_routes(webui: WebUI) -> None:
         if not managed:
             if not _ensure_arr_manager_ready():
                 return jsonify({"error": "Arr manager is still initialising"}), 503
-        expected_type = "lidarr" if kind == "lidarr_artist" else kind
         if kind == "lidarr_artist":
+            expected_type = "lidarr"
             arr = _resolve_managed_lidarr(category)
+        elif kind == "readarr_author":
+            expected_type = "readarr"
+            arr = _resolve_managed_readarr(category)
         else:
+            expected_type = kind
             arr = managed.get(category)
         arr_type = getattr(arr, "type", None) if arr is not None else None
         if arr is None or arr_type != expected_type:
@@ -625,6 +656,104 @@ def register_routes(webui: WebUI) -> None:
     @_dual_route("/lidarr/<path:category>/artist/<int:artist_id>/thumbnail")
     def lidarr_artist_thumb(category: str, artist_id: int):
         return _arr_thumbnail(category, "lidarr_artist", artist_id)
+
+    @_arr_catalog_db_safe
+    def _handle_readarr_authors(category: str):
+        managed = _managed_objects()
+        arr, err = resolve_arr_handler(
+            category,
+            "readarr",
+            managed,
+            arr_manager_ready=_ensure_arr_manager_ready(),
+            slug_resolver=_resolve_managed_readarr,
+        )
+        if err is not None:
+            return err
+        filters = parse_catalog_filters(
+            request,
+            default_page_size=50,
+            include_missing_only=True,
+            include_reason=True,
+        )
+        page_size = _readarr_page_size_from_request(filters["page_size"])
+        monitored = (
+            coerce_bool(request.args.get("monitored")) if "monitored" in request.args else None
+        )
+        reason = filters.get("reason")
+        if reason and reason.strip().lower() == "all":
+            reason = None
+        payload = webui._readarr_authors_from_db(
+            arr,
+            filters["q"],
+            filters["page"],
+            page_size,
+            monitored=monitored,
+            missing_only=filters["missing_only"],
+            reason_filter=reason,
+        )
+        payload["category"] = str(arr.category)
+        return jsonify(payload)
+
+    @_arr_catalog_db_safe
+    def _handle_readarr_author_detail(category: str, author_id: int):
+        managed = _managed_objects()
+        arr, err = resolve_arr_handler(
+            category,
+            "readarr",
+            managed,
+            arr_manager_ready=_ensure_arr_manager_ready(),
+            slug_resolver=_resolve_managed_readarr,
+        )
+        if err is not None:
+            return err
+        detail = webui._readarr_author_detail_from_db(arr, author_id)
+        if detail is None:
+            return jsonify({"error": "Author not found"}), 404
+        detail["category"] = str(arr.category)
+        return jsonify(detail)
+
+    @_dual_route("/readarr/<path:category>/authors")
+    def readarr_authors(category: str):
+        return _handle_readarr_authors(category)
+
+    @_dual_route("/readarr/<path:category>/author/<int:author_id>")
+    def readarr_author_detail(category: str, author_id: int):
+        return _handle_readarr_author_detail(category, author_id)
+
+    @_dual_route("/readarr/<path:category>/author/<int:author_id>/thumbnail")
+    def readarr_author_thumb(category: str, author_id: int):
+        return _arr_thumbnail(category, "readarr_author", author_id)
+
+    def _handle_arr_open(category: str, kind: str, entry_id: int):
+        from qBitrr.webui.arr_open import KIND_ARR_TYPE, open_arr_item_or_error
+
+        managed = _managed_objects()
+        expected_type = KIND_ARR_TYPE.get(kind)
+        if expected_type is None:
+            return jsonify({"error": f"Unknown item kind {kind}"}), 400
+        slug_resolver = None
+        if expected_type == "lidarr":
+            slug_resolver = _resolve_managed_lidarr
+        elif expected_type == "readarr":
+            slug_resolver = _resolve_managed_readarr
+        arr, err = resolve_arr_handler(
+            category,
+            expected_type,
+            managed,
+            arr_manager_ready=_ensure_arr_manager_ready(),
+            slug_resolver=slug_resolver,
+        )
+        if err is not None:
+            return err
+        url, open_err = open_arr_item_or_error(arr, kind, entry_id)
+        if open_err:
+            status = 404 if "not found" in open_err.lower() else 400
+            return jsonify({"error": open_err}), status
+        return redirect(url)
+
+    @_dual_route("/arr/<path:category>/open/<kind>/<int:entry_id>")
+    def arr_open(category: str, kind: str, entry_id: int):
+        return _handle_arr_open(category, kind, entry_id)
 
     def _handle_update():
         ok, message = webui._trigger_manual_update()

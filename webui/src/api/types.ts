@@ -1,4 +1,4 @@
-export type ArrType = "radarr" | "sonarr" | "lidarr";
+export type ArrType = "radarr" | "sonarr" | "lidarr" | "readarr";
 
 export interface ProcessInfo {
   category: string;
@@ -36,6 +36,7 @@ export interface ArrListResponse {
       missing?: number;
     };
     lidarr?: LidarrCounts;
+    readarr?: ReadarrCounts;
   };
   ready?: boolean;
 }
@@ -369,6 +370,75 @@ export interface LidarrTracksResponse {
   page: number;
   page_size: number;
   tracks: LidarrTrack[];
+}
+
+export interface ReadarrCounts {
+  available: number;
+  monitored: number;
+}
+
+export interface ReadarrBook {
+  id?: number;
+  title?: string;
+  authorId?: number;
+  authorName?: string;
+  releaseDate?: string;
+  monitored?: boolean;
+  hasFile?: boolean;
+  reason?: string | null;
+  qualityProfileId?: number | null;
+  qualityProfileName?: string | null;
+}
+
+export interface ReadarrBookEntry {
+  [key: string]: unknown;
+  book: Record<string, unknown> & {
+    qualityProfileId?: number | null;
+    qualityProfileName?: string | null;
+  };
+  totals?: {
+    available: number;
+    monitored: number;
+    missing?: number;
+  };
+}
+
+export interface ReadarrAuthorsCounts {
+  available: number;
+  monitored: number;
+  missing?: number;
+  quality_met?: number;
+  requests?: number;
+}
+
+/** Author browse row ({ author }) from SQLite catalog — same rollup `counts` as book browse. */
+export interface ReadarrAuthorCatalogProgress {
+  booksMonitored?: number;
+  booksAvailable?: number;
+  booksMissing?: number;
+}
+
+export interface ReadarrAuthorBrowseEntry {
+  [key: string]: unknown;
+  author: Record<string, unknown> & Partial<ReadarrAuthorCatalogProgress>;
+}
+
+export interface ReadarrAuthorsResponse {
+  category: string;
+  counts: ReadarrAuthorsCounts;
+  book_total: number;
+  total: number;
+  page: number;
+  page_size: number;
+  authors: ReadarrAuthorBrowseEntry[];
+}
+
+/** Full author payload with nested books. */
+export interface ReadarrAuthorDetailResponse {
+  category?: string;
+  counts: ReadarrAuthorsCounts;
+  author: Record<string, unknown>;
+  books: ReadarrBookEntry[];
 }
 
 export interface ConfigVersionWarning {

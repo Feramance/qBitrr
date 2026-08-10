@@ -603,7 +603,7 @@ Category = "radarr"             # REQUIRED (must match qBit download client)
    ```
 
 3. **Verify Arr has indexers:**
-   - Radarr/Sonarr/Lidarr must have working indexers configured
+   - Radarr/Sonarr/Lidarr/Readarr must have working indexers configured
    - Test indexers in Arr UI
 
 4. **Review search logs:**

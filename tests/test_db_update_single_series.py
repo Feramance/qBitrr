@@ -6,7 +6,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-from qBitrr.arss import Arr, LidarrArr, RadarrArr, SonarrArr
+from qBitrr.arss import Arr, LidarrArr, RadarrArr, ReadarrArr, SonarrArr
 from qBitrr.arss.db_update_handlers import db_update_single_series
 from qBitrr.quality_profile_helpers import (
     compute_search_reason,
@@ -17,7 +17,12 @@ from qBitrr.quality_profile_helpers import (
 
 def _search_enabled_arr(**overrides) -> Arr:
     arr_type = overrides.get("type", "sonarr")
-    cls = {"sonarr": SonarrArr, "radarr": RadarrArr, "lidarr": LidarrArr}.get(arr_type, Arr)
+    cls = {
+        "sonarr": SonarrArr,
+        "radarr": RadarrArr,
+        "lidarr": LidarrArr,
+        "readarr": ReadarrArr,
+    }.get(arr_type, Arr)
     arr = cls.__new__(cls)
     arr._name = overrides.get("_name", "TestArr")
     arr.type = arr_type

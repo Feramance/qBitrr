@@ -1,6 +1,6 @@
 # Arr Views
 
-The **Arr Views** provide a unified interface to browse and monitor your media library across all managed Radarr, Sonarr, and Lidarr instances. View movies, TV series, episodes, albums, and tracks directly from qBitrr's WebUI without switching between multiple Arr interfaces.
+The **Arr Views** provide a unified interface to browse and monitor your media library across all managed Radarr, Sonarr, Lidarr, and Readarr instances. View movies, TV series, episodes, albums, tracks, authors, and books directly from qBitrr's WebUI without switching between multiple Arr interfaces.
 
 ---
 
@@ -16,21 +16,23 @@ qBitrr's Arr views offer:
 - **Request Tracking**: Identify items added via Overseerr/Ombi integration
 - **Pagination**: Handle large libraries with server-side pagination
 - **List and Icon**: Toolbar **View** control on each Arr page — **List** is a text-only table (no poster column in the browse surface); **Icon** is a responsive tile grid with cached posters or cover art. The choice is stored in `localStorage` (default: Icon).
-- **Detail modals**: Click a row/card to open a modal. Radarr shows a single movie payload. Sonarr groups **series → season → episode** in the modal. **Lidarr groups artist → albums → tracks** (each album is a section with track rows)—not nested tables on the main browse surface. Flat episode-list / flat album-list browse modes are permanently removed; hierarchy is always series/artist on the table and seasons/episodes or albums/tracks in the detail modal.
+- **Detail modals**: Click a row/card to open a modal. Radarr shows a single movie payload. Sonarr groups **series → season → episode** in the modal. **Lidarr groups artist → albums → tracks** (each album is a section with track rows)—not nested tables on the main browse surface. **Readarr groups author → books** (each book is a section in the detail modal). Flat episode-list / flat album-list browse modes are permanently removed; hierarchy is always series/artist/author on the table and nested detail in the modal.
 - **Posters**: Thumbnails are served by the WebUI (disk cache of ~250px WebP/JPEG tiles sourced from Arr `MediaCover`, falling back to entity image URLs on the same Arr host) at `/web/.../thumbnail` and mirrored under `/api/...` (see [WebUI API](api.md#arr-poster-thumbnails-cached)). Same-origin `<img>` requests use the session cookie (no `?token=` on poster URLs). Failed thumbnail loads retry up to 3 times (with short backoff) before showing the placeholder.
 
 Multi-level detail in the modal (browse row is the top level):
 
-| Arr | Detail modal shape | Multi-level (collapses to episodes / tracks) |
+| Arr | Detail modal shape | Multi-level (collapses to episodes / tracks / books) |
 |-----|-------------------|----------------------------------------------|
 | **Radarr** | Single movie fields | No |
 | **Sonarr** | Series → seasons → episodes | Yes |
 | **Lidarr** | Artist → albums → tracks | Yes |
+| **Readarr** | Author → books | Yes |
 
 **Supported Arr Types**:
 - **Radarr**: Movies with year, quality profile, file status
 - **Sonarr**: TV series with seasons, episodes, air dates
 - **Lidarr**: Artists on the browse surface; albums and tracks appear in the detail modal (artist → album → track)
+- **Readarr**: Authors on the browse surface; books appear in the detail modal (author → book)
 
 ### `available` vs `hasFile`: two different metrics
 
@@ -39,7 +41,7 @@ definitions — be careful when comparing the catalog header to a per-row badge.
 
 | Field | Where it appears | Definition |
 |-------|------------------|------------|
-| `counts.available` | Header rollup (movies/episodes/albums/tracks) | `Monitored == true` **AND** the row has a file (`MovieFileId`/`EpisodeFileId`/`AlbumFileId` non-zero, or Lidarr `HasFile == true` for tracks). Unmonitored rows with a file are excluded. |
+| `counts.available` | Header rollup (movies/episodes/albums/tracks/books) | `Monitored == true` **AND** the row has a file (`MovieFileId`/`EpisodeFileId`/`AlbumFileId`/`BookFileId` non-zero, or Lidarr `HasFile == true` for tracks). Unmonitored rows with a file are excluded. |
 | `counts.missing` | Header rollup | `max(monitored - available, 0)` — the count of monitored rows that do **not** have a file. Unmonitored rows are never counted as missing. |
 | `<row>.hasFile` | Per-row payload | The row has a file regardless of monitored state. A row can be `hasFile=true` while contributing **zero** to the rollup `available`. |
 | `seasons[].available` (Sonarr) | Per-season bucket | Same as the header rollup: counts only monitored episodes that also have a file. |
@@ -339,6 +341,42 @@ See [WebUI API](api.md#lidarr-artists) for query parameters.
 
 ---
 
+## Readarr View
+
+### Features
+
+**Library browser**:
+- **List**: One row per **author** (book count, monitored, quality profile).
+- **Icon**: One tile per author using a cached **author** thumbnail; click opens a **detail modal** with books (`ReadarrBookDetailBody` per book).
+- **Aggregate** ("All Readarr"): Merged rows across instances; instance column when multiple instances exist.
+
+**Filtering**: **Search** matches author names (and instance labels in aggregate mode). Status / search-reason filters apply to the author's books (same pattern as Lidarr artists).
+
+**Example (list mode)**:
+
+```plaintext
+┌──────────────────────────────────────────────────────────┐
+│ Author              Books   Monitored  Profile           │
+├──────────────────────────────────────────────────────────┤
+│ Ursula K. Le Guin    24      ✓         Preferred         │
+└──────────────────────────────────────────────────────────┘
+```
+
+### API Integration
+
+**Author browse endpoint**: `GET /api/readarr/<category>/authors` (and `/web/...` mirror).
+**Author detail (modal)**: `GET /api/readarr/<category>/author/<author_id>` returning nested book rows.
+
+See [WebUI API](api.md#readarr-authors) for query parameters.
+
+### Database Caching
+
+**Tables**:
+1. **BookFilesModel**: Stores book metadata / file linkage
+2. **AuthorFilesModel**: Stores author metadata and rollup book counts
+
+---
+
 ## Configuration
 
 ### Live Mode
@@ -348,7 +386,7 @@ See [WebUI API](api.md#lidarr-artists) for query parameters.
 **Default**: `true`
 **App bar control**: **Live** switch
 
-When enabled, Arr catalogs (Radarr/Sonarr/Lidarr) and the qBittorrent overview auto-refresh while their tab is active. When disabled, those views stop polling; use the in-page Refresh button for updates. Processes and Logs are not gated by this setting.
+When enabled, Arr catalogs (Radarr/Sonarr/Lidarr/Readarr) and the qBittorrent overview auto-refresh while their tab is active. When disabled, those views stop polling; use the in-page Refresh button for updates. Processes and Logs are not gated by this setting.
 
 **Pros**:
 - Always up-to-date (no sync delay)
@@ -380,7 +418,7 @@ Visited tabs stay mounted and are hidden (`display: none`) on switch so Arr brow
 
 ### Browse layout
 
-Sonarr browsing is always series-row + modal (`series → seasons → episodes`). Lidarr browsing is always artist-row + modal (`artist → albums → tracks`).
+Sonarr browsing is always series-row + modal (`series → seasons → episodes`). Lidarr browsing is always artist-row + modal (`artist → albums → tracks`). Readarr browsing is always author-row + modal (`author → books`).
 
 ---
 
@@ -454,6 +492,11 @@ qBitrr automatically creates indexes on frequently queried fields:
 - `AlbumFilesModel.ArtistTitle` (for search)
 - `AlbumFilesModel.ArtistId` (for grouping)
 - `AlbumFilesModel.ReleaseDate` (for sorting)
+
+**Readarr**:
+- `AuthorFilesModel` author title fields (for search)
+- `BookFilesModel.AuthorId` (for grouping)
+- `BookFilesModel` release year (for year search)
 
 ### Pagination Strategy
 

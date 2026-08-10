@@ -75,6 +75,26 @@ class TestConfigReloadPolicy(unittest.TestCase):
             ReloadCategory.LIVE,
         )
 
+    def test_readarr_keys_follow_arr_policy(self) -> None:
+        from qBitrr.config_reload_policy import ReloadCategory, classify_config_key
+
+        self.assertEqual(
+            classify_config_key("Readarr-Books.URI"),
+            ReloadCategory.ARR_PRESERVE_DB,
+        )
+        self.assertEqual(
+            classify_config_key("Readarr-Books.EntrySearch.QualityProfileMappings"),
+            ReloadCategory.ARR_RESET_DB,
+        )
+        self.assertEqual(
+            classify_config_key("Readarr-Books.Torrent.StalledDelay"),
+            ReloadCategory.LIVE,
+        )
+        self.assertEqual(
+            classify_config_key("Readarr-Books.EntrySearch.SearchMissing"),
+            ReloadCategory.LIVE,
+        )
+
     def test_webui_theme_is_frontend_only(self) -> None:
         from qBitrr.config_reload_policy import ReloadCategory, classify_config_key
 

@@ -43,7 +43,7 @@ export interface ValidationError {
   message: string;
 }
 
-export const SERVARR_SECTION_REGEX = /^(radarr|sonarr|lidarr)([.-]|$)/i;
+export const SERVARR_SECTION_REGEX = /^(radarr|sonarr|lidarr|readarr)([.-]|$)/i;
 export const QBIT_SECTION_REGEX = /^qBit(-.*)?$/i;
 /** Matches backend REDACTED_PLACEHOLDER; when API key equals this, test uses instanceKey. */
 export const REDACTED_PLACEHOLDER = "[redacted]";

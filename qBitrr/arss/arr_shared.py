@@ -2,7 +2,7 @@
 
 Prefer importing from the real owners when writing or touching leaf modules:
 
-- :mod:`qBitrr.arr_client` — Radarr/Sonarr/Lidarr clients, ``JsonObject``, builders
+- :mod:`qBitrr.arr_client` — Radarr/Sonarr/Lidarr/Readarr clients, ``JsonObject``, builders
 - :mod:`qBitrr.tables` — Peewee models
 - :mod:`qBitrr.config` — ``CONFIG``, feature flags, effective getters
 - :mod:`qBitrr.errors` — Arr/qBit control-flow exceptions
@@ -30,9 +30,11 @@ from qBitrr.arr_client import (
     PyarrResourceNotFound,
     PyarrServerError,
     Radarr,
+    Readarr,
     Sonarr,
     build_lidarr_client,
     build_radarr_client,
+    build_readarr_client,
     build_sonarr_client,
     execute_command,
 )
@@ -88,6 +90,9 @@ from qBitrr.tables import (
     AlbumFilesModel,
     AlbumQueueModel,
     ArtistFilesModel,
+    AuthorFilesModel,
+    BookFilesModel,
+    BookQueueModel,
     EpisodeFilesModel,
     EpisodeQueueModel,
     FilesQueued,
@@ -241,6 +246,9 @@ __all__ = [
     "AlbumFilesModel",
     "AlbumQueueModel",
     "ArtistFilesModel",
+    "AuthorFilesModel",
+    "BookFilesModel",
+    "BookQueueModel",
     "CONFIG",
     "DelayLoopException",
     "EpisodeFilesModel",
@@ -258,6 +266,7 @@ __all__ = [
     "PyarrServerError",
     "QBIT_DISABLED",
     "Radarr",
+    "Readarr",
     "RestartLoopException",
     "SEARCH_ONLY",
     "SeriesFilesModel",
@@ -272,6 +281,7 @@ __all__ = [
     "absolute_file_paths",
     "build_lidarr_client",
     "build_radarr_client",
+    "build_readarr_client",
     "build_sonarr_client",
     "build_tracker_index",
     "category_parents",

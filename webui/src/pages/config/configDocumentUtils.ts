@@ -269,6 +269,7 @@ export function ensureArrDefaults(type: string): ConfigDocument {
   const isSonarr = lowerType.includes("sonarr");
   const isRadarr = lowerType.includes("radarr");
   const isLidarr = lowerType.includes("lidarr");
+  const isReadarr = lowerType.includes("readarr");
 
   const arrErrorCodes = isRadarr
     ? [
@@ -280,6 +281,12 @@ export function ensureArrDefaults(type: string): ConfigDocument {
     ? [
         "Not a preferred word upgrade for existing album file(s)",
         "Not an upgrade for existing album file(s)",
+        "Unable to determine if file is a sample",
+      ]
+    : isReadarr
+    ? [
+        "Not a preferred word upgrade for existing book file(s)",
+        "Not an upgrade for existing book file(s)",
         "Unable to determine if file is a sample",
       ]
     : [
@@ -307,6 +314,7 @@ export function ensureArrDefaults(type: string): ConfigDocument {
     QualityProfileMappings: {},
   };
 
+  // Lidarr omits year search; Readarr keeps it (book release year).
   if (!isLidarr) {
     entrySearch.SearchByYear = true;
   }
@@ -317,7 +325,8 @@ export function ensureArrDefaults(type: string): ConfigDocument {
     entrySearch.PrioritizeTodaysReleases = true;
   }
 
-  if (!isLidarr) {
+  // Ombi/Overseerr are Sonarr/Radarr only (not Lidarr or Readarr).
+  if (!isLidarr && !isReadarr) {
     entrySearch.Ombi = {
       SearchOmbiRequests: false,
       OmbiURI: "CHANGE_ME",
@@ -335,25 +344,40 @@ export function ensureArrDefaults(type: string): ConfigDocument {
 
   const torrent: Record<string, unknown> = {
     CaseSensitiveMatches: false,
-    FolderExclusionRegex: [
-      "\\bextras?\\b",
-      "\\bfeaturettes?\\b",
-      "\\bsamples?\\b",
-      "\\bscreens?\\b",
-      "\\bnc(ed|op)?(\\\\d+)?\\b",
-    ],
-    FileNameExclusionRegex: [
-      "\\bncop\\\\d+?\\b",
-      "\\bnced\\\\d+?\\b",
-      "\\bsample\\b",
-      "brarbg.com\\b",
-      "\\btrailer\\b",
-      "music video",
-      "comandotorrents.com",
-    ],
+    FolderExclusionRegex: isLidarr || isReadarr
+      ? [
+          "\\bextras?\\b",
+          "\\bsamples?\\b",
+          "\\bscreens?\\b",
+        ]
+      : [
+          "\\bextras?\\b",
+          "\\bfeaturettes?\\b",
+          "\\bsamples?\\b",
+          "\\bscreens?\\b",
+          "\\bnc(ed|op)?(\\\\d+)?\\b",
+        ],
+    FileNameExclusionRegex: isLidarr || isReadarr
+      ? [
+          "\\bsample\\b",
+          "brarbg.com\\b",
+          "\\btrailer\\b",
+          "comandotorrents.com",
+        ]
+      : [
+          "\\bncop\\\\d+?\\b",
+          "\\bnced\\\\d+?\\b",
+          "\\bsample\\b",
+          "brarbg.com\\b",
+          "\\btrailer\\b",
+          "music video",
+          "comandotorrents.com",
+        ],
     FileExtensionAllowlist: isLidarr
       ? [".mp3", ".flac", ".m4a", ".aac", ".ogg", ".opus", ".wav", ".ape", ".wma", ".!qB", ".parts", ".log", ".cue"]
-      : [".mp4", ".mkv", ".sub", ".ass", ".srt", ".!qB", ".parts"],
+      : isReadarr
+        ? [".epub", ".mobi", ".azw", ".azw3", ".pdf", ".cbz", ".cbr", ".!qB", ".parts"]
+        : [".mp4", ".mkv", ".sub", ".ass", ".srt", ".!qB", ".parts"],
     AutoDelete: false,
     IgnoreTorrentsYoungerThan: 600,
     MaximumETA: 604800,

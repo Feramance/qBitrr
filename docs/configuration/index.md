@@ -6,7 +6,7 @@ Welcome to the qBitrr configuration guide! This section covers all aspects of co
 
 - [Configuration File Reference](config-file.md) - Complete `config.toml` reference
 - [qBittorrent Setup](qbittorrent.md) - Configure qBittorrent connection
-- [Arr Instances](arr/index.md) - Configure Radarr, Sonarr, and Lidarr
+- [Arr Instances](arr/index.md) - Configure Radarr, Sonarr, Lidarr, and Readarr
 
 ## Configuration Overview
 
@@ -896,7 +896,7 @@ SONARR_API_KEY=your-secret-key
 
 - **[Complete Configuration Reference](config-file.md)** - Every setting explained
 - **[qBittorrent Setup](qbittorrent.md)** - qBittorrent connection guide
-- **[Arr Configuration](arr/index.md)** - Radarr/Sonarr/Lidarr setup
+- **[Arr Configuration](arr/index.md)** - Radarr/Sonarr/Lidarr/Readarr setup
 - **[Search Configuration](search/index.md)** - Automated search settings
 - **[Seeding Management](seeding.md)** - Seeding rules and limits
 - **[Environment Variables](environment.md)** - ENV var configuration

@@ -16,6 +16,10 @@ async function loadArrCatalogDefinition(
     const mod = await import("./arrCatalog/lidarrDefinition");
     return mod.getLidarrCatalogDefinition();
   }
+  if (kind === "readarr") {
+    const mod = await import("./arrCatalog/readarrDefinition");
+    return mod.getReadarrCatalogDefinition();
+  }
   const mod = await import("./arrCatalog/radarrDefinition");
   return mod.getRadarrCatalogDefinition();
 }
@@ -27,10 +31,10 @@ async function loadArrCatalogDefinition(
  * Arr.
  *
  * Only the definition module for `kind` is loaded (dynamic import) so visiting one
- * Arr tab does not pull the other two Arr definition chunks.
+ * Arr tab does not pull the other Arr definition chunks.
  *
- * Sonarr/Lidarr browse always uses series/artist rows with seasons/episodes or
- * albums/tracks in the detail modal.
+ * Sonarr/Lidarr/Readarr browse always uses series/artist/author rows with
+ * seasons/episodes, albums/tracks, or books in the detail modal.
  */
 export function ArrCatalogView({
   kind,

@@ -11,7 +11,7 @@
 [![pre-commit.ci](https://results.pre-commit.ci/badge/github/Feramance/qBitrr/master.svg)](https://results.pre-commit.ci/latest/github/Feramance/qBitrr/master)
 [![License: MIT](https://img.shields.io/pypi/l/qbitrr)](LICENSE)
 
-> 🧩 The intelligent glue between qBittorrent and the *Arr ecosystem (Radarr, Sonarr, Lidarr). Monitors torrent health, triggers instant imports, automates quality upgrades, manages disk space, integrates with request systems (Overseerr/Ombi), and provides a modern React dashboard for complete visibility and control.
+> 🧩 The intelligent glue between qBittorrent and the *Arr ecosystem (Radarr, Sonarr, Lidarr, Readarr). Monitors torrent health, triggers instant imports, automates quality upgrades, manages disk space, integrates with request systems (Overseerr/Ombi), and provides a modern React dashboard for complete visibility and control.
 
 ## 📚 Documentation
 

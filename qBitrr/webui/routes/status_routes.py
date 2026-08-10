@@ -38,7 +38,7 @@ def register_status_routes(
         items = []
         for k, arr in _managed_objects().items():
             t = getattr(arr, "type", None)
-            if t in ("radarr", "sonarr", "lidarr"):
+            if t in ("radarr", "sonarr", "lidarr", "readarr"):
                 name = getattr(arr, "_name", k)
                 category = getattr(arr, "category", k)
                 items.append({"category": category, "name": name, "type": t})
@@ -229,7 +229,7 @@ def register_status_routes(
         arrs = []
         for k, arr in _managed_objects().items():
             t = getattr(arr, "type", None)
-            if t in ("radarr", "sonarr", "lidarr"):
+            if t in ("radarr", "sonarr", "lidarr", "readarr"):
                 # Determine liveness based on child search/torrent processes
                 alive = False
                 for loop in ("search", "torrent"):

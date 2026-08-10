@@ -1,4 +1,4 @@
-*[Arr]: Applications in the Radarr/Sonarr/Lidarr family
+*[Arr]: Applications in the Radarr/Sonarr/Lidarr/Readarr family
 *[CF]: Custom Format - a Radarr/Sonarr feature for scoring releases
 *[ETA]: Estimated Time of Arrival - when a torrent is expected to complete
 *[MaxETA]: Maximum ETA setting - longest time qBitrr will wait before marking a torrent as failed

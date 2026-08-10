@@ -57,7 +57,7 @@ graph TD
 
 The torrent policy worker monitors torrents in **all categories** that qBitrr manages:
 
-- **Arr-managed categories** — The `Category` setting for each Radarr, Sonarr, and Lidarr instance (e.g. `radarr`, `sonarr`, `radarr4k`).
+- **Arr-managed categories** — The `Category` setting for each Radarr, Sonarr, Lidarr, and Readarr instance (e.g. `radarr`, `sonarr`, `readarr-books`).
 - **qBit-managed categories** — Categories listed in `[qBit].ManagedCategories` (e.g. `autobrr`).
 
 Torrents in any of these categories are included in free-space checks and can be paused when disk is low. Torrents in other qBittorrent categories (not used by any Arr instance and not in `ManagedCategories`) are not monitored.

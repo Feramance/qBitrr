@@ -37,7 +37,7 @@ qBitrr/
 ├── qBitrr/          # Python backend
 │   ├── __init__.py
 │   ├── main.py      # Entry point
-│   ├── arss/        # Arr package (ArrBase, RadarrArr/SonarrArr/LidarrArr, factory)
+    │   ├── arss/        # Arr package (ArrBase, RadarrArr/SonarrArr/LidarrArr/ReadarrArr, factory)
 │   ├── config.py    # Configuration
 │   ├── gen_config/  # Config schema builders / migrations
 │   └── webui/       # Flask API package (routes, catalog)
@@ -185,7 +185,7 @@ Still useful for integration confidence:
 
 1. **Set up test environment:**
    - qBittorrent instance
-   - Arr instance (Radarr/Sonarr/Lidarr)
+   - Arr instance (Radarr/Sonarr/Lidarr/Readarr)
    - Test torrents
 
 2. **Test scenarios:**
@@ -361,7 +361,7 @@ qBitrr's backend is built with Python 3.11+ and follows a multiprocessing archit
 
 **Requests** - HTTP Client
 - Communication with qBittorrent API
-- Communication with Radarr/Sonarr/Lidarr APIs
+- Communication with Radarr/Sonarr/Lidarr/Readarr APIs
 - Retry logic with exponential backoff
 - Session pooling for performance
 
@@ -744,22 +744,21 @@ except InvalidTorrentError:
 
 ### Adding a New Arr Type
 
-**Example: Add Whisparr support**
+Follow the same pattern as the existing concretes (`RadarrArr`, `SonarrArr`, `LidarrArr`, `ReadarrArr`):
+
+1. **Create Arr class** under `qBitrr/arss/<type>.py` subclassing `ArrBase` (models, `db_update`, re-search, `_apply_type_feature_gates`).
+2. **Register** in `qBitrr/arss/factory.py` and wire via `ArrManager.build_arr_instances()`.
+3. **Extend config** in `qBitrr/gen_config/` (fields + section defaults).
+4. **WebUI catalog**: add `webui/src/pages/arrCatalog/<type>Definition.tsx`, register in the catalog registry, and add dual `/api`+`/web` routes.
+
+**Example sketch (Whisparr):**
 
 1. **Create Arr class:**
    ```python
    # qBitrr/arss/whisparr.py
    class WhisparrArr(ArrBase):
        type = "whisparr"
-
-       def _process_failed_individual(self, torrent):
-           # Whisparr-specific failure handling
-           pass
-
-       def get_missing_content(self):
-           # Fetch missing movies from Whisparr
-           response = self.client.get("/api/v3/wanted/missing")
-           return response.json()
+       # ... type-specific models / search / feature gates
    ```
 
 2. **Add config section:**
@@ -779,16 +778,10 @@ except InvalidTorrentError:
    # ArrManager.build_arr_instances() wires the concrete class
    ```
 
-4. **Add WebUI view:**
+4. **Add WebUI catalog definition** (prefer `arrCatalog/` over a one-off page):
    ```typescript
-   // webui/src/pages/Whisparr.tsx
-   export function WhisparrPage() {
-     const { data } = useQuery(['whisparr'], () =>
-       apiClient.get('/api/whisparr/movies')
-     );
-
-     return <MovieTable movies={data} />;
-   }
+   // webui/src/pages/arrCatalog/whisparrDefinition.tsx
+   export function getWhisparrCatalogDefinition() { /* ... */ }
    ```
 
 ### Modifying the Database Schema

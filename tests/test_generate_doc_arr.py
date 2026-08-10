@@ -45,12 +45,14 @@ class GenerateDocArrRegistryTests(unittest.TestCase):
             "Radarr-1080",
             "Radarr-4K",
             "Lidarr-Music",
+            "Readarr-Books",
         ):
             self.assertIn(cat, self.doc)
 
     def test_category_defaults_match_overrides(self) -> None:
         self.assertEqual(self.doc["Sonarr-TV"]["Category"], "sonarr-tv")
         self.assertEqual(self.doc["Radarr-4K"]["Category"], "radarr-4k")
+        self.assertEqual(self.doc["Readarr-Books"]["Category"], "readarr-books")
         self.assertTrue(self.doc["Radarr-4K"]["EntrySearch"]["Overseerr"]["Is4K"])
         self.assertFalse(self.doc["Radarr-1080"]["EntrySearch"]["Overseerr"]["Is4K"])
         self.assertFalse(self.doc["Sonarr-TV"]["EntrySearch"]["Overseerr"]["Is4K"])
@@ -63,6 +65,15 @@ class GenerateDocArrRegistryTests(unittest.TestCase):
         self.assertNotIn("Unmonitored", es)
         self.assertNotIn("SearchLimit", es)
 
+    def test_readarr_omits_ombi_overseerr_keeps_year_search(self) -> None:
+        es = self.doc["Readarr-Books"]["EntrySearch"]
+        self.assertNotIn("Ombi", es)
+        self.assertNotIn("Overseerr", es)
+        self.assertIn("SearchByYear", es)
+        self.assertTrue(es["SearchByYear"])
+        self.assertIn("Unmonitored", es)
+        self.assertIn("SearchLimit", es)
+
     def test_sonarr_includes_series_fields(self) -> None:
         es = self.doc["Sonarr-TV"]["EntrySearch"]
         self.assertIn("AlsoSearchSpecials", es)
@@ -72,10 +83,16 @@ class GenerateDocArrRegistryTests(unittest.TestCase):
     def test_filter_arr_fields_respects_kinds(self) -> None:
         sonarr = {f.dotted for f in filter_arr_fields(ARR_FIELDS, "Sonarr-TV")}
         lidarr = {f.dotted for f in filter_arr_fields(ARR_FIELDS, "Lidarr-Music")}
+        readarr = {f.dotted for f in filter_arr_fields(ARR_FIELDS, "Readarr-Books")}
         self.assertIn("EntrySearch.AlsoSearchSpecials", sonarr)
         self.assertNotIn("EntrySearch.AlsoSearchSpecials", lidarr)
+        self.assertNotIn("EntrySearch.AlsoSearchSpecials", readarr)
         self.assertIn("EntrySearch.Ombi.OmbiURI", sonarr)
         self.assertNotIn("EntrySearch.Ombi.OmbiURI", lidarr)
+        self.assertNotIn("EntrySearch.Ombi.OmbiURI", readarr)
+        self.assertNotIn("EntrySearch.SearchByYear", lidarr)
+        self.assertIn("EntrySearch.SearchByYear", readarr)
+        self.assertNotIn("EntrySearch.SearchRequestsEvery", readarr)
 
     def test_torrent_key_order_trackers_before_seeding(self) -> None:
         keys = list(self.doc["Sonarr-TV"]["Torrent"].keys())

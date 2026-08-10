@@ -10,7 +10,7 @@ from qBitrr.duration_config import _DURATION_PATTERN, _MAX_DURATION_STRING_LEN, 
 from qBitrr.gen_config.fields import QBIT_FIELDS, SETTINGS_FIELDS, WEBUI_FIELDS, ConfigField
 from qBitrr.gen_config.fields_arr import ARR_FIELDS
 
-_ARR_SECTION_RE = re.compile(r"^(Radarr|Sonarr|Lidarr)([-.].+)?$", re.IGNORECASE)
+_ARR_SECTION_RE = re.compile(r"^(Radarr|Sonarr|Lidarr|Readarr)([-.].+)?$", re.IGNORECASE)
 _QBIT_SECTION_RE = re.compile(r"^qBit([-].+)?$", re.IGNORECASE)
 _ANIMARR_RE = re.compile(r"^Animarr", re.IGNORECASE)
 _FREE_SPACE_RE = re.compile(r"^-?\d+(\.\d+)?[KMGTP]?$", re.IGNORECASE)

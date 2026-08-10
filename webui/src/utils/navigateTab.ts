@@ -8,6 +8,7 @@ export type NavigableTab =
   | "radarr"
   | "sonarr"
   | "lidarr"
+  | "readarr"
   | "qbittorrent"
   | "config";
 

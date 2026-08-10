@@ -118,6 +118,14 @@ describe("ensureArrDefaults", () => {
     expect(entry.Overseerr).toBeUndefined();
   });
 
+  it("includes SearchByYear but omits Ombi/Overseerr for Readarr", () => {
+    const doc = ensureArrDefaults("Readarr");
+    const entry = doc.EntrySearch as Record<string, unknown>;
+    expect(entry.SearchByYear).toBe(true);
+    expect(entry.Ombi).toBeUndefined();
+    expect(entry.Overseerr).toBeUndefined();
+  });
+
   it("includes SearchByYear and Ombi/Overseerr for Radarr", () => {
     const doc = ensureArrDefaults("Radarr");
     const entry = doc.EntrySearch as Record<string, unknown>;

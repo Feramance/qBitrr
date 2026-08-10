@@ -11,7 +11,7 @@ from typing import Any
 from qBitrr.gen_config import ARR_SECTION_PREFIXES
 
 _ARR_KEY_RE = re.compile(
-    r"^(?P<prefix>Radarr|Sonarr|Lidarr)"
+    r"^(?P<prefix>Radarr|Sonarr|Lidarr|Readarr)"
     r"(?P<inst_suffix>[-.][A-Za-z0-9-]+)?"
     r"\.(?P<suffix>.+)$",
     re.IGNORECASE,

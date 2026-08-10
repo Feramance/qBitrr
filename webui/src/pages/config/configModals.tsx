@@ -124,7 +124,9 @@ export function ArrInstanceModal({
       ? "radarr"
       : keyLower.includes("sonarr")
         ? "sonarr"
-        : "lidarr";
+        : keyLower.includes("readarr")
+          ? "readarr"
+          : "lidarr";
 
     if (!isApiKeyRedacted && (!uri || !apiKey)) {
       if (!silent) {

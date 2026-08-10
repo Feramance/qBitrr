@@ -56,7 +56,7 @@ class ConfigField:
     maximum: float | int | None = None
     """When False, omitted from WebUI field inventory / schema UI list."""
     ui_expose: bool = True
-    """Restrict Arr template fields to these kinds (``sonarr``/``radarr``/``lidarr``)."""
+    """Restrict Arr template fields to these kinds (``sonarr``/``radarr``/``lidarr``/``readarr``)."""
     arr_kinds: frozenset[str] | None = None
     apply_live: bool | None = None
     requires_restart: bool | None = None
@@ -132,7 +132,16 @@ def apply_fields(target: Table, fields: Sequence[ConfigField]) -> None:
 def filter_arr_fields(fields: Sequence[ConfigField], category: str) -> list[ConfigField]:
     """Return Arr template fields applicable to ``category`` (e.g. ``Sonarr-TV``)."""
     lower = category.lower()
-    kind = "sonarr" if "sonarr" in lower else "radarr" if "radarr" in lower else "lidarr"
+    if "sonarr" in lower:
+        kind = "sonarr"
+    elif "radarr" in lower:
+        kind = "radarr"
+    elif "lidarr" in lower:
+        kind = "lidarr"
+    elif "readarr" in lower:
+        kind = "readarr"
+    else:
+        kind = "lidarr"
     out: list[ConfigField] = []
     for cfg in fields:
         if cfg.arr_kinds is None or kind in cfg.arr_kinds:

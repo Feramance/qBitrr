@@ -60,6 +60,22 @@ class TestValidateConfigUpdate(unittest.TestCase):
         self.assertIn("Radarr.APIKey", paths)
         self.assertIn("Radarr.Category", paths)
 
+    def test_requires_managed_readarr_fields(self) -> None:
+        cfg = _config_from_toml(
+            """
+            [Readarr-Books]
+            Managed = true
+            URI = ""
+            APIKey = ""
+            Category = ""
+            """
+        )
+        errors = validate_config_update(cfg, {"Readarr-Books.Managed": True})
+        paths = {e["path"] for e in errors}
+        self.assertIn("Readarr-Books.URI", paths)
+        self.assertIn("Readarr-Books.APIKey", paths)
+        self.assertIn("Readarr-Books.Category", paths)
+
     def test_valid_qbit_change_passes(self) -> None:
         cfg = _config_from_toml(
             """

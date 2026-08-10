@@ -7,7 +7,14 @@ from unittest.mock import MagicMock, patch
 
 import requests
 
-from qBitrr.arss import ArrManager, LidarrArr, RadarrArr, SonarrArr, arr_class_for_section
+from qBitrr.arss import (
+    ArrManager,
+    LidarrArr,
+    RadarrArr,
+    ReadarrArr,
+    SonarrArr,
+    arr_class_for_section,
+)
 from qBitrr.arss.arr_base import ArrBase
 from qBitrr.errors import SkipException
 
@@ -100,6 +107,7 @@ class TestArrFactory(unittest.TestCase):
         self.assertIs(arr_class_for_section("Radarr.Main"), RadarrArr)
         self.assertIs(arr_class_for_section("Sonarr-TV"), SonarrArr)
         self.assertIs(arr_class_for_section("Lidarr.Music"), LidarrArr)
+        self.assertIs(arr_class_for_section("Readarr-Books"), ReadarrArr)
 
     def test_animarr_section_rejected(self) -> None:
         with self.assertRaises(ValueError) as ctx:

@@ -97,6 +97,23 @@ def register_process_routes(
                 if season is not None and episode_number is not None:
                     pieces.append(f"S{int(season):02d}E{int(episode_number):02d}")
                 # Intentionally omit individual episode titles/status values
+            elif arr_type == "readarr":
+                author = record.get("author") or {}
+                book = record.get("book") or {}
+                author_name = None
+                book_title = None
+                if isinstance(author, dict):
+                    author_name = author.get("authorName") or author.get("name")
+                if isinstance(book, dict):
+                    book_title = book.get("title")
+                if author_name:
+                    pieces.append(author_name)
+                if book_title:
+                    pieces.append(book_title)
+                if not pieces:
+                    title = record.get("title")
+                    if title:
+                        pieces.append(title)
             else:
                 title = record.get("title")
                 if title:

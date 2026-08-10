@@ -3,7 +3,8 @@
 Category-specific defaults (exclusion regexes, error messages, ``Is4K``,
 ``Category``) are applied in :mod:`qBitrr.gen_config.sections` via
 ``filter_arr_fields`` + overrides so emitted TOML stays identical.
-``arr_kinds`` encodes Sonarr/Radarr/Lidarr conditionals declaratively.
+``arr_kinds`` encodes Sonarr/Radarr/Lidarr/Readarr conditionals declaratively.
+Ombi/Overseerr fields are limited to ``_REQUEST_APPS`` (Sonarr/Radarr only).
 """
 
 from __future__ import annotations
@@ -14,7 +15,9 @@ from qBitrr.gen_config.fields import ConfigField
 
 _SONARR = frozenset({"sonarr"})
 _RADARR = frozenset({"radarr"})
-_NOT_LIDARR = frozenset({"sonarr", "radarr"})
+_REQUEST_APPS = frozenset({"sonarr", "radarr"})
+# Year/limit/unmonitored search fields apply to video Arrs and Readarr (not Lidarr).
+_NOT_LIDARR = frozenset({"sonarr", "radarr", "readarr"})
 
 
 def _empty_quality_profile_mappings():
@@ -168,10 +171,11 @@ ARR_FIELDS: tuple[ConfigField, ...] = (
     ConfigField(
         ("EntrySearch", "SearchRequestsEvery"),
         300,
-        "Delay (in seconds) between checking for new Overseerr/Ombi requests. Does NOT affect delay between individual search commands (use Settings.SearchLoopDelay for that).",
+        "Delay (in seconds) between checking for new Overseerr/Ombi requests (Radarr/Sonarr only). Does NOT affect delay between individual search commands (use Settings.SearchLoopDelay for that).",
         label="Search Requests Every",
         kind="duration",
         native_unit="seconds",
+        arr_kinds=_REQUEST_APPS,
     ),
     ConfigField(
         ("EntrySearch", "DoUpgradeSearch"),
@@ -277,21 +281,21 @@ ARR_FIELDS: tuple[ConfigField, ...] = (
         kind="checkbox",
         arr_kinds=_SONARR,
     ),
-    # Ombi / Overseerr
+    # Ombi / Overseerr (Sonarr/Radarr only — not Lidarr/Readarr)
     ConfigField(
         ("EntrySearch", "Ombi", "SearchOmbiRequests"),
         False,
         "Search Ombi for pending requests (Will only work if 'SearchMissing' is enabled.)",
         label="Search Ombi Requests",
         kind="checkbox",
-        arr_kinds=_NOT_LIDARR,
+        arr_kinds=_REQUEST_APPS,
     ),
     ConfigField(
         ("EntrySearch", "Ombi", "OmbiURI"),
         "CHANGE_ME",
         "Ombi URI eg. http://ip:port (Note that this has to be the instance of Ombi which manage the Arr instance request (If you have multiple Ombi instances)",
         label="Ombi URI",
-        arr_kinds=_NOT_LIDARR,
+        arr_kinds=_REQUEST_APPS,
     ),
     ConfigField(
         ("EntrySearch", "Ombi", "OmbiAPIKey"),
@@ -300,7 +304,7 @@ ARR_FIELDS: tuple[ConfigField, ...] = (
         label="Ombi API Key",
         kind="password",
         secure=True,
-        arr_kinds=_NOT_LIDARR,
+        arr_kinds=_REQUEST_APPS,
     ),
     ConfigField(
         ("EntrySearch", "Ombi", "ApprovedOnly"),
@@ -308,7 +312,7 @@ ARR_FIELDS: tuple[ConfigField, ...] = (
         "Only process approved requests",
         label="Ombi Approved Only",
         kind="checkbox",
-        arr_kinds=_NOT_LIDARR,
+        arr_kinds=_REQUEST_APPS,
     ),
     ConfigField(
         ("EntrySearch", "Ombi", "SkipTLSVerify"),
@@ -316,7 +320,7 @@ ARR_FIELDS: tuple[ConfigField, ...] = (
         ("If true, do not verify TLS for Ombi HTTPS (self-signed). Disables MITM protection.",),
         label="Ombi Skip TLS Verify",
         kind="checkbox",
-        arr_kinds=_NOT_LIDARR,
+        arr_kinds=_REQUEST_APPS,
     ),
     ConfigField(
         ("EntrySearch", "Overseerr", "SearchOverseerrRequests"),
@@ -327,14 +331,14 @@ ARR_FIELDS: tuple[ConfigField, ...] = (
         ),
         label="Search Overseerr Requests",
         kind="checkbox",
-        arr_kinds=_NOT_LIDARR,
+        arr_kinds=_REQUEST_APPS,
     ),
     ConfigField(
         ("EntrySearch", "Overseerr", "OverseerrURI"),
         "CHANGE_ME",
         "Overseerr's URI eg. http://ip:port",
         label="Overseerr URI",
-        arr_kinds=_NOT_LIDARR,
+        arr_kinds=_REQUEST_APPS,
     ),
     ConfigField(
         ("EntrySearch", "Overseerr", "OverseerrAPIKey"),
@@ -343,7 +347,7 @@ ARR_FIELDS: tuple[ConfigField, ...] = (
         label="Overseerr API Key",
         kind="password",
         secure=True,
-        arr_kinds=_NOT_LIDARR,
+        arr_kinds=_REQUEST_APPS,
     ),
     ConfigField(
         ("EntrySearch", "Overseerr", "ApprovedOnly"),
@@ -351,7 +355,7 @@ ARR_FIELDS: tuple[ConfigField, ...] = (
         "Only process approved requests",
         label="Overseerr Approved Only",
         kind="checkbox",
-        arr_kinds=_NOT_LIDARR,
+        arr_kinds=_REQUEST_APPS,
     ),
     ConfigField(
         ("EntrySearch", "Overseerr", "SkipTLSVerify"),
@@ -361,7 +365,7 @@ ARR_FIELDS: tuple[ConfigField, ...] = (
         ),
         label="Overseerr Skip TLS Verify",
         kind="checkbox",
-        arr_kinds=_NOT_LIDARR,
+        arr_kinds=_REQUEST_APPS,
     ),
     ConfigField(
         ("EntrySearch", "Overseerr", "Is4K"),
@@ -369,7 +373,7 @@ ARR_FIELDS: tuple[ConfigField, ...] = (
         "Only for 4K Instances",
         label="Is 4K",
         kind="checkbox",
-        arr_kinds=_NOT_LIDARR,
+        arr_kinds=_REQUEST_APPS,
     ),
     # Torrent
     ConfigField(

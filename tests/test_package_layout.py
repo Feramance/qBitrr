@@ -44,6 +44,7 @@ class TestPackageLayout(unittest.TestCase):
             "qBitrr.arss.radarr",
             "qBitrr.arss.sonarr",
             "qBitrr.arss.lidarr",
+            "qBitrr.arss.readarr",
             "qBitrr.arss.factory",
             "qBitrr.arss.torrent_dispatch",
             "qBitrr.arss.torrent_limits",

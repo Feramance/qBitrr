@@ -138,7 +138,7 @@ This page covers the most frequently encountered issues with qBitrr and their so
 
 ### Arr Instance Connection Failures
 
-#### Symptom: "Connection refused" when connecting to Radarr/Sonarr/Lidarr
+#### Symptom: "Connection refused" when connecting to Radarr/Sonarr/Lidarr/Readarr
 
 **Solutions:**
 
@@ -192,7 +192,7 @@ The #1 reason qBitrr doesn't process torrents is **mismatched categories**.
 **How to Fix:**
 
 1. **Check Arr download client category:**
-   - Radarr/Sonarr/Lidarr → **Settings** → **Download Clients**
+   - Radarr/Sonarr/Lidarr/Readarr → **Settings** → **Download Clients**
    - Click your qBittorrent client
    - Note the **Category** field (e.g., `radarr-movies`)
 

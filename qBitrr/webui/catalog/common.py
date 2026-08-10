@@ -100,4 +100,19 @@ def empty_catalog_payload(
             "page_size": page_size,
             "albums": [],
         }
+    if kind == "readarr_authors":
+        return {
+            "counts": {
+                "available": 0,
+                "monitored": 0,
+                "missing": 0,
+                "quality_met": 0,
+                "requests": 0,
+            },
+            "book_total": 0,
+            "total": 0,
+            "page": page,
+            "page_size": page_size,
+            "authors": [],
+        }
     raise ValueError(f"unknown catalog kind: {kind}")

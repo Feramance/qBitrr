@@ -30,6 +30,7 @@ describe("AppShell keep-alive policy", () => {
     expect(source).toMatch(/configuredTabs\.radarr/);
     expect(source).toMatch(/configuredTabs\.sonarr/);
     expect(source).toMatch(/configuredTabs\.lidarr/);
+    expect(source).toMatch(/configuredTabs\.readarr/);
     expect(source).toMatch(/configuredTabs\.qbittorrent/);
     expect(source).toMatch(
       /qbittorrent:\s*Object\.keys\(qbitInstances\)\.length\s*>\s*0/,

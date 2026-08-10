@@ -4,4 +4,4 @@
  * [`getArrCatalogDefinition`](./getArrCatalogDefinition.ts) or dynamic import in
  * [`ArrCatalogView`](../ArrCatalogView.tsx) — there is no runtime registry map.
  */
-export type ArrCatalogKind = "radarr" | "sonarr" | "lidarr";
+export type ArrCatalogKind = "radarr" | "sonarr" | "lidarr" | "readarr";

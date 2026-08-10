@@ -68,7 +68,7 @@ class ArrManager:
     def any_arr_match_subcategories_explicit_true() -> bool:
         """True when some Arr section explicitly enables MatchSubcategories (truthy), not inherit."""
         for key in CONFIG.sections():
-            if re.match(r"(rad|son|lid)arr", key, re.IGNORECASE):
+            if re.match(r"(rad|son|lid|read)arr", key, re.IGNORECASE):
                 raw = CONFIG.get(f"{key}.MatchSubcategories", fallback=None)
                 if raw is not None and bool(raw):
                     return True
@@ -356,7 +356,7 @@ class ArrManager:
         self.policy_manager_tracker_sync_owner = False
         self.policy_manager_tracker_sync_categories.clear()
         for key in CONFIG.sections():
-            if search := re.match("(rad|son|lid)arr.*", key, re.IGNORECASE):
+            if search := re.match("(rad|son|lid|read)arr.*", key, re.IGNORECASE):
                 name = search.group(0)
                 try:
                     managed_object = build_arr_instance(name, self)

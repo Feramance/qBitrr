@@ -58,6 +58,7 @@ class TorrentBatch:
                         "sonarr": "DownloadedEpisodesScan",
                         "radarr": "DownloadedMoviesScan",
                         "lidarr": "DownloadedAlbumsScan",
+                        "readarr": "DownloadedBooksScan",
                     }
                     scan_cmd = scan_commands.get(self.type)
                     if scan_cmd:

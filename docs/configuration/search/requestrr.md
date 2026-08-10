@@ -15,7 +15,7 @@ flowchart LR
     B --> C{Overseerr\nor\nOmbi}
     C --> D[Request DB]
     D --> E[qBitrr\nSearch]
-    E --> F[Radarr/Sonarr/Lidarr]
+    E --> F[Radarr/Sonarr/Lidarr/Readarr]
 ```
 
 ## Supported Backends
@@ -48,7 +48,7 @@ For detailed Requestrr configuration, see the [Requestrr Wiki](https://github.co
 ### Step 2: Configure Overseerr or Ombi
 
 **If using Overseerr:**
-- Connect Overseerr to your Radarr/Sonarr/Lidarr instances
+- Connect Overseerr to your Radarr/Sonarr/Lidarr/Readarr instances
 - Configure quality profiles, root folders, and user permissions
 - Requests will automatically appear in Overseerr
 
@@ -166,7 +166,7 @@ Both work together seamlessly. qBitrr will process all requests from Overseerr/O
 ### Requests from Requestrr not appearing in qBitrr
 
 1. Verify Requestrr is connected to Overseerr/Ombi (check Requestrr logs)
-2. Verify Overseerr/Ombi is connected to Radarr/Sonarr/Lidarr
+2. Verify Overseerr/Ombi is connected to Radarr/Sonarr/Lidarr/Readarr
 3. Verify qBitrr is connected to the same Overseerr/Ombi instance
 4. Check qBitrr logs for connection errors
 

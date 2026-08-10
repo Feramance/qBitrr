@@ -37,6 +37,9 @@ from qBitrr.arss.arr_shared import (
     AlbumFilesModel,
     AlbumQueueModel,
     ArtistFilesModel,
+    AuthorFilesModel,
+    BookFilesModel,
+    BookQueueModel,
     DelayLoopException,
     EpisodeFilesModel,
     EpisodeQueueModel,
@@ -921,7 +924,7 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
         ]
         arr_trackers: list[dict] = []
         for section in CONFIG.sections():
-            if not re.match(r"(rad|son|lid)arr.*", section, re.IGNORECASE):
+            if not re.match(r"(rad|son|lid|read)arr.*", section, re.IGNORECASE):
                 continue
             for tracker in CONFIG.get(f"{section}.Torrent.Trackers", fallback=[]):
                 if isinstance(tracker, dict):
@@ -981,7 +984,7 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
     def global_remove_dead_trackers_union() -> bool:
         """True if any Arr section enables ``RemoveDeadTrackers`` (for priority sorting)."""
         for section in CONFIG.sections():
-            if not re.match(r"(rad|son|lid)arr.*", section, re.IGNORECASE):
+            if not re.match(r"(rad|son|lid|read)arr.*", section, re.IGNORECASE):
                 continue
             if CONFIG.get(f"{section}.Torrent.SeedingMode.RemoveDeadTrackers", fallback=False):
                 return True
@@ -993,7 +996,7 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
         seen: set[str] = set()
         out: list[str] = []
         for section in CONFIG.sections():
-            if not re.match(r"(rad|son|lid)arr.*", section, re.IGNORECASE):
+            if not re.match(r"(rad|son|lid|read)arr.*", section, re.IGNORECASE):
                 continue
             raw = CONFIG.get(
                 f"{section}.Torrent.SeedingMode.RemoveTrackerWithMessage", fallback=[]
@@ -2020,6 +2023,11 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
             if file.name.endswith(".!qB"):
                 self.logger.trace("Not probeable: File is still downloading: %s", file)
                 return False
+            ebook_suffixes = (".epub", ".mobi", ".azw", ".azw3", ".pdf", ".cbz", ".cbr")
+            if file.suffix.lower() in ebook_suffixes:
+                self.logger.trace("Probeable: Ebook/comic suffix skips ffprobe: %s", file)
+                self.files_probed.add(file)
+                return True
             output = ffmpeg.probe(
                 str(file.absolute()), cmd=self.manager.qbit_manager.ffprobe_downloader.probe_path
             )
@@ -3255,7 +3263,9 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
 
     def _bind_type_specific_models(
         self,
-        series_or_artist_model: type[SeriesFilesModel] | type[ArtistFilesModel] | None,
+        series_or_artist_model: (
+            type[SeriesFilesModel] | type[ArtistFilesModel] | type[AuthorFilesModel] | None
+        ),
         track_model: type[TrackFilesModel] | None,
     ) -> None:
         """Wire series/artist/track model attributes; subclasses override."""
@@ -3266,9 +3276,15 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
     def _get_models(
         self,
     ) -> tuple[
-        type[EpisodeFilesModel] | type[MoviesFilesModel] | type[AlbumFilesModel],
-        type[EpisodeQueueModel] | type[MovieQueueModel] | type[AlbumQueueModel],
-        type[SeriesFilesModel] | type[ArtistFilesModel] | None,
+        type[EpisodeFilesModel]
+        | type[MoviesFilesModel]
+        | type[AlbumFilesModel]
+        | type[BookFilesModel],
+        type[EpisodeQueueModel]
+        | type[MovieQueueModel]
+        | type[AlbumQueueModel]
+        | type[BookQueueModel],
+        type[SeriesFilesModel] | type[ArtistFilesModel] | type[AuthorFilesModel] | None,
         type[TrackFilesModel] | None,
         type[TorrentLibrary] | None,
     ]:
@@ -3297,7 +3313,13 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
 
     def maybe_do_search(
         self,
-        file_model: EpisodeFilesModel | MoviesFilesModel | SeriesFilesModel,
+        file_model: (
+            EpisodeFilesModel
+            | MoviesFilesModel
+            | SeriesFilesModel
+            | AlbumFilesModel
+            | BookFilesModel
+        ),
         request: bool = False,
         todays: bool = False,
         bypass_limit: bool = False,
