@@ -183,6 +183,54 @@ class AlbumQueueModel(Model):
     ArrInstance = CharField(null=True, default="")
 
 
+class BookFilesModel(ArrFileRowFieldsBase):
+    Title = CharField()
+    Monitored = BooleanField()
+    ForeignBookId = CharField()
+    ReleaseDate = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"], null=True)
+    BookFileId = IntegerField()
+    AuthorId = IntegerField(null=False)
+    AuthorTitle = TextField(null=True)
+
+    class Meta:
+        primary_key = CompositeKey("EntryId", "ArrInstance")
+        indexes = (
+            (("EntryId", "ArrInstance"), True),
+            (("ArrInstance",), False),
+            (("AuthorId",), False),
+            (("Searched",), False),
+        )
+
+
+class AuthorFilesModel(Model):
+    EntryId = IntegerField()
+    Title = TextField(null=True)
+    Monitored = BooleanField(null=True)
+    ArrInstance = CharField(default="")
+    Searched = BooleanField(default=False)
+    Upgrade = BooleanField(default=False)
+    MinCustomFormatScore = IntegerField(null=True)
+    QualityProfileId = IntegerField(null=True)
+    QualityProfileName = TextField(null=True)
+    LastProfileSwitchTime = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"], null=True)
+    CurrentProfileId = IntegerField(null=True)
+    OriginalProfileId = IntegerField(null=True)
+    BookCount = IntegerField(default=0)
+
+    class Meta:
+        primary_key = CompositeKey("EntryId", "ArrInstance")
+        indexes = (
+            (("EntryId", "ArrInstance"), True),
+            (("ArrInstance",), False),
+        )
+
+
+class BookQueueModel(Model):
+    EntryId = IntegerField(unique=True)
+    Completed = BooleanField(default=False)
+    ArrInstance = CharField(null=True, default="")
+
+
 class TorrentLibrary(Model):
     Hash = TextField(null=False)
     Category = TextField(null=False)

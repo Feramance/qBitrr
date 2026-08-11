@@ -16,7 +16,7 @@ def _openapi_path_in_api_first_spec(path: str) -> bool:
         return True
     if not path.endswith("/thumbnail"):
         return False
-    return path.startswith(("/web/radarr/", "/web/sonarr/", "/web/lidarr/"))
+    return path.startswith(("/web/radarr/", "/web/sonarr/", "/web/lidarr/", "/web/readarr/"))
 
 
 def _if_none_match_includes_etag(if_none_match: str | None, etag: str) -> bool:

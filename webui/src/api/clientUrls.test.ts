@@ -47,6 +47,7 @@ describe("api client URL helpers", () => {
       getRadarrOpenMovieUrl,
       getSonarrOpenSeriesUrl,
       getLidarrOpenArtistUrl,
+      getReadarrOpenAuthorUrl,
     } = await loadClient();
 
     expect(getArrOpenItemUrl("My Radarr", "movie", 42)).toBe(
@@ -55,6 +56,7 @@ describe("api client URL helpers", () => {
     expect(getRadarrOpenMovieUrl("rad", 1)).toBe("/qbitrr/web/arr/rad/open/movie/1");
     expect(getSonarrOpenSeriesUrl("son", 7)).toBe("/qbitrr/web/arr/son/open/series/7");
     expect(getLidarrOpenArtistUrl("lid", 99)).toBe("/qbitrr/web/arr/lid/open/artist/99");
+    expect(getReadarrOpenAuthorUrl("read", 5)).toBe("/qbitrr/web/arr/read/open/author/5");
   });
 
   it("exports AuthError with optional code", async () => {

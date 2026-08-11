@@ -17,11 +17,11 @@ from qBitrr.gen_config.fields import (
 from qBitrr.gen_config.fields_arr import ARR_FIELDS
 from qBitrr.home_path import HOME_PATH
 
-ARR_SECTION_PREFIXES = ("Radarr", "Sonarr", "Lidarr")
+ARR_SECTION_PREFIXES = ("Radarr", "Sonarr", "Lidarr", "Readarr")
 
 
 def iter_arr_sections(config: Any):
-    """Yield config section names for Radarr/Sonarr/Lidarr instances."""
+    """Yield config section names for Radarr/Sonarr/Lidarr/Readarr instances."""
     keys = config.sections() if hasattr(config, "sections") else config.config.keys()
     for section in keys:
         name = str(section)
@@ -154,7 +154,14 @@ def _gen_qbit_tracker_tables(qbit_table: Table):
 
 
 def _add_category_sections(config: TOMLDocument):
-    for c in ["Sonarr-TV", "Sonarr-Anime", "Radarr-1080", "Radarr-4K", "Lidarr-Music"]:
+    for c in [
+        "Sonarr-TV",
+        "Sonarr-Anime",
+        "Radarr-1080",
+        "Radarr-4K",
+        "Lidarr-Music",
+        "Readarr-Books",
+    ]:
         _gen_default_cat(c, config)
 
 
@@ -179,6 +186,12 @@ def _arr_blocklist_messages(category: str) -> list[str]:
             "Not an upgrade for existing track file(s)",
             "Unable to determine if file is a sample",
         ]
+    if "readarr" in lower:
+        return [
+            "Not a preferred word upgrade for existing book file(s)",
+            "Not an upgrade for existing book file(s)",
+            "Unable to determine if file is a sample",
+        ]
     return []
 
 
@@ -194,7 +207,7 @@ def _arr_folder_exclusions(category: str) -> list[str]:
             r"\bova\b",
             r"\bnc(ed|op)?(\\d+)?\b",
         ]
-    if "lidarr" in lower:
+    if "lidarr" in lower or "readarr" in lower:
         return [
             r"\bextras?\b",
             r"\bsamples?\b",
@@ -210,7 +223,7 @@ def _arr_folder_exclusions(category: str) -> list[str]:
 
 
 def _arr_filename_exclusions(category: str) -> list[str]:
-    if "lidarr" in category.lower():
+    if "lidarr" in category.lower() or "readarr" in category.lower():
         return [
             r"\bsample\b",
             r"brarbg.com\b",
@@ -229,7 +242,8 @@ def _arr_filename_exclusions(category: str) -> list[str]:
 
 
 def _arr_file_extensions(category: str) -> list[str]:
-    if "lidarr" in category.lower():
+    lower = category.lower()
+    if "lidarr" in lower:
         return [
             ".mp3",
             ".flac",
@@ -240,6 +254,18 @@ def _arr_file_extensions(category: str) -> list[str]:
             ".wav",
             ".ape",
             ".wma",
+            ".!qB",
+            ".parts",
+        ]
+    if "readarr" in lower:
+        return [
+            ".epub",
+            ".mobi",
+            ".azw",
+            ".azw3",
+            ".pdf",
+            ".cbz",
+            ".cbr",
             ".!qB",
             ".parts",
         ]
@@ -290,6 +316,19 @@ def _arr_category_overrides(category: str) -> dict[str, Any]:
         overrides["EntrySearch.SearchByYear"] = {
             "default": True,
             "comments": "It will order searches by the year the movie was released",
+        }
+    elif "readarr" in lower:
+        overrides["EntrySearch.Unmonitored"] = {
+            "default": False,
+            "comments": "Should search for unmonitored books?",
+        }
+        overrides["EntrySearch.SearchLimit"] = {
+            "default": 5,
+            "comments": "Maximum allowed Searches at any one point",
+        }
+        overrides["EntrySearch.SearchByYear"] = {
+            "default": True,
+            "comments": "It will order searches by the year the book was released",
         }
     return overrides
 

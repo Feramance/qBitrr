@@ -276,7 +276,7 @@ def register_config_routes(
             if not data:
                 return jsonify({"success": False, "message": "Missing request body"}), 400
 
-            arr_type = data.get("arrType")  # "radarr" | "sonarr" | "lidarr"
+            arr_type = data.get("arrType")  # "radarr" | "sonarr" | "lidarr" | "readarr"
             instance_key = data.get("instanceKey")
             uri = data.get("uri")
             api_key = data.get("apiKey")
@@ -367,6 +367,10 @@ def register_config_routes(
                     from qBitrr.arr_client import build_lidarr_client
 
                     client = build_lidarr_client(uri, api_key, verify_ssl=verify_ssl)
+                elif arr_type == "readarr":
+                    from qBitrr.arr_client import build_readarr_client
+
+                    client = build_readarr_client(uri, api_key, verify_ssl=verify_ssl)
                 else:
                     return (
                         jsonify({"success": False, "message": f"Invalid arrType: {arr_type}"}),

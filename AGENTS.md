@@ -10,7 +10,7 @@
   - `qBitrr/main.py` – orchestrates multiprocessing, launches arr managers and WebUI
   - `qBitrr/arss/` – Arr package (split from legacy monolith):
     - `arr_base.py` – `ArrBase` shared torrent pipeline, config, loops, qBit side effects
-    - `radarr.py` / `sonarr.py` / `lidarr.py` – `RadarrArr` / `SonarrArr` / `LidarrArr` concretes
+    - `radarr.py` / `sonarr.py` / `lidarr.py` / `readarr.py` – `RadarrArr` / `SonarrArr` / `LidarrArr` / `ReadarrArr` concretes
     - `factory.py` – section name → concrete Arr class + client builder
     - `arr.py` – compatibility alias (`Arr = ArrBase`)
     - `manager.py` – `ArrManager` orchestration and instance factory wiring
@@ -114,7 +114,7 @@
 - **User Messages**: Provide actionable error messages; reference config keys, Arr instance names, torrent hashes
 
 ## Architecture & Patterns
-- **Arr / Radarr-Sonarr-Lidarr**: Prefer per-type subclasses `RadarrArr` / `SonarrArr` / `LidarrArr` of `ArrBase` (not `if self.type` branches). Put type-specific models, `db_update`, search/re-search, and feature gates on the concrete class. Shared torrent pipeline stays on `ArrBase`. `self.type` remains a string tag for logging/DB/leaf helpers.
+- **Arr / Radarr-Sonarr-Lidarr-Readarr**: Prefer per-type subclasses `RadarrArr` / `SonarrArr` / `LidarrArr` / `ReadarrArr` of `ArrBase` (not `if self.type` branches). Put type-specific models, `db_update`, search/re-search, and feature gates on the concrete class. Shared torrent pipeline stays on `ArrBase`. `self.type` remains a string tag for logging/DB/leaf helpers.
 - **Multiprocessing**: `pathos.multiprocessing` for cross-platform support; each Arr instance runs in a separate process
 - **Threading**: WebUI runs in main thread; auto-update, network monitor, and FFprobe downloads in background threads
 - **Database**: Peewee ORM with SQLite (thread-safe via `db_lock.py`); tables: `DownloadsModel`, `SearchModel`, `EntryExpiry`
@@ -129,7 +129,7 @@
 - **Config Changes**: Edit `qBitrr/gen_config/` (MyConfig / section builders); regenerate example via `qbitrr --gen-config`
 - **WebUI Changes**: Run `npm run dev` in webui/, API requests proxy to http://localhost:6969
 - **Database Schema**: Modify `qBitrr/tables.py`, add migration logic in `config.py:apply_config_migrations()`
-- **New Arr Type**: Add a new `ArrBase` subclass under `qBitrr/arss/` (models, `db_update`, re-search, feature gates), register it in `factory.py` / `ArrManager.build_arr_instances()`, and extend config in `gen_config/`. Role workers (`PlaceHolderArr`, `TorrentPolicyManager`) subclass `ArrBase` without calling full Arr `__init__`.
+- **New Arr Type**: Add a new `ArrBase` subclass under `qBitrr/arss/` (models, `db_update`, re-search, feature gates), register it in `factory.py` / `ArrManager.build_arr_instances()`, extend config in `gen_config/`, and wire WebUI catalog (`webui/src/pages/arrCatalog/`). See existing `ReadarrArr` as the latest example. Role workers (`PlaceHolderArr`, `TorrentPolicyManager`) subclass `ArrBase` without calling full Arr `__init__`.
 - **Pre-commit Bypass**: `git commit --no-verify` (discouraged; use for emergency hotfixes only)
 
 ## Testing & Validation

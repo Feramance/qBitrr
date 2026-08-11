@@ -312,7 +312,7 @@ With multi-instance support, you can configure multiple qBittorrent instances an
 
 ### How It Works
 
-**Key Concept:** Each Arr instance (Radarr/Sonarr/Lidarr) monitors ALL qBittorrent instances. Torrents are identified by **category**, not by which instance they're on.
+**Key Concept:** Each Arr instance (Radarr/Sonarr/Lidarr/Readarr) monitors ALL qBittorrent instances. Torrents are identified by **category**, not by which instance they're on.
 
 **Example:**
 - Radarr can send downloads to ANY available qBit instance
@@ -606,7 +606,7 @@ For related documentation, see:
 
 ## Managed Categories & Seeding Settings
 
-qBitrr can manage qBittorrent categories independently of Radarr/Sonarr/Lidarr. This is useful for torrents that aren't tracked by any Arr instance, such as manually added downloads, private tracker torrents, or long-term seeds.
+qBitrr can manage qBittorrent categories independently of Radarr/Sonarr/Lidarr/Readarr. This is useful for torrents that aren't tracked by any Arr instance, such as manually added downloads, private tracker torrents, or long-term seeds.
 
 ### Overview
 
@@ -810,7 +810,7 @@ qBitrr surfaces a few subcategory-specific log lines at start-up:
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | qBitrr's "qBittorrent" tab shows the category but **no torrents**. | `Category` doesn't match the qBit string verbatim (you used the leaf only). | Either set `Category = "<parent>/<leaf>"` exactly, **or** enable `MatchSubcategories = true` and configure the parent. |
-| WebUI returns **404** when opening a Radarr/Sonarr/Lidarr browse page. | Older qBitrr build (pre-subcategories) had `<string:category>` Flask routes that don't accept `/`. | Upgrade qBitrr — current routes use `<path:category>`. |
+| WebUI returns **404** when opening a Radarr/Sonarr/Lidarr/Readarr browse page. | Older qBitrr build (pre-subcategories) had `<string:category>` Flask routes that don't accept `/`. | Upgrade qBitrr — current routes use `<path:category>`. |
 | `Failed to create parent category 'seed' on '<name>'` warning. | qBittorrent rejects the parent (existing rules, permissions, "Use subcategories" disabled). | Enable Tools → Options → "Use subcategories" in qBittorrent, or create the parent manually with the desired save path. |
 | Torrents land in `<DownloadFolder>/seed/tleech` on disk even though qBit's saved path is something else. | qBit's category had no `savePath` set, so qBitrr fell back to `Settings.CompletedDownloadFolder`. | Set the desired `savePath` on the parent category in qBittorrent. qBitrr will inherit it for children. |
 

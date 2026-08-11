@@ -15,6 +15,7 @@ from qBitrr.arss.arr_shared import _ARR_RETRY_EXCEPTIONS, with_retry
 from qBitrr.db_lock import database_lock
 from qBitrr.tables import (
     AlbumFilesModel,
+    BookFilesModel,
     EpisodeFilesModel,
     MoviesFilesModel,
     SeriesFilesModel,
@@ -28,7 +29,7 @@ def db_get_files(
     arr: Arr,
 ) -> Iterable[
     tuple[
-        MoviesFilesModel | EpisodeFilesModel | SeriesFilesModel | AlbumFilesModel,
+        MoviesFilesModel | EpisodeFilesModel | SeriesFilesModel | AlbumFilesModel | BookFilesModel,
         bool,
         bool,
         bool,
@@ -142,6 +143,17 @@ def _collect_album_ids(arr):
     return ids
 
 
+def _collect_book_ids(arr):
+    books = with_retry(
+        lambda: arr.client.book.get(),
+        retries=5,
+        backoff=0.5,
+        max_backoff=5,
+        exceptions=_ARR_RETRY_EXCEPTIONS,
+    )
+    return [b["id"] for b in books if isinstance(b, dict) and "id" in b]
+
+
 def db_reset__series_searched_state(arr):
     arr.series_file_model: SeriesFilesModel
     arr.model_file: EpisodeFilesModel
@@ -184,10 +196,21 @@ def db_reset__album_searched_state(arr):
     )
 
 
+def db_reset__book_searched_state(arr):
+    """Clear Searched/Upgrade on Readarr book rows and prune orphans."""
+    arr.model_file: BookFilesModel
+    _db_reset_searched_state(
+        arr,
+        model=arr.model_file,
+        collect_ids=lambda: _collect_book_ids(arr),
+        entity_label="books",
+    )
+
+
 def _db_search_quality_cf_condition(arr, *, missing_file_field):
     """Build Searched / QualityMet / CustomFormatMet / missing-file WHERE fragment.
 
-    Shared by ``db_get_files_series|episodes|movies|albums``.
+    Shared by ``db_get_files_series|episodes|movies|albums|books``.
     ``missing_file_field`` is the model column for "no file yet" (e.g. EpisodeFileId).
     """
     model = arr.model_file
@@ -422,6 +445,48 @@ def db_get_files_albums(arr) -> list[list[AlbumFilesModel, bool, bool]] | None:
         .order_by(
             reason_priority.asc(),
             arr.model_file.AlbumFileId.asc(),
+        )
+        .execute()
+    ):
+        entries.append([entry, False, False])
+    return entries
+
+
+def db_get_files_books(arr) -> list[list[BookFilesModel, bool, bool]] | None:
+    """Readarr book-search candidates (called only from ReadarrArr)."""
+    entries = []
+    if not (arr.search_missing or arr.do_upgrade_search):
+        return None
+    condition = arr.model_file.ArrInstance == arr._name
+    condition &= _db_search_quality_cf_condition(arr, missing_file_field=arr.model_file.BookFileId)
+    if arr.search_by_year and arr.search_current_year is not None:
+        condition &= arr.model_file.ReleaseDate.is_null(False)
+        condition &= arr.model_file.ReleaseDate >= datetime(
+            month=1, day=1, year=int(arr.search_current_year)
+        )
+        condition &= arr.model_file.ReleaseDate <= datetime(
+            month=12, day=31, hour=23, minute=59, second=59, year=int(arr.search_current_year)
+        )
+
+    from peewee import Case
+
+    reason_priority = Case(
+        None,
+        (
+            (arr.model_file.Reason == "Missing", 1),
+            (arr.model_file.Reason == "CustomFormat", 2),
+            (arr.model_file.Reason == "Quality", 3),
+            (arr.model_file.Reason == "Upgrade", 4),
+        ),
+        5,  # Default priority for other reasons
+    )
+
+    for entry in (
+        arr.model_file.select()
+        .where(condition)
+        .order_by(
+            reason_priority.asc(),
+            arr.model_file.BookFileId.asc(),
         )
         .execute()
     ):

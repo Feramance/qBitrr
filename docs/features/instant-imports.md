@@ -87,6 +87,7 @@ qBitrr sends an appropriate API command to Arr based on the media type:
 - **Radarr (Movies):** `DownloadedMoviesScan`
 - **Sonarr (TV):** `DownloadedEpisodesScan`
 - **Lidarr (Music):** `DownloadedAlbumsScan`
+- **Readarr (Books):** `DownloadedBooksScan`
 
 This forces Arr to immediately check its download queue and import completed items.
 
@@ -311,7 +312,7 @@ sequenceDiagram
 1. **Monitoring Loop**: qBitrr polls qBittorrent every `LoopSleepTimer` seconds
 2. **Completion Detection**: Detects 100% progress + seeding state
 3. **Validation**: FFprobe checks file integrity (if enabled)
-4. **Import Trigger**: Sends `DownloadedMoviesScan` (Radarr) / `DownloadedEpisodesScan` (Sonarr) / `DownloadedAlbumsScan` (Lidarr) command to Arr
+4. **Import Trigger**: Sends `DownloadedMoviesScan` (Radarr) / `DownloadedEpisodesScan` (Sonarr) / `DownloadedAlbumsScan` (Lidarr) / `DownloadedBooksScan` (Readarr) command to Arr
 5. **File Transfer**: Arr copies or moves files based on `importMode`
 6. **Finalization**: Arr renames, adds metadata, updates library
 
@@ -557,7 +558,7 @@ gantt
 View import status in real-time:
 
 1. Open WebUI: `http://localhost:6969/ui`
-2. Navigate to Arr tab (Radarr/Sonarr/Lidarr)
+2. Navigate to Arr tab (Radarr/Sonarr/Lidarr/Readarr)
 3. Watch progress bars and status updates
 
 **Status indicators:**

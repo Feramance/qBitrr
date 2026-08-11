@@ -103,7 +103,7 @@ qBitrr **requires** your Arr downloads to be tagged so it knows which torrents t
    - `sonarr-tv` for Sonarr downloads
    - `lidarr-music` for Lidarr downloads
 
-### In Radarr/Sonarr/Lidarr
+### In Radarr/Sonarr/Lidarr/Readarr
 
 1. Go to Settings → Download Clients
 2. Edit your qBittorrent client
@@ -170,7 +170,7 @@ CategoryLidarr = "lidarr-music"
 Look for these messages:
 
 - ✅ `Connecting to qBittorrent...`
-- ✅ `Connecting to Radarr/Sonarr/Lidarr...`
+- ✅ `Connecting to Radarr/Sonarr/Lidarr/Readarr...`
 - ✅ `Starting Arr manager process...`
 - ❌ `Failed to connect...` (fix your URL/API key)
 
@@ -182,7 +182,7 @@ Look for these messages:
 
 ## Step 7: Test with a Download
 
-1. In Radarr/Sonarr/Lidarr, search for a movie/show/album
+1. In Radarr/Sonarr/Lidarr/Readarr, search for a movie/show/album
 2. Manually grab a small torrent (for testing)
 3. Watch qBitrr logs – it should detect the new torrent
 4. When the download completes, qBitrr will trigger an import

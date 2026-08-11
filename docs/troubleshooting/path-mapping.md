@@ -1,6 +1,6 @@
 # Path Mapping Troubleshooting
 
-This guide covers path mapping issues between qBittorrent, Arr instances (Radarr/Sonarr/Lidarr), and qBitrr, focusing on Docker volume mapping and file accessibility.
+This guide covers path mapping issues between qBittorrent, Arr instances (Radarr/Sonarr/Lidarr/Readarr), and qBitrr, focusing on Docker volume mapping and file accessibility.
 
 ## Contents
 
@@ -177,7 +177,7 @@ services:
 
 ### Download Client Settings
 
-In Radarr/Sonarr/Lidarr, configure qBittorrent download client:
+In Radarr/Sonarr/Lidarr/Readarr, configure qBittorrent download client:
 
 **Settings → Download Clients → Add → qBittorrent**
 
@@ -1015,7 +1015,7 @@ docker-compose down && docker-compose up -d
 - [Docker Troubleshooting](docker.md) - Docker-specific issues
 - [Common Issues](common-issues.md) - General troubleshooting
 - [qBittorrent Configuration](../configuration/qbittorrent.md) - qBit setup guide
-- [Arr Configuration](../configuration/arr/index.md) - Radarr/Sonarr/Lidarr setup
+- [Arr Configuration](../configuration/arr/index.md) - Radarr/Sonarr/Lidarr/Readarr setup
 
 ---
 

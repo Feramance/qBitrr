@@ -58,7 +58,7 @@ CREATE TABLE torrentlibrary (
 **Fields**:
 
 - **Hash**: Unique torrent identifier from qBittorrent
-- **Category**: Maps to Radarr/Sonarr/Lidarr category in config
+- **Category**: Maps to Radarr/Sonarr/Lidarr/Readarr category in config
 - **AllowedSeeding**: `True` if torrent passed health checks and can seed
 - **Imported**: `True` if files successfully imported to Arr instance
 - **AllowedStalled**: `True` if torrent is exempt from stalled detection

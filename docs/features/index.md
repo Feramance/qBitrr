@@ -1,6 +1,6 @@
 # Features Overview
 
-qBitrr provides intelligent automation and monitoring for your media management setup, bridging the gap between qBittorrent and the Arr stack (Radarr/Sonarr/Lidarr).
+qBitrr provides intelligent automation and monitoring for your media management setup, bridging the gap between qBittorrent and the Arr stack (Radarr/Sonarr/Lidarr/Readarr).
 
 ---
 
@@ -229,6 +229,7 @@ Is4K = false
 - ✅ Radarr (movies)
 - ✅ Sonarr (TV shows)
 - ❌ Lidarr (Overseerr/Ombi don't support music)
+- ❌ Readarr (Overseerr/Ombi don't support books)
 
 ---
 
@@ -614,7 +615,7 @@ Detailed guides for each feature:
 - [Disk Space Management](disk-space.md) - Free space monitoring
 
 ### Configuration
-- [Arr Configuration](../configuration/arr/index.md) - Radarr/Sonarr/Lidarr setup
+- [Arr Configuration](../configuration/arr/index.md) - Radarr/Sonarr/Lidarr/Readarr setup
 - [Search Configuration](../configuration/search/index.md) - Search automation settings
 - [Seeding Configuration](../configuration/seeding.md) - Seeding rules and limits
 - [Torrent Configuration](../configuration/torrents.md) - Torrent handling options

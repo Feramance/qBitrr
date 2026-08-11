@@ -28,7 +28,7 @@ qBitrr can automatically search your Arr instances for missing media and quality
 
 ## Overview
 
-Instead of manually clicking "Search All Missing" in Radarr/Sonarr/Lidarr, qBitrr continuously searches for:
+Instead of manually clicking "Search All Missing" in Radarr/Sonarr/Lidarr/Readarr, qBitrr continuously searches for:
 
 - Missing movies/episodes/albums
 - Quality upgrades for existing media
@@ -910,7 +910,7 @@ Search for media requested via Overseerr or Ombi.
 
 ### HTTPS and TLS verification
 
-- **Servarr (Radarr/Sonarr/Lidarr API):** On each Arr section, **`SkipTLSVerify`** (default `false`) controls certificate verification for HTTPS to that Servarr instance only.
+- **Servarr (Radarr/Sonarr/Lidarr/Readarr API):** On each Arr section, **`SkipTLSVerify`** (default `false`) controls certificate verification for HTTPS to that Servarr instance only.
 - **Overseerr:** Under **`[YourArr.EntrySearch.Overseerr]`**, **`SkipTLSVerify`** applies only to HTTPS calls to Overseerr.
 - **Ombi:** Under **`[YourArr.EntrySearch.Ombi]`**, **`SkipTLSVerify`** applies only to HTTPS calls to Ombi.
 
@@ -1069,7 +1069,7 @@ SearchAgainOnSearchCompletion = true
 View search activity in the WebUI:
 
 1. Open `http://localhost:6969/ui`
-2. Navigate to Arr tab (Radarr/Sonarr/Lidarr)
+2. Navigate to Arr tab (Radarr/Sonarr/Lidarr/Readarr)
 3. Watch for "Searching..." status
 
 ---
@@ -1210,7 +1210,7 @@ SearchRequestsEvery = 600  # 10 minutes
    ```
 
 2. **Check Arr has missing items:**
-   - Open Radarr/Sonarr/Lidarr
+   - Open Radarr/Sonarr/Lidarr/Readarr
    - Go to Wanted/Missing
    - Ensure items are monitored
 

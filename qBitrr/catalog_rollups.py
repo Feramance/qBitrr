@@ -19,7 +19,7 @@ Rollup availability vs. row ``hasFile`` (M-4)
 ---------------------------------------------
 Rollup *availability* is **not** the same metric as a row-level ``hasFile``. Rollups define
 ``available = (Monitored == True) AND has_file`` (where ``has_file`` is ``MovieFileId`` /
-``EpisodeFileId`` / ``AlbumFileId`` non-zero, or Lidarr ``HasFile == true`` for tracks) and
+``EpisodeFileId`` / ``AlbumFileId`` / ``BookFileId`` non-zero, or Lidarr ``HasFile == true`` for tracks) and
 ``missing = max(monitored - available, 0)`` so an unmonitored row that has a file does not
 count toward the catalogue's "available" total, and an unmonitored row without a file does
 not count toward "missing". Per-row payloads (``movies[].hasFile``, etc.) expose the
@@ -198,6 +198,39 @@ def _lidarr_aggregate(arr: Any, name: str) -> dict[str, Any] | None:
     return out
 
 
+def _readarr_aggregate(arr: Any, name: str) -> dict[str, Any] | None:
+    """Single-pass aggregate for the Readarr books catalog (H-3)."""
+    book_m = getattr(arr, "model_file", None)
+    if book_m is None:
+        return None
+    inst = book_m.ArrInstance == name
+    has_book_file = (book_m.BookFileId.is_null(False)) & (book_m.BookFileId != 0)
+    book_monitored = book_m.Monitored == True  # noqa: E712
+    book_row = (
+        book_m.select(
+            fn.COUNT(book_m.EntryId).alias("total"),
+            _sum_case_int(book_monitored, "monitored"),
+            _sum_case_int(book_monitored & has_book_file, "available"),
+            _sum_case_int(book_m.QualityMet == True, "quality_met"),  # noqa: E712
+            _sum_case_int(book_m.IsRequest == True, "requests"),  # noqa: E712
+        )
+        .where(inst)
+        .dicts()
+        .get()
+    )
+    monitored_count = int(book_row.get("monitored") or 0)
+    available_count = int(book_row.get("available") or 0)
+    book_counts = _availability_counts(monitored_count, available_count)
+    book_counts["quality_met"] = int(book_row.get("quality_met") or 0)
+    book_counts["requests"] = int(book_row.get("requests") or 0)
+    return {
+        "readarr_books": {
+            "counts": book_counts,
+            "total": int(book_row.get("total") or 0),
+        }
+    }
+
+
 def refresh_arr_webui_rollups(arr: Arr) -> None:
     """
     Read aggregate counts from SQLite into ``arr._webui_catalog_rollups`` for this Arr instance.
@@ -211,13 +244,14 @@ def refresh_arr_webui_rollups(arr: Arr) -> None:
         return
     name = getattr(arr, "_name", "")
     t = getattr(arr, "type", None)
-    if t not in ("radarr", "sonarr", "lidarr"):
+    if t not in ("radarr", "sonarr", "lidarr", "readarr"):
         arr._webui_catalog_rollups = {}  # type: ignore[attr-defined]
         return
     aggregator = {
         "radarr": _radarr_aggregate,
         "sonarr": _sonarr_aggregate,
         "lidarr": _lidarr_aggregate,
+        "readarr": _readarr_aggregate,
     }[t]
     with database_lock():
         with db.connection_context():
@@ -305,6 +339,11 @@ def get_lidarr_album_and_track_rollups(arr: Arr) -> tuple[
     )
 
 
+def get_readarr_book_counts_total(arr: Arr) -> tuple[dict[str, int], int]:
+    """Return Readarr book rollup counts and total book count."""
+    return get_rollup_slice(arr, "readarr_books", zero_counts=_ZERO_COUNTS_RAD)
+
+
 def update_album_total_tracks(
     arr: Arr, album_entry_id: int, album_model: Any, track_model: Any
 ) -> Any | None:
@@ -386,6 +425,24 @@ def update_artist_album_track_totals(
             ).execute()
 
 
+def update_author_book_count(arr: Arr, author_id: int, book_model: Any, author_model: Any) -> None:
+    """Recompute ``AuthorFilesModel.BookCount`` from book rows for one author."""
+    db = getattr(arr, "db", None)
+    if db is None:
+        return
+    name = getattr(arr, "_name", "")
+    with database_lock():
+        with db.connection_context():
+            book_n = (
+                book_model.select()
+                .where((book_model.AuthorId == author_id) & (book_model.ArrInstance == name))
+                .count()
+            )
+            author_model.update(BookCount=book_n).where(
+                (author_model.EntryId == author_id) & (author_model.ArrInstance == name)
+            ).execute()
+
+
 def refresh_rollups_after_db_update(
     arr: Arr,
     db_entry: dict[str, Any] | None,
@@ -428,5 +485,20 @@ def refresh_rollups_after_db_update(
                     arow = update_album_total_tracks(arr, aeid, am, tm)
                     if arow and getattr(arow, "ArtistId", None) is not None and arm is not None:
                         update_artist_album_track_totals(arr, int(arow.ArtistId), am, tm, arm)
+        elif t == "readarr":
+            bm = getattr(arr, "model_file", None)
+            arm = getattr(arr, "artists_file_model", None)
+            if artist and arm is not None and bm is not None:
+                aid = int(db_entry.get("id") or 0)
+                if aid:
+                    update_author_book_count(arr, aid, bm, arm)
+            elif not artist and bm is not None and arm is not None:
+                aid = int(db_entry.get("authorId") or db_entry.get("author_id") or 0)
+                if not aid:
+                    author_obj = db_entry.get("author") or {}
+                    if isinstance(author_obj, dict):
+                        aid = int(author_obj.get("id") or 0)
+                if aid:
+                    update_author_book_count(arr, aid, bm, arm)
     except Exception:
         arr.logger.debug("refresh_rollups_after_db_update failed", exc_info=True)

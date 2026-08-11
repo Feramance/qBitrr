@@ -124,6 +124,37 @@ class TestDbGetFilesImplHooks(unittest.TestCase):
         self.assertIs(rows[0][0], episode)
 
 
+class TestReadarrDbGetFilesHook(unittest.TestCase):
+    def test_readarr_uses_books_leaf(self) -> None:
+        from qBitrr.arss.readarr import ReadarrArr
+
+        arr = ReadarrArr.__new__(ReadarrArr)
+        book_row = [MagicMock(), False, False]
+        with patch("qBitrr.arss.db_queries.db_get_files_books", return_value=[book_row]) as books:
+            rows = list(arr._db_get_files_impl())
+        books.assert_called_once_with(arr)
+        self.assertEqual(len(rows), 1)
+        self.assertIs(rows[0][0], book_row[0])
+
+    def test_readarr_impl_calls_search_readarr(self) -> None:
+        from qBitrr.arss.readarr import ReadarrArr
+
+        arr = ReadarrArr.__new__(ReadarrArr)
+        file_model = MagicMock()
+        with patch("qBitrr.arss.readarr.search_readarr", return_value="ok") as search:
+            result = arr._maybe_do_search_impl(
+                file_model,
+                request_tag="",
+                request=False,
+                todays=False,
+                bypass_limit=False,
+                series_search=False,
+                commands=0,
+            )
+            search.assert_called_once()
+            self.assertEqual(result, "ok")
+
+
 class TestSearchLoopYearLoading(unittest.TestCase):
     def test_arr_outage_during_year_loading_does_not_kill_worker(self) -> None:
         """Regression: an Arr outage while loading years must back off inside the worker."""

@@ -6,7 +6,7 @@ import inspect
 from typing import Any
 from urllib.parse import urlparse
 
-from pyarr import Lidarr, Radarr, Sonarr
+from pyarr import Lidarr, Radarr, Readarr, Sonarr
 from pyarr.exceptions import PyarrConnectionError, PyarrResourceNotFound, PyarrServerError
 from pyarr.types import JsonObject
 
@@ -73,6 +73,40 @@ def build_lidarr_client(url: str, api_key: str, *, verify_ssl: bool = True) -> L
     )
 
 
+def build_readarr_client(url: str, api_key: str, *, verify_ssl: bool = True) -> Readarr:
+    """Construct a pyarr Readarr client from qBitrr config fields."""
+    return Readarr(
+        **build_arr_client_kwargs(
+            url, api_key, default_port=8787, api_ver="v1", verify_ssl=verify_ssl
+        )
+    )
+
+
+def get_readarr_book_files(
+    client: Any,
+    *,
+    book_id: int | None = None,
+    author_id: int | None = None,
+) -> list[dict[str, Any]]:
+    """Fetch Readarr book files via raw HTTP (pyarr has no book_file module)."""
+    if book_id is None and author_id is None:
+        raise ValueError("get_readarr_book_files requires book_id or author_id")
+    http_utils = getattr(client, "http_utils", None)
+    if http_utils is None or not hasattr(http_utils, "request"):
+        raise ValueError("Expected Readarr client with http_utils.request")
+    params: dict[str, int] = {}
+    if book_id is not None:
+        params["bookId"] = book_id
+    if author_id is not None:
+        params["authorId"] = author_id
+    response = http_utils.request("bookfile", params=params)
+    if isinstance(response, list):
+        return [item for item in response if isinstance(item, dict)]
+    if response is None:
+        return []
+    raise ValueError("Expected a list response from the 'bookfile' endpoint")
+
+
 def execute_command(client: Any, command: str, **kwargs: Any) -> Any:
     """Run an Arr command, falling back to raw POST when pyarr rejects list responses."""
     try:
@@ -112,10 +146,13 @@ __all__ = [
     "PyarrResourceNotFound",
     "PyarrServerError",
     "Radarr",
+    "Readarr",
     "Sonarr",
     "build_arr_client_kwargs",
     "build_lidarr_client",
     "build_radarr_client",
+    "build_readarr_client",
     "build_sonarr_client",
     "execute_command",
+    "get_readarr_book_files",
 ]

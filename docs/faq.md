@@ -4,7 +4,7 @@
 
 ### What is qBitrr?
 
-qBitrr is an automation tool that bridges qBittorrent with Radarr, Sonarr, and Lidarr. It monitors torrent health, triggers instant imports, automates searches, manages quality upgrades, and provides a modern web interface for complete control.
+qBitrr is an automation tool that bridges qBittorrent with Radarr, Sonarr, Lidarr, and Readarr. It monitors torrent health, triggers instant imports, automates searches, manages quality upgrades, and provides a modern web interface for complete control.
 
 ### Why do I need qBitrr?
 
@@ -105,7 +105,7 @@ Check these common issues:
 
 ### How do I find my Arr API key?
 
-In Radarr/Sonarr/Lidarr:
+In Radarr/Sonarr/Lidarr/Readarr:
 
 1. Go to Settings → General
 2. Scroll to "Security" section
@@ -435,7 +435,7 @@ AutoPauseResume = true
 
 ### Can I use qBitrr with Prowlarr?
 
-Yes! Prowlarr manages indexers for Radarr/Sonarr/Lidarr. qBitrr works alongside Prowlarr:
+Yes! Prowlarr manages indexers for Radarr/Sonarr/Lidarr/Readarr. qBitrr works alongside Prowlarr:
 
 - **Prowlarr**: Manages indexers, syncs to Arr instances
 - **qBitrr**: Monitors torrents, triggers imports, automates searches
@@ -597,7 +597,7 @@ AutoUpdateCron = "0 3 * * 0"  # Sundays at 3 AM
 Yes! qBitrr works with any media server:
 
 1. qBitrr → manages qBittorrent torrents
-2. Radarr/Sonarr/Lidarr → organizes media
+2. Radarr/Sonarr/Lidarr/Readarr → organizes media
 3. Plex/Jellyfin/Emby → serves media to users
 
 qBitrr doesn't interact directly with media servers - it works through the Arr stack.

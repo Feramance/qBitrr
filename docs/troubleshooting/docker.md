@@ -122,13 +122,16 @@ of the following:
 - qBitrr and qBittorrent are talking through an unstable reverse proxy
 - qBittorrent is restarting or returning partial responses
 - older qBitrr builds reused inherited qBittorrent HTTP sessions across worker processes
+  (the dedicated per-process client gate from #491 only activates when the worker
+  identity check uses pathos/`multiprocess` — see #540)
 
 **What to check:**
 
 1. Connect qBitrr directly to qBittorrent if possible instead of proxying the WebUI/API.
 2. Confirm the configured qBittorrent host/port is stable and not load-balanced.
 3. Check qBittorrent logs for restarts or WebUI/API errors at the same timestamps.
-4. Upgrade qBitrr if you are on a build that predates the per-process qBittorrent client fix.
+4. Upgrade qBitrr if you are on a build that predates the #540 pathos process-identity
+   fix for dedicated per-process qBittorrent clients.
 
 **Example direct config:**
 

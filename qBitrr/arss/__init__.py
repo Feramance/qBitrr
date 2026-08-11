@@ -7,6 +7,7 @@ from qBitrr.arss.lidarr import LidarrArr
 from qBitrr.arss.manager import ArrManager
 from qBitrr.arss.placeholder_arr import PlaceHolderArr
 from qBitrr.arss.radarr import RadarrArr
+from qBitrr.arss.readarr import ReadarrArr
 from qBitrr.arss.sonarr import SonarrArr
 from qBitrr.arss.torrent_policy import TorrentPolicyManager
 
@@ -17,6 +18,7 @@ __all__ = [
     "LidarrArr",
     "PlaceHolderArr",
     "RadarrArr",
+    "ReadarrArr",
     "SonarrArr",
     "TorrentPolicyManager",
     "arr_class_for_section",

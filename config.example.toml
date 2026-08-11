@@ -1220,3 +1220,161 @@ RemoveDeadTrackers = false
 
 # If "RemoveDeadTrackers" is set to true then remove trackers with the following messages
 RemoveTrackerWithMessage = ["skipping tracker announce (unreachable)", "No such host is known", "unsupported URL protocol", "info hash is not authorized with this tracker"]
+
+
+[Readarr-Books]
+
+# Toggle whether to manage the Servarr instance torrents.
+Managed = true
+
+# The URL used to access Servarr interface eg. http://ip:port(if you use a domain enter the domain without a port)
+URI = "CHANGE_ME"
+
+# The Servarr API Key, Can be found it Settings > General > Security
+APIKey = "CHANGE_ME"
+
+# If true, do not verify TLS for this Servarr API (HTTPS). Disables MITM protection for that connection.
+SkipTLSVerify = false
+
+# Category applied by Servarr to torrents in qBitTorrent, can be found in Settings > Download Clients > qBit > Category
+Category = "readarr-books"
+
+# Toggle whether to send a query to Servarr to search any failed torrents
+ReSearch = true
+
+# The Servarr's Import Mode(one of Move, Copy or Auto)
+importMode = "Auto"
+
+# Timer to call RSSSync (In minutes) - Set to 0 to disable (Values below 5 can cause errors for maximum retires)
+RssSyncTimer = 1
+
+# Timer to call RefreshDownloads to update the queue. (In minutes) - Set to 0 to disable (Values below 5 can cause errors for maximum retires)
+RefreshDownloadsTimer = 1
+
+# Error messages shown my the Arr instance which should be considered failures.
+# This entry should be a list, leave it empty if you want to disable this error handling.
+# If enabled qBitrr will remove the failed files and tell the Arr instance the download failed
+ArrErrorCodesToBlocklist = ["Not a preferred word upgrade for existing book file(s)", "Not an upgrade for existing book file(s)", "Unable to determine if file is a sample"]
+
+[Readarr-Books.EntrySearch]
+# Should search for Missing files?
+SearchMissing = true
+
+# Should search for unmonitored books?
+Unmonitored = false
+
+# Maximum allowed Searches at any one point
+SearchLimit = 5
+
+# It will order searches by the year the book was released
+SearchByYear = true
+
+# Reverse search order (Start searching oldest to newest)
+SearchInReverse = false
+
+# Search media which already have a file in hopes of finding a better quality version.
+DoUpgradeSearch = false
+
+# Do a quality unmet search for existing entries.
+QualityUnmetSearch = false
+
+# Do a minimum custom format score unmet search for existing entries.
+CustomFormatUnmetSearch = false
+
+# Automatically remove torrents that do not mee the minimum custom format score.
+ForceMinimumCustomFormat = false
+
+# Once you have search all files on your specified year range restart the loop and search again.
+SearchAgainOnSearchCompletion = true
+
+# Use Temp profile for missing
+UseTempForMissing = false
+
+# Don't change back to main profile
+KeepTempProfile = false
+
+# Quality profile mappings for temp profile switching (Main Profile Name -> Temp Profile Name)
+# Profile names must match exactly as they appear in your Arr instance
+# Example: QualityProfileMappings = {"HD-1080p" = "SD", "HD-720p" = "SD"}
+QualityProfileMappings = {}
+
+# Reset all items using temp profiles to their original main profile on qBitrr startup
+ForceResetTempProfiles = false
+
+# Timeout in minutes after which items with temp profiles are automatically reset to main profile (0 = disabled)
+TempProfileResetTimeoutMinutes = 0
+
+# Number of retry attempts for profile switch API calls (default: 3)
+ProfileSwitchRetryAttempts = 3
+
+
+[Readarr-Books.Torrent]
+# Set it to regex matches to respect/ignore case.
+CaseSensitiveMatches = false
+
+# These regex values will match any folder where the full name matches the specified values here, comma separated strings.
+# These regex need to be escaped, that's why you see so many backslashes.
+FolderExclusionRegex = ["\\bextras?\\b", "\\bsamples?\\b", "\\bscreens?\\b"]
+
+# These regex values will match any folder where the full name matches the specified values here, comma separated strings.
+# These regex need to be escaped, that's why you see so many backslashes.
+FileNameExclusionRegex = ["\\bsample\\b", "brarbg.com\\b", "\\btrailer\\b", "comandotorrents.com"]
+
+# Only files with these extensions will be allowed to be downloaded, comma separated strings or regex, leave it empty to allow all extensions
+FileExtensionAllowlist = [".epub", ".mobi", ".azw", ".azw3", ".pdf", ".cbz", ".cbr", ".!qB", ".parts"]
+
+# Auto delete files that can't be playable (i.e .exe, .png)
+AutoDelete = false
+
+# Ignore Torrents which are younger than this value (in seconds: 600 = 10 Minutes)
+IgnoreTorrentsYoungerThan = 180
+
+# Maximum allowed remaining ETA for torrent completion (in seconds: 3600 = 1 Hour)
+# Note that if you set the MaximumETA on a tracker basis that value is favoured over this value
+MaximumETA = -1
+
+# Do not delete torrents with higher completion percentage than this setting (0.5 = 50%, 1.0 = 100%)
+MaximumDeletablePercentage = 0.99
+
+# Ignore slow torrents.
+DoNotRemoveSlow = true
+
+# Maximum allowed time for allowed stalled torrents in minutes (-1 = Disabled, 0 = Infinite)
+StalledDelay = 15
+
+# Re-search stalled torrents when StalledDelay is enabled and you want to re-search before removing the stalled torrent, or only after the torrent is removed.
+ReSearchStalled = false
+
+# Optional per-Arr tracker overrides. Trackers are inherited from qBit.Trackers by default.
+# Add entries here only if this Arr instance needs different settings for a tracker (matched by URI).
+Trackers = []
+
+[Readarr-Books.Torrent.SeedingMode]
+# Set the maximum allowed download rate for torrents
+# Set this value to -1 to disabled it
+# Note that if you set the DownloadRateLimit on a tracker basis that value is favoured over this value
+DownloadRateLimitPerTorrent = -1
+
+# Set the maximum allowed upload rate for torrents
+# Set this value to -1 to disabled it
+# Note that if you set the UploadRateLimit on a tracker basis that value is favoured over this value
+UploadRateLimitPerTorrent = -1
+
+# Set the maximum allowed upload ratio for torrents
+# Set this value to -1 to disabled it
+# Note that if you set the MaxUploadRatio on a tracker basis that value is favoured over this value
+MaxUploadRatio = -1
+
+# Set the maximum seeding time in seconds for torrents
+# Set this value to -1 to disabled it
+# Note that if you set the MaxSeedingTime on a tracker basis that value is favoured over this value
+MaxSeedingTime = -1
+
+# Remove torrent condition (-1=Do not remove, 1=Remove on MaxUploadRatio, 2=Remove on MaxSeedingTime, 3=Remove on MaxUploadRatio or MaxSeedingTime, 4=Remove on MaxUploadRatio and MaxSeedingTime)
+RemoveTorrent = -1
+
+# Enable if you want to remove dead trackers
+RemoveDeadTrackers = false
+
+# If "RemoveDeadTrackers" is set to true then remove trackers with the following messages
+RemoveTrackerWithMessage = ["skipping tracker announce (unreachable)", "No such host is known", "unsupported URL protocol", "info hash is not authorized with this tracker"]

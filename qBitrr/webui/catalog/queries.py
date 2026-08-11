@@ -10,10 +10,12 @@ from qBitrr.catalog_rollups import (
     get_lidarr_album_and_track_rollups,
     get_lidarr_track_counts_total,
     get_radarr_counts_total,
+    get_readarr_book_counts_total,
     get_sonarr_series_counts_total,
 )
 from qBitrr.db_lock import database_lock
 from qBitrr.utils import coerce_bool
+from qBitrr.webui.catalog.common import empty_catalog_payload
 
 
 class Catalog:
@@ -852,6 +854,288 @@ class Catalog:
                 "page_size": page_size,
                 "tracks": [],
             }
+
+    @staticmethod
+    def _readarr_instance_keys(arr: Any) -> list[str]:
+        """Return distinct non-empty ``ArrInstance`` keys to query for one Readarr ``Arr``."""
+        return Catalog._lidarr_instance_keys(arr)
+
+    @staticmethod
+    def _readarr_author_browse_progress_maps(
+        book_m: Any,
+        arr_instance_keys: list[str],
+        author_ids: list[int],
+    ) -> dict[int, tuple[int, int]]:
+        """Return per-author (monitored, on-disk) book counts.
+
+        Book "available" matches catalog rules: monitored row with non-zero ``BookFileId``.
+        """
+        out: dict[int, tuple[int, int]] = {}
+        if not author_ids or not arr_instance_keys or book_m is None:
+            return out
+
+        author_id_col = book_m.AuthorId.alias("author_id")
+        mon_book = book_m.Monitored == True  # noqa: E712
+        book_file = (book_m.BookFileId.is_null(False)) & (book_m.BookFileId != 0)
+        bq = (
+            book_m.select(
+                author_id_col,
+                _sum_case_int(mon_book, "mon_n"),
+                _sum_case_int(mon_book & book_file, "avail_n"),
+            )
+            .where((book_m.ArrInstance.in_(arr_instance_keys)) & (book_m.AuthorId.in_(author_ids)))
+            .group_by(author_id_col)
+        )
+        for row in bq.dicts():
+            raw_aid = row.get("author_id")
+            if raw_aid is None:
+                continue
+            aid = int(raw_aid)
+            out[aid] = (int(row.get("mon_n") or 0), int(row.get("avail_n") or 0))
+        return out
+
+    def _readarr_book_row_payload(self, book: Any) -> dict[str, Any]:
+        """Build one ``{book}`` entry from a ``BookFilesModel`` row."""
+        quality_profile_id = getattr(book, "QualityProfileId", None)
+        quality_profile_name = getattr(book, "QualityProfileName", None)
+        return {
+            "book": {
+                "id": book.EntryId,
+                "title": book.Title,
+                "authorId": book.AuthorId,
+                "authorName": book.AuthorTitle,
+                "monitored": coerce_bool(book.Monitored),
+                "hasFile": bool(book.BookFileId and book.BookFileId != 0),
+                "foreignBookId": book.ForeignBookId,
+                "releaseDate": (
+                    book.ReleaseDate.isoformat()
+                    if book.ReleaseDate and hasattr(book.ReleaseDate, "isoformat")
+                    else (book.ReleaseDate if isinstance(book.ReleaseDate, str) else None)
+                ),
+                "qualityMet": coerce_bool(book.QualityMet),
+                "isRequest": coerce_bool(book.IsRequest),
+                "upgrade": coerce_bool(book.Upgrade),
+                "customFormatScore": book.CustomFormatScore,
+                "minCustomFormatScore": book.MinCustomFormatScore,
+                "customFormatMet": coerce_bool(book.CustomFormatMet),
+                "reason": book.Reason,
+                "qualityProfileId": quality_profile_id,
+                "qualityProfileName": quality_profile_name,
+            }
+        }
+
+    def _readarr_authors_from_db(
+        self,
+        arr,
+        search: str | None,
+        page: int,
+        page_size: int,
+        monitored: bool | None = None,
+        missing_only: bool = False,
+        reason_filter: str | None = None,
+    ) -> dict[str, Any]:
+        empty = empty_catalog_payload("readarr_authors", page=page, page_size=page_size)
+
+        if not self._ensure_arr_db(arr):
+            return empty
+        arm = getattr(arr, "artists_file_model", None)
+        db = getattr(arr, "db", None)
+        if arm is None or db is None:
+            return empty
+
+        page = max(page, 0)
+        page_size = max(page_size, 1)
+        arr_keys = self._readarr_instance_keys(arr)
+
+        rollup_book_counts, book_total_inst = get_readarr_book_counts_total(arr)
+
+        slice_rows: list[Any] = []
+        total = 0
+        book_maps: dict[int, tuple[int, int]] = {}
+
+        def _book_filter_extra(book_m: Any) -> Any | None:
+            cond: Any | None = None
+            if missing_only and book_m is not None:
+                miss = (book_m.Monitored == True) & (  # noqa: E712
+                    book_m.BookFileId.is_null() | (book_m.BookFileId == 0)
+                )
+                cond = miss if cond is None else cond & miss
+            if reason_filter and book_m is not None:
+                if reason_filter == "Not being searched":
+                    rcond = (book_m.Reason == "Not being searched") | book_m.Reason.is_null()
+                else:
+                    rcond = book_m.Reason == reason_filter
+                cond = rcond if cond is None else cond & rcond
+            return cond
+
+        with database_lock():
+            with db.connection_context():
+                book_m = getattr(arr, "model_file", None)
+                book_filter_extra = _book_filter_extra(book_m)
+
+                base = arm.select().where(arm.ArrInstance.in_(arr_keys))
+                q_auth = base
+                if search:
+                    q_auth = q_auth.where(arm.Title.contains(search))
+                if monitored is not None:
+                    q_auth = q_auth.where(arm.Monitored == monitored)
+                if book_filter_extra is not None and book_m is not None:
+                    author_ids_subq = book_m.select(book_m.AuthorId).where(
+                        book_m.ArrInstance.in_(arr_keys) & book_filter_extra
+                    )
+                    q_auth = q_auth.where(arm.EntryId.in_(author_ids_subq))
+
+                total = int(q_auth.count() or 0)
+                slice_rows = list(q_auth.order_by(arm.Title.asc()).paginate(page + 1, page_size))
+
+                # Book rows can be populated while AuthorFilesModel has no rows.
+                if total == 0 and int(book_total_inst or 0) > 0 and book_m is not None:
+                    conds: list[Any] = [book_m.ArrInstance.in_(arr_keys)]
+                    if search:
+                        conds.append(book_m.AuthorTitle.contains(search))
+                    if book_filter_extra is not None:
+                        conds.append(book_filter_extra)
+                    grouped_authors = (
+                        book_m.select(
+                            book_m.AuthorId,
+                            fn.MIN(book_m.AuthorTitle).alias("disp_title"),
+                            fn.MAX(book_m.Monitored).alias("mx_mon"),
+                        )
+                        .where(*conds)
+                        .group_by(book_m.AuthorId)
+                    )
+                    if monitored is True:
+                        grouped_authors = grouped_authors.having(
+                            fn.MAX(book_m.Monitored) == True  # noqa: E712
+                        )
+                    elif monitored is False:
+                        grouped_authors = grouped_authors.having(
+                            fn.MAX(book_m.Monitored) == False  # noqa: E712
+                        )
+                    count_wrap = grouped_authors.alias("readarr_authors_fb")
+                    total = int(book_m.select(fn.COUNT(SQL("*"))).from_(count_wrap).scalar() or 0)
+                    slice_rows = []
+                    for row in grouped_authors.order_by(
+                        fn.MIN(book_m.AuthorTitle).asc(),
+                        book_m.AuthorId.asc(),
+                    ).paginate(page + 1, page_size):
+                        aid = int(row.AuthorId)
+                        ar_rec = arm.get_or_none(
+                            (arm.EntryId == aid) & (arm.ArrInstance.in_(arr_keys))
+                        )
+                        if ar_rec is not None:
+                            slice_rows.append(ar_rec)
+                        else:
+                            disp = getattr(row, "disp_title", None) or ""
+                            mx = getattr(row, "mx_mon", None)
+                            slice_rows.append(
+                                SimpleNamespace(
+                                    EntryId=aid,
+                                    Title=disp,
+                                    Monitored=mx,
+                                    BookCount=0,
+                                    QualityProfileName=None,
+                                    Searched=False,
+                                )
+                            )
+
+                ids = [int(ar.EntryId) for ar in slice_rows]
+                book_maps = {}
+                if ids and book_m is not None:
+                    book_maps = Catalog._readarr_author_browse_progress_maps(book_m, arr_keys, ids)
+
+        authors_out: list[dict[str, Any]] = []
+        for ar in slice_rows:
+            aid = int(ar.EntryId)
+            bm, ba = book_maps.get(aid, (0, 0))
+            miss_b = max(bm - ba, 0)
+            authors_out.append(
+                {
+                    "author": {
+                        "id": ar.EntryId,
+                        "name": ar.Title or "",
+                        "monitored": coerce_bool(ar.Monitored),
+                        "bookCount": int(getattr(ar, "BookCount", None) or 0),
+                        "qualityProfileName": getattr(ar, "QualityProfileName", None),
+                        "searched": coerce_bool(ar.Searched),
+                        "booksMonitored": bm,
+                        "booksAvailable": ba,
+                        "booksMissing": miss_b,
+                    }
+                }
+            )
+
+        return {
+            "counts": dict(rollup_book_counts),
+            "book_total": int(book_total_inst),
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "authors": authors_out,
+        }
+
+    def _readarr_author_detail_from_db(self, arr, author_id: int) -> dict[str, Any] | None:
+        """Return a single author with all books in one DB visit."""
+        arm = getattr(arr, "artists_file_model", None)
+        book_m = getattr(arr, "model_file", None)
+        db = getattr(arr, "db", None)
+
+        if not self._ensure_arr_db(arr) or arm is None or book_m is None or db is None:
+            return None
+
+        arr_keys = self._readarr_instance_keys(arr)
+        rollup_book_counts, _ = get_readarr_book_counts_total(arr)
+
+        author_row = None
+        book_rows: list[Any] = []
+
+        with database_lock():
+            with db.connection_context():
+                author_row = arm.get_or_none(
+                    (arm.EntryId == author_id) & (arm.ArrInstance.in_(arr_keys))
+                )
+
+                bq = book_m.select().where(
+                    (book_m.AuthorId == author_id) & (book_m.ArrInstance.in_(arr_keys))
+                )
+                try:
+                    bq = bq.order_by(book_m.ReleaseDate, book_m.Title)
+                except Exception:
+                    bq = bq.order_by(book_m.Title)
+                book_rows = list(bq)
+
+                if author_row is None and not book_rows:
+                    return None
+
+        book_items = [self._readarr_book_row_payload(bk) for bk in book_rows]
+
+        if author_row is not None:
+            author_payload = {
+                "id": author_row.EntryId,
+                "name": author_row.Title or "",
+                "monitored": coerce_bool(author_row.Monitored),
+                "bookCount": int(getattr(author_row, "BookCount", None) or 0),
+                "qualityProfileName": getattr(author_row, "QualityProfileName", None),
+                "searched": coerce_bool(author_row.Searched),
+            }
+        else:
+            first_book = book_rows[0]
+            monitored_books = [bk for bk in book_rows if bk.Monitored]
+            author_payload = {
+                "id": author_id,
+                "name": getattr(first_book, "AuthorTitle", None) or "",
+                "monitored": any(coerce_bool(bk.Monitored) for bk in book_rows),
+                "bookCount": len(book_rows),
+                "qualityProfileName": None,
+                "searched": bool(monitored_books)
+                and all(coerce_bool(bk.Searched) for bk in monitored_books),
+            }
+
+        return {
+            "counts": dict(rollup_book_counts),
+            "author": author_payload,
+            "books": book_items,
+        }
 
     def _enrich_sonarr_series_payload_quality_from_api(
         self,

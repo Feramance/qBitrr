@@ -27,6 +27,7 @@ ARR_TYPE_CONFIG: dict[str, ArrTypeConfig] = {
     "sonarr": ArrTypeConfig(queue_id_field="episodeId", queue_requeue_as_set=True),
     "radarr": ArrTypeConfig(queue_id_field="movieId", queue_requeue_as_set=False),
     "lidarr": ArrTypeConfig(queue_id_field="albumId", queue_requeue_as_set=False),
+    "readarr": ArrTypeConfig(queue_id_field="bookId", queue_requeue_as_set=False),
 }
 
 

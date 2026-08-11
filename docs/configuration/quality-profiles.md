@@ -343,7 +343,7 @@ QualityProfileMappings = {
     ```
 
     To find exact names:
-    - Radarr/Sonarr/Lidarr → Settings → Profiles
+    - Radarr/Sonarr/Lidarr/Readarr → Settings → Profiles
     - Copy profile names exactly
 
 ---
@@ -837,7 +837,7 @@ curl -H "X-Api-Key: your-key" http://localhost:8686/api/v1/qualityprofile
    ```
 
 3. **Verify Arr logs:**
-   - Radarr/Sonarr/Lidarr → System → Logs
+   - Radarr/Sonarr/Lidarr/Readarr → System → Logs
    - Look for API errors
 
 ---

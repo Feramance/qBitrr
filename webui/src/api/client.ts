@@ -18,6 +18,8 @@ import type {
   SonarrSeriesResponse,
   LidarrArtistDetailResponse,
   LidarrArtistsResponse,
+  ReadarrAuthorDetailResponse,
+  ReadarrAuthorsResponse,
   StatusResponse,
 } from "./types";
 import { clearUrlBaseCache, setUrlBaseFromMeta, webPath } from "./urlBase";
@@ -118,7 +120,7 @@ function extractRequestPath(input: RequestInfo | URL): string {
 function resolveGetTtlMs(path: string): number {
   // Arr catalog paged URLs keep their own caches — never TTL here.
   if (
-    /\/web\/(?:radarr|sonarr|lidarr)\//.test(path) ||
+    /\/web\/(?:radarr|sonarr|lidarr|readarr)\//.test(path) ||
     /\/web\/arr\//.test(path)
   ) {
     return 0;
@@ -511,7 +513,7 @@ export function getLogStreamUrl(
   );
 }
 
-export type ArrOpenItemKind = "movie" | "series" | "artist";
+export type ArrOpenItemKind = "movie" | "series" | "artist" | "author";
 
 export function getArrOpenItemUrl(
   category: string,
@@ -532,6 +534,10 @@ export function getSonarrOpenSeriesUrl(category: string, seriesId: number): stri
 
 export function getLidarrOpenArtistUrl(category: string, artistId: number): string {
   return getArrOpenItemUrl(category, "artist", artistId);
+}
+
+export function getReadarrOpenAuthorUrl(category: string, authorId: number): string {
+  return getArrOpenItemUrl(category, "author", authorId);
 }
 
 export async function getArrList(): Promise<ArrListResponse> {
@@ -614,6 +620,48 @@ export async function getLidarrArtistDetail(
   );
 }
 
+export async function getReadarrAuthors(
+  category: string,
+  page: number,
+  pageSize: number,
+  query?: string,
+  options?: {
+    monitored?: boolean | null;
+    missingOnly?: boolean;
+    reasonFilter?: string | null;
+  }
+): Promise<ReadarrAuthorsResponse> {
+  const params = new URLSearchParams();
+  params.set("page", page.toString());
+  params.set("page_size", pageSize.toString());
+  if (query) {
+    params.set("q", query);
+  }
+  const mv = options?.monitored;
+  if (mv === true || mv === false) {
+    params.set("monitored", mv ? "1" : "0");
+  }
+  if (options?.missingOnly) {
+    params.set("missing", "1");
+  }
+  const reason = options?.reasonFilter;
+  if (typeof reason === "string" && reason && reason !== "all") {
+    params.set("reason", reason);
+  }
+  return fetchJson<ReadarrAuthorsResponse>(
+    `/web/readarr/${encodeURIComponent(category)}/authors?${params}`
+  );
+}
+
+export async function getReadarrAuthorDetail(
+  category: string,
+  authorId: number
+): Promise<ReadarrAuthorDetailResponse> {
+  return fetchJson<ReadarrAuthorDetailResponse>(
+    `/web/readarr/${encodeURIComponent(category)}/author/${authorId}`
+  );
+}
+
 export async function restartArr(category: string): Promise<void> {
   await fetchJson<void>(
     `/web/arr/${encodeURIComponent(category)}/restart`,
@@ -656,7 +704,7 @@ export async function triggerUpdate(): Promise<void> {
 }
 
 export interface TestConnectionRequest {
-  arrType: "radarr" | "sonarr" | "lidarr";
+  arrType: "radarr" | "sonarr" | "lidarr" | "readarr";
   /** When present, backend uses stored config for this instance (e.g. when API key is redacted). */
   instanceKey?: string;
   uri?: string;

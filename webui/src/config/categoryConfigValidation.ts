@@ -5,7 +5,7 @@ import {
   normalizeCategory,
 } from "./categoryPaths";
 
-const SERVARR_SECTION_REGEX = /(rad|son|lid)arr/i;
+const SERVARR_SECTION_REGEX = /(rad|son|lid|read)arr/i;
 const QBIT_SECTION_REGEX = /^qBit(-.*)?$/i;
 
 const BACKSLASH_MSG =

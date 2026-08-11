@@ -9,20 +9,23 @@ from typing import TYPE_CHECKING
 from qBitrr.arr_client import (
     Lidarr,
     Radarr,
+    Readarr,
     Sonarr,
     build_lidarr_client,
     build_radarr_client,
+    build_readarr_client,
     build_sonarr_client,
 )
 from qBitrr.arss.arr_base import ArrBase
 from qBitrr.arss.lidarr import LidarrArr
 from qBitrr.arss.radarr import RadarrArr
+from qBitrr.arss.readarr import ReadarrArr
 from qBitrr.arss.sonarr import SonarrArr
 
 if TYPE_CHECKING:
     from qBitrr.arss.manager import ArrManager
 
-_ARR_SECTION_RE = re.compile(r"^(rad|son|lid)arr", re.IGNORECASE)
+_ARR_SECTION_RE = re.compile(r"^(rad|son|lid|read)arr", re.IGNORECASE)
 
 
 def arr_class_for_section(section_name: str) -> type[ArrBase]:
@@ -42,12 +45,14 @@ def arr_class_for_section(section_name: str) -> type[ArrBase]:
         return RadarrArr
     if prefix == "lid":
         return LidarrArr
+    if prefix == "read":
+        return ReadarrArr
     raise ValueError(f"Unknown Arr section prefix: {prefix}")
 
 
 def client_builder_for_section(
     section_name: str,
-) -> Callable[..., Radarr | Sonarr | Lidarr]:
+) -> Callable[..., Radarr | Sonarr | Lidarr | Readarr]:
     """Return the pyarr client builder for a config section name."""
     if re.match(r"^animarr", section_name, re.IGNORECASE):
         raise ValueError(
@@ -64,6 +69,8 @@ def client_builder_for_section(
         return build_radarr_client
     if prefix == "lid":
         return build_lidarr_client
+    if prefix == "read":
+        return build_readarr_client
     raise ValueError(f"Unknown Arr section prefix: {prefix}")
 
 

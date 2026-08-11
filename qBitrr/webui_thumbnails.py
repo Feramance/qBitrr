@@ -498,6 +498,8 @@ def _get_entity_dict(client: Any, kind: str, entry_id: int) -> dict[str, Any] | 
         resource = getattr(client, "series", None)
     elif kind == "lidarr_artist":
         resource = getattr(client, "artist", None)
+    elif kind == "readarr_author":
+        resource = getattr(client, "author", None)
     else:
         return None
 
@@ -525,6 +527,14 @@ def _get_entity_dict(client: Any, kind: str, entry_id: int) -> dict[str, Any] | 
                 out = client.get_artist(entry_id)
             except TypeError:
                 out = client.get_artist(id_=entry_id)
+    elif kind == "readarr_author" and hasattr(client, "get_author"):
+        try:
+            out = client.get_author(entry_id, includeLocalCovers=True)
+        except TypeError:
+            try:
+                out = client.get_author(entry_id)
+            except TypeError:
+                out = client.get_author(id_=entry_id)
     else:
         return None
     return out if isinstance(out, dict) else None
@@ -545,7 +555,7 @@ def _resolve_image_url(*, kind: str, arr: Any, entry_id: int) -> str | None:
         return None
     if not data:
         return None
-    if kind == "lidarr_artist":
+    if kind in ("lidarr_artist", "readarr_author"):
         return _first_cover_lidarr(data, base_uri)
     return _first_poster_url_from_radarr_sonarr(data, base_uri)
 
@@ -561,6 +571,21 @@ def _lidarr_artist_mediacovers_candidates(base_uri: str, artist_id: int) -> list
         f"/api/v1/MediaCover/Artist/{artist_id}/fanart.jpg",
         f"/api/v1/MediaCover/Artist/{artist_id}/clearlogo.png",
         f"/api/v1/MediaCover/{artist_id}/poster.jpg",
+    )
+    return [base + r for r in rels]
+
+
+def _readarr_author_mediacovers_candidates(base_uri: str, author_id: int) -> list[str]:
+    """Deterministic same-host URLs under Readarr's MediaCover API (small sizes first)."""
+
+    base = base_uri.rstrip("/")
+    rels = (
+        f"/api/v1/mediacover/author/{author_id}/poster-250.jpg",
+        f"/api/v1/mediacover/author/{author_id}/poster-500.jpg",
+        f"/api/v1/mediacover/author/{author_id}/poster.jpg",
+        f"/api/v1/mediacover/author/{author_id}/fanart.jpg",
+        f"/api/v1/MediaCover/Author/{author_id}/poster-250.jpg",
+        f"/api/v1/MediaCover/Author/{author_id}/poster.jpg",
     )
     return [base + r for r in rels]
 
@@ -600,12 +625,19 @@ def _rewrite_mediacover_for_api(url: str, kind: str) -> str:
         suffix = path[idx + len("/mediacover/") :]
         new_path = f"/api/v1/MediaCover/{suffix}"
         return parsed._replace(path=new_path, params="", fragment="").geturl()
+    if kind == "readarr_author" and "/mediacover/" in low and "/api/" not in low:
+        idx = low.index("/mediacover/")
+        suffix = path[idx + len("/mediacover/") :]
+        new_path = f"/api/v1/mediacover/{suffix}"
+        return parsed._replace(path=new_path, params="", fragment="").geturl()
     return url
 
 
 def _mediacovers_candidates(*, kind: str, base_uri: str, entry_id: int) -> list[str]:
     if kind == "lidarr_artist":
         return _lidarr_artist_mediacovers_candidates(base_uri, entry_id)
+    if kind == "readarr_author":
+        return _readarr_author_mediacovers_candidates(base_uri, entry_id)
     if kind in ("radarr", "sonarr"):
         return _radarr_sonarr_mediacovers_candidates(base_uri, entry_id)
     return []

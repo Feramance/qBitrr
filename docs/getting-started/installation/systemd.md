@@ -93,7 +93,7 @@ Paste this content:
 
 ```ini
 [Unit]
-Description=qBitrr - Radarr/Sonarr/Lidarr Torrent Manager
+Description=qBitrr - Radarr/Sonarr/Lidarr/Readarr Torrent Manager
 Documentation=https://feramance.github.io/qBitrr/
 After=network-online.target
 Wants=network-online.target
@@ -156,7 +156,7 @@ sudo systemctl status qbitrr
 
 Example output:
 ```
-● qbitrr.service - qBitrr - Radarr/Sonarr/Lidarr Torrent Manager
+● qbitrr.service - qBitrr - Radarr/Sonarr/Lidarr/Readarr Torrent Manager
      Loaded: loaded (/etc/systemd/system/qbitrr.service; enabled)
      Active: active (running) since Mon 2025-11-25 10:00:00 UTC
    Main PID: 1234 (python3)
@@ -452,7 +452,7 @@ Here's a production-ready service file with security hardening:
 
 ```ini
 [Unit]
-Description=qBitrr - Radarr/Sonarr/Lidarr Torrent Manager
+Description=qBitrr - Radarr/Sonarr/Lidarr/Readarr Torrent Manager
 Documentation=https://feramance.github.io/qBitrr/
 After=network-online.target
 Wants=network-online.target

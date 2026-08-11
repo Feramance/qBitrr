@@ -8,6 +8,7 @@ from collections import defaultdict
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pathos
 import qbittorrentapi
 
 from qBitrr.arss import (
@@ -20,6 +21,12 @@ from qBitrr.arss.arr_shared import (
     _prune_instance_hash_map,
 )
 from qBitrr.errors import DelayLoopException
+
+
+def _probe_dedicated_qbit_client_gate(queue: object) -> None:
+    """Child target for pathos Process: report Arr dedicated-client gate result."""
+    arr = Arr.__new__(Arr)
+    queue.put(arr._should_use_dedicated_qbit_client())
 
 
 class TestPruneInstanceHashMap(unittest.TestCase):
@@ -397,6 +404,62 @@ class TestQbitInstanceReachability(unittest.TestCase):
 
         get_client.assert_called_once_with("vpn")
         arr.manager.is_instance_alive.assert_not_called()
+
+
+class TestDedicatedQbitClientGate(unittest.TestCase):
+    """Regression for #540: gate must use pathos/multiprocess process identity."""
+
+    def test_false_in_main_process(self) -> None:
+        arr = Arr.__new__(Arr)
+        self.assertFalse(arr._should_use_dedicated_qbit_client())
+
+    def test_true_inside_pathos_worker(self) -> None:
+        queue = pathos.helpers.mp.Queue()
+        proc = pathos.helpers.mp.Process(
+            target=_probe_dedicated_qbit_client_gate,
+            args=(queue,),
+        )
+        proc.start()
+        try:
+            result = queue.get(timeout=30)
+        finally:
+            proc.join(timeout=30)
+            if proc.is_alive():
+                proc.terminate()
+                proc.join(timeout=5)
+        self.assertTrue(result)
+
+    def test_get_qbit_client_uses_shared_session_in_main_process(self) -> None:
+        arr = Arr.__new__(Arr)
+        arr._name = "Radarr"
+        arr.logger = MagicMock()
+        arr._dedicated_qbit_clients = {}
+        arr.manager = MagicMock()
+        shared = MagicMock()
+        arr.manager.qbit_manager.get_client.return_value = shared
+
+        client = arr._get_qbit_client("vpn")
+
+        self.assertIs(client, shared)
+        arr.manager.qbit_manager.get_client.assert_called_once_with("vpn")
+        arr.manager.qbit_manager.create_client_for_instance.assert_not_called()
+
+    def test_get_qbit_client_creates_dedicated_when_gate_true(self) -> None:
+        arr = Arr.__new__(Arr)
+        arr._name = "Radarr"
+        arr.logger = MagicMock()
+        arr._dedicated_qbit_clients = {}
+        arr.manager = MagicMock()
+        dedicated = MagicMock()
+        arr.manager.qbit_manager.create_client_for_instance.return_value = dedicated
+
+        with patch.object(arr, "_should_use_dedicated_qbit_client", return_value=True):
+            client = arr._get_qbit_client("vpn")
+
+        self.assertIs(client, dedicated)
+        arr.manager.qbit_manager.create_client_for_instance.assert_called_once_with("vpn")
+        arr.manager.qbit_manager.get_client.assert_not_called()
+        self.assertIs(arr._dedicated_qbit_clients["vpn"], dedicated)
 
 
 class TestLegacyDefaultClientRouting(unittest.TestCase):

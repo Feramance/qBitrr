@@ -294,7 +294,7 @@ Browse and manage your media libraries directly from qBitrr.
 
 Monitored-category torrent overview for qBit-managed and Arr-managed categories — not a full qBittorrent client.
 
-The **qBittorrent** nav tab appears only when at least one qBittorrent instance is configured and enabled (same pattern as the Radarr/Sonarr/Lidarr tabs).
+The **qBittorrent** nav tab appears only when at least one qBittorrent instance is configured and enabled (same pattern as the Radarr/Sonarr/Lidarr/Readarr tabs).
 
 **Features:**
 

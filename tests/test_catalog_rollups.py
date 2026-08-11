@@ -111,6 +111,22 @@ class TestRollupCacheAndRefresh(unittest.TestCase):
         self.assertEqual(album_counts["missing"], 1)
         self.assertEqual(track_counts["available"], 10)
 
+    def test_get_readarr_book_counts_total_reads_section(self) -> None:
+        from qBitrr.catalog_rollups import get_readarr_book_counts_total
+
+        arr = mock.MagicMock()
+        arr._webui_catalog_rollups = {
+            "readarr_books": {
+                "counts": {"available": 5, "monitored": 8, "missing": 3},
+                "total": 12,
+            }
+        }
+        with mock.patch("qBitrr.catalog_rollups.ensure_arr_webui_rollups"):
+            counts, total = get_readarr_book_counts_total(arr)
+        self.assertEqual(total, 12)
+        self.assertEqual(counts["missing"], 3)
+        self.assertEqual(counts["available"], 5)
+
 
 class TestRefreshRollupsAfterDbUpdate(unittest.TestCase):
     def test_noop_without_db_or_entry(self) -> None:
@@ -155,3 +171,17 @@ class TestRefreshRollupsAfterDbUpdate(unittest.TestCase):
         artist_update.assert_called_once_with(
             arr, 3, arr.model_file, arr.track_file_model, arr.artists_file_model
         )
+
+    def test_readarr_book_update_chains_author_totals(self) -> None:
+        from qBitrr.catalog_rollups import refresh_rollups_after_db_update
+
+        arr = mock.MagicMock()
+        arr.db = object()
+        arr.type = "readarr"
+        arr.model_file = mock.MagicMock()
+        arr.artists_file_model = mock.MagicMock()
+        with mock.patch("qBitrr.catalog_rollups.update_author_book_count") as author_update:
+            refresh_rollups_after_db_update(
+                arr, {"id": 7, "authorId": 4}, series=False, artist=False
+            )
+        author_update.assert_called_once_with(arr, 4, arr.model_file, arr.artists_file_model)

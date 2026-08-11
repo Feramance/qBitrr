@@ -1353,7 +1353,7 @@ def _report_config_issues():
                 issues.append("Settings.FreeSpaceFolder must be set when FreeSpace is enabled")
         # Check Arr sections
         for key in CONFIG.sections():
-            m = re.match(r"(rad|son|lid)arr.*", key, re.IGNORECASE)
+            m = re.match(r"(rad|son|lid|read)arr.*", key, re.IGNORECASE)
             if not m:
                 continue
             managed = CONFIG.get(f"{key}.Managed", fallback=False)

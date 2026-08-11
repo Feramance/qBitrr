@@ -1,6 +1,6 @@
 # Processes View
 
-The **Processes View** provides real-time monitoring and control of qBitrr's multiprocessing architecture. Each Arr instance (Radarr/Sonarr/Lidarr) runs two independent processes—**search** and **torrent**—that can be monitored and restarted individually.
+The **Processes View** provides real-time monitoring and control of qBitrr's multiprocessing architecture. Each Arr instance (Radarr/Sonarr/Lidarr/Readarr) runs two independent processes—**search** and **torrent**—that can be monitored and restarted individually.
 
 ---
 
@@ -22,7 +22,7 @@ qBitrr orchestrates torrent management across multiple Arr instances using a mul
 Each managed Arr instance spawns **two separate processes**:
 
 1. **Search Process** (`search`)
-    - Polls Radarr/Sonarr/Lidarr for missing/wanted media
+    - Polls Radarr/Sonarr/Lidarr/Readarr for missing/wanted media
     - Triggers searches based on EntrySearch configuration
     - Handles Overseerr/Ombi request integration
     - Logs the most recent search operation (e.g., "Movie Title (2023)")

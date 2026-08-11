@@ -167,7 +167,7 @@ ViewDensity = "Comfortable"
 
 **Managed Categories**:
 
-This field allows qBittorrent to manage categories with custom seeding settings, independent of Radarr/Sonarr/Lidarr. Use this for torrents not managed by Arr instances (e.g., manually added torrents, private tracker downloads).
+This field allows qBittorrent to manage categories with custom seeding settings, independent of Radarr/Sonarr/Lidarr/Readarr. Use this for torrents not managed by Arr instances (e.g., manually added torrents, private tracker downloads).
 
 - **Tag Input UI**: Add categories by typing and pressing Enter or comma
 - **Visual Tags**: Categories display as removable chips/tags
@@ -1129,6 +1129,6 @@ Test connection to Arr instance without saving configuration.
 ## See Also
 
 - [WebUI Overview](index.md) – Introduction to the WebUI
-- [Arr Views](arr-views.md) – Browse Radarr/Sonarr/Lidarr libraries
+- [Arr Views](arr-views.md) – Browse Radarr/Sonarr/Lidarr/Readarr libraries
 - [First Run Guide](../getting-started/quickstart.md) – Initial configuration walkthrough
 - [Migration Guide](../getting-started/migration.md) – Upgrading from older configs

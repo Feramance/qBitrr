@@ -293,6 +293,7 @@ export function getArrFieldSets(arrKey: string) {
   const lower = arrKey.toLowerCase();
   const isSonarr = lower.includes("sonarr");
   const isLidarr = lower.includes("lidarr");
+  const isReadarr = lower.includes("readarr");
 
   const generalLeaves = MERGED_ARR_FIELDS.filter(
     (f) => f.path && isArrGeneralPath(f.path),
@@ -324,10 +325,10 @@ export function getArrFieldSets(arrKey: string) {
     return true;
   });
 
-  const entryOmbiFields = isLidarr
+  const entryOmbiFields = isLidarr || isReadarr
     ? []
     : MERGED_ARR_FIELDS.filter((f) => f.path && isArrOmbiPath(f.path));
-  const entryOverseerrFields = isLidarr
+  const entryOverseerrFields = isLidarr || isReadarr
     ? []
     : MERGED_ARR_FIELDS.filter((f) => f.path && isArrOverseerrPath(f.path));
   const torrentFields = MERGED_ARR_FIELDS.filter(

@@ -65,6 +65,17 @@ Requestrr provides a Discord interface for users to request content. To integrat
 
 ---
 
+## Unsupported Arr Types
+
+Overseerr and Ombi only cover **movies and TV**. qBitrr therefore disables request integration for:
+
+- **Lidarr** (music)
+- **Readarr** (books)
+
+Those instances have no `EntrySearch.Ombi` / `EntrySearch.Overseerr` config blocks. Use each Arr's built-in wanted list instead.
+
+---
+
 ## How It Works
 
 ### Request Flow

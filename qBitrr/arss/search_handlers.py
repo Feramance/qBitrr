@@ -9,6 +9,7 @@ from qBitrr.arss.arr_shared import _ARR_RETRY_EXCEPTIONS, with_retry
 from qBitrr.errors import NoConnectionrException
 from qBitrr.tables import (
     AlbumFilesModel,
+    BookFilesModel,
     EpisodeFilesModel,
     MoviesFilesModel,
     SeriesFilesModel,
@@ -20,7 +21,7 @@ if TYPE_CHECKING:
 
 def maybe_do_search(
     arr: Arr,
-    file_model: EpisodeFilesModel | MoviesFilesModel | SeriesFilesModel,
+    file_model: EpisodeFilesModel | MoviesFilesModel | SeriesFilesModel | BookFilesModel,
     request: bool = False,
     todays: bool = False,
     bypass_limit: bool = False,
@@ -404,6 +405,99 @@ def search_lidarr(
         )
     context_label = arr._humanize_request_tag(request_tag)
     description = f"{file_model.ArtistTitle} - {file_model.Title}"
+    arr._record_search_activity(
+        description,
+        context=context_label,
+        detail=str(reason_text) if reason_text else None,
+    )
+    return True
+
+
+def search_readarr(
+    arr: Arr,
+    file_model: BookFilesModel,
+    *,
+    request_tag: str,
+    request: bool,
+    todays: bool,
+    bypass_limit: bool,
+    series_search: bool,
+    commands: int,
+):
+    """Readarr book search command path."""
+    del series_search  # unused for books
+    file_model: BookFilesModel
+    if not (request or todays):
+        (
+            arr.model_queue.select(arr.model_queue.Completed)
+            .where(arr.model_queue.EntryId == file_model.EntryId)
+            .execute()
+        )
+    else:
+        pass
+    if file_model.EntryId in arr.queue_file_ids:
+        arr.logger.debug(
+            "%sSkipping: Already Searched: %s - %s (%s)",
+            request_tag,
+            file_model.AuthorTitle,
+            file_model.Title,
+            file_model.EntryId,
+        )
+        arr.model_file.update(Searched=True, Upgrade=True).where(
+            (arr.model_file.EntryId == file_model.EntryId)
+            & (arr.model_file.ArrInstance == arr._name)
+        ).execute()
+        return True
+    active_commands = arr.arr_db_query_commands_count()
+    arr.logger.info("%s active search commands, %s remaining", active_commands, commands)
+    if not bypass_limit and active_commands >= arr._get_search_command_limit():
+        arr.logger.trace(
+            "Idle: Too many commands in queue: %s - %s | [id=%s]",
+            file_model.AuthorTitle,
+            file_model.Title,
+            file_model.EntryId,
+        )
+        return False
+    arr.persistent_queue.insert(
+        EntryId=file_model.EntryId, ArrInstance=arr._name
+    ).on_conflict_ignore().execute()
+
+    arr.model_queue.insert(
+        Completed=False, EntryId=file_model.EntryId, ArrInstance=arr._name
+    ).on_conflict_replace().execute()
+    if file_model.EntryId:
+        with_retry(
+            lambda: execute_command(arr.client, "BookSearch", bookIds=[file_model.EntryId]),
+            retries=5,
+            backoff=0.5,
+            max_backoff=5,
+            exceptions=_ARR_RETRY_EXCEPTIONS,
+        )
+    arr.model_file.update(Searched=True, Upgrade=True).where(
+        (arr.model_file.EntryId == file_model.EntryId) & (arr.model_file.ArrInstance == arr._name)
+    ).execute()
+    reason_text = getattr(file_model, "Reason", None)
+    if reason_text:
+        arr.logger.hnotice(
+            "%sSearching for: %s - %s [foreignBookId=%s|id=%s][%s]",
+            request_tag,
+            file_model.AuthorTitle,
+            file_model.Title,
+            file_model.ForeignBookId,
+            file_model.EntryId,
+            reason_text,
+        )
+    else:
+        arr.logger.hnotice(
+            "%sSearching for: %s - %s [foreignBookId=%s|id=%s]",
+            request_tag,
+            file_model.AuthorTitle,
+            file_model.Title,
+            file_model.ForeignBookId,
+            file_model.EntryId,
+        )
+    context_label = arr._humanize_request_tag(request_tag)
+    description = f"{file_model.AuthorTitle} - {file_model.Title}"
     arr._record_search_activity(
         description,
         context=context_label,
