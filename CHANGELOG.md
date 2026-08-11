@@ -1,5 +1,23 @@
 # Changelog
 
+## v5.14.0-1 (11/08/2026)
+
+### 🚀 Features
+- [[minor] Add Readarr support and fix dedicated qBit client gate in pathos workers (#540) (#541)](https://github.com/Feramance/qBitrr/commit/b92c2c7256b264bf6b229e8ce4cf6524d24ae9e1) - @Feramance
+
+### 🔧 Maintenance
+- [Bump github/codeql-action from 4.37.4 to 4.37.6 (#546)](https://github.com/Feramance/qBitrr/commit/629f4434e3709b5e054564eb637fbe1a12319085) - @Feramance
+- [Bump @tanstack/react-table from 8.21.3 to 9.0.0 in /webui (#545)](https://github.com/Feramance/qBitrr/commit/17b41f29db0e37d6447074c6b676bc0c40e95e3e) - @Feramance
+- [Bump vite from 8.1.5 to 8.2.0 in /webui (#534)](https://github.com/Feramance/qBitrr/commit/b2b535fcd6da7732ed6bd9408957c145c7f7d0fc) - @Feramance
+- [Bump jsdom from 30.0.0 to 30.0.1 in /webui (#533)](https://github.com/Feramance/qBitrr/commit/3eb71e9e15dd3a01411c7871ffa85fb0d2163e4b) - @Feramance
+- [Bump docker/login-action from 4.5.2 to 4.6.0 (#531)](https://github.com/Feramance/qBitrr/commit/987b196fb340a296d8ec4b8e3fee269fcc1e16ea) - @Feramance
+- [Bump github/codeql-action from 4 to 4.37.4 (#538)](https://github.com/Feramance/qBitrr/commit/67bb33436e1473bf32f1a01b3caaa13eacbf8b3d) - @Feramance
+- [Bump @types/node from 26.1.1 to 26.1.2 in /webui (#544)](https://github.com/Feramance/qBitrr/commit/f57dc9d913646314bccd850e58f8bf35ad611caf) - @Feramance
+- [Bump @testing-library/user-event from 14.6.1 to 14.6.3 in /webui (#543)](https://github.com/Feramance/qBitrr/commit/7e0f20bee62a7388b4955be0f47efb5bf22eb562) - @Feramance
+- [Bump postcss from 8.5.25 to 8.5.26 in /webui (#542)](https://github.com/Feramance/qBitrr/commit/4f6796ef0459d857df28e7058c97939bca957937) - @Feramance
+
+---
+
 ## v5.13.3-3 (10/08/2026)
 
 ### 🐛 Bug Fixes
