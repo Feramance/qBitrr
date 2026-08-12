@@ -283,14 +283,14 @@ ProfileSwitchRetryAttempts = 3
 
 Configure torrent handling in the `[Readarr-Books.Torrent]` subsection.
 
-### Ebook File Configuration
+### Ebook and Audiobook File Configuration
 
 ```toml
 [Readarr-Books.Torrent]
 CaseSensitiveMatches = false
 FolderExclusionRegex = ["\\bextras?\\b", "\\bsamples?\\b", "\\bscreens?\\b"]
 FileNameExclusionRegex = ["\\bsample\\b", "\\btrailer\\b"]
-FileExtensionAllowlist = [".epub", ".mobi", ".azw", ".azw3", ".pdf", ".cbz", ".cbr", ".!qB", ".parts"]
+FileExtensionAllowlist = [".epub", ".kepub", ".mobi", ".azw", ".azw3", ".pdf", ".cbz", ".cbr", ".flac", ".ape", ".wavpack", ".wav", ".alac", ".mp2", ".mp3", ".wma", ".m4a", ".m4p", ".m4b", ".aac", ".mp4a", ".ogg", ".oga", ".vorbis", ".!qB", ".parts"]
 AutoDelete = false
 IgnoreTorrentsYoungerThan = 180
 MaximumETA = -1
@@ -300,12 +300,14 @@ StalledDelay = 15
 ReSearchStalled = false
 ```
 
-!!! info "Ebook Extensions"
-    Default allowlist targets common ebook/comic formats:
+!!! info "Book Extensions"
+    The default allowlist covers Readarr's ebook and audiobook formats:
 
-    - `.epub`, `.mobi`, `.azw`, `.azw3` – ebook readers
+    - `.epub`, `.kepub`, `.mobi`, `.azw`, `.azw3` – ebook readers
     - `.pdf` – portable documents
     - `.cbz`, `.cbr` – comic archives
+    - `.flac`, `.ape`, `.wavpack`, `.wav`, `.alac` – lossless audio
+    - `.mp2`, `.mp3`, `.wma`, `.m4a`, `.m4p`, `.m4b`, `.aac`, `.mp4a`, `.ogg`, `.oga`, `.vorbis` – audiobook audio
     - `.!qB`, `.parts` – incomplete qBittorrent files (keep while downloading)
 
 ---
@@ -374,7 +376,7 @@ ProfileSwitchRetryAttempts = 3
 CaseSensitiveMatches = false
 FolderExclusionRegex = ["\\bextras?\\b", "\\bsamples?\\b"]
 FileNameExclusionRegex = ["\\bsample\\b"]
-FileExtensionAllowlist = [".epub", ".mobi", ".azw", ".azw3", ".pdf", ".cbz", ".cbr", ".!qB", ".parts"]
+FileExtensionAllowlist = [".epub", ".kepub", ".mobi", ".azw", ".azw3", ".pdf", ".cbz", ".cbr", ".flac", ".ape", ".wavpack", ".wav", ".alac", ".mp2", ".mp3", ".wma", ".m4a", ".m4p", ".m4b", ".aac", ".mp4a", ".ogg", ".oga", ".vorbis", ".!qB", ".parts"]
 AutoDelete = false
 IgnoreTorrentsYoungerThan = 180
 MaximumETA = -1
@@ -406,11 +408,11 @@ The same route is available under `/api/arr/...` when WebUI auth is enabled. See
 
 ---
 
-## Torrent: Ebook allowlist and AutoDelete
+## Torrent: Book allowlist and AutoDelete
 
-Readarr sections default `Torrent.FileExtensionAllowlist` to ebook/comic extensions (`.epub`, `.mobi`, `.azw`, `.azw3`, `.pdf`, `.cbz`, `.cbr`). When **`Torrent.AutoDelete`** is enabled, qBitrr validates allowlisted files before treating a download as complete.
+Readarr sections default `Torrent.FileExtensionAllowlist` to Readarr-recognized ebook and audiobook extensions, plus common comic/archive formats. qBitrr uses this allowlist while a torrent is downloading, independently of **`Torrent.AutoDelete`**, so customize it if your Readarr instance accepts additional formats. When **`Torrent.AutoDelete`** is enabled, qBitrr also validates allowlisted files before treating a download as complete.
 
-Unlike video formats, ebooks are **not probed with ffprobe** — known ebook/comic suffixes are accepted without a media probe so AutoDelete does not mark entire downloads invalid when ffprobe is available.
+Unlike video and audio formats, ebooks are **not probed with ffprobe** — known ebook/comic suffixes are accepted without a media probe so AutoDelete does not mark entire downloads invalid when ffprobe is available.
 
 ---
 
