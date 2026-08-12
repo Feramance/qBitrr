@@ -1,5 +1,12 @@
 # Changelog
 
+## v5.14.1-1 (12/08/2026)
+
+### 🐛 Bug Fixes
+- [[patch] Fix Readarr audiobook torrents being deleted by default allowlist (#548)](https://github.com/Feramance/qBitrr/commit/8a70616f426f61ffdf4a57a0eda79e26d73d41b5) - @Feramance
+
+---
+
 ## v5.14.0-1 (11/08/2026)
 
 ### 🚀 Features
