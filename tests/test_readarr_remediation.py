@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import unittest
 from datetime import datetime, timezone
 from types import SimpleNamespace
@@ -349,6 +350,37 @@ class TestEbookProbeable(unittest.TestCase):
         path = Path("/tmp/book.epub")
         self.assertTrue(arr.file_is_probeable(path))
         self.assertIn(path, arr.files_probed)
+
+
+class TestReadarrAudiobookAllowlist(unittest.TestCase):
+    def test_default_allowlist_does_not_delete_m4b_torrent(self) -> None:
+        """Regression: Readarr audiobook torrents were deleted as all-files-excluded."""
+        from qBitrr.arss.arr_base import ArrBase
+        from qBitrr.gen_config.sections import _arr_file_extensions
+
+        arr = ArrBase.__new__(ArrBase)
+        arr.logger = MagicMock()
+        arr.folder_exclusion_regex = None
+        arr.file_name_exclusion_regex = None
+        extensions = _arr_file_extensions("Readarr-Audiobooks")
+        arr.file_extension_allowlist = [rf"\{ext}" for ext in extensions]
+        arr.file_extension_allowlist_re = re.compile(
+            "|".join(arr.file_extension_allowlist), re.IGNORECASE | re.DOTALL
+        )
+        arr.cleaned_torrents = set()
+        arr.change_priority_by_instance = {}
+        arr._hnr_allows_delete = MagicMock(return_value=True)
+        arr._mark_for_deletion = MagicMock()
+        torrent = SimpleNamespace(
+            files=[SimpleNamespace(id=1, name="Author/Book.m4b", priority=1)],
+            hash="AUDIOBOOK-HASH",
+            name="Author - Book",
+        )
+
+        arr._process_single_torrent_process_files(torrent, instance_name="qBit")
+
+        arr._mark_for_deletion.assert_not_called()
+        self.assertIn(torrent.hash, arr.cleaned_torrents)
 
 
 class TestArrOpenRoute(unittest.TestCase):

@@ -2024,7 +2024,16 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
             if file.name.endswith(".!qB"):
                 self.logger.trace("Not probeable: File is still downloading: %s", file)
                 return False
-            ebook_suffixes = (".epub", ".mobi", ".azw", ".azw3", ".pdf", ".cbz", ".cbr")
+            ebook_suffixes = (
+                ".epub",
+                ".kepub",
+                ".mobi",
+                ".azw",
+                ".azw3",
+                ".pdf",
+                ".cbz",
+                ".cbr",
+            )
             if file.suffix.lower() in ebook_suffixes:
                 self.logger.trace("Probeable: Ebook/comic suffix skips ffprobe: %s", file)
                 self.files_probed.add(file)

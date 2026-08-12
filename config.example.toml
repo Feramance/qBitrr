@@ -1321,7 +1321,7 @@ FolderExclusionRegex = ["\\bextras?\\b", "\\bsamples?\\b", "\\bscreens?\\b"]
 FileNameExclusionRegex = ["\\bsample\\b", "brarbg.com\\b", "\\btrailer\\b", "comandotorrents.com"]
 
 # Only files with these extensions will be allowed to be downloaded, comma separated strings or regex, leave it empty to allow all extensions
-FileExtensionAllowlist = [".epub", ".mobi", ".azw", ".azw3", ".pdf", ".cbz", ".cbr", ".!qB", ".parts"]
+FileExtensionAllowlist = [".epub", ".kepub", ".mobi", ".azw", ".azw3", ".pdf", ".cbz", ".cbr", ".flac", ".ape", ".wavpack", ".wav", ".alac", ".mp2", ".mp3", ".wma", ".m4a", ".m4p", ".m4b", ".aac", ".mp4a", ".ogg", ".oga", ".vorbis", ".!qB", ".parts"]
 
 # Auto delete files that can't be playable (i.e .exe, .png)
 AutoDelete = false
