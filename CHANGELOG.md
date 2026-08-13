@@ -1,5 +1,12 @@
 # Changelog
 
+## v5.14.2-1 (13/08/2026)
+
+### 🐛 Bug Fixes
+- [[patch] fix: stop tracker -1 from clearing SeedingMode limits (#547) (#549)](https://github.com/Feramance/qBitrr/commit/f633914a895c51f4bb440ba003681c829cf95b61) - @Feramance
+
+---
+
 ## v5.14.1-1 (12/08/2026)
 
 ### 🐛 Bug Fixes
