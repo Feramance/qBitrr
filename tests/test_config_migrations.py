@@ -17,6 +17,7 @@ from qBitrr.gen_config import (
     _migrate_qbit_category_settings,
     _migrate_qbit_subcategory_match,
     _migrate_quality_profile_mappings,
+    _migrate_readarr_file_extension_allowlist,
     _migrate_webui_config,
     apply_config_migrations,
 )
@@ -42,6 +43,42 @@ class TestMigrateWebuiConfig(unittest.TestCase):
         self.assertEqual(cfg.get("WebUI.Host"), "127.0.0.1")
         self.assertEqual(cfg.get("WebUI.Port"), 6969)
         self.assertEqual(cfg.get("WebUI.Token"), "secret")
+
+
+class TestMigrateReadarrFileExtensionAllowlist(unittest.TestCase):
+    def test_expands_untouched_ebook_default_for_existing_instances(self) -> None:
+        """Regression: upgraded Readarr configs still deleted .m4b torrent payloads."""
+        cfg = _config_from_toml(
+            """
+            [Settings]
+            ConfigVersion = "5.14.0"
+
+            [Readarr-Audiobooks]
+            [Readarr-Audiobooks.Torrent]
+            FileExtensionAllowlist = [".epub", ".mobi", ".azw", ".azw3", ".pdf", ".cbz", ".cbr", ".!qB", ".parts"]
+            """
+        )
+
+        self.assertTrue(_migrate_readarr_file_extension_allowlist(cfg))
+        allowlist = cfg.get("Readarr-Audiobooks.Torrent.FileExtensionAllowlist")
+        self.assertIn(".m4b", allowlist)
+        self.assertIn(".kepub", allowlist)
+        self.assertFalse(_migrate_readarr_file_extension_allowlist(cfg))
+
+    def test_preserves_user_customized_allowlist(self) -> None:
+        cfg = _config_from_toml(
+            """
+            [Readarr-Books]
+            [Readarr-Books.Torrent]
+            FileExtensionAllowlist = [".epub", ".pdf"]
+            """
+        )
+
+        self.assertFalse(_migrate_readarr_file_extension_allowlist(cfg))
+        self.assertEqual(
+            list(cfg.get("Readarr-Books.Torrent.FileExtensionAllowlist")),
+            [".epub", ".pdf"],
+        )
 
 
 class TestMigrateQualityProfileMappings(unittest.TestCase):

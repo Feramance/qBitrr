@@ -10,7 +10,11 @@ from qBitrr.home_path import HOME_PATH
 T = TypeVar("T")
 
 from qBitrr.gen_config.config_class import MyConfig
-from qBitrr.gen_config.sections import generate_doc, iter_arr_sections
+from qBitrr.gen_config.sections import (
+    _arr_file_extensions,
+    generate_doc,
+    iter_arr_sections,
+)
 from qBitrr.gen_config.validate import (
     _validate_and_fill_config,
 )
@@ -65,6 +69,45 @@ def _migrate_animarr_sections(config: MyConfig) -> bool:
         migrated = True
         print(f"Migrated obsolete config section [{old_name}] → [{new_name}]")
     return migrated
+
+
+_OLD_READARR_FILE_EXTENSION_ALLOWLIST = [
+    ".epub",
+    ".mobi",
+    ".azw",
+    ".azw3",
+    ".pdf",
+    ".cbz",
+    ".cbr",
+    ".!qB",
+    ".parts",
+]
+
+
+def _migrate_readarr_file_extension_allowlist(config: MyConfig) -> bool:
+    """Expand untouched legacy Readarr allowlists to include audiobook formats.
+
+    Only the exact generated/WebUI default shipped with Readarr 5.14.0 is
+    replaced. User-customized allowlists are preserved.
+    """
+    changed = False
+    for key in iter_arr_sections(config):
+        section_name = str(key)
+        if not section_name.lower().startswith("readarr"):
+            continue
+        section = config.config[section_name]
+        torrent = section.get("Torrent") if isinstance(section, dict) else None
+        if not isinstance(torrent, dict):
+            continue
+        current = torrent.get("FileExtensionAllowlist")
+        if current == _OLD_READARR_FILE_EXTENSION_ALLOWLIST:
+            torrent["FileExtensionAllowlist"] = _arr_file_extensions(section_name)
+            changed = True
+            print(
+                f"Expanded legacy audiobook file extension allowlist in "
+                f"[{section_name}.Torrent]"
+            )
+    return changed
 
 
 def _migrate_webui_config(config: MyConfig) -> bool:
@@ -650,6 +693,10 @@ def apply_config_migrations(config: MyConfig) -> None:
 
     # Rename obsolete Animarr* sections to Sonarr* (idempotent)
     if _migrate_animarr_sections(config):
+        changes_made = True
+
+    # Expand the untouched Readarr 5.14.0 default that deleted audiobook downloads.
+    if _migrate_readarr_file_extension_allowlist(config):
         changes_made = True
 
     # Migrate quality profile mappings from list to dict format (< 0.0.2)
