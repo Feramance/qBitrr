@@ -376,7 +376,34 @@ export function ensureArrDefaults(type: string): ConfigDocument {
     FileExtensionAllowlist: isLidarr
       ? [".mp3", ".flac", ".m4a", ".aac", ".ogg", ".opus", ".wav", ".ape", ".wma", ".!qB", ".parts", ".log", ".cue"]
       : isReadarr
-        ? [".epub", ".mobi", ".azw", ".azw3", ".pdf", ".cbz", ".cbr", ".!qB", ".parts"]
+        ? [
+            ".epub",
+            ".kepub",
+            ".mobi",
+            ".azw",
+            ".azw3",
+            ".pdf",
+            ".cbz",
+            ".cbr",
+            ".flac",
+            ".ape",
+            ".wavpack",
+            ".wav",
+            ".alac",
+            ".mp2",
+            ".mp3",
+            ".wma",
+            ".m4a",
+            ".m4p",
+            ".m4b",
+            ".aac",
+            ".mp4a",
+            ".ogg",
+            ".oga",
+            ".vorbis",
+            ".!qB",
+            ".parts",
+          ]
         : [".mp4", ".mkv", ".sub", ".ass", ".srt", ".!qB", ".parts"],
     AutoDelete: false,
     IgnoreTorrentsYoungerThan: 600,

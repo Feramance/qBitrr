@@ -138,6 +138,35 @@ describe("ensureArrDefaults", () => {
     expect(entry.Overseerr).toBeUndefined();
   });
 
+  it("includes audiobook extensions for WebUI-created Readarr instances", () => {
+    // Regression: the stale ebook-only WebUI default caused .m4b torrents to be
+    // classified as all-files-excluded and deleted with their payload.
+    const doc = ensureArrDefaults("Readarr");
+    const torrent = doc.Torrent as Record<string, unknown>;
+    const extensions = torrent.FileExtensionAllowlist as string[];
+    expect(extensions).toEqual(
+      expect.arrayContaining([
+        ".kepub",
+        ".flac",
+        ".ape",
+        ".wavpack",
+        ".wav",
+        ".alac",
+        ".mp2",
+        ".mp3",
+        ".wma",
+        ".m4a",
+        ".m4p",
+        ".m4b",
+        ".aac",
+        ".mp4a",
+        ".ogg",
+        ".oga",
+        ".vorbis",
+      ])
+    );
+  });
+
   it("includes SearchByYear and Ombi/Overseerr for Radarr", () => {
     const doc = ensureArrDefaults("Radarr");
     const entry = doc.EntrySearch as Record<string, unknown>;
