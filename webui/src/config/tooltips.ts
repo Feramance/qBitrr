@@ -155,7 +155,7 @@ export const FIELD_TOOLTIPS: Record<string, string> = {
   "Torrent.IgnoreTorrentsYoungerThan":
     "Ignore torrents younger than this many seconds for failure handling.",
   "Torrent.MaximumETA":
-    "Maximum allowed remaining ETA in seconds; values above this are considered stalled.",
+    "Maximum allowed remaining ETA (-1 = no limit from this source). A positive tracker value overrides; tracker -1 does not clear this limit.",
   "Torrent.MaximumDeletablePercentage":
     "Upper bound for completion percentage when deciding to delete a torrent.",
   "Torrent.DoNotRemoveSlow": "Ignore slow torrents when pruning.",
@@ -172,9 +172,9 @@ export const FIELD_TOOLTIPS: Record<string, string> = {
   "Torrent.SeedingMode.UploadRateLimitPerTorrent":
     "Per-torrent upload rate limit in bytes per second (-1 disables the limit).",
   "Torrent.SeedingMode.MaxUploadRatio":
-    "Maximum allowed upload ratio (-1 disables the limit).",
+    "Maximum allowed upload ratio (-1 = no limit from this source). A positive tracker value overrides; tracker -1 does not clear this limit.",
   "Torrent.SeedingMode.MaxSeedingTime":
-    "Maximum seeding duration in seconds (-1 disables the limit).",
+    "Maximum seeding duration (-1 = no limit from this source; accepts values like \"2w\"). A positive tracker value overrides; tracker -1 does not clear this limit.",
   "Torrent.SeedingMode.RemoveTorrent":
     "Removal policy: -1 do not remove, 1 remove on ratio, 2 remove on time, 3 remove on ratio or time, 4 remove on ratio and time.",
   "CategorySeeding.HitAndRunMode":

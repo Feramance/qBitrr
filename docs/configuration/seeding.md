@@ -233,12 +233,17 @@ Ratio = Total Uploaded ÷ Total Downloaded
 
 ```toml
 MaxSeedingTime = 259200  # 72 hours
+# Or a duration string (same value):
+# MaxSeedingTime = "3d"
+# MaxSeedingTime = "2w"   # 14 days = 1209600 seconds
 ```
 
-**Type:** Integer (seconds)
-**Default:** `-1` (unlimited)
+**Type:** Integer (seconds) or duration string (`"2w"`, `"30m"`, …)
+**Default:** `-1` (no limit from this source)
 
-Maximum seeding duration before triggering removal.
+Maximum seeding duration before triggering removal. Duration strings are parsed the same as other time fields (see [Config file](config-file.md)).
+
+`-1` means this source contributes no limit. A matched tracker with `MaxSeedingTime = -1` (or the key omitted) does **not** clear a positive SeedingMode / CategorySeeding value. Effective seeding is unlimited only when **no** contributing source sets a positive time limit for that torrent.
 
 **Time conversions:**
 
@@ -514,10 +519,10 @@ The tracker announce URL as it appears in qBittorrent.
 MaximumETA = 18000  # 5 hours
 ```
 
-**Type:** Integer (seconds)
-**Default:** Inherits from `[<Arr>-<Name>.Torrent].MaximumETA`
+**Type:** Integer (seconds) or duration string
+**Default:** Inherits from `[<Arr>-<Name>.Torrent].MaximumETA` when unset or `-1`
 
-Override the maximum allowed download ETA for this tracker.
+A **positive** tracker `MaximumETA` overrides the Arr `Torrent.MaximumETA`. Tracker `-1` / omitted does not clear a positive parent limit. Unlimited only when neither parent nor tracker sets a positive ETA.
 
 **Use cases:**
 
@@ -529,12 +534,15 @@ Override the maximum allowed download ETA for this tracker.
 
 #### MaxUploadRatio / MaxSeedingTime
 
-Override global seeding limits for this tracker:
+Override global seeding limits for this tracker with **positive** values:
 
 ```toml
 MaxUploadRatio = 1.5
 MaxSeedingTime = 604800  # 7 days
+# MaxSeedingTime = "1w"  # equivalent
 ```
+
+Tracker `-1` or omitting these keys means "no limit from this tracker" and does **not** force unlimited when SeedingMode / CategorySeeding already has a positive limit. Unlimited applies only when no positive limit exists for the torrent from any contributing source.
 
 **Example - Different tracker requirements:**
 
@@ -1032,9 +1040,12 @@ tail -f ~/logs/Radarr-Movies.log | grep -i "remov\|seed\|ratio"
    ```toml
    MaxUploadRatio = 2.0  # Must not be -1
    MaxSeedingTime = 604800  # Must not be -1
+   # MaxSeedingTime = "1w"  # also valid
    ```
 
-   If `RemoveTorrent` is 1–4 but **neither** `MaxUploadRatio` nor `MaxSeedingTime` is set (both -1 or unset), qBitrr will **not** remove torrents for seeding limits and will log a single warning per run. Set at least one limit to enable ratio/time-based removal.
+   If `RemoveTorrent` is 1–4 but **neither** `MaxUploadRatio` nor `MaxSeedingTime` is set (both -1 or unset on SeedingMode **and** no positive tracker override), qBitrr will **not** remove torrents for seeding limits and will log a single warning per run. Set at least one limit to enable ratio/time-based removal.
+
+   Tracker rows with `MaxSeedingTime = -1` / `MaxUploadRatio = -1` (common WebUI defaults) do **not** disable a positive SeedingMode limit — `-1` means no tracker override, not "force unlimited."
 
 3. **Check import mode:**
 
@@ -1070,7 +1081,8 @@ tail -f ~/logs/Radarr-Movies.log | grep -i "remov\|seed\|ratio"
    ```
 
 3. **Check per-tracker overrides:**
-   - Ensure tracker settings aren't overriding globals
+   - Positive tracker `MaxSeedingTime` / `MaxUploadRatio` override SeedingMode
+   - Tracker `-1` does not clear SeedingMode limits
    - Verify tracker URI matches exactly
 
 ---

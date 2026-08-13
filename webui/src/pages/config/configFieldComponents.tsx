@@ -22,6 +22,7 @@ import RefreshIcon from "../../icons/refresh-arrow.svg";
 import VisibilityIcon from "../../icons/visibility.svg";
 import { extractTooltipSummary } from "./configFields";
 import {
+  createDefaultTrackerEntry,
   fieldErrorDataPath,
   findFieldErrorMessage,
   getValue,
@@ -423,30 +424,7 @@ export function FieldGroup({
     const trackerPath = qbitTrackers ? ["Trackers"] : ["Torrent", "Trackers"];
     const trackers = (getValue(state as ConfigDocument, trackerPath) ?? []) as ConfigDocument[];
     const handleAddTracker = () => {
-      const nextTrackers = [
-        ...trackers,
-        {
-          Name: "",
-          URI: "",
-          Priority: 0,
-          SortTorrents: false,
-          MaximumETA: -1,
-          DownloadRateLimit: -1,
-          UploadRateLimit: -1,
-          MaxUploadRatio: -1,
-          MaxSeedingTime: -1,
-          AddTrackerIfMissing: false,
-          RemoveIfExists: false,
-          SuperSeedMode: false,
-          AddTags: [],
-          HitAndRunMode: "disabled",
-          MinSeedRatio: 1.0,
-          MinSeedingTimeDays: 0,
-          HitAndRunMinimumDownloadPercent: 10,
-          HitAndRunPartialSeedRatio: 1.0,
-          TrackerUpdateBuffer: 0,
-        },
-      ];
+      const nextTrackers = [...trackers, createDefaultTrackerEntry()];
       onChange([...basePath, ...trackerPath], {} as FieldDefinition, nextTrackers);
     };
     const handleDeleteTracker = (index: number) => {

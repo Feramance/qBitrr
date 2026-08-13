@@ -69,6 +69,7 @@ class TestParseDurationGoldenMaster(unittest.TestCase):
         self.assertEqual(parse_duration("2m", unit="seconds"), 120)
         self.assertEqual(parse_duration_to_seconds(None, fallback=99), 99)
         self.assertEqual(parse_duration("1w", unit="seconds"), 604800)
+        self.assertEqual(parse_duration("2w", unit="seconds"), 1209600)
         self.assertEqual(parse_duration("-1", unit="seconds"), -1)
 
     def test_minutes_default_suffix_and_sub_one_rounding(self) -> None:
@@ -186,6 +187,26 @@ class TestLoadQbitSeedingConfig(unittest.TestCase):
         self.assertIn("radarr", result["category_overrides"])
         result_ph = load_qbit_seeding_config("qBit", include_ignore_younger=False)
         self.assertNotIn("ignore_torrents_younger_than", result_ph)
+
+    @mock.patch("qBitrr.qbit_seeding_config.CONFIG")
+    def test_max_seeding_time_uses_get_duration(self, mock_config: mock.MagicMock) -> None:
+        """CategorySeeding MaxSeedingTime goes through get_duration (accepts \"2w\")."""
+        calls: list[tuple] = []
+
+        def get_duration(key, fallback=-1, unit="seconds"):
+            calls.append((key, fallback, unit))
+            if key == "qBit.CategorySeeding.MaxSeedingTime":
+                return 1209600  # parsed "2w"
+            return fallback
+
+        mock_config.get_duration.side_effect = get_duration
+        mock_config.get.side_effect = lambda key, fallback=None: fallback
+        result = load_qbit_seeding_config("qBit", include_ignore_younger=False)
+        self.assertEqual(result["default_seeding"]["MaxSeedingTime"], 1209600)
+        self.assertTrue(
+            any(k == "qBit.CategorySeeding.MaxSeedingTime" for k, *_ in calls),
+            calls,
+        )
 
 
 class TestAutoUpdateUnsupportedPlatformMessageFixedOnRefactor(unittest.TestCase):
