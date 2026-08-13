@@ -415,3 +415,31 @@ export function ensureArrDefaults(type: string): ConfigDocument {
     Torrent: torrent as ConfigDocument,
   } as ConfigDocument;
 }
+
+/**
+ * Default row when adding a tracker in the WebUI.
+ *
+ * Omits MaxSeedingTime / MaxUploadRatio / MaximumETA so new trackers inherit
+ * parent SeedingMode / Torrent limits (tracker -1 must not clear a positive limit).
+ * Rate limits still default to -1 (unlimited bandwidth).
+ */
+export function createDefaultTrackerEntry(): ConfigDocument {
+  return {
+    Name: "",
+    URI: "",
+    Priority: 0,
+    SortTorrents: false,
+    DownloadRateLimit: -1,
+    UploadRateLimit: -1,
+    AddTrackerIfMissing: false,
+    RemoveIfExists: false,
+    SuperSeedMode: false,
+    AddTags: [],
+    HitAndRunMode: "disabled",
+    MinSeedRatio: 1.0,
+    MinSeedingTimeDays: 0,
+    HitAndRunMinimumDownloadPercent: 10,
+    HitAndRunPartialSeedRatio: 1.0,
+    TrackerUpdateBuffer: 0,
+  };
+}

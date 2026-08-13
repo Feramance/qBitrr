@@ -277,7 +277,7 @@ MaximumETA = -1
 ```
 
 !!! info "Tracker Override"
-    If `MaximumETA` is set on a tracker basis (`[<Arr>.<Torrent>.Trackers.<TrackerName>]`), that value overrides this global setting.
+    A **positive** tracker `MaximumETA` overrides this global setting. Tracker `-1` or omitting the key does not clear a positive Arr `MaximumETA`. Unlimited only when no positive ETA is set for the torrent.
 
 ---
 

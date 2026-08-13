@@ -54,6 +54,19 @@ class TorrentLimits:
             parsed = _to_number(value, default=-5)
             return parsed if parsed > 0 else -5
 
+        def _prefer_limit(tracker_raw, global_value):
+            """Prefer any positive limit over unlimited/unset from either source.
+
+            Tracker ``-1`` / missing / <=0 means no limit from the tracker (not
+            "force unlimited"). Unlimited is residual only when neither tracker
+            nor parent contributes a positive limit. When both are positive, the
+            tracker value wins as an explicit per-tracker override.
+            """
+            tracker_parsed = _to_number(tracker_raw, default=-5)
+            if tracker_parsed is not None and tracker_parsed > 0:
+                return tracker_parsed
+            return global_value
+
         _, monitored_trackers = self._get_torrent_important_trackers(torrent)
         most_important_tracker, _unique_tags = self._get_most_important_tracker_and_tags(
             monitored_trackers, {}
@@ -61,13 +74,15 @@ class TorrentLimits:
 
         data_settings = {
             "ratio_limit": _positive_or_sentinel(
-                most_important_tracker.get(
-                    "MaxUploadRatio", self.seeding_mode_global_max_upload_ratio
+                _prefer_limit(
+                    most_important_tracker.get("MaxUploadRatio"),
+                    self.seeding_mode_global_max_upload_ratio,
                 )
             ),
             "seeding_time_limit": _positive_or_sentinel(
-                most_important_tracker.get(
-                    "MaxSeedingTime", self.seeding_mode_global_max_seeding_time
+                _prefer_limit(
+                    most_important_tracker.get("MaxSeedingTime"),
+                    self.seeding_mode_global_max_seeding_time,
                 )
             ),
             "dl_limit": _positive_or_sentinel(
@@ -82,7 +97,10 @@ class TorrentLimits:
             ),
             "super_seeding": most_important_tracker.get("SuperSeedMode", torrent.super_seeding),
             "max_eta": _to_number(
-                most_important_tracker.get("MaximumETA", self.maximum_eta),
+                _prefer_limit(
+                    most_important_tracker.get("MaximumETA"),
+                    self.maximum_eta,
+                ),
                 self.maximum_eta,
             ),
             "hnr_clear_mode": self._resolve_hnr_clear_mode(most_important_tracker),

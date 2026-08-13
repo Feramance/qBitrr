@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildSectionDeleteChanges,
+  createDefaultTrackerEntry,
   ensureArrDefaults,
   fieldErrorDataPath,
   findFieldErrorMessage,
@@ -9,6 +10,17 @@ import {
   validationErrorsFromApi,
 } from "./configDocumentUtils";
 import type { ValidationError } from "./configTypes";
+
+describe("createDefaultTrackerEntry", () => {
+  it("omits seeding/ETA limit keys so parent limits are inherited", () => {
+    const tracker = createDefaultTrackerEntry();
+    expect(tracker).not.toHaveProperty("MaxSeedingTime");
+    expect(tracker).not.toHaveProperty("MaxUploadRatio");
+    expect(tracker).not.toHaveProperty("MaximumETA");
+    expect(tracker.DownloadRateLimit).toBe(-1);
+    expect(tracker.UploadRateLimit).toBe(-1);
+  });
+});
 
 describe("configDocumentUtils validation helpers", () => {
   it("formatValidationErrors lists every path and message", () => {
