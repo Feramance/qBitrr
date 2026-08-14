@@ -310,6 +310,10 @@ ReSearchStalled = false
     - `.mp2`, `.mp3`, `.wma`, `.m4a`, `.m4p`, `.m4b`, `.aac`, `.mp4a`, `.ogg`, `.oga`, `.vorbis` – audiobook audio
     - `.!qB`, `.parts` – incomplete qBittorrent files (keep while downloading)
 
+    Existing Readarr sections that still use qBitrr's original, unmodified
+    ebook-only default are expanded automatically during config migration.
+    Custom allowlists are never changed.
+
 ---
 
 ## Seeding Configuration
