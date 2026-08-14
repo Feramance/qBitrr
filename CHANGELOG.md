@@ -1,5 +1,12 @@
 # Changelog
 
+## v5.14.3-1 (14/08/2026)
+
+### 🐛 Bug Fixes
+- [[patch] Fix WebUI Readarr audiobook allowlist data loss (#550)](https://github.com/Feramance/qBitrr/commit/ce8d0330a3202995863ff57423d0cd4036efb660) - @Feramance
+
+---
+
 ## v5.14.2-1 (13/08/2026)
 
 ### 🐛 Bug Fixes
