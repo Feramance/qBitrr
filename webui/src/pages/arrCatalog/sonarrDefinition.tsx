@@ -335,7 +335,7 @@ function useSonarrInstancePipeline(
         if (showLoading) setLoading(false);
       }
     },
-    [pushToast, roundPageSize],
+    [emptyTracker, keyRef, pagesRef, pushToast, roundPageSize, wipePages],
   );
 
   const fetchInstanceRef = useRef(fetchInstance);
