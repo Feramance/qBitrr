@@ -284,7 +284,10 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   );
 
   useEffect(() => {
-    setServerValidationErrors([]);
+    const id = window.setTimeout(() => {
+      setServerValidationErrors([]);
+    }, 0);
+    return () => window.clearTimeout(id);
   }, [formState]);
 
   useEffect(() => {

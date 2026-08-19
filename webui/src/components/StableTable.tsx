@@ -111,7 +111,6 @@ function StableTableInner<TData extends RowData>(props: StableTableProps<TData>)
     legacyData,
   ]);
 
-  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useTable<CoreTableFeatures, TData>({
     features: coreTableFeatures,
     data: stableData,
