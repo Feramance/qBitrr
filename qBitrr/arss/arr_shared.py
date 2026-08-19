@@ -27,6 +27,7 @@ from qBitrr.arr_client import (
     JsonObject,
     Lidarr,
     PyarrConnectionError,
+    PyarrError,
     PyarrResourceNotFound,
     PyarrServerError,
     Radarr,
@@ -127,6 +128,38 @@ _ARR_RETRY_EXCEPTIONS_EXTENDED = (
     requests.exceptions.RequestException,
     PyarrConnectionError,
 )
+
+
+def is_arr_api_error(exc: BaseException) -> bool:
+    """Return True for pyarr HTTP failures that should not kill Arr workers.
+
+    pyarr maps a subset of 4xx/5xx onto ``PyarrError`` subclasses. Unmapped
+    codes (409, 415, 429, 503, ...) are raised as ``Exception(status, message)``.
+    Programming errors and unrelated exceptions return False.
+    """
+    if isinstance(exc, PyarrError):
+        return True
+    if type(exc) is Exception and exc.args:
+        status = exc.args[0]
+        return isinstance(status, int) and 400 <= status <= 599
+    return False
+
+
+def is_arr_transport_error(exc: BaseException) -> bool:
+    """Return True for Arr connectivity failures that affect the whole instance.
+
+    Per-series HTTP errors (404, 415, ...) are not transport failures and should
+    be skipped so the rest of the library can still be processed.
+    """
+    return isinstance(
+        exc,
+        (
+            PyarrConnectionError,
+            requests.exceptions.ConnectionError,
+            requests.exceptions.Timeout,
+        ),
+    )
+
 
 _QBIT_WRITE_RETRY_EXCEPTIONS = (
     qbittorrentapi.exceptions.APIError,
@@ -262,6 +295,7 @@ __all__ = [
     "NoConnectionrException",
     "PROCESS_ONLY",
     "PyarrConnectionError",
+    "PyarrError",
     "PyarrResourceNotFound",
     "PyarrServerError",
     "QBIT_DISABLED",
@@ -302,6 +336,8 @@ __all__ = [
     "get_search_loop_delay_effective",
     "has_internet",
     "has_subcategory_separator",
+    "is_arr_api_error",
+    "is_arr_transport_error",
     "load_qbit_seeding_config",
     "matches_configured",
     "normalize_category",
