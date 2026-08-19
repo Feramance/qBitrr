@@ -9,7 +9,8 @@ Call graph (per loop):
 
 from __future__ import annotations
 
-from datetime import timedelta
+import time
+from datetime import datetime, timedelta
 
 import qbittorrentapi
 from qbittorrentapi import TorrentStates
@@ -427,6 +428,23 @@ class TorrentLimits:
             return True
         return True
 
+    def _stalled_upload_idle_exceeds_limit(
+        self, torrent: qbittorrentapi.TorrentDictionary, seeding_time_limit
+    ) -> bool:
+        """Return True when a stalled seed has been idle longer than MaxSeedingTime.
+
+        Uses qBittorrent ``last_activity`` (last payload sent/received), not
+        ``seeding_time``. Unknown ``last_activity`` (0/missing) does not qualify.
+        """
+        if seeding_time_limit is None or seeding_time_limit <= 0:
+            return False
+        if getattr(torrent, "state_enum", None) != TorrentStates.STALLED_UPLOAD:
+            return False
+        last_activity = getattr(torrent, "last_activity", 0) or 0
+        if last_activity <= 0:
+            return False
+        return (time.time() - last_activity) >= seeding_time_limit
+
     def torrent_limit_check(
         self, torrent: qbittorrentapi.TorrentDictionary, seeding_time_limit, ratio_limit
     ) -> bool:
@@ -438,7 +456,21 @@ class TorrentLimits:
         ratio_limit_valid = ratio_limit is not None and ratio_limit > 0
         time_limit_valid = seeding_time_limit is not None and seeding_time_limit > 0
         ratio_met = ratio_limit_valid and torrent.ratio >= ratio_limit
-        time_met = time_limit_valid and torrent.seeding_time >= seeding_time_limit
+        seeding_time_met = time_limit_valid and torrent.seeding_time >= seeding_time_limit
+        idle_met = time_limit_valid and self._stalled_upload_idle_exceeds_limit(
+            torrent, seeding_time_limit
+        )
+        if idle_met and not seeding_time_met:
+            last_activity = getattr(torrent, "last_activity", 0) or 0
+            self.logger.debug(
+                "Stalled upload idle time met MaxSeedingTime for [%s] "
+                "(seeding_time=%s, last_activity=%s, limit=%s)",
+                torrent.name,
+                timedelta(seconds=torrent.seeding_time),
+                datetime.fromtimestamp(last_activity),
+                timedelta(seconds=seeding_time_limit),
+            )
+        time_met = seeding_time_met or idle_met
 
         mode = self.seeding_mode_global_remove_torrent
         if mode in (1, 2, 3, 4) and not ratio_limit_valid and not time_limit_valid:

@@ -243,6 +243,15 @@ MaxSeedingTime = 259200  # 72 hours
 
 Maximum seeding duration before triggering removal. Duration strings are parsed the same as other time fields (see [Config file](config-file.md)).
 
+The time limit is met when **either**:
+
+- qBittorrent `seeding_time` (seconds actually spent seeding) is at least `MaxSeedingTime`, **or**
+- the torrent is a **stalled upload** (`stalledUP`) and last payload activity (`last_activity`) is older than `MaxSeedingTime`
+
+Unknown `last_activity` (`0`) is ignored — the idle path does not apply. Actively uploading, queued, paused, stopped, or forced seeds are not removed via last activity; those still use `seeding_time` only.
+
+Hit-and-run (HnR) protection is unchanged and still uses **actual** `seeding_time` (and ratio / partial rules). A stalled torrent with old last activity is kept if HnR obligations are unmet.
+
 `-1` means this source contributes no limit. A matched tracker with `MaxSeedingTime = -1` (or the key omitted) does **not** clear a positive SeedingMode / CategorySeeding value. Effective seeding is unlimited only when **no** contributing source sets a positive time limit for that torrent.
 
 **Time conversions:**
@@ -1047,13 +1056,19 @@ tail -f ~/logs/Radarr-Movies.log | grep -i "remov\|seed\|ratio"
 
    Tracker rows with `MaxSeedingTime = -1` / `MaxUploadRatio = -1` (common WebUI defaults) do **not** disable a positive SeedingMode limit — `-1` means no tracker override, not "force unlimited."
 
-3. **Check import mode:**
+3. **Stalled seeds with almost no `seeding_time`:**
+
+   qBitrr's time clock is qBittorrent `seeding_time` (seconds actually spent seeding), not `added_on`. A torrent paused or sitting in `stalledUP` with no peers can accrue little seeding time.
+
+   For **stalled uploads only**, if last payload activity (`last_activity`) is older than `MaxSeedingTime`, the time limit is treated as met (`RemoveTorrent` 2, 3, or the time half of 4). HnR still blocks deletion until its own seeding-time / ratio rules are satisfied. `last_activity` of `0` is unknown and does not trigger this path.
+
+4. **Check import mode:**
 
    ```toml
    importMode = "Copy"  # Files must exist for seeding
    ```
 
-4. **Review logs:**
+5. **Review logs:**
 
    ```bash
    grep -i "seed\|ratio" ~/logs/Radarr-Movies.log
