@@ -647,7 +647,7 @@ RemoveTorrent = -1                 # Removal policy (see below)
 | `DownloadRateLimitPerTorrent` | `-1` | KB/s | Per-torrent download speed limit. `-1` disables the limit. |
 | `UploadRateLimitPerTorrent` | `-1` | KB/s | Per-torrent upload speed limit. `-1` disables the limit. |
 | `MaxUploadRatio` | `-1` | ratio | Maximum share ratio before removal action. `-1` disables. |
-| `MaxSeedingTime` | `-1` | seconds | Maximum seeding duration before removal action. `-1` disables. |
+| `MaxSeedingTime` | `-1` | seconds | Maximum seeding duration before removal action. `-1` disables. Met when qBittorrent `seeding_time` reaches this value, **or** when qBitrr has observed a stalled upload (`stalledUP`) for this long. The stalled clock is not `last_activity`; queue/pause time does not count, and a restart resets the window. HnR still uses actual `seeding_time` and can block deletion. |
 | `RemoveTorrent` | `-1` | mode | When to remove the torrent (see table below). |
 
 ### RemoveTorrent Modes

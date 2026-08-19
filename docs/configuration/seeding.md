@@ -243,6 +243,17 @@ MaxSeedingTime = 259200  # 72 hours
 
 Maximum seeding duration before triggering removal. Duration strings are parsed the same as other time fields (see [Config file](config-file.md)).
 
+The time limit is met when **either**:
+
+- qBittorrent `seeding_time` (seconds actually spent seeding) is at least `MaxSeedingTime`, **or**
+- qBitrr has observed the torrent in **stalled upload** (`stalledUP`) for at least `MaxSeedingTime`
+
+The stalled clock starts the first time qBitrr sees that hash in `stalledUP` and resets if the torrent leaves that state (queued, paused, stopped, forced, or actively uploading). It is **not** qBittorrent `last_activity` (last payload): a long queue or pause does not count, and the first `stalledUP` loop never removes. A qBitrr restart resets the observation window (conservative: delays deletion).
+
+Actively uploading, queued, paused, stopped, or forced seeds are not removed via this stalled path; those still use `seeding_time` only.
+
+Hit-and-run (HnR) protection is unchanged and still uses **actual** `seeding_time` (and ratio / partial rules). A torrent that has been stalled long enough is kept if HnR obligations are unmet.
+
 `-1` means this source contributes no limit. A matched tracker with `MaxSeedingTime = -1` (or the key omitted) does **not** clear a positive SeedingMode / CategorySeeding value. Effective seeding is unlimited only when **no** contributing source sets a positive time limit for that torrent.
 
 **Time conversions:**
@@ -1047,13 +1058,17 @@ tail -f ~/logs/Radarr-Movies.log | grep -i "remov\|seed\|ratio"
 
    Tracker rows with `MaxSeedingTime = -1` / `MaxUploadRatio = -1` (common WebUI defaults) do **not** disable a positive SeedingMode limit — `-1` means no tracker override, not "force unlimited."
 
-3. **Check import mode:**
+3. **Stalled seeds with almost no `seeding_time`:**
+
+   qBitrr's primary time clock is qBittorrent `seeding_time` (seconds actually spent seeding), not `added_on`. For **stalled uploads only**, qBitrr also counts how long it has observed the torrent in `stalledUP` (`RemoveTorrent` 2, 3, or the time half of 4). That observation window starts on the first stalled loop and resets if the torrent is queued, paused, stopped, or uploading. A long queue/pause followed by one `stalledUP` pass does **not** meet the limit. A qBitrr restart resets the window. HnR still blocks deletion until its own seeding-time / ratio rules are satisfied.
+
+4. **Check import mode:**
 
    ```toml
    importMode = "Copy"  # Files must exist for seeding
    ```
 
-4. **Review logs:**
+5. **Review logs:**
 
    ```bash
    grep -i "seed\|ratio" ~/logs/Radarr-Movies.log
