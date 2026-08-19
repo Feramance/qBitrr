@@ -21,6 +21,7 @@ from qBitrr.arss.arr_base import ArrBase
 from qBitrr.arss.arr_shared import (
     _ARR_RETRY_EXCEPTIONS,
     _ARR_RETRY_EXCEPTIONS_EXTENDED,
+    is_arr_api_error,
     with_retry,
 )
 from qBitrr.arss.arr_type_config import sonarr_queue_id_field
@@ -294,13 +295,11 @@ class SonarrArr(ArrBase):
         for s in series:
             if isinstance(s, str):
                 continue
-            episodes = with_retry(
-                lambda sid=s["id"]: self.client.episode.get(series_id=sid),
-                retries=5,
-                backoff=0.5,
-                max_backoff=5,
-                exceptions=_ARR_RETRY_EXCEPTIONS_EXTENDED,
+            episodes, _ = self._try_get_series_episodes(
+                s, retries=5, max_backoff=5, context="DB update"
             )
+            if episodes is None:
+                continue
             for e in episodes:
                 if isinstance(e, str):
                     continue
@@ -351,7 +350,48 @@ class SonarrArr(ArrBase):
         file_ids = {entry[field] for entry in queue if entry.get(field)}
         return requeue, file_ids
 
+    def _try_get_series_episodes(
+        self,
+        show: dict[str, Any],
+        *,
+        retries: int,
+        max_backoff: float,
+        context: str,
+    ) -> tuple[list[Any] | None, BaseException | None]:
+        """Fetch episodes for one series, skipping Arr HTTP failures.
+
+        Returns ``(episodes, None)`` on success. When pyarr reports an HTTP
+        error for this series, logs a warning and returns ``(None, exc)``.
+        Unexpected exceptions are re-raised.
+        """
+        try:
+            episodes = with_retry(
+                lambda sid=show["id"]: self.client.episode.get(series_id=sid),
+                retries=retries,
+                backoff=0.5,
+                max_backoff=max_backoff,
+                exceptions=_ARR_RETRY_EXCEPTIONS_EXTENDED,
+            )
+        except Exception as exc:
+            if not is_arr_api_error(exc) and not isinstance(exc, _ARR_RETRY_EXCEPTIONS_EXTENDED):
+                raise
+            self.logger.warning(
+                "Skipping series %s (%s) during %s: %s",
+                show.get("id"),
+                show.get("title") or "unknown",
+                context,
+                exc,
+            )
+            return None, exc
+        return episodes, None
+
     def collect_years_for_search(self) -> list[int]:
+        """Return unique episode air-date years for SearchByYear filtering.
+
+        A series whose episode list cannot be fetched is skipped. If every
+        series fails, the last Arr HTTP error is re-raised so the search loop
+        can back off instead of running with an empty year list.
+        """
         years_list: set[int] = set()
         series = with_retry(
             lambda: self.client.series.get(),
@@ -360,14 +400,20 @@ class SonarrArr(ArrBase):
             max_backoff=3,
             exceptions=_ARR_RETRY_EXCEPTIONS_EXTENDED,
         )
+        attempted = 0
+        failed = 0
+        last_failure: BaseException | None = None
         for show in series:
-            episodes = with_retry(
-                lambda s=show: self.client.episode.get(series_id=s["id"]),
-                retries=3,
-                backoff=0.5,
-                max_backoff=3,
-                exceptions=_ARR_RETRY_EXCEPTIONS_EXTENDED,
+            if isinstance(show, str):
+                continue
+            attempted += 1
+            episodes, error = self._try_get_series_episodes(
+                show, retries=3, max_backoff=3, context="year search"
             )
+            if episodes is None:
+                failed += 1
+                last_failure = error
+                continue
             for episode in episodes:
                 if "airDateUtc" not in episode:
                     continue
@@ -380,6 +426,8 @@ class SonarrArr(ArrBase):
                     .replace(tzinfo=timezone.utc)
                     .year
                 )
+        if attempted and failed == attempted and last_failure is not None:
+            raise last_failure
         ordered = dict.fromkeys(years_list)
         reverse = bool(getattr(self, "search_in_reverse", False))
         return [

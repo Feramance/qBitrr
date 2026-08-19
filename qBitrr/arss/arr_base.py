@@ -78,6 +78,7 @@ from qBitrr.arss.arr_shared import (
     get_no_internet_sleep_timer_effective,
     get_search_loop_delay_effective,
     has_internet,
+    is_arr_api_error,
     normalize_category,
     record_search_activity,
     run_logs,
@@ -3457,7 +3458,9 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
                 if self.search_by_year and years_index == 0:
                     try:
                         years, years_count = self.get_year_search()
-                    except PyarrConnectionError as e:
+                    except Exception as e:
+                        if not is_arr_api_error(e):
+                            raise
                         self.logger.warning(
                             "Could not reach %s Arr API during search loop: %s",
                             self._name,

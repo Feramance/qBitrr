@@ -7,7 +7,12 @@ from typing import Any
 from urllib.parse import urlparse
 
 from pyarr import Lidarr, Radarr, Readarr, Sonarr
-from pyarr.exceptions import PyarrConnectionError, PyarrResourceNotFound, PyarrServerError
+from pyarr.exceptions import (
+    PyarrConnectionError,
+    PyarrError,
+    PyarrResourceNotFound,
+    PyarrServerError,
+)
 from pyarr.types import JsonObject
 
 
@@ -143,6 +148,7 @@ __all__ = [
     "JsonObject",
     "Lidarr",
     "PyarrConnectionError",
+    "PyarrError",
     "PyarrResourceNotFound",
     "PyarrServerError",
     "Radarr",
