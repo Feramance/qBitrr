@@ -439,6 +439,25 @@ class TestDbUpdateEpisodeRetry(unittest.TestCase):
         self.assertTrue(arr.db_update_processed)
         arr.logger.warning.assert_called()
 
+    def test_db_update_reraises_when_every_series_fails(self) -> None:
+        arr = _search_enabled_arr(type="sonarr")
+        arr.db_update_processed = False
+        arr.db_update_single_series = MagicMock()
+        arr.client.series.get.return_value = [
+            {"id": 1, "title": "Bad Show"},
+            {"id": 2, "title": "Also Bad"},
+        ]
+        arr.client.episode.get.side_effect = Exception(415, "")
+        with patch("qBitrr.arss.sonarr.with_retry", side_effect=lambda fn, **_: fn()):
+            with self.assertRaises(Exception) as ctx:
+                arr._db_update_media()
+        self.assertEqual(ctx.exception.args, (415, ""))
+        self.assertFalse(arr.db_update_processed)
+        series_calls = [
+            c for c in arr.db_update_single_series.call_args_list if c.kwargs.get("series") is True
+        ]
+        self.assertEqual(len(series_calls), 2)
+
 
 class TestDbUpdateRadarrMovieProfileSwitch(unittest.TestCase):
     """Radarr movie temp-profile downgrade when missing."""

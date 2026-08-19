@@ -332,7 +332,7 @@ The #1 reason qBitrr doesn't process torrents is **mismatched categories**.
 
    Older builds could log `Search loop crashed unexpectedly ... Exception: (415, '')` while loading years (`episode.get` for `SearchByYear`). pyarr does not map HTTP 415 to a typed error, so the worker treated it as fatal.
 
-   qBitrr now backs off for 5 minutes on those Arr HTTP failures instead of exiting, and skips a single series that fails `episode.get` so the rest of the library still searches.
+   qBitrr now backs off for 5 minutes on those Arr HTTP failures instead of exiting, and skips a single series that fails `episode.get` so the rest of the library still searches. A connectivity outage during episode fetches is raised immediately (not retried per series). If every series fails, DB ingest also backs off instead of marking the refresh complete.
 
    An empty 415 body often comes from a reverse proxy or WAF on `GET /api/v3/episode`. Test that URL with `X-Api-Key` from the same network as qBitrr. Workaround: set `SearchByYear = false` for that Sonarr section.
 

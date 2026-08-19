@@ -177,6 +177,20 @@ class TestIsArrApiError(unittest.TestCase):
         self.assertFalse(is_arr_api_error(ValueError("nope")))
         self.assertFalse(is_arr_api_error(RuntimeError(415, "")))
 
+    def test_transport_errors(self) -> None:
+        import requests
+
+        from qBitrr.arss.arr_shared import (
+            PyarrConnectionError,
+            is_arr_api_error,
+            is_arr_transport_error,
+        )
+
+        self.assertTrue(is_arr_transport_error(PyarrConnectionError("down")))
+        self.assertTrue(is_arr_transport_error(requests.exceptions.ConnectionError("refused")))
+        self.assertFalse(is_arr_transport_error(Exception(415, "")))
+        self.assertTrue(is_arr_api_error(PyarrConnectionError("down")))
+
 
 class TestSearchLoopYearLoading(unittest.TestCase):
     def _run_year_search_outage(self, side_effect: BaseException):
@@ -228,6 +242,42 @@ class TestSearchLoopYearLoading(unittest.TestCase):
         arr, delay_handler = self._run_year_search_outage(Exception(415, ""))
         self._assert_year_search_backed_off(arr, delay_handler)
 
+    def test_unmapped_http_415_during_db_update_does_not_kill_worker(self) -> None:
+        """All-series episode ingest failure must back off when SearchByYear is off."""
+        from qBitrr.arss.arr_base import ArrBase
+
+        arr = ArrBase.__new__(ArrBase)
+        arr._name = "Sonarr.Test"
+        arr.logger = MagicMock()
+        arr.search_missing = True
+        arr.do_upgrade_search = False
+        arr.quality_unmet_search = False
+        arr.custom_format_unmet_search = False
+        arr.ombi_search_requests = False
+        arr.overseerr_requests = False
+        arr.search_by_year = False
+        arr.loop_completed = False
+        arr.manager = MagicMock()
+        event = MagicMock()
+        event.is_set.side_effect = [False, True]
+        arr.manager.qbit_manager.shutdown_event = event
+
+        with (
+            patch("qBitrr.arss.arr_base.run_logs"),
+            patch("qBitrr.arss.arr_base._db_maybe_reset_entry_searched_state_fn"),
+            patch.object(arr, "_sync_loop_settings_from_config"),
+            patch.object(arr, "refresh_download_queue"),
+            patch.object(arr, "db_update", side_effect=Exception(415, "")),
+            patch.object(arr, "_handle_delay_loop_exception") as delay_handler,
+        ):
+            arr.run_search_loop()
+
+        delay_handler.assert_called_once()
+        delay_exc = delay_handler.call_args.args[0]
+        self.assertEqual(delay_exc.error_type, "arr")
+        self.assertEqual(delay_exc.length, 300)
+        arr.logger.critical.assert_not_called()
+
 
 class TestSonarrCollectYears(unittest.TestCase):
     def _arr(self):
@@ -273,6 +323,20 @@ class TestSonarrCollectYears(unittest.TestCase):
                 arr.collect_years_for_search()
         self.assertEqual(ctx.exception.args, (415, ""))
         self.assertIs(type(ctx.exception), Exception)
+
+    def test_reraises_transport_error_without_scanning_remaining_series(self) -> None:
+        from qBitrr.arss.arr_shared import PyarrConnectionError
+
+        arr = self._arr()
+        arr.client.series.get.return_value = [
+            {"id": 1, "title": "First"},
+            {"id": 2, "title": "Second"},
+        ]
+        arr.client.episode.get.side_effect = PyarrConnectionError("down")
+        with patch("qBitrr.arss.sonarr.with_retry", side_effect=lambda fn, **_: fn()):
+            with self.assertRaises(PyarrConnectionError):
+                arr.collect_years_for_search()
+        self.assertEqual(arr.client.episode.get.call_count, 1)
 
 
 class TestPreserveVsLiveClassification(unittest.TestCase):

@@ -145,6 +145,22 @@ def is_arr_api_error(exc: BaseException) -> bool:
     return False
 
 
+def is_arr_transport_error(exc: BaseException) -> bool:
+    """Return True for Arr connectivity failures that affect the whole instance.
+
+    Per-series HTTP errors (404, 415, ...) are not transport failures and should
+    be skipped so the rest of the library can still be processed.
+    """
+    return isinstance(
+        exc,
+        (
+            PyarrConnectionError,
+            requests.exceptions.ConnectionError,
+            requests.exceptions.Timeout,
+        ),
+    )
+
+
 _QBIT_WRITE_RETRY_EXCEPTIONS = (
     qbittorrentapi.exceptions.APIError,
     qbittorrentapi.exceptions.APIConnectionError,
@@ -321,6 +337,7 @@ __all__ = [
     "has_internet",
     "has_subcategory_separator",
     "is_arr_api_error",
+    "is_arr_transport_error",
     "load_qbit_seeding_config",
     "matches_configured",
     "normalize_category",
