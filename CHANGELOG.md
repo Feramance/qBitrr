@@ -1,5 +1,23 @@
 # Changelog
 
+## v5.14.4-1 (19/08/2026)
+
+### 🐛 Bug Fixes
+- [[patch] Treat stalled uploads as time-met after observed stalledUP duration (#559)](https://github.com/Feramance/qBitrr/commit/9173624bd0fdb5f1b698e830bc3f3e8852200434) - @Feramance
+- [Fix WebUI lint warnings and audit overrides (#560)](https://github.com/Feramance/qBitrr/commit/b42066819d816df0c8c73555575b3fc39a7b2402) - @Feramance
+- [fix: keep Sonarr HTTP 415 from crashing search year loading (#558)](https://github.com/Feramance/qBitrr/commit/419f1616d54922ba5f3b2d3b70906cb76f18ab06) - @Feramance
+
+### 🔧 Maintenance
+- [Bump globals from 17.8.0 to 17.11.0 in /webui (#557)](https://github.com/Feramance/qBitrr/commit/a316617b30bba30ded19a01df79c9fb8c99967d4) - @Feramance
+- [Bump @tailwindcss/postcss from 4.3.2 to 4.3.3 in /webui (#556)](https://github.com/Feramance/qBitrr/commit/3fc76a1caba6f3db3093a4302126f6db8514b4c9) - @Feramance
+- [Bump typescript-eslint from 8.65.0 to 8.67.0 in /webui (#551)](https://github.com/Feramance/qBitrr/commit/92d0a7a60468c2e0d451aca99be1eba46ee69e5b) - @Feramance
+- [Bump immer from 11.1.15 to 11.1.16 in /webui (#555)](https://github.com/Feramance/qBitrr/commit/398f5a1f504e737aa8a793c7dff73e71938edacd) - @Feramance
+- [Bump eslint from 10.8.0 to 10.8.1 in /webui (#554)](https://github.com/Feramance/qBitrr/commit/2c47bc2595f360fe496ac72710024ba453cf2359) - @Feramance
+- [Bump eslint-plugin-react-refresh from 0.5.3 to 0.5.4 in /webui (#553)](https://github.com/Feramance/qBitrr/commit/3cc08305b637dac858a4ac777f1b174c08083b33) - @Feramance
+- [Bump github/codeql-action from 4.37.6 to 4.37.7 (#552)](https://github.com/Feramance/qBitrr/commit/b2b9a3f1e0617c13bfa7d387d11ddd65be0d8090) - @Feramance
+
+---
+
 ## v5.14.3-1 (14/08/2026)
 
 ### 🐛 Bug Fixes
