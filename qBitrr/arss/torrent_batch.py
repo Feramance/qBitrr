@@ -186,9 +186,12 @@ class TorrentBatch:
 
     def _evict_hashes_from_qbit_side_caches(self, hashes: Iterable[str]) -> None:
         qm = self.manager.qbit_manager
+        stalled_since = getattr(self, "_stalled_up_since", None)
         for h in hashes:
             self.cleaned_torrents.discard(h)
             self.sent_to_scan_hashes.discard(h)
+            if stalled_since is not None:
+                stalled_since.pop(h, None)
             if h in qm.name_cache:
                 del qm.name_cache[h]
             if h in qm.cache:

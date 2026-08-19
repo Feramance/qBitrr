@@ -54,7 +54,6 @@ def _torrent(**kwargs):
         "ratio": 0.0,
         "seeding_time": 0,
         "progress": 1.0,
-        "last_activity": 0,
         "state_enum": None,
     }
     defaults.update(kwargs)
@@ -158,7 +157,7 @@ _NOW = 1_700_000_000
 
 
 class TestStalledUploadIdleRemoval(unittest.TestCase):
-    """stalledUP last_activity can satisfy MaxSeedingTime when seeding_time has not."""
+    """Observed time in stalledUP can satisfy MaxSeedingTime when seeding_time has not."""
 
     def _harness(self, *, remove_torrent: int = 2) -> _LimitsHarness:
         return _LimitsHarness(
@@ -168,59 +167,88 @@ class TestStalledUploadIdleRemoval(unittest.TestCase):
             remove_torrent=remove_torrent,
         )
 
-    def _stalled_idle_torrent(self, *, last_activity: int, seeding_time: int = 3600):
+    def _stalled_torrent(self, *, seeding_time: int = 3600, torrent_hash: str = "abc"):
         return _torrent(
+            hash=torrent_hash,
             seeding_time=seeding_time,
             state_enum=TorrentStates.STALLED_UPLOAD,
-            last_activity=last_activity,
             ratio=0.0,
             progress=1.0,
         )
 
-    def test_mode_2_stalled_idle_older_than_limit(self) -> None:
+    def test_mode_2_first_stalled_loop_does_not_remove(self) -> None:
         harness = self._harness()
-        torrent = self._stalled_idle_torrent(last_activity=_NOW - _TWO_WEEKS - 1)
-        with mock.patch("qBitrr.arss.torrent_limits.time.time", return_value=_NOW):
-            self.assertTrue(harness.torrent_limit_check(torrent, _TWO_WEEKS, -1))
-
-    def test_mode_2_stalled_idle_recent(self) -> None:
-        harness = self._harness()
-        torrent = self._stalled_idle_torrent(last_activity=_NOW - 3600)
+        torrent = self._stalled_torrent()
         with mock.patch("qBitrr.arss.torrent_limits.time.time", return_value=_NOW):
             self.assertFalse(harness.torrent_limit_check(torrent, _TWO_WEEKS, -1))
 
-    def test_mode_2_uploading_idle_age_does_not_count(self) -> None:
+    def test_mode_2_stalled_for_limit_removes(self) -> None:
+        harness = self._harness()
+        torrent = self._stalled_torrent()
+        with mock.patch("qBitrr.arss.torrent_limits.time.time", return_value=_NOW):
+            self.assertFalse(harness.torrent_limit_check(torrent, _TWO_WEEKS, -1))
+        with mock.patch("qBitrr.arss.torrent_limits.time.time", return_value=_NOW + _TWO_WEEKS):
+            self.assertTrue(harness.torrent_limit_check(torrent, _TWO_WEEKS, -1))
+
+    def test_mode_2_queued_then_stalled_does_not_inherit_queue_age(self) -> None:
+        harness = self._harness()
+        queued = _torrent(
+            seeding_time=0,
+            state_enum=TorrentStates.QUEUED_UPLOAD,
+            ratio=0.0,
+            progress=1.0,
+        )
+        stalled = self._stalled_torrent(seeding_time=0)
+        with mock.patch("qBitrr.arss.torrent_limits.time.time", return_value=_NOW):
+            self.assertFalse(harness.torrent_limit_check(queued, _TWO_WEEKS, -1))
+        later = _NOW + _TWO_WEEKS + 1
+        with mock.patch("qBitrr.arss.torrent_limits.time.time", return_value=later):
+            self.assertFalse(harness.torrent_limit_check(stalled, _TWO_WEEKS, -1))
+
+    def test_mode_2_paused_then_stalled_does_not_inherit_pause_age(self) -> None:
+        harness = self._harness()
+        paused = _torrent(
+            seeding_time=0,
+            state_enum=TorrentStates.PAUSED_UPLOAD,
+            ratio=0.0,
+            progress=1.0,
+        )
+        stalled = self._stalled_torrent(seeding_time=0)
+        with mock.patch("qBitrr.arss.torrent_limits.time.time", return_value=_NOW):
+            self.assertFalse(harness.torrent_limit_check(paused, _TWO_WEEKS, -1))
+        later = _NOW + _TWO_WEEKS + 1
+        with mock.patch("qBitrr.arss.torrent_limits.time.time", return_value=later):
+            self.assertFalse(harness.torrent_limit_check(stalled, _TWO_WEEKS, -1))
+
+    def test_mode_2_uploading_does_not_count(self) -> None:
         harness = self._harness()
         torrent = _torrent(
             seeding_time=3600,
             state_enum=TorrentStates.UPLOADING,
-            last_activity=_NOW - _TWO_WEEKS - 1,
         )
         with mock.patch("qBitrr.arss.torrent_limits.time.time", return_value=_NOW):
+            self.assertFalse(harness.torrent_limit_check(torrent, _TWO_WEEKS, -1))
+        with mock.patch("qBitrr.arss.torrent_limits.time.time", return_value=_NOW + _TWO_WEEKS):
             self.assertFalse(harness.torrent_limit_check(torrent, _TWO_WEEKS, -1))
 
     def test_mode_1_stalled_idle_does_not_remove(self) -> None:
         harness = self._harness(remove_torrent=1)
-        torrent = self._stalled_idle_torrent(last_activity=_NOW - _TWO_WEEKS - 1)
+        torrent = self._stalled_torrent()
         with mock.patch("qBitrr.arss.torrent_limits.time.time", return_value=_NOW):
+            harness.torrent_limit_check(torrent, _TWO_WEEKS, 2.0)
+        with mock.patch("qBitrr.arss.torrent_limits.time.time", return_value=_NOW + _TWO_WEEKS):
             self.assertFalse(harness.torrent_limit_check(torrent, _TWO_WEEKS, 2.0))
 
-    def test_mode_2_last_activity_zero(self) -> None:
-        harness = self._harness()
-        torrent = self._stalled_idle_torrent(last_activity=0)
-        with mock.patch("qBitrr.arss.torrent_limits.time.time", return_value=_NOW):
-            self.assertFalse(harness.torrent_limit_check(torrent, _TWO_WEEKS, -1))
-
     def test_hnr_and_blocks_delete_despite_stalled_idle(self) -> None:
-        """Idle time can meet MaxSeedingTime; HnR still uses actual seeding_time."""
+        """Observed stalled time can meet MaxSeedingTime; HnR still uses actual seeding_time."""
         harness = self._harness()
         harness.monitored_trackers = [
             {"URI": "https://tracker.example/announce", "HitAndRunMode": "and"}
         ]
-        torrent = self._stalled_idle_torrent(
-            last_activity=_NOW - _TWO_WEEKS - 1, seeding_time=3600
-        )
+        torrent = self._stalled_torrent(seeding_time=3600)
         with mock.patch("qBitrr.arss.torrent_limits.time.time", return_value=_NOW):
+            self.assertFalse(harness.torrent_limit_check(torrent, _TWO_WEEKS, -1))
+        with mock.patch("qBitrr.arss.torrent_limits.time.time", return_value=_NOW + _TWO_WEEKS):
             self.assertTrue(harness.torrent_limit_check(torrent, _TWO_WEEKS, -1))
         data_settings = {
             "hnr_clear_mode": "and",

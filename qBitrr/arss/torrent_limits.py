@@ -141,6 +141,7 @@ class TorrentLimits:
     def _should_leave_alone(
         self, torrent: qbittorrentapi.TorrentDictionary, instance_name: str = "default"
     ) -> tuple[bool, int, bool, dict | None, dict | None]:
+        self._touch_stalled_up_since(torrent)
         return_value = True
         remove_torrent = False
         if torrent.super_seeding or torrent.state_enum == TorrentStates.FORCED_UPLOAD:
@@ -428,22 +429,40 @@ class TorrentLimits:
             return True
         return True
 
+    def _touch_stalled_up_since(self, torrent: qbittorrentapi.TorrentDictionary) -> float | None:
+        """Record or clear the first time this hash was seen in ``stalledUP``.
+
+        Returns the epoch timestamp when qBitrr first observed this torrent in
+        ``stalledUP`` during this process lifetime, or ``None`` if it is not
+        currently stalled. Queued, paused, stopped, forced, and uploading states
+        reset the clock so a later ``stalledUP`` does not inherit queue/pause age.
+        """
+        stalled_since = getattr(self, "_stalled_up_since", None)
+        if stalled_since is None:
+            self._stalled_up_since = stalled_since = {}
+        torrent_hash = getattr(torrent, "hash", None)
+        if not torrent_hash:
+            return None
+        if getattr(torrent, "state_enum", None) != TorrentStates.STALLED_UPLOAD:
+            stalled_since.pop(torrent_hash, None)
+            return None
+        return stalled_since.setdefault(torrent_hash, time.time())
+
     def _stalled_upload_idle_exceeds_limit(
         self, torrent: qbittorrentapi.TorrentDictionary, seeding_time_limit
     ) -> bool:
-        """Return True when a stalled seed has been idle longer than MaxSeedingTime.
+        """Return True when qBitrr has observed this hash in stalledUP for MaxSeedingTime.
 
-        Uses qBittorrent ``last_activity`` (last payload sent/received), not
-        ``seeding_time``. Unknown ``last_activity`` (0/missing) does not qualify.
+        Uses a process-local ``stalledUP``-since stamp, not qBittorrent
+        ``last_activity`` (last payload) or ``seeding_time``. Restart resets the
+        observation window (conservative: delays deletion, never premie-deletes).
         """
         if seeding_time_limit is None or seeding_time_limit <= 0:
             return False
-        if getattr(torrent, "state_enum", None) != TorrentStates.STALLED_UPLOAD:
+        since = self._touch_stalled_up_since(torrent)
+        if since is None:
             return False
-        last_activity = getattr(torrent, "last_activity", 0) or 0
-        if last_activity <= 0:
-            return False
-        return (time.time() - last_activity) >= seeding_time_limit
+        return (time.time() - since) >= seeding_time_limit
 
     def torrent_limit_check(
         self, torrent: qbittorrentapi.TorrentDictionary, seeding_time_limit, ratio_limit
@@ -461,13 +480,13 @@ class TorrentLimits:
             torrent, seeding_time_limit
         )
         if idle_met and not seeding_time_met:
-            last_activity = getattr(torrent, "last_activity", 0) or 0
+            since = self._touch_stalled_up_since(torrent)
             self.logger.debug(
-                "Stalled upload idle time met MaxSeedingTime for [%s] "
-                "(seeding_time=%s, last_activity=%s, limit=%s)",
+                "Stalled upload observed idle time met MaxSeedingTime for [%s] "
+                "(seeding_time=%s, stalled_since=%s, limit=%s)",
                 torrent.name,
                 timedelta(seconds=torrent.seeding_time),
-                datetime.fromtimestamp(last_activity),
+                datetime.fromtimestamp(since) if since else None,
                 timedelta(seconds=seeding_time_limit),
             )
         time_met = seeding_time_met or idle_met
