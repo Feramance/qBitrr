@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 
 /** Tracks whether the catalog has ever returned data and stabilizes empty-state UI. */
 export interface CatalogEmptyStateTracker {
@@ -14,21 +14,24 @@ export function useCatalogEmptyStateTracker(): CatalogEmptyStateTracker {
   const sawNonEmptyRef = useRef(false);
   const stableEmptyStreakRef = useRef(0);
 
-  const noteCatalogData = (hasCatalogData: boolean): void => {
+  const noteCatalogData = useCallback((hasCatalogData: boolean): void => {
     if (hasCatalogData) {
       sawNonEmptyRef.current = true;
       stableEmptyStreakRef.current = 0;
     } else {
       stableEmptyStreakRef.current += 1;
     }
-  };
+  }, []);
 
-  const resetEmptyState = (): void => {
+  const resetEmptyState = useCallback((): void => {
     sawNonEmptyRef.current = false;
     stableEmptyStreakRef.current = 0;
-  };
+  }, []);
 
-  return { sawNonEmptyRef, stableEmptyStreakRef, noteCatalogData, resetEmptyState };
+  return useMemo(
+    () => ({ sawNonEmptyRef, stableEmptyStreakRef, noteCatalogData, resetEmptyState }),
+    [noteCatalogData, resetEmptyState],
+  );
 }
 
 /** Returns true once empty responses look stable (not a warm-up flash). */
@@ -51,11 +54,11 @@ export function useCatalogPageCache<T>(): {
   const pagesRef = useRef<Record<number, ReadonlyArray<T>>>({});
   const keyRef = useRef<string>("");
 
-  const wipePages = (): Record<number, ReadonlyArray<T>> => {
+  const wipePages = useCallback((): Record<number, ReadonlyArray<T>> => {
     const empty: Record<number, ReadonlyArray<T>> = {};
     pagesRef.current = empty;
     return empty;
-  };
+  }, []);
 
   return { pagesRef, keyRef, wipePages };
 }
