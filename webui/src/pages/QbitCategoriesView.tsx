@@ -228,7 +228,10 @@ export function QbitCategoriesView({ active }: QbitCategoriesViewProps): JSX.Ele
   );
 
   useEffect(() => {
-    setOverviewLoaded(false);
+    const id = window.setTimeout(() => {
+      setOverviewLoaded(false);
+    }, 0);
+    return () => window.clearTimeout(id);
   }, [selection]);
 
   useEffect(() => {

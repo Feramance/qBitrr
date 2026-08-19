@@ -3,6 +3,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -47,7 +48,10 @@ export function resetToastDedupeForTests(): void {
 export function ToastProvider({ children }: PropsWithChildren): JSX.Element {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const toastsRef = useRef(toasts);
-  toastsRef.current = toasts;
+
+  useEffect(() => {
+    toastsRef.current = toasts;
+  }, [toasts]);
 
   const dismiss = useCallback((id: number) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
