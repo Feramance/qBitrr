@@ -155,11 +155,46 @@ class TestReadarrDbGetFilesHook(unittest.TestCase):
             self.assertEqual(result, "ok")
 
 
+class TestIsArrApiError(unittest.TestCase):
+    def test_pyarr_typed_errors(self) -> None:
+        from qBitrr.arss.arr_shared import PyarrConnectionError, PyarrError, is_arr_api_error
+
+        self.assertTrue(is_arr_api_error(PyarrConnectionError("down")))
+        self.assertTrue(is_arr_api_error(PyarrError("generic")))
+
+    def test_unmapped_pyarr_http_status(self) -> None:
+        from qBitrr.arss.arr_shared import is_arr_api_error
+
+        self.assertTrue(is_arr_api_error(Exception(415, "")))
+        self.assertTrue(is_arr_api_error(Exception(429, "too many requests")))
+        self.assertTrue(is_arr_api_error(Exception(503, "unavailable")))
+
+    def test_non_http_exceptions(self) -> None:
+        from qBitrr.arss.arr_shared import is_arr_api_error
+
+        self.assertFalse(is_arr_api_error(Exception(200, "ok")))
+        self.assertFalse(is_arr_api_error(Exception("415")))
+        self.assertFalse(is_arr_api_error(ValueError("nope")))
+        self.assertFalse(is_arr_api_error(RuntimeError(415, "")))
+
+    def test_transport_errors(self) -> None:
+        import requests
+
+        from qBitrr.arss.arr_shared import (
+            PyarrConnectionError,
+            is_arr_api_error,
+            is_arr_transport_error,
+        )
+
+        self.assertTrue(is_arr_transport_error(PyarrConnectionError("down")))
+        self.assertTrue(is_arr_transport_error(requests.exceptions.ConnectionError("refused")))
+        self.assertFalse(is_arr_transport_error(Exception(415, "")))
+        self.assertTrue(is_arr_api_error(PyarrConnectionError("down")))
+
+
 class TestSearchLoopYearLoading(unittest.TestCase):
-    def test_arr_outage_during_year_loading_does_not_kill_worker(self) -> None:
-        """Regression: an Arr outage while loading years must back off inside the worker."""
+    def _run_year_search_outage(self, side_effect: BaseException):
         from qBitrr.arss.arr_base import ArrBase
-        from qBitrr.arss.arr_shared import PyarrConnectionError
 
         arr = ArrBase.__new__(ArrBase)
         arr._name = "Radarr.Test"
@@ -180,11 +215,59 @@ class TestSearchLoopYearLoading(unittest.TestCase):
         with (
             patch("qBitrr.arss.arr_base.run_logs"),
             patch.object(arr, "_sync_loop_settings_from_config"),
-            patch.object(
-                arr,
-                "get_year_search",
-                side_effect=PyarrConnectionError("Arr unavailable"),
-            ),
+            patch.object(arr, "get_year_search", side_effect=side_effect),
+            patch.object(arr, "_handle_delay_loop_exception") as delay_handler,
+        ):
+            arr.run_search_loop()
+
+        return arr, delay_handler
+
+    def _assert_year_search_backed_off(self, arr, delay_handler) -> None:
+        delay_handler.assert_called_once()
+        delay_exc = delay_handler.call_args.args[0]
+        self.assertEqual(delay_exc.error_type, "arr")
+        self.assertEqual(delay_exc.length, 300)
+        self.assertTrue(delay_handler.call_args.kwargs["reset_torrent_scan_delay"])
+        arr.logger.critical.assert_not_called()
+
+    def test_arr_outage_during_year_loading_does_not_kill_worker(self) -> None:
+        """Regression: an Arr outage while loading years must back off inside the worker."""
+        from qBitrr.arss.arr_shared import PyarrConnectionError
+
+        arr, delay_handler = self._run_year_search_outage(PyarrConnectionError("Arr unavailable"))
+        self._assert_year_search_backed_off(arr, delay_handler)
+
+    def test_unmapped_http_415_during_year_loading_does_not_kill_worker(self) -> None:
+        """pyarr raises Exception(415, '') for unmapped HTTP codes; must not kill the worker."""
+        arr, delay_handler = self._run_year_search_outage(Exception(415, ""))
+        self._assert_year_search_backed_off(arr, delay_handler)
+
+    def test_unmapped_http_415_during_db_update_does_not_kill_worker(self) -> None:
+        """All-series episode ingest failure must back off when SearchByYear is off."""
+        from qBitrr.arss.arr_base import ArrBase
+
+        arr = ArrBase.__new__(ArrBase)
+        arr._name = "Sonarr.Test"
+        arr.logger = MagicMock()
+        arr.search_missing = True
+        arr.do_upgrade_search = False
+        arr.quality_unmet_search = False
+        arr.custom_format_unmet_search = False
+        arr.ombi_search_requests = False
+        arr.overseerr_requests = False
+        arr.search_by_year = False
+        arr.loop_completed = False
+        arr.manager = MagicMock()
+        event = MagicMock()
+        event.is_set.side_effect = [False, True]
+        arr.manager.qbit_manager.shutdown_event = event
+
+        with (
+            patch("qBitrr.arss.arr_base.run_logs"),
+            patch("qBitrr.arss.arr_base._db_maybe_reset_entry_searched_state_fn"),
+            patch.object(arr, "_sync_loop_settings_from_config"),
+            patch.object(arr, "refresh_download_queue"),
+            patch.object(arr, "db_update", side_effect=Exception(415, "")),
             patch.object(arr, "_handle_delay_loop_exception") as delay_handler,
         ):
             arr.run_search_loop()
@@ -193,8 +276,67 @@ class TestSearchLoopYearLoading(unittest.TestCase):
         delay_exc = delay_handler.call_args.args[0]
         self.assertEqual(delay_exc.error_type, "arr")
         self.assertEqual(delay_exc.length, 300)
-        self.assertTrue(delay_handler.call_args.kwargs["reset_torrent_scan_delay"])
         arr.logger.critical.assert_not_called()
+
+
+class TestSonarrCollectYears(unittest.TestCase):
+    def _arr(self):
+        from qBitrr.arss.sonarr import SonarrArr
+
+        arr = SonarrArr.__new__(SonarrArr)
+        arr.search_in_reverse = False
+        arr.search_specials = False
+        arr.logger = MagicMock()
+        arr.client = MagicMock()
+        return arr
+
+    def test_skips_series_that_return_http_415(self) -> None:
+        arr = self._arr()
+        arr.client.series.get.return_value = [
+            {"id": 1, "title": "Bad Show"},
+            {"id": 2, "title": "Good Show"},
+        ]
+
+        def episode_get(*, series_id=None, item_id=None):
+            if series_id == 1:
+                raise Exception(415, "")
+            return [
+                {
+                    "airDateUtc": "2021-05-01T00:00:00Z",
+                    "seasonNumber": 1,
+                    "monitored": True,
+                }
+            ]
+
+        arr.client.episode.get.side_effect = episode_get
+        with patch("qBitrr.arss.sonarr.with_retry", side_effect=lambda fn, **_: fn()):
+            years = arr.collect_years_for_search()
+        self.assertEqual(years, [2021])
+        arr.logger.warning.assert_called()
+
+    def test_reraises_when_every_series_fails(self) -> None:
+        arr = self._arr()
+        arr.client.series.get.return_value = [{"id": 1, "title": "Bad Show"}]
+        arr.client.episode.get.side_effect = Exception(415, "")
+        with patch("qBitrr.arss.sonarr.with_retry", side_effect=lambda fn, **_: fn()):
+            with self.assertRaises(Exception) as ctx:
+                arr.collect_years_for_search()
+        self.assertEqual(ctx.exception.args, (415, ""))
+        self.assertIs(type(ctx.exception), Exception)
+
+    def test_reraises_transport_error_without_scanning_remaining_series(self) -> None:
+        from qBitrr.arss.arr_shared import PyarrConnectionError
+
+        arr = self._arr()
+        arr.client.series.get.return_value = [
+            {"id": 1, "title": "First"},
+            {"id": 2, "title": "Second"},
+        ]
+        arr.client.episode.get.side_effect = PyarrConnectionError("down")
+        with patch("qBitrr.arss.sonarr.with_retry", side_effect=lambda fn, **_: fn()):
+            with self.assertRaises(PyarrConnectionError):
+                arr.collect_years_for_search()
+        self.assertEqual(arr.client.episode.get.call_count, 1)
 
 
 class TestPreserveVsLiveClassification(unittest.TestCase):
