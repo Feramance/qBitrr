@@ -45,7 +45,7 @@ jobs:
       run: |
         cd webui
         npm ci
-        npm run test
+        npm run test:coverage
   drift-checks:
     runs-on: ubuntu-latest
     steps:
