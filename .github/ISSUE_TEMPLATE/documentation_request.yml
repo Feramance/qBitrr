@@ -1,26 +1,26 @@
 name: Documentation request
 description: Report missing, incorrect, or unclear documentation.
-title: "docs: <summary>"
-labels: [documentation, "automation/type:docs", "automation/classification:pending"]
+title: 'docs: <summary>'
+labels: [documentation, automation/type:docs, automation/classification:pending]
 body:
-  - type: textarea
-    id: documentation_request
-    attributes:
-      label: Documentation request
-      description: Identify the page or topic and explain what should change.
-    validations:
+- type: textarea
+  id: documentation_request
+  attributes:
+    label: Documentation request
+    description: Identify the page or topic and explain what should change.
+  validations:
+    required: true
+- type: textarea
+  id: expected
+  attributes:
+    label: Expected documentation
+    description: State the accurate outcome a reader should be able to reach.
+  validations:
+    required: true
+- type: checkboxes
+  id: checks
+  attributes:
+    label: Checklist
+    options:
+    - label: I searched the existing documentation and issues.
       required: true
-  - type: textarea
-    id: expected
-    attributes:
-      label: Expected documentation
-      description: State the accurate outcome a reader should be able to reach.
-    validations:
-      required: true
-  - type: checkboxes
-    id: checks
-    attributes:
-      label: Checklist
-      options:
-        - label: I searched the existing documentation and issues.
-          required: true

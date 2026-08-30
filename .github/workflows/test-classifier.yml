@@ -4,14 +4,14 @@ on:
   push:
     branches: [master]
     paths:
-      - .github/automation/classification-policy.json
-      - .github/scripts/classify_work_item.py
-      - .github/scripts/tests/**
+    - .github/automation/classification-policy.json
+    - .github/scripts/classify_work_item.py
+    - .github/scripts/tests/**
   pull_request:
     paths:
-      - .github/automation/classification-policy.json
-      - .github/scripts/classify_work_item.py
-      - .github/scripts/tests/**
+    - .github/automation/classification-policy.json
+    - .github/scripts/classify_work_item.py
+    - .github/scripts/tests/**
 
 permissions:
   contents: read
@@ -20,10 +20,10 @@ jobs:
   classifier-tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
-        with:
-          python-version: "3.12"
-      - run: python -m unittest discover -s .github/scripts/tests -p "test_*.py" -v
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+    - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+      with:
+        python-version: '3.12'
+    - run: python -m unittest discover -s .github/scripts/tests -p "test_*.py" -v
