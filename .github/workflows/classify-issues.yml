@@ -1,0 +1,38 @@
+name: Classify Issues
+
+on:
+  issues:
+    types: [opened, reopened, edited, labeled, unlabeled]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Issue number to classify
+        required: true
+        type: number
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: classify-${{ github.repository }}-issue-${{ github.event.issue.number || inputs.issue_number }}
+  cancel-in-progress: true
+
+jobs:
+  classify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out trusted default branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: master
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+      - name: Classify issue
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
+        run: python .github/scripts/classify_work_item.py issue --number "$ISSUE_NUMBER"

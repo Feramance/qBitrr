@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "default_branch": "master",
+  "accepted_required_conclusions": ["success"],
+  "maximum_ci_wait_minutes": 180,
+  "maximum_repair_commits": 3,
+  "required": [
+    {"name": "automation/classification", "app_slug": "github-actions"},
+    {"name": "unittest", "app_slug": "github-actions"},
+    {"name": "frontend-test", "app_slug": "github-actions"},
+    {"name": "drift-checks", "app_slug": "github-actions"},
+    {"name": "pre-commit", "app_slug": "github-actions"}
+  ],
+  "required_patterns": [
+    {"pattern": "^package \\(.*\\)$", "app_slug": "github-actions"}
+  ],
+  "category_required": {
+    "docs": [
+      {"name": "Build documentation", "app_slug": "github-actions"},
+      {"name": "Check internal documentation links", "app_slug": "github-actions"}
+    ]
+  },
+  "advisory": [
+    {"name": "Check external documentation links", "app_slug": "github-actions"}
+  ],
+  "ignored_automation_checks": [
+    "codex/autofix",
+    "enable-automerge"
+  ],
+  "fork_rules": {
+    "inapplicable": ["^Build Docker Images \\(.*\\)$"],
+    "repair_push_allowed": false
+  }
+}

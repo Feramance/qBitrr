@@ -1,0 +1,26 @@
+name: Repository change
+description: Request a refactor, test, CI, maintenance, process, or other repository change.
+title: "chore: <summary>"
+labels: ["automation/classification:pending"]
+body:
+  - type: dropdown
+    id: category
+    attributes:
+      label: Requested change category
+      options: [Refactor, Test, CI, Maintenance, Process change, Other]
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: Describe the desired change and why it is needed.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: List observable completion criteria and validation.
+    validations:
+      required: true

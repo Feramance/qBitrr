@@ -1,0 +1,70 @@
+{
+  "default_branch": "master",
+  "trusted_dependency_bots": [
+    "dependabot[bot]",
+    "pre-commit-ci[bot]"
+  ],
+  "managed_app_bot_login": "feramance-n8n-codex-pr-automation[bot]",
+  "documentation_paths": [
+    "docs/**",
+    "mkdocs.yml",
+    "requirements.docs.txt",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "test_paths": [
+    "tests/**",
+    "webui/src/**/*.test.*",
+    "webui/src/**/*.spec.*"
+  ],
+  "ci_paths": [
+    ".github/workflows/**",
+    ".github/actions/**",
+    ".github/scripts/**"
+  ],
+  "source_paths": [
+    "qBitrr/**",
+    "webui/src/**",
+    "webui/public/**"
+  ],
+  "tooling_paths": [
+    "scripts/**",
+    ".pre-commit-config.yaml",
+    "pyproject.toml",
+    "setup.cfg",
+    "build.spec",
+    "Dockerfile*",
+    "docker-compose*.yml",
+    "config.example.toml"
+  ],
+  "dependency_files": [
+    "requirements*.txt",
+    "pyproject.toml",
+    "setup.cfg",
+    "webui/package.json",
+    "webui/package-lock.json",
+    ".pre-commit-config.yaml"
+  ],
+  "dependency_companion_files": [
+    "CHANGELOG.md",
+    ".github/dependabot.yml",
+    ".github/workflows/*.yml",
+    ".github/workflows/*.yaml"
+  ],
+  "generated_file_patterns": [
+    "docs/assets/openapi.json",
+    "webui/src/generated/**"
+  ],
+  "security_sensitive_paths": [
+    ".github/workflows/**",
+    "qBitrr/auth/**",
+    "qBitrr/security/**",
+    "Dockerfile*"
+  ],
+  "public_api_paths": [
+    "qBitrr/api/**",
+    "qBitrr/config.py",
+    "docs/assets/openapi.json"
+  ],
+  "large_change_file_count": 40
+}
