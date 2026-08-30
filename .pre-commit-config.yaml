@@ -15,6 +15,7 @@ repos:
   - id: check-json
   - id: pretty-format-json
     args: [--autofix, --indent, '2']
+    exclude: ^webui/
 - repo: https://github.com/asottile/pyupgrade
   rev: v3.21.2
   hooks:

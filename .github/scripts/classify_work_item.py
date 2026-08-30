@@ -20,8 +20,9 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any
 
 CLASSIFIER_VERSION = "github-classifier-v1"
 SCHEMA_VERSION = 1

@@ -1,25 +1,25 @@
 name: Support request
 description: Ask for configuration or usage help.
-title: "support: <summary>"
-labels: [question, "automation/type:support", "automation/classification:pending"]
+title: 'support: <summary>'
+labels: [question, automation/type:support, automation/classification:pending]
 body:
-  - type: textarea
-    id: support_request
-    attributes:
-      label: Support request
-      description: Describe the goal, current behavior, and what you already tried.
-    validations:
-      required: true
-  - type: input
-    id: version
-    attributes:
-      label: Version
-    validations:
-      required: true
-  - type: textarea
-    id: diagnostics
-    attributes:
-      label: Diagnostics
-      description: Include redacted logs and environment details when relevant.
-    validations:
-      required: false
+- type: textarea
+  id: support_request
+  attributes:
+    label: Support request
+    description: Describe the goal, current behavior, and what you already tried.
+  validations:
+    required: true
+- type: input
+  id: version
+  attributes:
+    label: Version
+  validations:
+    required: true
+- type: textarea
+  id: diagnostics
+  attributes:
+    label: Diagnostics
+    description: Include redacted logs and environment details when relevant.
+  validations:
+    required: false
