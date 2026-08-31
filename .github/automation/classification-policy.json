@@ -1,0 +1,70 @@
+{
+  "ci_paths": [
+    ".github/workflows/**",
+    ".github/actions/**",
+    ".github/scripts/**"
+  ],
+  "default_branch": "master",
+  "dependency_companion_files": [
+    "CHANGELOG.md",
+    ".github/dependabot.yml",
+    ".github/workflows/*.yml",
+    ".github/workflows/*.yaml"
+  ],
+  "dependency_files": [
+    "requirements*.txt",
+    "pyproject.toml",
+    "setup.cfg",
+    "webui/package.json",
+    "webui/package-lock.json",
+    ".pre-commit-config.yaml"
+  ],
+  "documentation_paths": [
+    "docs/**",
+    "mkdocs.yml",
+    "requirements.docs.txt",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "generated_file_patterns": [
+    "docs/assets/openapi.json",
+    "webui/src/generated/**"
+  ],
+  "large_change_file_count": 40,
+  "managed_app_bot_login": "feramance-n8n-codex-pr-automation[bot]",
+  "public_api_paths": [
+    "qBitrr/api/**",
+    "qBitrr/config.py",
+    "docs/assets/openapi.json"
+  ],
+  "security_sensitive_paths": [
+    ".github/workflows/**",
+    "qBitrr/auth/**",
+    "qBitrr/security/**",
+    "Dockerfile*"
+  ],
+  "source_paths": [
+    "qBitrr/**",
+    "webui/src/**",
+    "webui/public/**"
+  ],
+  "test_paths": [
+    "tests/**",
+    "webui/src/**/*.test.*",
+    "webui/src/**/*.spec.*"
+  ],
+  "tooling_paths": [
+    "scripts/**",
+    ".pre-commit-config.yaml",
+    "pyproject.toml",
+    "setup.cfg",
+    "build.spec",
+    "Dockerfile*",
+    "docker-compose*.yml",
+    "config.example.toml"
+  ],
+  "trusted_dependency_bots": [
+    "dependabot[bot]",
+    "pre-commit-ci[bot]"
+  ]
+}

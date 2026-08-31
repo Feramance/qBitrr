@@ -24,9 +24,7 @@ on:
     - master
 
 permissions:
-  contents: write
-  pages: write
-  id-token: write
+  contents: read
 
 jobs:
   build:
@@ -80,6 +78,9 @@ jobs:
        github.event_name == 'workflow_dispatch' ||
        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'))
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -89,7 +90,7 @@ jobs:
       uses: actions/deploy-pages@v5
 
   link-check:
-    name: Check documentation links
+    name: Check internal documentation links
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     steps:
@@ -116,6 +117,38 @@ jobs:
     - name: Build docs
       run: mkdocs build
 
-    - name: Check links
-      run: linkchecker site/ --check-extern --ignore-url="^https://api.github.com" --ignore-url="^https://patreon.com" --ignore-url="^https://www.paypal.me"
+    - name: Check internal links
+      run: linkchecker site/
+
+  external-link-check:
+    name: Check external documentation links
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v7
+    - name: Set up Python
+      uses: actions/setup-python@v7
+      with:
+        python-version: '3.12'
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.docs.txt
+        pip install linkchecker
+    - name: Ensure changelog page exists
+      run: |
+        if [ ! -f docs/changelog.md ] || [ -L docs/changelog.md ]; then
+          rm -f docs/changelog.md
+          cp CHANGELOG.md docs/changelog.md
+        fi
+    - name: Build docs
+      run: mkdocs build
+    - name: Check external links (advisory)
+      id: external
       continue-on-error: true
+      run: linkchecker site/ --check-extern --ignore-url="^https://api.github.com" --ignore-url="^https://patreon.com" --ignore-url="^https://www.paypal.me"
+    - name: Summarize advisory result
+      if: always()
+      run: |
+        echo '## External link check (advisory)' >> "$GITHUB_STEP_SUMMARY"
+        echo 'Result: ${{ steps.external.outcome }}' >> "$GITHUB_STEP_SUMMARY"

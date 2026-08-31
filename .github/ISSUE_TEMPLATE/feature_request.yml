@@ -1,7 +1,7 @@
 name: Feature request
 description: Suggest an improvement or a new capability.
 title: 'feat: <summary>'
-labels: [enhancement, needs triage]
+labels: [enhancement, automation/type:feature, automation/classification:pending]
 body:
 - type: markdown
   attributes:

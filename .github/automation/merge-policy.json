@@ -1,0 +1,65 @@
+{
+  "accepted_required_conclusions": [
+    "success"
+  ],
+  "advisory": [
+    {
+      "app_slug": "github-actions",
+      "name": "Check external documentation links"
+    }
+  ],
+  "category_required": {
+    "docs": [
+      {
+        "app_slug": "github-actions",
+        "name": "Build documentation"
+      },
+      {
+        "app_slug": "github-actions",
+        "name": "Check internal documentation links"
+      }
+    ]
+  },
+  "default_branch": "master",
+  "fork_rules": {
+    "inapplicable": [
+      "^Build Docker Images \\(.*\\)$"
+    ],
+    "repair_push_allowed": false
+  },
+  "ignored_automation_checks": [
+    "codex/autofix",
+    "enable-automerge"
+  ],
+  "maximum_ci_wait_minutes": 180,
+  "maximum_repair_commits": 3,
+  "required": [
+    {
+      "app_slug": "github-actions",
+      "name": "automation/classification"
+    },
+    {
+      "app_slug": "github-actions",
+      "name": "unittest"
+    },
+    {
+      "app_slug": "github-actions",
+      "name": "frontend-test"
+    },
+    {
+      "app_slug": "github-actions",
+      "name": "drift-checks"
+    },
+    {
+      "app_slug": "github-actions",
+      "name": "pre-commit"
+    }
+  ],
+  "required_patterns": [
+    {
+      "app_slug": "github-actions",
+      "pattern": "^package \\(.*\\)$"
+    }
+  ],
+  "schema_version": 1
+}
