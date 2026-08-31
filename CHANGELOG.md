@@ -1,5 +1,23 @@
 # Changelog
 
+## v5.14.4-2 (31/08/2026)
+
+### 🚀 Features
+- [Add GitHub classification and automation policies (#569)](https://github.com/Feramance/qBitrr/commit/2493588da379b481f7801c15bb7638c1fefeacba) - @Feramance
+
+### 🐛 Bug Fixes
+- [fix: ignore upstream issue references in PR text (#571)](https://github.com/Feramance/qBitrr/commit/e229975f6e3b89e7164df815a588d87a4d5ccc1d) - @Feramance
+- [fix: make classifier label provisioning race-safe (#570)](https://github.com/Feramance/qBitrr/commit/178c3e03468302bd73ee4ff767a78a58dcdc4c52) - @Feramance
+
+### 🔧 Maintenance
+- [Bump @testing-library/user-event from 14.6.3 to 14.6.5 in /webui (#567)](https://github.com/Feramance/qBitrr/commit/0060d2d32ad3be86526611d610b71e4049ff1167) - @Feramance
+- [Bump vitest from 4.1.10 to 4.1.11 in /webui (#565)](https://github.com/Feramance/qBitrr/commit/543c8b02a36e9abe92b28ef47f2a15de33875389) - @Feramance
+- [Bump @types/node from 26.1.2 to 26.2.0 in /webui](https://github.com/Feramance/qBitrr/commit/133cb38519824ea8b6f27829fb17114d0391484d) - @Feramance
+- [Bump @testing-library/jest-dom from 7.0.0 to 7.0.1 in /webui (#563)](https://github.com/Feramance/qBitrr/commit/0594149d374b6c1515f771620f0c00d938630f67) - @Feramance
+- [Bump github/codeql-action from 4.37.7 to 4.37.8 (#562)](https://github.com/Feramance/qBitrr/commit/24d2ddf202924ba4644425252bca4d48670e271a) - @Feramance
+
+---
+
 ## v5.14.4-1 (19/08/2026)
 
 ### 🐛 Bug Fixes
