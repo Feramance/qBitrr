@@ -28,7 +28,7 @@ CLASSIFIER_VERSION = "github-classifier-v1"
 SCHEMA_VERSION = 1
 MARKER_PREFIX = "<!-- automation-classification:v1:"
 CHECK_NAME = "automation/classification"
-MANAGED_PREFIXES = ("automation/", "codex/")
+MANAGED_PREFIXES = ("automation/", "codex/", "n8n/")
 
 ISSUE_CATEGORIES = (
     "bug",
