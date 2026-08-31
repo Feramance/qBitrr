@@ -28,6 +28,7 @@ Usage::
     python scripts/config_fields_check.py --check-reload
     make config-fields-check
 """
+
 from __future__ import annotations
 
 import argparse

@@ -396,8 +396,7 @@ def _copy_table_with_dedupe(
     has_arr_instance = "ArrInstance" in copy_columns
 
     if has_entry_id and has_arr_instance:
-        db.execute_sql(
-            f"""
+        db.execute_sql(f"""
             INSERT INTO {_quote_identifier(destination_table)} ({quoted_columns})
             SELECT {quoted_columns}
             FROM (
@@ -410,16 +409,13 @@ def _copy_table_with_dedupe(
                 FROM {_quote_identifier(source_table)}
             )
             WHERE _qbitrr_rn = 1
-            """
-        )
+            """)
     else:
-        db.execute_sql(
-            f"""
+        db.execute_sql(f"""
             INSERT INTO {_quote_identifier(destination_table)} ({quoted_columns})
             SELECT {quoted_columns}
             FROM {_quote_identifier(source_table)}
-            """
-        )
+            """)
 
 
 def _rebuild_arr_file_table_with_composite_pk(db: SqliteDatabase, model: type[Model]) -> None:
@@ -588,16 +584,14 @@ def _migrate_v2_catalog_denormalized_columns(db: SqliteDatabase) -> bool:
                 and "TotalTracks" in _get_table_columns(db, amt)
             ):
                 logger.info("Backfilling %s.TotalTracks (aggregate UPDATE)", amt)
-                db.execute_sql(
-                    f"""
+                db.execute_sql(f"""
                     UPDATE {qamt}
                     SET TotalTracks = COALESCE((
                         SELECT COUNT(*) FROM {qtrt} t
                         WHERE t.AlbumId = {qamt}.EntryId
                           AND t.ArrInstance = {qamt}.ArrInstance
                     ), 0)
-                    """
-                )
+                    """)
             # SeriesFiles.{SeasonCount, EpisodeTotalCount} <- aggregates over EpisodeFiles.
             if (
                 _table_exists(db, ept)
@@ -609,8 +603,7 @@ def _migrate_v2_catalog_denormalized_columns(db: SqliteDatabase) -> bool:
                     "Backfilling %s.{SeasonCount, EpisodeTotalCount} (aggregate UPDATE)",
                     sert,
                 )
-                db.execute_sql(
-                    f"""
+                db.execute_sql(f"""
                     UPDATE {qsert}
                     SET EpisodeTotalCount = COALESCE((
                         SELECT COUNT(*) FROM {qept} e
@@ -622,8 +615,7 @@ def _migrate_v2_catalog_denormalized_columns(db: SqliteDatabase) -> bool:
                         WHERE e.SeriesId = {qsert}.EntryId
                           AND e.ArrInstance = {qsert}.ArrInstance
                     ), 0)
-                    """
-                )
+                    """)
             # ArtistFiles.{AlbumCount, TrackTotalCount} <- aggregates over Album/Track files.
             if (
                 _table_exists(db, art)
@@ -632,8 +624,7 @@ def _migrate_v2_catalog_denormalized_columns(db: SqliteDatabase) -> bool:
                 and "AlbumCount" in _get_table_columns(db, art)
             ):
                 logger.info("Backfilling %s.{AlbumCount, TrackTotalCount} (aggregate UPDATE)", art)
-                db.execute_sql(
-                    f"""
+                db.execute_sql(f"""
                     UPDATE {qart}
                     SET AlbumCount = COALESCE((
                         SELECT COUNT(*) FROM {qamt} a
@@ -647,8 +638,7 @@ def _migrate_v2_catalog_denormalized_columns(db: SqliteDatabase) -> bool:
                         WHERE a.ArtistId = {qart}.EntryId
                           AND a.ArrInstance = {qart}.ArrInstance
                     ), 0)
-                    """
-                )
+                    """)
         return True
     except Exception as e:
         logger.warning(
@@ -695,13 +685,11 @@ def _migrate_v3_lidarr_track_duration_seconds(db: SqliteDatabase) -> bool:
                     row_count,
                     thr,
                 )
-                db.execute_sql(
-                    f"""
+                db.execute_sql(f"""
                     UPDATE {qtn}
                     SET Duration = Duration / 1000
                     WHERE Duration IS NOT NULL AND Duration > {thr}
-                    """
-                )
+                    """)
         return True
     except Exception as e:
         logger.warning(
