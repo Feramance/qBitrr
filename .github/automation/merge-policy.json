@@ -59,6 +59,14 @@
     {
       "app_slug": "github-actions",
       "pattern": "^package \\(.*\\)$"
+    },
+    {
+      "app_slug": "github-actions",
+      "pattern": "^Build Docker Images \\(.*\\)$"
+    },
+    {
+      "app_slug": "github-actions",
+      "pattern": "^Analyze \\(.*\\)$"
     }
   ],
   "schema_version": 1
