@@ -48,7 +48,9 @@ class DigestTests(unittest.TestCase):
 
     def test_automation_labels_do_not_change_digest(self) -> None:
         self.assertEqual(
-            classifier.non_automation_labels(["bug", "automation/type:bug", "codex/bug"]),
+            classifier.non_automation_labels(
+                ["bug", "automation/type:bug", "codex/bug", "n8n/waiting-ci"]
+            ),
             ["bug"],
         )
 
