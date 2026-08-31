@@ -570,7 +570,10 @@ def update_classification_labels(
     retained.append(
         "automation/classification:ready" if ready else "automation/classification:pending"
     )
-    api.request("POST", f"/issues/{number}/labels", {"labels": sorted(set(retained))})
+    # PUT is GitHub's set-labels operation. POST only adds labels and leaves
+    # stale managed state behind, which can produce both pending/ready or
+    # multiple type labels after reclassification.
+    api.request("PUT", f"/issues/{number}/labels", {"labels": sorted(set(retained))})
 
 
 def upsert_contract_comment(api: GitHubAPI, number: int, contract: Mapping[str, Any]) -> None:

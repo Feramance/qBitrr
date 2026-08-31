@@ -54,6 +54,45 @@ class DigestTests(unittest.TestCase):
 
 
 class LabelProvisioningTests(unittest.TestCase):
+    def test_classification_labels_replace_stale_managed_labels(self) -> None:
+        class RecordingAPI:
+            def __init__(self) -> None:
+                self.calls = []
+
+            def request(self, method: str, path: str, payload=None):
+                self.calls.append((method, path, payload))
+                return None
+
+        api = RecordingAPI()
+        classifier.update_classification_labels(
+            api,
+            42,
+            [
+                "bug",
+                "automation/classification:pending",
+                "automation/type:ci",
+                "automation/type:ambiguous",
+            ],
+            "docs",
+            True,
+        )
+        self.assertEqual(
+            api.calls,
+            [
+                (
+                    "PUT",
+                    "/issues/42/labels",
+                    {
+                        "labels": [
+                            "automation/classification:ready",
+                            "automation/type:docs",
+                            "bug",
+                        ]
+                    },
+                )
+            ],
+        )
+
     def test_concurrent_create_converges_to_patch(self) -> None:
         class RacingAPI:
             def __init__(self) -> None:
