@@ -22,15 +22,15 @@ repos:
   - id: pyupgrade
     args: [--py311-plus]
 - repo: https://github.com/pycqa/isort
-  rev: 7.0.0
+  rev: 9.0.1
   hooks:
   - id: isort
-- repo: https://github.com/psf/black
-  rev: 25.9.0
+- repo: https://github.com/psf/black-pre-commit-mirror
+  rev: 26.5.1
   hooks:
   - id: black
 - repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
-  rev: v2.15.0
+  rev: v2.16.0
   hooks:
   - id: pretty-format-yaml
     args: [--autofix, --indent, '2']
@@ -40,7 +40,7 @@ repos:
   - id: fix-smartquotes
   - id: fix-ligatures
 - repo: https://github.com/PyCQA/autoflake
-  rev: v2.3.1
+  rev: v2.4.0
   hooks:
   - id: autoflake
     args: [--remove-all-unused-imports, --recursive, --in-place, --remove-unused-variables, --ignore-init-module-imports, --remove-duplicate-keys]
