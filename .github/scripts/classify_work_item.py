@@ -497,14 +497,29 @@ def authorized_override(
 
 def linked_issue_numbers(title: str, body: str, current_number: int) -> list[int]:
     """Extract same-repository issue references from PR text."""
-    matches = {int(value) for value in re.findall(r"(?<![\w/])#(\d+)\b", f"{title}\n{body}")}
+    text = f"{title}\n{body}"
+    matches: set[int] = set()
+    keywords = re.compile(
+        r"(?i)\b(?:close[sd]?|fix(?:es|ed)?|resolve[sd]?|refs?|references?|related\s+to|issue)\s*:?\s*"
+    )
+    for keyword in keywords.finditer(text):
+        line_end = text.find("\n", keyword.end())
+        segment = text[keyword.end() : line_end if line_end >= 0 else len(text)]
+        matches.update(int(value) for value in re.findall(r"(?<![\w/])#(\d+)\b", segment))
     matches.discard(current_number)
     return sorted(matches)
 
 
 def current_issue_classification(api: GitHubAPI, number: int) -> dict[str, Any] | None:
     """Return a linked issue's current type-label classification."""
-    issue = api.request("GET", f"/issues/{number}")
+    try:
+        issue = api.request("GET", f"/issues/{number}")
+    except GitHubAPIError as error:
+        # Release notes copied into dependency PRs can reference upstream issue
+        # numbers. A missing local issue is not a classifier failure.
+        if error.status == 404:
+            return None
+        raise
     categories = [
         LABEL_CATEGORY[label] for label in labels_from_item(issue) if label in LABEL_CATEGORY
     ]

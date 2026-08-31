@@ -127,6 +127,23 @@ class IssueTests(unittest.TestCase):
         self.assertEqual(classifier.classify_issue(issue, "feature")[0], "feature")
 
 
+class LinkedIssueTests(unittest.TestCase):
+    def test_bare_release_note_references_are_ignored(self) -> None:
+        body = "Release notes\n- upstream change (#10995)\n- see owner/project#1298"
+        self.assertEqual(classifier.linked_issue_numbers("bump package", body, 10), [])
+
+    def test_explicit_link_keywords_are_supported(self) -> None:
+        body = "Fixes #12 and #13\nRelated to: #14\nRefs #10"
+        self.assertEqual(classifier.linked_issue_numbers("change", body, 10), [12, 13, 14])
+
+    def test_missing_local_issue_is_not_fatal(self) -> None:
+        class MissingAPI:
+            def request(self, method: str, path: str):
+                raise classifier.GitHubAPIError(method, path, 404, "not found")
+
+        self.assertIsNone(classifier.current_issue_classification(MissingAPI(), 999))
+
+
 class PullRequestTests(unittest.TestCase):
     def classify(self, value: dict, files: list[dict], labels=(), links=(), override=None) -> str:
         return classifier.classify_pr(value, files, labels, links, POLICY, override)[0]
