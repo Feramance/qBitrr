@@ -48,9 +48,25 @@ class DigestTests(unittest.TestCase):
 
     def test_automation_labels_do_not_change_digest(self) -> None:
         self.assertEqual(
-            classifier.non_automation_labels(["bug", "automation/type:bug", "codex/bug"]),
+            classifier.non_automation_labels(
+                ["bug", "automation/type:bug", "codex/bug", "n8n/waiting-ci"]
+            ),
             ["bug"],
         )
+
+    def test_current_base_sha_encodes_branch_ref(self) -> None:
+        class RecordingAPI:
+            def __init__(self) -> None:
+                self.calls = []
+
+            def request(self, method: str, path: str, payload=None):
+                self.calls.append((method, path, payload))
+                return {"object": {"sha": "c" * 40}}
+
+        api = RecordingAPI()
+        value = classifier.current_base_sha(api, {"base": {"ref": "release/v1"}})
+        self.assertEqual(value, "c" * 40)
+        self.assertEqual(api.calls, [("GET", "/git/ref/heads/release%2Fv1", None)])
 
 
 class LabelProvisioningTests(unittest.TestCase):

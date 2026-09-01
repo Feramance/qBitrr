@@ -28,7 +28,7 @@ CLASSIFIER_VERSION = "github-classifier-v1"
 SCHEMA_VERSION = 1
 MARKER_PREFIX = "<!-- automation-classification:v1:"
 CHECK_NAME = "automation/classification"
-MANAGED_PREFIXES = ("automation/", "codex/")
+MANAGED_PREFIXES = ("automation/", "codex/", "n8n/")
 
 ISSUE_CATEGORIES = (
     "bug",
@@ -191,6 +191,7 @@ def pr_digest_input(
     labels: Sequence[str],
     linked_issues: Sequence[Mapping[str, Any]],
     classification_policy_digest: str,
+    base_sha: str,
 ) -> dict[str, Any]:
     """Build the canonical pull-request digest payload."""
     normalized_files = [
@@ -217,7 +218,7 @@ def pr_digest_input(
         },
         "base": {
             "ref": str((pull.get("base") or {}).get("ref") or ""),
-            "sha": str((pull.get("base") or {}).get("sha") or ""),
+            "sha": base_sha,
         },
         "head": {
             "ref": str((pull.get("head") or {}).get("ref") or ""),
@@ -700,6 +701,19 @@ def finish_check(api: GitHubAPI, check_id: int, conclusion: str, title: str, sum
     )
 
 
+def current_base_sha(api: GitHubAPI, pull: Mapping[str, Any]) -> str:
+    """Resolve the current tip of the pull request's target branch."""
+    base_ref = str((pull.get("base") or {}).get("ref") or "")
+    if not base_ref:
+        raise RuntimeError("pull request base ref is missing")
+    encoded_ref = urllib.parse.quote(base_ref, safe="")
+    response = api.request("GET", f"/git/ref/heads/{encoded_ref}")
+    base_sha = str((response.get("object") or {}).get("sha") or "").lower()
+    if not re.fullmatch(r"[0-9a-f]{40}", base_sha):
+        raise RuntimeError("current base ref did not resolve to a commit SHA")
+    return base_sha
+
+
 def classify_live_pr(api: GitHubAPI, number: int, policy: Mapping[str, Any]) -> None:
     """Fetch, classify, and persist one pull-request contract and head check."""
     pull = api.request("GET", f"/pulls/{number}")
@@ -718,7 +732,10 @@ def classify_live_pr(api: GitHubAPI, number: int, policy: Mapping[str, Any]) -> 
         override = authorized_override(api, number, labels, PR_CATEGORIES)
         category, evidence = classify_pr(pull, files, labels, links, policy, override)
         policy_hash = policy_digest(policy)
-        source = digest(pr_digest_input(api.repository, pull, files, labels, links, policy_hash))
+        base_sha = current_base_sha(api, pull)
+        source = digest(
+            pr_digest_input(api.repository, pull, files, labels, links, policy_hash, base_sha)
+        )
         flags = determine_flags(
             pull, files, policy, f"{pull.get('title') or ''}\n{pull.get('body') or ''}"
         )
@@ -728,7 +745,7 @@ def classify_live_pr(api: GitHubAPI, number: int, policy: Mapping[str, Any]) -> 
             flags,
             source,
             policy_hash,
-            str((pull.get("base") or {}).get("sha") or ""),
+            base_sha,
             head_sha,
             evidence,
         )
