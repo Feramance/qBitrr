@@ -425,7 +425,9 @@ class WorkflowSecurityTests(unittest.TestCase):
         category_patterns = policy["category_required_patterns"]
         self.assertNotIn("package_update", category_patterns)
         for category in {"ambiguous", "bug_fix", "ci", "feature", "other", "refactor"}:
-            self.assertIn(r"^Analyze \(.*\)$", {item["pattern"] for item in category_patterns[category]})
+            self.assertIn(
+                r"^Analyze \(.*\)$", {item["pattern"] for item in category_patterns[category]}
+            )
 
 
 if __name__ == "__main__":
