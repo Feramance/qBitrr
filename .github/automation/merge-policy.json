@@ -20,6 +20,44 @@
       }
     ]
   },
+  "category_required_patterns": {
+    "ambiguous": [
+      {
+        "app_slug": "github-actions",
+        "pattern": "^Analyze \\(.*\\)$"
+      }
+    ],
+    "bug_fix": [
+      {
+        "app_slug": "github-actions",
+        "pattern": "^Analyze \\(.*\\)$"
+      }
+    ],
+    "ci": [
+      {
+        "app_slug": "github-actions",
+        "pattern": "^Analyze \\(.*\\)$"
+      }
+    ],
+    "feature": [
+      {
+        "app_slug": "github-actions",
+        "pattern": "^Analyze \\(.*\\)$"
+      }
+    ],
+    "other": [
+      {
+        "app_slug": "github-actions",
+        "pattern": "^Analyze \\(.*\\)$"
+      }
+    ],
+    "refactor": [
+      {
+        "app_slug": "github-actions",
+        "pattern": "^Analyze \\(.*\\)$"
+      }
+    ]
+  },
   "default_branch": "master",
   "fork_rules": {
     "inapplicable": [
@@ -63,10 +101,6 @@
     {
       "app_slug": "github-actions",
       "pattern": "^Build Docker Images \\(.*\\)$"
-    },
-    {
-      "app_slug": "github-actions",
-      "pattern": "^Analyze \\(.*\\)$"
     }
   ],
   "schema_version": 1

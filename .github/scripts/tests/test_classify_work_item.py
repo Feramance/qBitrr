@@ -416,6 +416,19 @@ class WorkflowSecurityTests(unittest.TestCase):
         self.assertIn("!github.event.issue.pull_request", workflow)
         self.assertIn("github.event.comment.user.type != 'Bot'", workflow)
 
+    def test_merge_policy_scopes_codeql_matrix_by_category(self) -> None:
+        policy = json.loads(
+            (Path(__file__).parents[2] / "automation" / "merge-policy.json").read_text()
+        )
+        global_patterns = {item["pattern"] for item in policy["required_patterns"]}
+        self.assertNotIn(r"^Analyze \(.*\)$", global_patterns)
+        category_patterns = policy["category_required_patterns"]
+        self.assertNotIn("package_update", category_patterns)
+        for category in {"ambiguous", "bug_fix", "ci", "feature", "other", "refactor"}:
+            self.assertIn(
+                r"^Analyze \(.*\)$", {item["pattern"] for item in category_patterns[category]}
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
