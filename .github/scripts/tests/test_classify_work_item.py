@@ -6,6 +6,7 @@ import importlib.util
 import json
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 SCRIPT = Path(__file__).parents[1] / "classify_work_item.py"
 SPEC = importlib.util.spec_from_file_location("classifier", SCRIPT)
@@ -67,6 +68,40 @@ class DigestTests(unittest.TestCase):
         value = classifier.current_base_sha(api, {"base": {"ref": "release/v1"}})
         self.assertEqual(value, "c" * 40)
         self.assertEqual(api.calls, [("GET", "/git/ref/heads/release%2Fv1", None)])
+
+    def test_material_human_scope_comments_are_digest_bound(self) -> None:
+        issue = {"number": 1, "title": "Change", "body": "Initial", "state": "open", "labels": []}
+        comments = [
+            {"id": 3, "body": "Scope: add beta", "user": {"login": "human", "type": "User"}},
+            {"id": 1, "body": "Looks good", "user": {"login": "human", "type": "User"}},
+            {
+                "id": 2,
+                "body": "Requirements: ignore me",
+                "user": {"login": "bot[bot]", "type": "Bot"},
+            },
+        ]
+        value = classifier.issue_digest_input("o/r", issue, comments)
+        self.assertEqual(value["scope_comments"], [{"id": 3, "body": "Scope: add beta"}])
+
+    def test_pr_digest_changes_with_current_base_or_head(self) -> None:
+        value = pull("change")
+        first = classifier.digest(
+            classifier.pr_digest_input(
+                "o/r", value, changed("qBitrr/main.py"), [], [], "p" * 64, "a" * 40
+            )
+        )
+        second = classifier.digest(
+            classifier.pr_digest_input(
+                "o/r", value, changed("qBitrr/main.py"), [], [], "p" * 64, "b" * 40
+            )
+        )
+        value["head"]["sha"] = "c" * 40
+        third = classifier.digest(
+            classifier.pr_digest_input(
+                "o/r", value, changed("qBitrr/main.py"), [], [], "p" * 64, "b" * 40
+            )
+        )
+        self.assertEqual(3, len({first, second, third}))
 
 
 class LabelProvisioningTests(unittest.TestCase):
@@ -181,6 +216,36 @@ class IssueTests(unittest.TestCase):
         self.assertEqual(classifier.classify_issue(issue)[0], "ambiguous")
         self.assertEqual(classifier.classify_issue(issue, "feature")[0], "feature")
 
+    def test_override_requires_latest_authorized_label_event(self) -> None:
+        class OverrideAPI:
+            def __init__(self, permission: str) -> None:
+                self.permission = permission
+
+            def pages(self, _path: str) -> list:
+                return [
+                    {
+                        "event": "labeled",
+                        "label": {"name": "automation/override:feature"},
+                        "actor": {"login": "maintainer"},
+                    }
+                ]
+
+            def request(self, _method: str, _path: str, _payload=None) -> dict:
+                return {"permission": self.permission}
+
+        labels = ["automation/override:feature"]
+        self.assertEqual(
+            classifier.authorized_override(
+                OverrideAPI("write"), 1, labels, classifier.ISSUE_CATEGORIES
+            ),
+            "feature",
+        )
+        self.assertIsNone(
+            classifier.authorized_override(
+                OverrideAPI("read"), 1, labels, classifier.ISSUE_CATEGORIES
+            )
+        )
+
 
 class LinkedIssueTests(unittest.TestCase):
     def test_bare_release_note_references_are_ignored(self) -> None:
@@ -266,17 +331,89 @@ class PullRequestTests(unittest.TestCase):
     def test_flags(self) -> None:
         value = pull("feat!: change", POLICY["managed_app_bot_login"])
         value["head"]["repo"]["full_name"] = "fork/r"
-        files = changed(".github/workflows/ci.yml", "docs/assets/openapi.json")
+        files = changed(
+            ".github/workflows/ci.yml",
+            "docs/assets/openapi.json",
+            "qBitrr/security/migrations/001.py",
+            *(f"docs/generated-{index}.md" for index in range(40)),
+        )
         flags = classifier.determine_flags(value, files, POLICY, value["title"])
         for expected in (
             "breaking_change",
+            "security_sensitive",
+            "migration_required",
             "workflow_permissions_change",
             "generated_code",
             "public_api_change",
+            "large_change",
             "managed_n8n_app",
             "fork_head",
         ):
             self.assertIn(expected, flags)
+
+    def test_every_pr_category_has_a_conservative_route(self) -> None:
+        source = changed("qBitrr/main.py")
+        cases = [
+            (
+                "package_update",
+                pull("bump", "dependabot[bot]"),
+                changed("webui/package-lock.json"),
+                [],
+                [],
+            ),
+            ("bug_fix", pull("fix"), source, [], [{"number": 1, "category": "bug"}]),
+            ("feature", pull("feat: add"), source, [], []),
+            ("docs", pull("update"), changed("docs/index.md"), [], []),
+            ("refactor", pull("refactor: simplify"), source, [], []),
+            ("test", pull("update"), changed("tests/test_a.py"), [], []),
+            ("ci", pull("update"), changed(".github/workflows/ci.yml"), [], []),
+            ("maintenance", pull("update"), changed("scripts/check.py"), [], []),
+            ("other", pull("change"), source, [], [{"number": 2, "category": "other"}]),
+            ("ambiguous", pull("change"), source, [], []),
+        ]
+        for expected, value, files, labels, links in cases:
+            with self.subTest(expected=expected):
+                self.assertEqual(self.classify(value, files, labels, links), expected)
+
+    def test_failed_pr_classification_clears_ready_and_finishes_check(self) -> None:
+        class FailingAPI:
+            repository = "o/r"
+
+            def request(self, method: str, path: str, payload=None):
+                if (method, path) == ("GET", "/pulls/10"):
+                    return pull("change")
+                if (method, path) == ("POST", "/check-runs"):
+                    return {"id": 123}
+                raise AssertionError((method, path, payload))
+
+            def pages(self, path: str) -> list:
+                raise RuntimeError(f"failed to load {path}")
+
+        with (
+            patch.object(classifier, "update_classification_labels") as update_labels,
+            patch.object(classifier, "finish_check") as finish,
+        ):
+            with self.assertRaises(RuntimeError):
+                classifier.classify_live_pr(FailingAPI(), 10, POLICY)
+        update_labels.assert_called_once()
+        self.assertEqual(update_labels.call_args.args[3:], ("ambiguous", False))
+        finish.assert_called_once()
+        self.assertEqual(finish.call_args.args[2], "failure")
+
+
+class WorkflowSecurityTests(unittest.TestCase):
+    def test_pr_classifier_uses_only_immutable_base_sha(self) -> None:
+        workflow = (Path(__file__).parents[2] / "workflows" / "classify-prs.yml").read_text()
+        self.assertIn("pull_request_target:", workflow)
+        self.assertIn("github.event.pull_request.base.sha || github.sha", workflow)
+        self.assertNotIn("github.event.pull_request.head.sha", workflow)
+        self.assertNotIn("github.event.pull_request.head.ref", workflow)
+        self.assertIn("persist-credentials: false", workflow)
+
+    def test_material_issue_comments_trigger_reclassification(self) -> None:
+        workflow = (Path(__file__).parents[2] / "workflows" / "classify-issues.yml").read_text()
+        self.assertIn("issue_comment:", workflow)
+        self.assertIn("!github.event.issue.pull_request", workflow)
 
 
 if __name__ == "__main__":

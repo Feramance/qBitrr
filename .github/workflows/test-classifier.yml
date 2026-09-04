@@ -7,11 +7,15 @@ on:
     - .github/automation/classification-policy.json
     - .github/scripts/classify_work_item.py
     - .github/scripts/tests/**
+    - .github/workflows/classify-issues.yml
+    - .github/workflows/classify-prs.yml
   pull_request:
     paths:
     - .github/automation/classification-policy.json
     - .github/scripts/classify_work_item.py
     - .github/scripts/tests/**
+    - .github/workflows/classify-issues.yml
+    - .github/workflows/classify-prs.yml
 
 permissions:
   contents: read
