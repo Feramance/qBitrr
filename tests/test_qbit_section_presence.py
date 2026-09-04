@@ -22,42 +22,36 @@ def _config_from_toml(text: str) -> MyConfig:
 
 class TestValidateDoesNotCreateQbitSection(unittest.TestCase):
     def test_named_only_does_not_create_bare_qbit(self) -> None:
-        cfg = _config_from_toml(
-            """
+        cfg = _config_from_toml("""
             [Settings]
             ConfigVersion = "5.12.12"
 
             [qBit-General]
             Host = "192.168.0.240"
             Port = 8080
-            """
-        )
+            """)
         _validate_and_fill_config(cfg)
         self.assertNotIn("qBit", cfg.config)
         self.assertIn("qBit-General", cfg.config)
         self.assertFalse(cfg.get("qBit-General.Disabled"))
 
     def test_no_qbit_section_stays_absent(self) -> None:
-        cfg = _config_from_toml(
-            """
+        cfg = _config_from_toml("""
             [Settings]
             ConfigVersion = "5.12.12"
-            """
-        )
+            """)
         _validate_and_fill_config(cfg)
         self.assertNotIn("qBit", cfg.config)
         self.assertFalse(any(str(s).startswith("qBit") for s in cfg.config.keys()))
 
     def test_fills_missing_keys_on_existing_named_section(self) -> None:
-        cfg = _config_from_toml(
-            """
+        cfg = _config_from_toml("""
             [Settings]
             ConfigVersion = "5.12.12"
 
             [qBit-General]
             Host = "192.168.0.240"
-            """
-        )
+            """)
         changed = _validate_and_fill_config(cfg)
         self.assertTrue(changed)
         self.assertEqual(cfg.get("qBit-General.Host"), "192.168.0.240")
