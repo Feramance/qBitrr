@@ -1,5 +1,30 @@
 # Changelog
 
+## v5.14.4-3 (07/09/2026)
+
+### 🐛 Bug Fixes
+- [fix: use PAT for changelog release push (#587)](https://github.com/Feramance/qBitrr/commit/8323818511cb6ee84dc9a361ca849ae933aeb62d) - @Feramance
+- [fix: classify PRs against the current base (#579)](https://github.com/Feramance/qBitrr/commit/4d13ec34c9a110bb5fe4f4b38c074fadadae0a78) - @Feramance
+- [fix: exclude n8n status labels from classifier digests (#577)](https://github.com/Feramance/qBitrr/commit/015a4e4b5256de19831d6c587aa9494a0f951df9) - @Feramance
+- [fix: replace stale classification labels (#572)](https://github.com/Feramance/qBitrr/commit/e9bdcb4ba826f98dc07f134634951ccc44f4b145) - @Feramance
+
+### 🔧 Maintenance
+- [Bump typescript-eslint from 8.67.0 to 8.69.0 in /webui (#585)](https://github.com/Feramance/qBitrr/commit/f229146bf59a26ab78c1387f05e1805feb75ad02) - @Feramance
+- [Bump @types/node from 26.2.0 to 26.4.1 in /webui (#586)](https://github.com/Feramance/qBitrr/commit/84bf0768e2df9edf35418c07cf257b8d69d18283) - @Feramance
+- [Bump vite from 8.2.0 to 8.2.2 in /webui (#584)](https://github.com/Feramance/qBitrr/commit/f68e8b4b2ae6d05aed3e66d370206c9e97f785c8) - @Feramance
+- [ci: scope CodeQL checks by category (#583)](https://github.com/Feramance/qBitrr/commit/9d6382b2ca1b3cceadd1f75f82541cb26329cccc) - @Feramance
+- [Bump browserslist from 4.28.6 to 4.28.9 in /webui in the npm_and_yarn group across 1 directory (#581)](https://github.com/Feramance/qBitrr/commit/57842c767627c9743dff034ecd3209b02d150be3) - @Feramance
+- [ci: prevent classifier comment loops (#582)](https://github.com/Feramance/qBitrr/commit/98653c6e29f6d10fc32bc35df0b85a09d0c0cc00) - @Feramance
+- [ci: harden classifier event freshness (#580)](https://github.com/Feramance/qBitrr/commit/d49117466442ff3c9070f684ca807d86d8704d97) - @Feramance
+- [[pre-commit.ci] pre-commit autoupdate (#568)](https://github.com/Feramance/qBitrr/commit/83ebe18214703c3e326b5701ad1074de9ca1348f) - @Feramance
+- [Bump eslint from 10.8.1 to 10.9.1 in /webui (#574)](https://github.com/Feramance/qBitrr/commit/48b9a15e1fc8ece02eadbb6eef4a6f20962fad6b) - @Feramance
+- [Bump @testing-library/user-event from 14.6.5 to 14.6.6 in /webui (#576)](https://github.com/Feramance/qBitrr/commit/6446eff8beef6224839754f94749cb032968d114) - @Feramance
+- [Bump github/codeql-action from 4.37.8 to 4.37.9 (#575)](https://github.com/Feramance/qBitrr/commit/5399ffe6cdd6a3a2fd25170c845271cf268e0a78) - @Feramance
+- [Bump eslint-plugin-react-refresh from 0.5.4 to 0.5.5 in /webui (#573)](https://github.com/Feramance/qBitrr/commit/6e17c47601b3e8ebd087ffaeac59299c2cf12a28) - @Feramance
+- [ci: require Docker and CodeQL merge checks (#578)](https://github.com/Feramance/qBitrr/commit/0ca4bcc6abda166832869e41a870d07cc8df2d3e) - @Feramance
+
+---
+
 ## v5.14.4-2 (31/08/2026)
 
 ### 🚀 Features
