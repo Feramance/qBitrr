@@ -1,0 +1,176 @@
+name: Recover v5.14.4-3
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - .github/workflows/recover-v5.14.4-3.yml
+
+permissions:
+  contents: write
+
+jobs:
+  recover:
+    name: Generate changelog and publish v5.14.4-3
+    runs-on: ubuntu-latest
+    env:
+      VERSION: 5.14.4-3
+    steps:
+      - name: Checkout master with release PAT
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: master
+          token: ${{ secrets.PAT }}
+
+      - name: Generate changelog
+        run: |
+          set -euo pipefail
+          git fetch --all --tags
+          python3 <<'PYEOF'
+          import os
+          import subprocess
+          import sys
+          from datetime import datetime
+
+          def categorize_commit(message):
+              msg_lower = message.lower()
+              if any(x in message for x in ['[minor]', '[major]', 'feat:', 'feature:']):
+                  return '🚀 Features'
+              if 'Add ' in message or 'Implement ' in message:
+                  return '🚀 Features'
+              if any(x in message for x in ['[patch]', 'fix:', 'Fix ', 'Fixed ', 'Hotfix']):
+                  return '🐛 Bug Fixes'
+              if any(x in message for x in ['[build]', 'dependabot']):
+                  return '🔧 Maintenance'
+              if any(x in message for x in ['docs:', 'doc:', 'Document ']):
+                  return '📝 Documentation'
+              if 'refactor:' in msg_lower or 'Refactor' in message:
+                  return '♻️ Refactoring'
+              if 'style:' in msg_lower or 'UI ' in message or 'WebUI ' in message:
+                  return '🎨 Styling'
+              if any(x in msg_lower for x in ['perf:', 'performance:', 'optimize:']):
+                  return '⚡ Performance'
+              if any(x in message for x in ['chore:', 'build:', 'ci:', 'Bump ', 'Update ', 'Merge ']):
+                  return '🔧 Maintenance'
+              if message.startswith('Fix '):
+                  return '🐛 Bug Fixes'
+              return '🔧 Maintenance'
+
+          version = os.environ['VERSION']
+          tag = f'v{version}'
+          tags = [
+              t.strip() for t in subprocess.run(
+                  ['git', 'tag', '--sort=-version:refname'],
+                  capture_output=True, text=True, check=True
+              ).stdout.splitlines()
+              if t.strip() and t.strip() != tag
+          ]
+          if not tags:
+              print('No previous release tag found', file=sys.stderr)
+              sys.exit(1)
+          prev_tag = tags[0]
+          print(f'Generating {tag} from {prev_tag}..HEAD')
+
+          raw = subprocess.run(
+              ['git', 'log', f'{prev_tag}..HEAD', '--format=%H %s', '--no-merges'],
+              capture_output=True, text=True, check=True
+          ).stdout.splitlines()
+          commits = []
+          for line in raw:
+              lower = line.lower()
+              if not line or '[skip ci]' in line or '[ci skip]' in line:
+                  continue
+              # Exclude the one-shot recovery change itself from release notes.
+              if 'recover v5.14.4-3' in lower or 'one-shot v5.14.4-3 recovery workflow' in lower:
+                  continue
+              commits.append(line)
+
+          with open('CHANGELOG.md', encoding='utf-8') as f:
+              content = f.read()
+          header = f"## v{version} ({datetime.now().strftime('%d/%m/%Y')})\n"
+          if f'## v{version} (' not in content:
+              grouped = {}
+              for commit in commits[:50]:
+                  hash_val, msg = commit.split(' ', 1)
+                  grouped.setdefault(categorize_commit(msg), []).append(
+                      f'- [{msg}](https://github.com/Feramance/qBitrr/commit/{hash_val}) - @Feramance'
+                  )
+              if not grouped:
+                  grouped['🔧 Maintenance'] = [
+                      f'- Dependency / automation release (no user-facing commits since {prev_tag})'
+                  ]
+              entry = header
+              for group in [
+                  '🚀 Features', '🐛 Bug Fixes', '📝 Documentation',
+                  '♻️ Refactoring', '🎨 Styling', '⚡ Performance', '🔧 Maintenance'
+              ]:
+                  if group in grouped:
+                      entry += f'\n### {group}\n' + '\n'.join(grouped[group]) + '\n'
+              entry += '\n---\n\n'
+              marker = '# Changelog\n\n'
+              if marker not in content:
+                  print('Changelog header not found', file=sys.stderr)
+                  sys.exit(1)
+              content = content.replace(marker, marker + entry, 1)
+              with open('CHANGELOG.md', 'w', encoding='utf-8') as f:
+                  f.write(content)
+              print(f'Generated changelog with {len(commits)} commits')
+          else:
+              print(f'Changelog entry for {tag} already exists')
+          PYEOF
+
+      - name: Import GPG key
+        id: import_gpg
+        uses: crazy-max/ghaction-import-gpg@v7.0.0
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.PASSPHRASE }}
+          git_user_signingkey: true
+          git_commit_gpgsign: true
+
+      - name: Commit changelog and remove recovery workflow
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/recover-v5.14.4-3.yml
+          git add -A CHANGELOG.md .github/workflows/recover-v5.14.4-3.yml
+          if git diff --cached --quiet; then
+            echo 'No repository changes to commit'
+          else
+            git commit -S -m '[skip ci] Update changelog for v5.14.4-3'
+            git push origin master
+          fi
+
+      - name: Extract release notes
+        run: |
+          python3 <<'PYEOF'
+          import os
+          import re
+          import sys
+          version = os.environ['VERSION']
+          with open('CHANGELOG.md', encoding='utf-8') as f:
+              content = f.read()
+          match = re.search(
+              rf'## v{re.escape(version)} \((\d{{2}}/\d{{2}}/\d{{4}})\)\n(.*?)(?=\n---\n\n|\Z)',
+              content,
+              re.DOTALL,
+          )
+          if not match or not match.group(2).strip():
+              print(f'Could not extract release notes for v{version}', file=sys.stderr)
+              sys.exit(1)
+          with open('/tmp/release_notes.md', 'w', encoding='utf-8') as f:
+              f.write(match.group(2).strip())
+          PYEOF
+
+      - name: Publish existing draft release
+        env:
+          GH_TOKEN: ${{ secrets.PAT }}
+        run: |
+          set -euo pipefail
+          gh release edit "v${VERSION}" \
+            --repo "${{ github.repository }}" \
+            --notes-file /tmp/release_notes.md \
+            --draft=false \
+            --latest
+          gh release view "v${VERSION}" --repo "${{ github.repository }}" --json url,isDraft,isLatest,tagName
