@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 """Autofix helper that leverages OpenAI Codex-compatible models to remediate failed GitHub Actions runs."""
+
 from __future__ import annotations
 
 import argparse
@@ -157,8 +158,7 @@ def query_model(
         "'diff' must be a git-apply compatible unified diff. "
         "Do not include markdown fences or any extra commentary."
     )
-    user_prompt = textwrap.dedent(
-        f"""
+    user_prompt = textwrap.dedent(f"""
         Repository: {repo}
         Workflow: {workflow_name}
         Failed run: {failure_url}
@@ -171,8 +171,7 @@ def query_model(
 
         Logs:
         {shorten(logs)}
-        """
-    )
+        """)
     response = client.responses.create(
         model=model,
         input=[
@@ -250,8 +249,7 @@ def main() -> None:
         debug("Preparing separate PR for default branch failure")
         branch_name = f"autofix/{uuid.uuid4().hex[:8]}"
         create_branch_and_push(branch_name, default_branch, commit_message)
-        pr_body = textwrap.dedent(
-            f"""
+        pr_body = textwrap.dedent(f"""
             ## Summary
             {summary}
 
@@ -260,8 +258,7 @@ def main() -> None:
             - Trigger: {run_event}
 
             Generated automatically by the autofix workflow.
-            """
-        ).strip()
+            """).strip()
         pr = create_pull_request(
             token,
             repo,

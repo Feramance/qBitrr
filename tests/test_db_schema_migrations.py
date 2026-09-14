@@ -32,8 +32,7 @@ class TestMigrateV4ArtistProfileSwitchColumns(unittest.TestCase):
         self.addCleanup(self.db.close)
 
     def _create_legacy_artist_table(self) -> None:
-        self.db.execute_sql(
-            """
+        self.db.execute_sql("""
             CREATE TABLE artistfilesmodel (
                 EntryId INTEGER NOT NULL,
                 Title TEXT,
@@ -48,8 +47,7 @@ class TestMigrateV4ArtistProfileSwitchColumns(unittest.TestCase):
                 TrackTotalCount INTEGER DEFAULT 0,
                 PRIMARY KEY (EntryId, ArrInstance)
             )
-            """
-        )
+            """)
 
     def test_adds_missing_profile_switch_columns(self) -> None:
         self._create_legacy_artist_table()

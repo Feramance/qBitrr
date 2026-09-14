@@ -1,7 +1,7 @@
 name: Bug report
 description: Report something that is not working as expected.
 title: 'bug: <summary>'
-labels: [bug, needs triage]
+labels: [bug, automation/type:bug, automation/classification:pending]
 body:
 - type: markdown
   attributes:
