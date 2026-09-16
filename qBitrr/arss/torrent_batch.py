@@ -37,7 +37,22 @@ class TorrentBatch:
             # parent for Arr. Do not let unrelated sibling files affect this torrent.
             files = [content_path]
         elif path.is_dir():
-            files = [candidate for candidate in path.rglob("*") if candidate.is_file()]
+            files = []
+            for torrent_file in getattr(torrent, "files", ()):
+                file_name = getattr(torrent_file, "name", None)
+                if not file_name:
+                    continue
+                relative_path = pathlib.Path(file_name)
+                candidates = [path / relative_path]
+                # qBittorrent may report the torrent name as the first path
+                # component even when the content path already points at that
+                # folder. Support that layout without scanning unrelated files.
+                if relative_path.parts and relative_path.parts[0] == path.name:
+                    candidates.append(path / pathlib.Path(*relative_path.parts[1:]))
+                for candidate in candidates:
+                    if candidate.is_file():
+                        files.append(candidate)
+                        break
         else:
             files = []
         allowed: list[pathlib.Path] = []
@@ -45,9 +60,25 @@ class TorrentBatch:
         for candidate in files:
             if candidate.name in {"desktop.ini", ".DS_Store"}:
                 continue
-            if not self.file_extension_allowlist or (
-                (match := self.file_extension_allowlist_re.search(candidate.suffix))
+            excluded_folder = self.folder_exclusion_regex and any(
+                self.folder_exclusion_regex_re.search(parent.name.lower())
+                for parent in candidate.relative_to(path).parents
+                if parent.name
+            )
+            excluded_name = self.file_name_exclusion_regex and (
+                (match := self.file_name_exclusion_regex_re.search(candidate.name))
                 and match.group()
+            )
+            if (
+                not excluded_folder
+                and not excluded_name
+                and (
+                    not self.file_extension_allowlist
+                    or (
+                        (match := self.file_extension_allowlist_re.search(candidate.suffix))
+                        and match.group()
+                    )
+                )
             ):
                 allowed.append(candidate)
             elif candidate.suffix.lower() != ".parts":

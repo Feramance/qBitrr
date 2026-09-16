@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from collections import defaultdict
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pathos
@@ -408,6 +409,56 @@ class TestProcessImportsScanFailure(unittest.TestCase):
 
             execute_command.assert_called_once()
             self.assertFalse(unwanted.exists())
+
+    def test_import_allowlist_ignores_files_from_other_torrents(self) -> None:
+        arr = _bare_arr_for_imports()
+        arr.auto_delete = True
+        arr.remove_and_maybe_blocklist = lambda _downloads_id, path: path.unlink()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            content_path = Path(tmpdir)
+            (content_path / "Movie.2024.mkv").touch()
+            unrelated = content_path / "Other.Movie.setup.exe"
+            unrelated.touch()
+            torrent = MagicMock(hash="abc123", name="Movie.2024")
+            torrent.content_path = str(content_path)
+            torrent.files = [SimpleNamespace(name="Movie.2024.mkv")]
+            arr.cleaned_torrents.add(torrent.hash)
+            arr.import_torrents = [(torrent, "default")]
+
+            with (
+                patch("qBitrr.arss.torrent_batch.execute_command") as execute_command,
+                patch.object(arr, "add_tags"),
+                patch("qBitrr.arss.torrent_batch.with_retry", side_effect=lambda fn, **_: fn()),
+            ):
+                arr._process_imports()
+
+            execute_command.assert_called_once()
+            self.assertTrue(unrelated.exists())
+
+    def test_import_allowlist_applies_name_and_folder_exclusions(self) -> None:
+        arr = _bare_arr_for_imports()
+        arr.folder_exclusion_regex = r"sample"
+        arr.folder_exclusion_regex_re = re.compile(arr.folder_exclusion_regex, re.IGNORECASE)
+        arr.file_name_exclusion_regex = r"sample"
+        arr.file_name_exclusion_regex_re = re.compile(arr.file_name_exclusion_regex, re.IGNORECASE)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            content_path = Path(tmpdir) / "Movie.2024"
+            content_path.mkdir()
+            excluded_folder = content_path / "sample"
+            excluded_folder.mkdir()
+            excluded_file = excluded_folder / "clip.mkv"
+            excluded_file.touch()
+            torrent = MagicMock(hash="abc123", name="Movie.2024")
+            torrent.content_path = str(content_path)
+            torrent.files = [SimpleNamespace(name="Movie.2024/sample/clip.mkv")]
+            arr.cleaned_torrents.add(torrent.hash)
+            arr.import_torrents = [(torrent, "default")]
+
+            with patch("qBitrr.arss.torrent_batch.execute_command") as execute_command:
+                arr._process_imports()
+
+            execute_command.assert_not_called()
+            self.assertTrue(excluded_file.exists())
 
     def test_does_not_import_until_priority_update_succeeds(self) -> None:
         arr = _bare_arr_for_imports()

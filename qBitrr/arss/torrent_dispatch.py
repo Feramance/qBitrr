@@ -397,6 +397,13 @@ class TorrentDispatch:
         # It must still pass file inspection before it can be submitted to Arr.
         elif self.is_complete_state(torrent) and torrent.hash not in self.cleaned_torrents:
             self._process_single_torrent_process_files(torrent, instance_name=instance_name)
+            # Inspection can complete without any priority changes. Queue the
+            # import immediately so a queueing transition cannot strand the
+            # torrent in PAUSED_UPLOAD before the next polling cycle.
+            if torrent.hash in self.cleaned_torrents:
+                self._process_single_torrent_fully_completed_torrent(
+                    torrent, leave_alone, instance_name
+                )
         # If a torrent was not just added,
         # and the amount left to download is 0 and the torrent
         # is Paused tell the Arr tools to process it.
