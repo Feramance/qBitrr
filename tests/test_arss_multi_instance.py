@@ -292,13 +292,20 @@ def _bare_arr_for_imports() -> Arr:
     """Build an Arr with only the attributes needed for _process_imports."""
     arr = Arr.__new__(Arr)
     arr.logger = MagicMock()
+    arr.folder_exclusion_regex = None
+    arr.folder_exclusion_regex_re = None
+    arr.file_name_exclusion_regex = None
+    arr.file_name_exclusion_regex_re = None
     arr.needs_cleanup = False
+    arr.delete = set()
+    arr.delete_by_instance = {}
     arr.import_torrents = []
     arr.sent_to_scan = set()
     arr.sent_to_scan_hashes = set()
     arr.cleaned_torrents = set()
     arr.timed_ignore_cache = set()
     arr.allowlist_import_warning_cache = set()
+    arr.monitored_trackers = set()
     arr.file_extension_allowlist = [r"\.mkv"]
     arr.file_extension_allowlist_re = re.compile(r"\.mkv", re.IGNORECASE)
     arr.auto_delete = False
@@ -373,8 +380,12 @@ class TestProcessImportsScanFailure(unittest.TestCase):
             (content_path / "Movie.2024.mkv").touch()
             unwanted = content_path / "setup.exe"
             unwanted.touch()
-            torrent = MagicMock(hash="abc123", name="Movie.2024")
+            torrent = MagicMock(hash="abc123", name="Movie.2024", seeding_time=0)
             torrent.content_path = str(content_path)
+            torrent.files = [
+                SimpleNamespace(name="Movie.2024.mkv"),
+                SimpleNamespace(name="setup.exe"),
+            ]
             arr.cleaned_torrents.add(torrent.hash)
             arr.import_torrents = [(torrent, "default")]
 
@@ -395,8 +406,12 @@ class TestProcessImportsScanFailure(unittest.TestCase):
             (content_path / "Movie.2024.mkv").touch()
             unwanted = content_path / "setup.exe"
             unwanted.touch()
-            torrent = MagicMock(hash="abc123", name="Movie.2024")
+            torrent = MagicMock(hash="abc123", name="Movie.2024", seeding_time=0)
             torrent.content_path = str(content_path)
+            torrent.files = [
+                SimpleNamespace(name="Movie.2024.mkv"),
+                SimpleNamespace(name="setup.exe"),
+            ]
             arr.cleaned_torrents.add(torrent.hash)
             arr.import_torrents = [(torrent, "default")]
 
@@ -419,7 +434,7 @@ class TestProcessImportsScanFailure(unittest.TestCase):
             (content_path / "Movie.2024.mkv").touch()
             unrelated = content_path / "Other.Movie.setup.exe"
             unrelated.touch()
-            torrent = MagicMock(hash="abc123", name="Movie.2024")
+            torrent = MagicMock(hash="abc123", name="Movie.2024", seeding_time=0)
             torrent.content_path = str(content_path)
             torrent.files = [SimpleNamespace(name="Movie.2024.mkv")]
             arr.cleaned_torrents.add(torrent.hash)
@@ -448,7 +463,7 @@ class TestProcessImportsScanFailure(unittest.TestCase):
             excluded_folder.mkdir()
             excluded_file = excluded_folder / "clip.mkv"
             excluded_file.touch()
-            torrent = MagicMock(hash="abc123", name="Movie.2024")
+            torrent = MagicMock(hash="abc123", name="Movie.2024", seeding_time=0)
             torrent.content_path = str(content_path)
             torrent.files = [SimpleNamespace(name="Movie.2024/sample/clip.mkv")]
             arr.cleaned_torrents.add(torrent.hash)
