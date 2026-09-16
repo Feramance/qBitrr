@@ -1,5 +1,20 @@
 # Changelog
 
+## v5.14.5-1 (16/09/2026)
+
+### 🐛 Bug Fixes
+- [[patch] fix: enforce torrent allowlist before Arr import (#593)](https://github.com/Feramance/qBitrr/commit/a55278e05cc7e9ce3486ae36818ac01eec5077f7) - @Feramance
+
+### 🔧 Maintenance
+- [Bump @vitejs/plugin-react from 6.0.3 to 6.1.0 in /webui (#561)](https://github.com/Feramance/qBitrr/commit/a3554c2d87decd8eadf22503656e000b77be3e22) - @Feramance
+- [Bump @vitest/coverage-v8 from 4.1.10 to 4.1.11 in /webui (#566)](https://github.com/Feramance/qBitrr/commit/91f1d340553b0db6079bf78c5db7714197c76d56) - @Feramance
+- [chore(deps-dev): bump eslint from 10.9.1 to 10.10.0 in /webui](https://github.com/Feramance/qBitrr/commit/a8db260edbc29ad503e7c7be7743dd9e255e56af) - @Feramance
+- [chore(deps-dev): bump postcss from 8.5.26 to 8.5.28 in /webui](https://github.com/Feramance/qBitrr/commit/cee7d14261f9491560ce31a3db25ea51c55271a3) - @Feramance
+- [chore(deps-dev): bump typescript-eslint from 8.69.0 to 8.70.0 in /webui](https://github.com/Feramance/qBitrr/commit/3530901b7ab595df72e9dcc4f5252201f4567813) - @Feramance
+- [chore(deps): bump github/codeql-action from 4.37.9 to 4.38.0](https://github.com/Feramance/qBitrr/commit/5c040ab6a2a027987c092c99bac88a6613b4d8ec) - @Feramance
+
+---
+
 ## v5.14.4-3 (07/09/2026)
 
 ### 🐛 Bug Fixes
