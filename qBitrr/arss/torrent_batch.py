@@ -8,6 +8,7 @@ Call graph (per loop):
 
 from __future__ import annotations
 
+import pathlib
 from collections import defaultdict
 from collections.abc import Iterable
 
@@ -26,6 +27,70 @@ from qBitrr.arss.arr_shared import (
 
 
 class TorrentBatch:
+    def _import_file_allowlist_status(
+        self, torrent: qbittorrentapi.TorrentDictionary, path: pathlib.Path
+    ) -> tuple[list[pathlib.Path], list[pathlib.Path]]:
+        """Return allowed and disallowed files visible at an Arr import path."""
+        content_path = pathlib.Path(torrent.content_path)
+        if content_path.is_file():
+            # validate_and_return_torrent_file expands a single-file torrent to its
+            # parent for Arr. Do not let unrelated sibling files affect this torrent.
+            files = [content_path]
+        elif path.is_dir():
+            files = [candidate for candidate in path.rglob("*") if candidate.is_file()]
+        else:
+            files = []
+        allowed: list[pathlib.Path] = []
+        disallowed: list[pathlib.Path] = []
+        for candidate in files:
+            if candidate.name in {"desktop.ini", ".DS_Store"}:
+                continue
+            if not self.file_extension_allowlist or (
+                (match := self.file_extension_allowlist_re.search(candidate.suffix))
+                and match.group()
+            ):
+                allowed.append(candidate)
+            elif candidate.suffix.lower() != ".parts":
+                disallowed.append(candidate)
+        return allowed, disallowed
+
+    def _enforce_import_file_allowlist(
+        self, torrent: qbittorrentapi.TorrentDictionary, path: pathlib.Path, instance_name: str
+    ) -> bool:
+        """Ensure a completed download is allowlist-safe before invoking Arr."""
+        allowed, disallowed = self._import_file_allowlist_status(torrent, path)
+        if not allowed:
+            if self._hnr_allows_delete(torrent, "all-files-excluded deletion"):
+                self._mark_for_deletion(
+                    torrent, "all-files-excluded deletion", instance_name=instance_name
+                )
+            return False
+        if disallowed and self.auto_delete:
+            for candidate in disallowed:
+                self.remove_and_maybe_blocklist(None, candidate)
+            allowed, disallowed = self._import_file_allowlist_status(torrent, path)
+
+        if not allowed:
+            if self._hnr_allows_delete(torrent, "all-files-excluded deletion"):
+                self._mark_for_deletion(
+                    torrent, "all-files-excluded deletion", instance_name=instance_name
+                )
+            return False
+        if not disallowed:
+            return True
+
+        warning_cache = self.allowlist_import_warning_cache
+        if torrent.hash not in warning_cache:
+            self.logger.warning(
+                "Import blocked: disallowed files remain and Torrent.AutoDelete is disabled or "
+                "could not remove them | %s (%s) | %s",
+                torrent.name,
+                torrent.hash,
+                [str(candidate) for candidate in disallowed],
+            )
+            warning_cache.add(torrent.hash)
+        return False
+
     def _process_paused(self) -> None:
         # Pause torrents on their owning qBittorrent instance.
         from qBitrr.arss.qbit_side_effects import pause_hashes_by_instance, pause_legacy_hash_set
@@ -51,6 +116,10 @@ class TorrentBatch:
                     )
                     continue
                 if path in self.sent_to_scan:
+                    continue
+                if torrent.hash not in self.cleaned_torrents:
+                    continue
+                if not self._enforce_import_file_allowlist(torrent, path, instance_name):
                     continue
                 scan_succeeded = False
                 try:
@@ -356,6 +425,7 @@ class TorrentBatch:
             still_pending_legacy: dict[str, list] = {}
             primary_client = self._get_primary_qbit_client()
             for hash_, files in list(self.change_priority.items()):
+                self.cleaned_torrents.discard(hash_)
                 if primary_client is None:
                     name = self.manager.qbit_manager.name_cache.get(hash_, hash_)
                     self.logger.warning(
@@ -367,6 +437,7 @@ class TorrentBatch:
                     continue
                 try:
                     self._apply_file_priority_update(primary_client, hash_, files)
+                    self.cleaned_torrents.add(hash_)
                 except Exception:
                     still_pending_legacy[hash_] = files
             self.change_priority = still_pending_legacy
@@ -384,8 +455,10 @@ class TorrentBatch:
                 still_pending_by_instance[instance_name].update(hash_map)
                 continue
             for hash_, files in list(hash_map.items()):
+                self.cleaned_torrents.discard(hash_)
                 try:
                     self._apply_file_priority_update(client, hash_, files)
+                    self.cleaned_torrents.add(hash_)
                 except Exception:
                     still_pending_by_instance[instance_name][hash_] = files
         self.change_priority_by_instance = still_pending_by_instance

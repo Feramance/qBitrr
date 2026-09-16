@@ -700,18 +700,17 @@ class TorrentInspect:
                 )
                 _remove_files.add(file.id)
                 total -= 1
-            # If all files in the torrent are marked for exclusion then delete the
-            # torrent.
-            if total == 0:
-                if self._hnr_allows_delete(torrent, "all-files-excluded deletion"):
-                    self._mark_for_deletion(
-                        torrent, "all-files-excluded deletion", instance_name=instance_name
-                    )
-            # Mark all bad files and folder for exclusion.
-            elif _remove_files:
-                self.change_priority_by_instance[instance_name][torrent.hash] = list(_remove_files)
-
-        self.cleaned_torrents.add(torrent.hash)
+        # Do not consider inspection enforced until qBittorrent has accepted every
+        # priority update.  _process_file_priority marks successful updates clean.
+        if total == 0:
+            if self._hnr_allows_delete(torrent, "all-files-excluded deletion"):
+                self._mark_for_deletion(
+                    torrent, "all-files-excluded deletion", instance_name=instance_name
+                )
+        elif _remove_files:
+            self.change_priority_by_instance[instance_name][torrent.hash] = list(_remove_files)
+        else:
+            self.cleaned_torrents.add(torrent.hash)
 
     def _process_single_completed_paused_torrent(
         self,

@@ -393,6 +393,10 @@ class TorrentDispatch:
         # complete downloading.
         elif torrent.state_enum == TorrentStates.ERROR:
             self._process_single_torrent_errored(torrent, instance_name)
+        # A torrent can complete between polling loops (or before qBitrr starts).
+        # It must still pass file inspection before it can be submitted to Arr.
+        elif self.is_complete_state(torrent) and torrent.hash not in self.cleaned_torrents:
+            self._process_single_torrent_process_files(torrent, instance_name=instance_name)
         # If a torrent was not just added,
         # and the amount left to download is 0 and the torrent
         # is Paused tell the Arr tools to process it.
@@ -405,7 +409,9 @@ class TorrentDispatch:
             and torrent.content_path
             and torrent.completion_on < time_now - 60
         ):
-            self._process_single_torrent_fully_completed_torrent(torrent, leave_alone)
+            self._process_single_torrent_fully_completed_torrent(
+                torrent, leave_alone, instance_name
+            )
         # If a torrent is Uploading Pause it, as long as its not being Forced Uploaded.
         elif (
             self.is_uploading_state(torrent)

@@ -138,7 +138,9 @@ FileNameExclusionRegex = [
 **Type:** List of file extensions
 **Default:** Common video/subtitle extensions
 
-Only allow files with these extensions. Empty list = allow all.
+Only allow files with these extensions. Empty list = allow all. qBitrr applies the
+allowlist while downloading and validates the download again before asking Arr to
+import it.
 
 **Default:**
 
@@ -164,7 +166,8 @@ FileExtensionAllowlist = []
 ```
 
 !!! tip "Performance"
-    Using an allowlist reduces bandwidth by not downloading unwanted files (NFO, images, etc.)
+    Using an allowlist reduces bandwidth by marking unwanted files as "Do not download".
+    If such a file is already present, qBitrr will not submit the download to Arr.
 
 ---
 
@@ -181,11 +184,15 @@ AutoDelete = false
 
 **When enabled:**
 
-- Non-playable files (`.exe`, `.txt`, `.nfo`) are deleted immediately
+- Already-downloaded disallowed files (`.exe`, `.txt`, `.nfo`) are deleted before import
 - Files matching `FileNameExclusionRegex` are deleted
 - Files not in `FileExtensionAllowlist` are deleted
 
 **Recommendation:** `false` to review files manually before deletion
+
+When `AutoDelete` is disabled and a disallowed file is already on disk, qBitrr blocks
+the Arr import and logs the offending path. The import is retried after the file is
+removed or `AutoDelete` is enabled.
 
 ---
 

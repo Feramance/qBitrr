@@ -609,6 +609,7 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
         self.timed_skip = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
         self.tracker_delay = ExpiringSet(max_age_seconds=600)
         self.special_casing_file_check = ExpiringSet(max_age_seconds=10)
+        self.allowlist_import_warning_cache = ExpiringSet(max_age_seconds=300)
         self.expiring_bool = ExpiringSet(max_age_seconds=10)
         self.session = requests.Session()
         atexit.register(self.session.close)
