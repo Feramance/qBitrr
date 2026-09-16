@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import unittest
+from collections import defaultdict
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -368,7 +369,7 @@ class TestReadarrAudiobookAllowlist(unittest.TestCase):
             "|".join(arr.file_extension_allowlist), re.IGNORECASE | re.DOTALL
         )
         arr.cleaned_torrents = set()
-        arr.change_priority_by_instance = {}
+        arr.change_priority_by_instance = defaultdict(dict)
         arr._hnr_allows_delete = MagicMock(return_value=True)
         arr._mark_for_deletion = MagicMock()
         torrent = SimpleNamespace(
@@ -381,6 +382,33 @@ class TestReadarrAudiobookAllowlist(unittest.TestCase):
 
         arr._mark_for_deletion.assert_not_called()
         self.assertIn(torrent.hash, arr.cleaned_torrents)
+
+    def test_disallowed_file_is_not_clean_until_priority_is_applied(self) -> None:
+        from qBitrr.arss.arr_base import ArrBase
+
+        arr = ArrBase.__new__(ArrBase)
+        arr.logger = MagicMock()
+        arr.folder_exclusion_regex = None
+        arr.file_name_exclusion_regex = None
+        arr.file_extension_allowlist = [r"\.mkv"]
+        arr.file_extension_allowlist_re = re.compile(r"\.mkv", re.IGNORECASE)
+        arr.cleaned_torrents = set()
+        arr.change_priority_by_instance = defaultdict(dict)
+        arr._hnr_allows_delete = MagicMock(return_value=True)
+        arr._mark_for_deletion = MagicMock()
+        torrent = SimpleNamespace(
+            files=[
+                SimpleNamespace(id=1, name="Show/Episode.mkv", priority=1),
+                SimpleNamespace(id=2, name="Show/setup.exe", priority=1),
+            ],
+            hash="SONARR-HASH",
+            name="Show",
+        )
+
+        arr._process_single_torrent_process_files(torrent, instance_name="vpn")
+
+        self.assertEqual(arr.change_priority_by_instance, {"vpn": {torrent.hash: [2]}})
+        self.assertNotIn(torrent.hash, arr.cleaned_torrents)
 
 
 class TestArrOpenRoute(unittest.TestCase):

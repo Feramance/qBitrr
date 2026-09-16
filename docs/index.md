@@ -19,25 +19,25 @@
   <div class="feature-card">
     <h3>🚀 Getting Started</h3>
     <p>Install qBitrr and get your first torrent monitored in minutes.</p>
-    <a href="getting-started/index.md">Get Started →</a>
+    <a href="getting-started/index.html">Get Started →</a>
   </div>
 
   <div class="feature-card">
     <h3>⚙️ Configuration</h3>
     <p>Configure qBittorrent, Arr instances, and fine-tune your automation.</p>
-    <a href="configuration/index.md">Configure →</a>
+    <a href="configuration/index.html">Configure →</a>
   </div>
 
   <div class="feature-card">
     <h3>✨ Features</h3>
     <p>Explore health monitoring, automated search, quality upgrades, and more.</p>
-    <a href="features/index.md">Explore Features →</a>
+    <a href="features/index.html">Explore Features →</a>
   </div>
 
   <div class="feature-card">
     <h3>🔧 Troubleshooting</h3>
     <p>Resolve common issues and optimize your qBitrr installation.</p>
-    <a href="troubleshooting/index.md">Troubleshoot →</a>
+    <a href="troubleshooting/index.html">Troubleshoot →</a>
   </div>
 </div>
 

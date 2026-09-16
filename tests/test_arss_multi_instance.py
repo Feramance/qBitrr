@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import re
 import tempfile
 import unittest
 from collections import defaultdict
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pathos
@@ -290,11 +292,23 @@ def _bare_arr_for_imports() -> Arr:
     """Build an Arr with only the attributes needed for _process_imports."""
     arr = Arr.__new__(Arr)
     arr.logger = MagicMock()
+    arr.folder_exclusion_regex = None
+    arr.folder_exclusion_regex_re = None
+    arr.file_name_exclusion_regex = None
+    arr.file_name_exclusion_regex_re = None
     arr.needs_cleanup = False
+    arr.delete = set()
+    arr.delete_by_instance = {}
     arr.import_torrents = []
     arr.sent_to_scan = set()
     arr.sent_to_scan_hashes = set()
+    arr.cleaned_torrents = set()
     arr.timed_ignore_cache = set()
+    arr.allowlist_import_warning_cache = set()
+    arr.monitored_trackers = set()
+    arr.file_extension_allowlist = [r"\.mkv"]
+    arr.file_extension_allowlist_re = re.compile(r"\.mkv", re.IGNORECASE)
+    arr.auto_delete = False
     arr.type = "radarr"
     arr.import_mode = "Auto"
     arr.client = MagicMock()
@@ -312,7 +326,9 @@ class TestProcessImportsScanFailure(unittest.TestCase):
             content_path.touch()
             torrent = MagicMock()
             torrent.hash = "abc123"
+            torrent.name = "Movie.2024"
             torrent.content_path = str(content_path)
+            arr.cleaned_torrents.add(torrent.hash)
             arr.import_torrents = [(torrent, "default")]
 
             with patch(
@@ -339,7 +355,9 @@ class TestProcessImportsScanFailure(unittest.TestCase):
             content_path.touch()
             torrent = MagicMock()
             torrent.hash = "abc123"
+            torrent.name = "Movie.2024"
             torrent.content_path = str(content_path)
+            arr.cleaned_torrents.add(torrent.hash)
             arr.import_torrents = [(torrent, "vpn")]
 
             with patch("qBitrr.arss.torrent_batch.execute_command") as execute_command:
@@ -353,6 +371,123 @@ class TestProcessImportsScanFailure(unittest.TestCase):
             add_tags.assert_called_once_with(torrent, ["qBitrr-imported"], "vpn")
             self.assertIn("abc123", arr.sent_to_scan_hashes)
             self.assertIn(content_path.parent, arr.sent_to_scan)
+
+    def test_blocks_import_when_disallowed_file_remains(self) -> None:
+        arr = _bare_arr_for_imports()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            content_path = Path(tmpdir) / "Movie.2024"
+            content_path.mkdir()
+            (content_path / "Movie.2024.mkv").touch()
+            unwanted = content_path / "setup.exe"
+            unwanted.touch()
+            torrent = MagicMock(hash="abc123", name="Movie.2024", seeding_time=0)
+            torrent.content_path = str(content_path)
+            torrent.files = [
+                SimpleNamespace(name="Movie.2024.mkv"),
+                SimpleNamespace(name="setup.exe"),
+            ]
+            arr.cleaned_torrents.add(torrent.hash)
+            arr.import_torrents = [(torrent, "default")]
+
+            with patch("qBitrr.arss.torrent_batch.execute_command") as execute_command:
+                arr._process_imports()
+
+            execute_command.assert_not_called()
+            self.assertTrue(unwanted.exists())
+            arr.logger.warning.assert_called_once()
+
+    def test_auto_delete_removes_disallowed_file_before_import(self) -> None:
+        arr = _bare_arr_for_imports()
+        arr.auto_delete = True
+        arr.remove_and_maybe_blocklist = lambda _downloads_id, path: path.unlink()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            content_path = Path(tmpdir) / "Movie.2024"
+            content_path.mkdir()
+            (content_path / "Movie.2024.mkv").touch()
+            unwanted = content_path / "setup.exe"
+            unwanted.touch()
+            torrent = MagicMock(hash="abc123", name="Movie.2024", seeding_time=0)
+            torrent.content_path = str(content_path)
+            torrent.files = [
+                SimpleNamespace(name="Movie.2024.mkv"),
+                SimpleNamespace(name="setup.exe"),
+            ]
+            arr.cleaned_torrents.add(torrent.hash)
+            arr.import_torrents = [(torrent, "default")]
+
+            with (
+                patch("qBitrr.arss.torrent_batch.execute_command") as execute_command,
+                patch.object(arr, "add_tags"),
+                patch("qBitrr.arss.torrent_batch.with_retry", side_effect=lambda fn, **_: fn()),
+            ):
+                arr._process_imports()
+
+            execute_command.assert_called_once()
+            self.assertFalse(unwanted.exists())
+
+    def test_import_allowlist_ignores_files_from_other_torrents(self) -> None:
+        arr = _bare_arr_for_imports()
+        arr.auto_delete = True
+        arr.remove_and_maybe_blocklist = lambda _downloads_id, path: path.unlink()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            content_path = Path(tmpdir)
+            (content_path / "Movie.2024.mkv").touch()
+            unrelated = content_path / "Other.Movie.setup.exe"
+            unrelated.touch()
+            torrent = MagicMock(hash="abc123", name="Movie.2024", seeding_time=0)
+            torrent.content_path = str(content_path)
+            torrent.files = [SimpleNamespace(name="Movie.2024.mkv")]
+            arr.cleaned_torrents.add(torrent.hash)
+            arr.import_torrents = [(torrent, "default")]
+
+            with (
+                patch("qBitrr.arss.torrent_batch.execute_command") as execute_command,
+                patch.object(arr, "add_tags"),
+                patch("qBitrr.arss.torrent_batch.with_retry", side_effect=lambda fn, **_: fn()),
+            ):
+                arr._process_imports()
+
+            execute_command.assert_called_once()
+            self.assertTrue(unrelated.exists())
+
+    def test_import_allowlist_applies_name_and_folder_exclusions(self) -> None:
+        arr = _bare_arr_for_imports()
+        arr.folder_exclusion_regex = r"sample"
+        arr.folder_exclusion_regex_re = re.compile(arr.folder_exclusion_regex, re.IGNORECASE)
+        arr.file_name_exclusion_regex = r"sample"
+        arr.file_name_exclusion_regex_re = re.compile(arr.file_name_exclusion_regex, re.IGNORECASE)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            content_path = Path(tmpdir) / "Movie.2024"
+            content_path.mkdir()
+            excluded_folder = content_path / "sample"
+            excluded_folder.mkdir()
+            excluded_file = excluded_folder / "clip.mkv"
+            excluded_file.touch()
+            torrent = MagicMock(hash="abc123", name="Movie.2024", seeding_time=0)
+            torrent.content_path = str(content_path)
+            torrent.files = [SimpleNamespace(name="Movie.2024/sample/clip.mkv")]
+            arr.cleaned_torrents.add(torrent.hash)
+            arr.import_torrents = [(torrent, "default")]
+
+            with patch("qBitrr.arss.torrent_batch.execute_command") as execute_command:
+                arr._process_imports()
+
+            execute_command.assert_not_called()
+            self.assertTrue(excluded_file.exists())
+
+    def test_does_not_import_until_priority_update_succeeds(self) -> None:
+        arr = _bare_arr_for_imports()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            content_path = Path(tmpdir) / "Movie.2024.mkv"
+            content_path.touch()
+            torrent = MagicMock(hash="abc123", name="Movie.2024")
+            torrent.content_path = str(content_path)
+            arr.import_torrents = [(torrent, "default")]
+
+            with patch("qBitrr.arss.torrent_batch.execute_command") as execute_command:
+                arr._process_imports()
+
+            execute_command.assert_not_called()
 
 
 class TestRunPeriodicCommand(unittest.TestCase):
@@ -610,6 +745,7 @@ class TestFilePriorityRouting(unittest.TestCase):
             torrent_hash="hash1", file_ids=[1, 2], priority=0
         )
         self.assertEqual(arr.change_priority_by_instance, {})
+        self.assertIn("hash1", arr.cleaned_torrents)
 
     def test_file_priority_retains_hash_on_failure(self) -> None:
         arr = _bare_arr()
@@ -628,6 +764,7 @@ class TestFilePriorityRouting(unittest.TestCase):
             arr._process_file_priority()
 
         self.assertEqual(dict(arr.change_priority_by_instance), {"vpn": {"hash1": [1, 2]}})
+        self.assertNotIn("hash1", arr.cleaned_torrents)
 
     def test_legacy_file_priority_retains_hash_on_failure(self) -> None:
         arr = _bare_arr()
