@@ -103,7 +103,7 @@ The `[Settings]` section contains global configuration that applies to all qBitr
 ```toml
 [Settings]
 # Internal config schema version - DO NOT MODIFY (managed automatically)
-# ConfigVersion = "5.14.4"
+# ConfigVersion = "5.14.5"
 
 # Logging
 ConsoleLevel = "INFO"
@@ -153,7 +153,7 @@ ProcessRestartDelay = 5
 ### ConfigVersion
 
 ```toml
-ConfigVersion = "5.14.4"
+ConfigVersion = "5.14.5"
 ```
 
 **Type:** String
