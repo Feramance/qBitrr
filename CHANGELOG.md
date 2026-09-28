@@ -1,5 +1,17 @@
 # Changelog
 
+## v5.14.5-2 (28/09/2026)
+
+### 🔧 Maintenance
+- [chore(deps): bump github/codeql-action from 4.38.0 to 4.38.1](https://github.com/Feramance/qBitrr/commit/d1d1e7c6a8beafa84403842ee437326ab112487c) - @Feramance
+- [chore(deps-dev): bump @testing-library/user-event from 14.6.6 to 14.6.7 in /webui](https://github.com/Feramance/qBitrr/commit/e370727293bcc21c4f8c87fe6aaac9f351360ae3) - @Feramance
+- [chore(deps-dev): bump @vitejs/plugin-react from 6.1.0 to 6.1.1 in /webui](https://github.com/Feramance/qBitrr/commit/2b9a87dc81486344594c33e7c2dfe187663b4b3d) - @Feramance
+- [chore(deps-dev): bump @testing-library/dom from 10.4.1 to 10.4.2 in /webui](https://github.com/Feramance/qBitrr/commit/7f9ef3c75d748a5bb6de49fd0a29f14670229302) - @Feramance
+- [chore(deps): bump @tanstack/react-table from 9.0.0 to 9.2.4 in /webui](https://github.com/Feramance/qBitrr/commit/09a3ba8380de2c9ed59508e71d7893ff2ed9456d) - @Feramance
+- [chore(deps-dev): bump vite from 8.2.2 to 8.3.0 in /webui](https://github.com/Feramance/qBitrr/commit/89bd3e60f636a577e139ee1dda9ee1d01c7f23f1) - @Feramance
+
+---
+
 ## v5.14.5-1 (16/09/2026)
 
 ### 🐛 Bug Fixes
