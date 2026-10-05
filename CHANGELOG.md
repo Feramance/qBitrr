@@ -1,5 +1,18 @@
 # Changelog
 
+## v5.14.5-3 (05/10/2026)
+
+### 🔧 Maintenance
+- [chore(deps-dev): bump undici from 8.9.0 to 8.11.2 in /webui in the npm_and_yarn group across 1 directory](https://github.com/Feramance/qBitrr/commit/12a69afb72269af85a0f1711957b72a3842d6565) - @Feramance
+- [chore(deps-dev): bump @vitest/coverage-v8 from 4.1.11 to 5.0.2 in /webui (#606)](https://github.com/Feramance/qBitrr/commit/4d0ef4f39b5acfa72628965e472cd5f40daaba87) - @Feramance
+- [chore(deps): bump react and @types/react in /webui (#605)](https://github.com/Feramance/qBitrr/commit/38513625f8d338c6a11ddfd8405dce949db03e86) - @Feramance
+- [chore(deps-dev): bump autoprefixer from 10.5.4 to 10.6.1 in /webui (#602)](https://github.com/Feramance/qBitrr/commit/07c7a8a727ea4bfa4210ae51ae4835c4c52c76c6) - @Feramance
+- [[pre-commit.ci] pre-commit autoupdate](https://github.com/Feramance/qBitrr/commit/c0d08ba21497bfe04d3c3015b822a2ab5b4ab67b) - @Feramance
+- [chore(deps-dev): bump @testing-library/react from 16.3.2 to 16.3.3 in /webui](https://github.com/Feramance/qBitrr/commit/25d87dae5e1724bd3bf6dfdbed6fc93f262f0eb9) - @Feramance
+- [chore(deps): bump github/codeql-action from 4.38.1 to 4.38.2](https://github.com/Feramance/qBitrr/commit/c02a827eee45decf636a189b50de41a65ce9e0b8) - @Feramance
+
+---
+
 ## v5.14.5-2 (28/09/2026)
 
 ### 🔧 Maintenance
