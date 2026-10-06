@@ -194,6 +194,4 @@ class TestStalledDelayDisabled(unittest.TestCase):
 
         res = self.arr._stalled_check(torrent, now, "default")
         self.assertTrue(res, "_stalled_check should return True while delay has not expired")
-        self.arr.add_tags.assert_called_once_with(
-            torrent, ["qBitrr-allowed_stalled"], "default"
-        )
+        self.arr.add_tags.assert_called_once_with(torrent, ["qBitrr-allowed_stalled"], "default")
