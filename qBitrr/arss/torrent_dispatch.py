@@ -132,6 +132,12 @@ class TorrentDispatch:
         time_now: float,
         instance_name: str = "default",
     ) -> bool:
+        """Evaluate whether a stalled torrent should be ignored or processed for deletion.
+
+        Returns True if the torrent should be ignored (e.g. stalled delay disabled,
+        torrent in grace period, or delay not yet expired). Returns False once the
+        configured stall delay has expired and deletion should proceed.
+        """
         stalled_ignore = True
         if not self.allowed_stalled:
             self.logger.trace("Stalled check: Stalled delay disabled")

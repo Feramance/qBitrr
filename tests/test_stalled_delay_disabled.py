@@ -18,6 +18,7 @@ from qBitrr.arss.arr_base import ArrBase
 
 class TestStalledDelayDisabled(unittest.TestCase):
     def setUp(self) -> None:
+        """Set up mock Arr instance and pipeline attributes."""
         self.arr = ArrBase.__new__(ArrBase)
         self.arr.logger = MagicMock()
         self.arr.cleaned_torrents = set()
@@ -89,6 +90,7 @@ class TestStalledDelayDisabled(unittest.TestCase):
         )
 
         def mock_in_tags(t, tag, instance_name="default"):
+            """Mock in_tags callback reporting qBitrr-allowed_stalled present."""
             return tag == "qBitrr-allowed_stalled"
 
         self.arr.in_tags = MagicMock(side_effect=mock_in_tags)
