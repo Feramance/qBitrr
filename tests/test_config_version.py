@@ -101,6 +101,30 @@ class TestSetConfigVersion(unittest.TestCase):
 class TestConfigVersionBumpPolicy(unittest.TestCase):
     """ConfigVersion is MAJOR.MINOR.PATCH only and tracks the app version core."""
 
+    def test_release_metadata_matches_bumpversion_baseline(self) -> None:
+        """All release-managed version files must share bumpversion's baseline."""
+        bumpversion = (_REPO_ROOT / ".bumpversion.cfg").read_text(encoding="utf-8")
+        setup = (_REPO_ROOT / "setup.cfg").read_text(encoding="utf-8")
+        bundled = (_REPO_ROOT / "qBitrr/bundled_data.py").read_text(encoding="utf-8")
+        dockerfile = (_REPO_ROOT / "Dockerfile").read_text(encoding="utf-8")
+        index = (_REPO_ROOT / "docs/index.md").read_text(encoding="utf-8")
+
+        baseline = re.search(
+            r"^current_version\s*=\s*(?P<version>\S+)$", bumpversion, re.MULTILINE
+        )
+        self.assertIsNotNone(baseline, ".bumpversion.cfg missing current_version")
+        assert baseline is not None
+        expected = baseline.group("version")
+
+        patterns = (
+            (setup, rf"^version\s*=\s*{re.escape(expected)}$"),
+            (bundled, rf'^version\s*=\s*"{re.escape(expected)}"\s*$'),
+            (dockerfile, rf'^ARG VERSION="{re.escape(expected)}"\s*$'),
+            (index, rf"^\*\*Latest Release\*\*: v{re.escape(expected)}\s*$"),
+        )
+        for text, pattern in patterns:
+            self.assertIsNotNone(re.search(pattern, text, re.MULTILINE), pattern)
+
     def test_expected_config_version_is_major_minor_patch(self) -> None:
         self.assertRegex(EXPECTED_CONFIG_VERSION, _CONFIG_VERSION_RE)
 

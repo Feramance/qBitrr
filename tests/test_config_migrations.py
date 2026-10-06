@@ -61,7 +61,8 @@ class TestMigrateStalledDelaySentinels(unittest.TestCase):
             StalledDelay = "0"
             """)
 
-        self.assertTrue(_migrate_stalled_delay_sentinels(cfg))
+        with patch("qBitrr.config_version.EXPECTED_CONFIG_VERSION", "5.14.6"):
+            self.assertTrue(_migrate_stalled_delay_sentinels(cfg))
         self.assertEqual(cfg.get("Radarr-Movies.Torrent.StalledDelay"), 0)
         self.assertEqual(cfg.get("Sonarr-TV.Torrent.StalledDelay"), -1)
         self.assertEqual(cfg.get("Lidarr-Music.Torrent.StalledDelay"), 30)
@@ -78,6 +79,19 @@ class TestMigrateStalledDelaySentinels(unittest.TestCase):
             StalledDelay = -1
             """)
         self.assertFalse(_migrate_stalled_delay_sentinels(cfg))
+        self.assertEqual(cfg.get("Radarr.Torrent.StalledDelay"), -1)
+
+    def test_does_not_swap_before_schema_release(self) -> None:
+        """The migration stays dormant while the app still expects schema 5.14.5."""
+        cfg = _config_from_toml("""
+            [Settings]
+            ConfigVersion = "5.14.5"
+            [Radarr.Torrent]
+            StalledDelay = -1
+            """)
+
+        with patch("qBitrr.config_version.EXPECTED_CONFIG_VERSION", "5.14.5"):
+            self.assertFalse(_migrate_stalled_delay_sentinels(cfg))
         self.assertEqual(cfg.get("Radarr.Torrent.StalledDelay"), -1)
 
 
