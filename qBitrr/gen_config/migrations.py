@@ -657,9 +657,12 @@ def _migrate_stalled_delay_sentinels(config: MyConfig) -> bool:
     ``-1`` is infinite and ``0`` is immediate.  Existing values are therefore
     swapped exactly once during the schema migration.
     """
-    from qBitrr.config_version import _parse_version, get_config_version
+    from qBitrr.config_version import EXPECTED_CONFIG_VERSION, _parse_version, get_config_version
 
-    if _parse_version(get_config_version(config)) >= _parse_version("5.14.6"):
+    migration_version = _parse_version("5.14.6")
+    if _parse_version(EXPECTED_CONFIG_VERSION) < migration_version:
+        return False
+    if _parse_version(get_config_version(config)) >= migration_version:
         return False
 
     changed = False
