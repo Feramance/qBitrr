@@ -1,7 +1,7 @@
-"""Regression tests for StalledDelay = -1 behavior (#616).
+"""Regression tests for stalled-delay sentinel behavior (#616/#617).
 
-Ensures that disabling stalled-torrent removal (StalledDelay = -1, allowed_stalled = False)
-does not immediately mark stalled downloads or metadata downloads for deletion.
+Ensures that infinite stalled grace (StalledDelay = -1) does not immediately mark
+stalled downloads or metadata downloads for deletion.
 """
 
 from __future__ import annotations
@@ -29,12 +29,14 @@ class TestStalledDelayDisabled(unittest.TestCase):
         self.arr.manager = SimpleNamespace(
             qbit_manager=SimpleNamespace(cache={}, name_cache={}),
             policy_manager_owns_tracker_sync_for_category=lambda *a, **k: False,
+            resolve_owning_category=lambda *a, **k: None,
         )
         self.arr._process_single_torrent_trackers = MagicMock()
         self.arr._should_leave_alone = MagicMock(return_value=(False, -1, False, None, None))
         self.arr._is_missing_files_torrent = MagicMock(return_value=False)
         self.arr.is_ignored_state = MagicMock(return_value=False)
         self.arr._process_single_torrent_stalled_torrent = MagicMock()
+        self.arr._process_single_torrent_delete_slow = MagicMock()
         self.arr._mark_for_deletion = MagicMock()
         self.arr.remove_tags = MagicMock()
         self.arr.add_tags = MagicMock()
@@ -47,9 +49,9 @@ class TestStalledDelayDisabled(unittest.TestCase):
         self.arr._process_single_torrent_process_files = MagicMock()
         self.arr._process_single_torrent_percentage_threshold = MagicMock()
 
-    def test_stalled_check_returns_true_when_allowed_stalled_is_false(self) -> None:
-        """When allowed_stalled is False (StalledDelay = -1), _stalled_check must return True to ignore the torrent."""
-        self.arr.allowed_stalled = False
+    def test_stalled_check_returns_true_when_stalled_delay_is_infinite(self) -> None:
+        """When StalledDelay is -1, _stalled_check ignores the torrent indefinitely."""
+        self.arr.allowed_stalled = True
         self.arr.stalled_delay = -1
 
         now = time.time()
@@ -70,9 +72,9 @@ class TestStalledDelayDisabled(unittest.TestCase):
         res = self.arr._stalled_check(torrent, now, "default")
         self.assertTrue(res, "_stalled_check should return True when allowed_stalled is False")
 
-    def test_stalled_check_removes_allowed_stalled_tag_when_disabled(self) -> None:
-        """When allowed_stalled is False and the torrent still has qBitrr-allowed_stalled, it should be removed."""
-        self.arr.allowed_stalled = False
+    def test_stalled_check_keeps_allowed_stalled_tag_during_infinite_grace(self) -> None:
+        """Infinite grace keeps the marker tag so the torrent remains protected."""
+        self.arr.allowed_stalled = True
         self.arr.stalled_delay = -1
 
         now = time.time()
@@ -97,13 +99,11 @@ class TestStalledDelayDisabled(unittest.TestCase):
 
         res = self.arr._stalled_check(torrent, now, "default")
         self.assertTrue(res)
-        self.arr.remove_tags.assert_called_once_with(
-            torrent, ["qBitrr-allowed_stalled"], "default"
-        )
+        self.arr.remove_tags.assert_not_called()
 
     def test_process_single_torrent_does_not_delete_stalled_when_disabled(self) -> None:
         """When StalledDelay = -1, _process_single_torrent must not call _process_single_torrent_stalled_torrent."""
-        self.arr.allowed_stalled = False
+        self.arr.allowed_stalled = True
         self.arr.stalled_delay = -1
 
         now = time.time()
@@ -128,7 +128,7 @@ class TestStalledDelayDisabled(unittest.TestCase):
 
     def test_process_single_torrent_does_not_delete_metadata_download_when_disabled(self) -> None:
         """Metadata downloads must also not be marked for deletion when StalledDelay = -1."""
-        self.arr.allowed_stalled = False
+        self.arr.allowed_stalled = True
         self.arr.stalled_delay = -1
 
         now = time.time()
@@ -150,6 +150,65 @@ class TestStalledDelayDisabled(unittest.TestCase):
             self.arr.in_tags = MagicMock(return_value=False)
             self.arr._process_single_torrent(torrent, "default")
             self.arr._process_single_torrent_stalled_torrent.assert_not_called()
+
+    def test_infinite_grace_preserves_cleaned_download_percentage_cleanup(self) -> None:
+        """Infinite stalled grace must not block independent percentage cleanup."""
+        self.arr.allowed_stalled = True
+        self.arr.stalled_delay = -1
+        self.arr.cleaned_torrents = {"HASH_CLEANED"}
+
+        now = time.time()
+        torrent = SimpleNamespace(
+            name="Slow Movie",
+            hash="HASH_CLEANED",
+            added_on=now - 300,
+            last_activity=now - 300,
+            state_enum=TorrentStates.DOWNLOADING,
+            tags="",
+            category="movies",
+            progress=0.10,
+            availability=0.5,
+            amount_left=1000000,
+            eta=86400,
+        )
+        self.arr.in_tags = MagicMock(return_value=False)
+
+        self.arr._process_single_torrent(torrent, "default")
+
+        self.arr._process_single_torrent_percentage_threshold.assert_called_once_with(
+            torrent, -1, "default"
+        )
+
+    def test_infinite_grace_preserves_slow_download_cleanup(self) -> None:
+        """Infinite stalled grace must not block independent slow-download cleanup."""
+        self.arr.allowed_stalled = True
+        self.arr.stalled_delay = -1
+        self.arr.cleaned_torrents = {"HASH_SLOW"}
+        self.arr.do_not_remove_slow = False
+        self.arr._should_leave_alone = MagicMock(return_value=(False, 60, False, None, None))
+
+        now = time.time()
+        torrent = SimpleNamespace(
+            name="Slow Movie",
+            hash="HASH_SLOW",
+            added_on=now - 300,
+            last_activity=now - 300,
+            state_enum=TorrentStates.DOWNLOADING,
+            tags="",
+            category="movies",
+            progress=0.90,
+            availability=0.5,
+            amount_left=1000000,
+            eta=120,
+            completion_on=0,
+            content_path="",
+            seeding_time=0,
+        )
+        self.arr.in_tags = MagicMock(return_value=False)
+
+        self.arr._process_single_torrent(torrent, "default")
+
+        self.arr._process_single_torrent_delete_slow.assert_called_once_with(torrent, "default")
 
     def test_stalled_check_expires_when_allowed_stalled_is_true(self) -> None:
         """When allowed_stalled is True, _stalled_check returns False after stalled_delay expires."""

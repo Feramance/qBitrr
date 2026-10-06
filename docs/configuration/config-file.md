@@ -153,7 +153,7 @@ ProcessRestartDelay = 5
 ### ConfigVersion
 
 ```toml
-ConfigVersion = "5.14.5"
+ConfigVersion = "5.14.6"
 ```
 
 **Type:** String

@@ -19,6 +19,7 @@ class TestStalledDelaySemantics(unittest.TestCase):
         self.arr = ArrBase.__new__(ArrBase)
         self.arr.logger = MagicMock()
         self.arr.cleaned_torrents = set()
+        self.arr.re_search_stalled = False
         self.arr.ignore_torrents_younger_than = 60
         self.arr._is_metadata_stuck_state = MagicMock(return_value=False)
         self.arr.in_tags = MagicMock(return_value=False)

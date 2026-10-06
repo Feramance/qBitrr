@@ -67,6 +67,7 @@ class TestMigrateStalledDelaySentinels(unittest.TestCase):
         self.assertEqual(cfg.get("Lidarr-Music.Torrent.StalledDelay"), 30)
         self.assertEqual(cfg.get("qBit.CategorySeeding.StalledDelay"), 0)
         self.assertEqual(cfg.get("qBit-Alt.CategorySeeding.StalledDelay"), -1)
+        cfg.config["Settings"]["ConfigVersion"] = "5.14.6"
         self.assertFalse(_migrate_stalled_delay_sentinels(cfg))
 
     def test_does_not_swap_current_schema(self) -> None:
