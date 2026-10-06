@@ -457,7 +457,7 @@ ARR_FIELDS: tuple[ConfigField, ...] = (
     ConfigField(
         ("Torrent", "StalledDelay"),
         15,
-        "Maximum allowed time for allowed stalled torrents in minutes (-1 = Disabled, 0 = Infinite)",
+        "Stalled cleanup grace period in minutes (-1 = Infinite, 0 = immediate cleanup)",
         label="Stalled Delay",
         kind="duration",
         native_unit="minutes",

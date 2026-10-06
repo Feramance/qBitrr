@@ -403,7 +403,7 @@ Configure how qBitrr evaluates and manages torrents.
 - **Maximum ETA (s)**: Torrents with ETA above this are considered stalled (default: 604800 = 7 days)
 - **Maximum Deletable Percentage**: Upper bound completion % for deletion (0.99 = 99%)
 - **Do Not Remove Slow**: Ignore slow torrents when pruning
-- **Stalled Delay (min)**: Minutes to allow stalled torrents before action (-1 = disabled, 0 = infinite)
+- **Stalled Delay (min)**: Minutes to allow stalled torrents before action (-1 = infinite, 0 = immediate cleanup)
 - **Re-search Stalled**: Re-run searches for stalled torrents
 
 **Tracker Management**:
@@ -536,7 +536,7 @@ Numeric field with spinner controls.
 ```
 
 ### Duration Input
-Time fields use a **number input plus unit dropdown** (s, m, h, d, w, M) instead of raw seconds or minutes. When you change a duration and save, the config may store it as a suffixed string (e.g. `MaxSeedingTime = "1w"`, `StalledDelay = "60m"`) for readability; the backend accepts both integers and suffixed strings. Fractional values are preserved at the field's native seconds-or-minutes precision instead of being rounded to a whole selected unit. Disabled values (`-1`) show an empty field with a **Disabled** placeholder; use **Use disabled** or clear the field and blur to set disabled again.
+Time fields use a **number input plus unit dropdown** (s, m, h, d, w, M) instead of raw seconds or minutes. When you change a duration and save, the config may store it as a suffixed string (e.g. `MaxSeedingTime = "1w"`, `StalledDelay = "60m"`) for readability; the backend accepts both integers and suffixed strings. Fractional values are preserved at the field's native seconds-or-minutes precision instead of being rounded to a whole selected unit. For `StalledDelay`, `-1` means infinite grace and `0` means immediate cleanup.
 
 ### Checkbox
 Toggle boolean values.

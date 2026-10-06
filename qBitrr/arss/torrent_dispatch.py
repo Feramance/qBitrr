@@ -132,9 +132,17 @@ class TorrentDispatch:
         time_now: float,
         instance_name: str = "default",
     ) -> bool:
+        """Evaluate whether a stalled torrent should be ignored or processed for deletion.
+
+        Returns True if the torrent should be ignored (e.g. stalled delay disabled,
+        torrent in grace period, or delay not yet expired). Returns False once the
+        configured stall delay has expired and deletion should proceed.
+        """
         stalled_ignore = True
         if not self.allowed_stalled:
-            self.logger.trace("Stalled check: Stalled delay disabled")
+            self.logger.trace("Stalled check: No stalled grace period; cleanup is eligible")
+            if self.in_tags(torrent, "qBitrr-allowed_stalled", instance_name):
+                self.remove_tags(torrent, ["qBitrr-allowed_stalled"], instance_name)
             return False
         stalled_delay_seconds = int(timedelta(minutes=self.stalled_delay).total_seconds())
         if time_now < torrent.added_on + self.ignore_torrents_younger_than:
@@ -272,6 +280,12 @@ class TorrentDispatch:
         else:
             stalled_ignore = False
 
+        # Infinite stalled grace protects stalled-state cleanup, but must not
+        # suppress independent cleanup rules for an active download.
+        other_cleanup_allowed = not stalled_ignore or (
+            self.stalled_delay == -1 and torrent.state_enum.is_downloading
+        )
+
         if self.in_tags(torrent, "qBitrr-ignored", instance_name):
             self.remove_tags(
                 torrent, ["qBitrr-allowed_seeding", "qBitrr-free_space_paused"], instance_name
@@ -369,7 +383,7 @@ class TorrentDispatch:
             and not self.is_complete_state(torrent)
             and not self.in_tags(torrent, "qBitrr-ignored", instance_name)
             and not self.in_tags(torrent, "qBitrr-free_space_paused", instance_name)
-            and not stalled_ignore
+            and other_cleanup_allowed
         ) and torrent.hash in self.cleaned_torrents:
             self._process_single_torrent_percentage_threshold(torrent, maximum_eta, instance_name)
         # Ignore torrents which have been submitted to their respective Arr
@@ -438,7 +452,7 @@ class TorrentDispatch:
             and not self.do_not_remove_slow
             and not self.in_tags(torrent, "qBitrr-ignored", instance_name)
             and not self.in_tags(torrent, "qBitrr-free_space_paused", instance_name)
-            and not stalled_ignore
+            and other_cleanup_allowed
         ):
             self._process_single_torrent_delete_slow(torrent, instance_name)
         # Process uncompleted torrents

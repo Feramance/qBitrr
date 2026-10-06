@@ -249,7 +249,7 @@ def iter_inventory_paths() -> Iterable[str]:
 SETTINGS_FIELDS: tuple[ConfigField, ...] = (
     ConfigField(
         ("ConfigVersion",),
-        "5.14.5",
+        "5.14.6",
         (
             "Internal config schema version - DO NOT MODIFY",
             "This is managed automatically by qBitrr for config migrations",
@@ -828,7 +828,7 @@ QBIT_FIELDS: tuple[ConfigField, ...] = (
     ConfigField(
         ("CategorySeeding", "StalledDelay"),
         -1,
-        "Maximum time stalled downloads can sit before removal, in minutes (-1 = disabled, 0 = infinite).",
+        "Stalled cleanup grace period in minutes (-1 = infinite, 0 = immediate cleanup).",
         label="Stalled Delay",
         kind="duration",
         native_unit="minutes",

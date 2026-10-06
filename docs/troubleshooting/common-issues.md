@@ -270,7 +270,8 @@ The #1 reason qBitrr doesn't process torrents is **mismatched categories**.
    [Radarr-Movies.Torrent]
    StalledDelay = 15  # Wait 15 minutes before removal
    ```
-   - `-1` = Disabled (never remove stalled)
+   - `-1` = Infinite grace (never remove through stalled handling)
+   - `0` = Immediate cleanup (no grace period)
    - `0` = Immediate removal
    - `>0` = Wait N minutes before removal
 

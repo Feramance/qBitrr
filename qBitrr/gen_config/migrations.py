@@ -649,6 +649,48 @@ def _migrate_hnr_single_key(config: MyConfig) -> bool:
     return changes_made
 
 
+def _migrate_stalled_delay_sentinels(config: MyConfig) -> bool:
+    """Swap legacy stalled-delay sentinels while preserving runtime behavior.
+
+    Before schema 5.14.6, ``-1`` meant immediate stalled cleanup and ``0`` meant
+    infinite grace.  The public contract now uses the conventional meanings:
+    ``-1`` is infinite and ``0`` is immediate.  Existing values are therefore
+    swapped exactly once during the schema migration.
+    """
+    from qBitrr.config_version import _parse_version, get_config_version
+
+    if _parse_version(get_config_version(config)) >= _parse_version("5.14.6"):
+        return False
+
+    changed = False
+
+    def swap(section: dict, key: str) -> None:
+        nonlocal changed
+        if key not in section:
+            return
+        value = section[key]
+        normalized = str(value).strip()
+        if normalized not in {"-1", "0"}:
+            return
+        section[key] = 0 if normalized == "-1" else -1
+        changed = True
+
+    for section_name in iter_arr_sections(config):
+        section = config.config.get(section_name)
+        if isinstance(section, dict) and isinstance(section.get("Torrent"), dict):
+            swap(section["Torrent"], "StalledDelay")
+
+    for section_name, section in config.config.items():
+        name = str(section_name)
+        if name == "qBit" or name.startswith("qBit-"):
+            if isinstance(section, dict) and isinstance(section.get("CategorySeeding"), dict):
+                swap(section["CategorySeeding"], "StalledDelay")
+
+    if changed:
+        print("Migration 5.14.5→5.14.6: Swapped StalledDelay sentinel values (-1/0)")
+    return changed
+
+
 def apply_config_migrations(config: MyConfig) -> None:
     """
     Apply all configuration migrations and validations.
@@ -721,6 +763,10 @@ def apply_config_migrations(config: MyConfig) -> None:
 
     # Consolidate HitAndRunMode to single key and/or/disabled (< 5.9.2 or 5.9.2 with ClearMode)
     if _migrate_hnr_single_key(config):
+        changes_made = True
+
+    # Swap legacy StalledDelay sentinels while preserving existing behavior.
+    if _migrate_stalled_delay_sentinels(config):
         changes_made = True
 
     # Database schema migrations are applied during DB startup in qBitrr.database

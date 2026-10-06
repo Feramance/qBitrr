@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### ⚠️ Important Configuration Change
+
+`StalledDelay` now uses conventional sentinel values: `-1` disables stalled
+cleanup (infinite grace), `0` removes the grace period (immediate cleanup), and
+positive values specify the grace period in minutes. Existing configurations are
+automatically migrated by swapping legacy `-1` and `0` values so their runtime
+behavior is preserved (`-1 → 0` for immediate cleanup and `0 → -1` for infinite
+retention). Verify the migrated value if you want to change that behavior.
+
 ## v5.14.5-3 (05/10/2026)
 
 ### 🔧 Maintenance

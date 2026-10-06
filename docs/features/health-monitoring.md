@@ -130,11 +130,11 @@ ReSearchStalled = false  # false = remove only, true = search then remove
 
 <div class="grid cards" markdown>
 
-- :material-cancel:{ .lg .middle style="color: #868e96" } **`-1` Disabled**
+- :material-infinity:{ .lg .middle style="color: #868e96" } **`-1` Infinite grace**
 
     ---
 
-    **Never remove stalled torrents**
+    **Never remove stalled torrents through stalled handling**
 
     - ⚠️ Dead torrents remain forever
     - ⚠️ Wastes storage and bandwidth
@@ -214,7 +214,7 @@ graph TD
 
 **Actions taken:**
 
-1. ⏰ qBitrr waits `StalledDelay` minutes
+1. ⏰ qBitrr waits the configured `StalledDelay` grace period (`-1` is infinite; `0` is immediate cleanup)
 2. 🔍 If `ReSearchStalled = true`, triggers Arr search **before** removal
 3. ❌ Marks torrent as failed in qBittorrent
 4. 🚫 Blacklists release in Arr instance
