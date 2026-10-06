@@ -77,7 +77,7 @@ Many settings accept **time durations**. You can use:
   - `w` = weeks
   - `M` = months (30 days; uppercase to distinguish from minutes)
 
-Examples: `MaxSeedingTime = "1w"` (1 week in seconds), `StalledDelay = "1440m"` (1440 minutes). Unsupplied or empty suffix is treated as the key's base unit (seconds or minutes). Use `-1` or `"-1"` where a setting supports "disabled".
+Examples: `MaxSeedingTime = "1w"` (1 week in seconds), `StalledDelay = "1440m"` (1440 minutes). Unsupplied or empty suffix is treated as the key's base unit (seconds or minutes). For `StalledDelay`, use `-1` for infinite grace or `0` for immediate cleanup.
 
 ---
 

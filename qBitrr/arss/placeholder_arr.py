@@ -104,7 +104,8 @@ class PlaceHolderArr(ArrBase):
         self.manager.completed_folders.add(self.completed_folder)
         self.manager.category_allowlist.add(self.category)
         self.stalled_delay = -1
-        self.allowed_stalled = False
+        # The qBit default is -1: stalled cleanup disabled with infinite grace.
+        self.allowed_stalled = True
         if self.category in self.manager.qbit_managed_categories:
             self._apply_qbit_seeding_config()
         self.search_missing = False
@@ -152,7 +153,8 @@ class PlaceHolderArr(ArrBase):
         self.seeding_mode_global_download_limit = effective.get("DownloadRateLimitPerTorrent", -1)
         self.seeding_mode_global_upload_limit = effective.get("UploadRateLimitPerTorrent", -1)
         self.stalled_delay = seeding["stalled_delay"]
-        self.allowed_stalled = self.stalled_delay != -1
+        # -1 disables stalled cleanup (infinite grace); 0 means immediate cleanup.
+        self.allowed_stalled = self.stalled_delay != 0
         self.monitored_trackers = seeding["trackers"]
         self._install_tracker_index(
             build_tracker_index(

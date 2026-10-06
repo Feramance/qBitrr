@@ -39,7 +39,7 @@ class qBitCategoryManager:
                 - default_seeding: Default seeding settings
                 - category_overrides: Per-category seeding overrides
                 - trackers: Tracker config list
-                - stalled_delay: Minutes before removing stalled downloads (-1 = disabled)
+                - stalled_delay: Minutes before removing stalled downloads (-1 = infinite, 0 = immediate)
                 - ignore_torrents_younger_than: Seconds; don't remove torrents younger than this
         """
         self.instance_name = instance_name
@@ -57,7 +57,8 @@ class qBitCategoryManager:
         self.trackers = self._build_merged_trackers(config.get("trackers", []))
         self.stalled_delay = config.get("stalled_delay", -1)
         self.ignore_torrents_younger_than = config.get("ignore_torrents_younger_than", 600)
-        self.allowed_stalled = self.stalled_delay != -1
+        # -1 disables stalled cleanup (infinite grace); 0 means immediate cleanup.
+        self.allowed_stalled = self.stalled_delay != 0
         self.match_subcategories = bool(config.get("match_subcategories", False))
         self.logger = logging.getLogger(f"qBitrr.qBitCategory.{instance_name}")
 
@@ -93,7 +94,8 @@ class qBitCategoryManager:
         self.trackers = self._build_merged_trackers(config.get("trackers", []))
         self.stalled_delay = config.get("stalled_delay", -1)
         self.ignore_torrents_younger_than = config.get("ignore_torrents_younger_than", 600)
-        self.allowed_stalled = self.stalled_delay != -1
+        # -1 disables stalled cleanup (infinite grace); 0 means immediate cleanup.
+        self.allowed_stalled = self.stalled_delay != 0
         self.match_subcategories = bool(config.get("match_subcategories", False))
         self.logger.debug(
             "Refreshed qBit category manager '%s' from config (%d categories)",

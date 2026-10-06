@@ -18,6 +18,7 @@ from qBitrr.gen_config import (
     _migrate_qbit_subcategory_match,
     _migrate_quality_profile_mappings,
     _migrate_readarr_file_extension_allowlist,
+    _migrate_stalled_delay_sentinels,
     _migrate_webui_config,
     apply_config_migrations,
 )
@@ -41,6 +42,42 @@ class TestMigrateWebuiConfig(unittest.TestCase):
         self.assertEqual(cfg.get("WebUI.Host"), "127.0.0.1")
         self.assertEqual(cfg.get("WebUI.Port"), 6969)
         self.assertEqual(cfg.get("WebUI.Token"), "secret")
+
+
+class TestMigrateStalledDelaySentinels(unittest.TestCase):
+    def test_swaps_arr_and_qbit_numeric_and_string_sentinels(self) -> None:
+        cfg = _config_from_toml("""
+            [Settings]
+            ConfigVersion = "5.14.5"
+            [Radarr-Movies.Torrent]
+            StalledDelay = -1
+            [Sonarr-TV.Torrent]
+            StalledDelay = "0"
+            [Lidarr-Music.Torrent]
+            StalledDelay = 30
+            [qBit.CategorySeeding]
+            StalledDelay = -1
+            [qBit-Alt.CategorySeeding]
+            StalledDelay = "0"
+            """)
+
+        self.assertTrue(_migrate_stalled_delay_sentinels(cfg))
+        self.assertEqual(cfg.get("Radarr-Movies.Torrent.StalledDelay"), 0)
+        self.assertEqual(cfg.get("Sonarr-TV.Torrent.StalledDelay"), -1)
+        self.assertEqual(cfg.get("Lidarr-Music.Torrent.StalledDelay"), 30)
+        self.assertEqual(cfg.get("qBit.CategorySeeding.StalledDelay"), 0)
+        self.assertEqual(cfg.get("qBit-Alt.CategorySeeding.StalledDelay"), -1)
+        self.assertFalse(_migrate_stalled_delay_sentinels(cfg))
+
+    def test_does_not_swap_current_schema(self) -> None:
+        cfg = _config_from_toml("""
+            [Settings]
+            ConfigVersion = "5.14.6"
+            [Radarr.Torrent]
+            StalledDelay = -1
+            """)
+        self.assertFalse(_migrate_stalled_delay_sentinels(cfg))
+        self.assertEqual(cfg.get("Radarr.Torrent.StalledDelay"), -1)
 
 
 class TestMigrateReadarrFileExtensionAllowlist(unittest.TestCase):

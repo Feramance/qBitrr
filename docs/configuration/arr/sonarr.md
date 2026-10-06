@@ -459,7 +459,7 @@ MaximumDeletablePercentage = 0.99
 # Ignore slow torrents instead of removing them
 DoNotRemoveSlow = true
 
-# Maximum stalled time before removal (minutes, -1 = disabled)
+# Stalled cleanup grace period (minutes, -1 = infinite, 0 = immediate cleanup)
 StalledDelay = 15
 
 # Re-search before removing stalled torrents

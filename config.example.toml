@@ -237,7 +237,7 @@ HitAndRunPartialSeedRatio = 1.0
 # Extra seconds buffer for tracker stats lag (0 = disabled)
 TrackerUpdateBuffer = 0
 
-# Maximum time stalled downloads can sit before removal, in minutes (-1 = disabled, 0 = infinite)
+# Stalled cleanup grace period in minutes (-1 = infinite, 0 = immediate cleanup)
 StalledDelay = -1
 
 # Ignore torrents younger than this (seconds). Stalled removal also requires last_activity older than this.
@@ -414,7 +414,7 @@ MaximumDeletablePercentage = 0.99
 # Ignore slow torrents.
 DoNotRemoveSlow = true
 
-# Maximum allowed time for allowed stalled torrents in minutes (-1 = Disabled, 0 = Infinite)
+# Stalled cleanup grace period in minutes (-1 = Infinite, 0 = immediate cleanup)
 StalledDelay = 15
 
 # Re-search stalled torrents when StalledDelay is enabled and you want to re-search before removing the stalled torrent, or only after the torrent is removed.
@@ -625,7 +625,7 @@ MaximumDeletablePercentage = 0.99
 # Ignore slow torrents.
 DoNotRemoveSlow = true
 
-# Maximum allowed time for allowed stalled torrents in minutes (-1 = Disabled, 0 = Infinite)
+# Stalled cleanup grace period in minutes (-1 = Infinite, 0 = immediate cleanup)
 StalledDelay = 15
 
 # Re-search stalled torrents when StalledDelay is enabled and you want to re-search before removing the stalled torrent, or only after the torrent is removed.
@@ -827,7 +827,7 @@ MaximumDeletablePercentage = 0.99
 # Ignore slow torrents.
 DoNotRemoveSlow = true
 
-# Maximum allowed time for allowed stalled torrents in minutes (-1 = Disabled, 0 = Infinite)
+# Stalled cleanup grace period in minutes (-1 = Infinite, 0 = immediate cleanup)
 StalledDelay = 15
 
 # Re-search stalled torrents when StalledDelay is enabled and you want to re-search before removing the stalled torrent, or only after the torrent is removed.
@@ -1029,7 +1029,7 @@ MaximumDeletablePercentage = 0.99
 # Ignore slow torrents.
 DoNotRemoveSlow = true
 
-# Maximum allowed time for allowed stalled torrents in minutes (-1 = Disabled, 0 = Infinite)
+# Stalled cleanup grace period in minutes (-1 = Infinite, 0 = immediate cleanup)
 StalledDelay = 15
 
 # Re-search stalled torrents when StalledDelay is enabled and you want to re-search before removing the stalled torrent, or only after the torrent is removed.
@@ -1181,7 +1181,7 @@ MaximumDeletablePercentage = 0.99
 # Ignore slow torrents.
 DoNotRemoveSlow = true
 
-# Maximum allowed time for allowed stalled torrents in minutes (-1 = Disabled, 0 = Infinite)
+# Stalled cleanup grace period in minutes (-1 = Infinite, 0 = immediate cleanup)
 StalledDelay = 15
 
 # Re-search stalled torrents when StalledDelay is enabled and you want to re-search before removing the stalled torrent, or only after the torrent is removed.
@@ -1339,7 +1339,7 @@ MaximumDeletablePercentage = 0.99
 # Ignore slow torrents.
 DoNotRemoveSlow = true
 
-# Maximum allowed time for allowed stalled torrents in minutes (-1 = Disabled, 0 = Infinite)
+# Stalled cleanup grace period in minutes (-1 = Infinite, 0 = immediate cleanup)
 StalledDelay = 15
 
 # Re-search stalled torrents when StalledDelay is enabled and you want to re-search before removing the stalled torrent, or only after the torrent is removed.

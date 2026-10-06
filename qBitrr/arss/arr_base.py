@@ -371,7 +371,8 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
         self.stalled_delay = CONFIG.get_duration(
             f"{name}.Torrent.StalledDelay", fallback=15, unit="minutes"
         )
-        self.allowed_stalled = True if self.stalled_delay != -1 else False
+        # -1 disables stalled cleanup (infinite grace); 0 means immediate cleanup.
+        self.allowed_stalled = self.stalled_delay != 0
 
         self.search_current_year = None
         if self.search_in_reverse:
@@ -1309,7 +1310,8 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
         self.stalled_delay = CONFIG.get_duration(
             f"{name}.Torrent.StalledDelay", fallback=15, unit="minutes"
         )
-        self.allowed_stalled = self.stalled_delay != -1
+        # -1 disables stalled cleanup (infinite grace); 0 means immediate cleanup.
+        self.allowed_stalled = self.stalled_delay != 0
         self._init_exclusion_regexes()
 
         # --- Seeding-mode globals + tracker merge/index ---

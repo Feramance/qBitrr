@@ -828,7 +828,7 @@ QBIT_FIELDS: tuple[ConfigField, ...] = (
     ConfigField(
         ("CategorySeeding", "StalledDelay"),
         -1,
-        "Maximum time stalled downloads can sit before removal, in minutes (-1 = disabled, 0 = infinite).",
+        "Stalled cleanup grace period in minutes (-1 = infinite, 0 = immediate cleanup).",
         label="Stalled Delay",
         kind="duration",
         native_unit="minutes",
