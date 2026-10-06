@@ -1,5 +1,30 @@
 # Changelog
 
+## v5.14.6-1 (06/10/2026)
+
+### 🐛 Bug Fixes
+- [fix: guard stalled-delay schema migration](https://github.com/Feramance/qBitrr/commit/0fead69d08c0979276a9e9d6d2244b69187a0db3) - @Feramance
+- [[patch] repair release version baseline](https://github.com/Feramance/qBitrr/commit/fc6c453b2e7bf76506ebff642a9b690561002b9b) - @Feramance
+- [fix: repair PR 617 workflow and stalled cleanup](https://github.com/Feramance/qBitrr/commit/7cd8306988b4bcbc36faecf0bd888da32dce269c) - @Feramance
+- [fix: standardize StalledDelay sentinel semantics](https://github.com/Feramance/qBitrr/commit/61128332d334e5f03972c74d50f7c8b162f7d60b) - @Feramance
+- [fix: do not mark stalled torrents for deletion when StalledDelay is disabled (#616)](https://github.com/Feramance/qBitrr/commit/72ab3c1a2ba053f9ffd0ef4c77b9df58fe204b00) - @Feramance
+
+### 📝 Documentation
+- [docs: add docstrings for stalled check and regression test setup](https://github.com/Feramance/qBitrr/commit/319cab031054305212fafd161db56ed12f350185) - @Feramance
+
+### 🔧 Maintenance
+- [chore(deps-dev): bump source-map-js](https://github.com/Feramance/qBitrr/commit/d2485f6c0cb254338ca63237a75cc2c0161ba199) - @Feramance
+- [[pre-commit.ci] auto fixes from pre-commit.com hooks](https://github.com/Feramance/qBitrr/commit/d23b1fb709cf3a0a8eb73a4d25d0649dee4ee7cd) - @Feramance
+- [[pre-commit.ci] pre-commit autoupdate](https://github.com/Feramance/qBitrr/commit/dd582fa478b5c7c98d251b692e515ad3af4b0d8b) - @Feramance
+- [chore(deps): bump @melloware/react-logviewer in /webui](https://github.com/Feramance/qBitrr/commit/84bfb7be6c246345114f3adc76000cc85d50606d) - @Feramance
+- [chore(deps-dev): bump eslint-plugin-react-refresh in /webui](https://github.com/Feramance/qBitrr/commit/21788132b444f6ed9cd8d95db11be3e42b950218) - @Feramance
+- [chore(deps-dev): bump brace-expansion from 5.0.9 to 5.0.12 in /webui in the npm_and_yarn group across 1 directory](https://github.com/Feramance/qBitrr/commit/67fac724c702353d818defb191db03549aeb22a7) - @Feramance
+- [chore(deps-dev): bump typescript-eslint from 8.70.0 to 8.71.0 in /webui](https://github.com/Feramance/qBitrr/commit/1f87a05c4608ebbf9b7ef9b5ac58d41043be0c22) - @Feramance
+- [chore(deps-dev): bump jsdom from 30.0.1 to 30.1.1 in /webui](https://github.com/Feramance/qBitrr/commit/0d33d4826d0df7a92f48a68e168fd9a843fe00ef) - @Feramance
+- [chore(deps-dev): bump @types/node from 26.4.1 to 26.6.4 in /webui](https://github.com/Feramance/qBitrr/commit/1b26c8ef164967dbcbf2773ed438b9c56e4e3508) - @Feramance
+
+---
+
 ## Unreleased
 
 ### ⚠️ Important Configuration Change
