@@ -135,7 +135,9 @@ class TorrentDispatch:
         stalled_ignore = True
         if not self.allowed_stalled:
             self.logger.trace("Stalled check: Stalled delay disabled")
-            return False
+            if self.in_tags(torrent, "qBitrr-allowed_stalled", instance_name):
+                self.remove_tags(torrent, ["qBitrr-allowed_stalled"], instance_name)
+            return True
         stalled_delay_seconds = int(timedelta(minutes=self.stalled_delay).total_seconds())
         if time_now < torrent.added_on + self.ignore_torrents_younger_than:
             self.logger.trace(
