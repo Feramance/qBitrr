@@ -17,16 +17,16 @@ repos:
     args: [--autofix, --indent, '2']
     exclude: ^webui/
 - repo: https://github.com/asottile/pyupgrade
-  rev: v3.21.2
+  rev: v3.22.0
   hooks:
   - id: pyupgrade
     args: [--py311-plus]
 - repo: https://github.com/pycqa/isort
-  rev: 9.0.2
+  rev: 10.0.0b1
   hooks:
   - id: isort
 - repo: https://github.com/psf/black-pre-commit-mirror
-  rev: 26.10.0
+  rev: 26.10.1
   hooks:
   - id: black
 - repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
@@ -35,7 +35,7 @@ repos:
   - id: pretty-format-yaml
     args: [--autofix, --indent, '2']
 - repo: https://github.com/sirosen/texthooks
-  rev: 0.7.1
+  rev: 1.0.0
   hooks:
   - id: fix-smartquotes
   - id: fix-ligatures
