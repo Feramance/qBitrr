@@ -264,6 +264,7 @@ class PlaceHolderArr(ArrBase):
             self._apply_qbit_seeding_config()
 
     def process_torrents(self):
+        """Classify current placeholder-category torrents and rebuild removal requests."""
         try:
             try:
                 self._sync_loop_settings_from_config()

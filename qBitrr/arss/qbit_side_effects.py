@@ -224,6 +224,7 @@ def content_removal_allowed(worker: Any, paths: list[Path]) -> bool:
     owners = []
     try:
         targets = [path.resolve() for path in paths]
+        owned_targets = set()
         for instance in worker.manager.qbit_manager.get_all_instances():
             client = worker._get_qbit_client(instance)
             if client is None:
@@ -241,11 +242,15 @@ def content_removal_allowed(worker: Any, paths: list[Path]) -> bool:
                 files = _torrent_file_paths(client, torrent)
                 if not files:
                     return False
-                for path in files:
-                    if any(path == target or path.is_relative_to(target) for target in targets):
-                        owners.append((instance, client, torrent))
-                        break
-        if not owners:
+                matching_targets = {
+                    target
+                    for target in targets
+                    if any(path == target or path.is_relative_to(target) for path in files)
+                }
+                if matching_targets:
+                    owned_targets.update(matching_targets)
+                    owners.append((instance, client, torrent))
+        if not targets or owned_targets != set(targets):
             return False
         for instance, client, torrent in owners:
             fresh = resolve_removal_torrent(worker, torrent.hash, instance)
@@ -273,6 +278,7 @@ def delete_hashes_per_instance(
             expected = getattr(worker, "_removal_candidates", {}).get((instance_name, hash_))
 
             def attempt() -> bool:
+                """Recheck identity and removal protections before each client deletion attempt."""
                 nonlocal expected
                 current = resolve_removal_torrent(worker, hash_, instance_name)
                 if current is None:

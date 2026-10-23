@@ -31,6 +31,7 @@ class TorrentDispatch:
         instance_name: str = "default",
         managed_tag_pool: frozenset[str] | None = None,
     ):
+        """Synchronize tracker settings and tags without erasing uncleared obligations."""
         if torrent.hash in self.tracker_delay:
             return
         self.tracker_delay.add(torrent.hash)
@@ -241,6 +242,7 @@ class TorrentDispatch:
         instance_name: str = "default",
         managed_tag_pool: frozenset[str] | None = None,
     ):
+        """Classify one torrent and queue actions for its owning client."""
         torrent._qbitrr_instance = instance_name if instance_name != "default" else None
         if torrent.category != get_recheck_category_effective():
             self.manager.qbit_manager.cache[torrent.hash] = torrent.category

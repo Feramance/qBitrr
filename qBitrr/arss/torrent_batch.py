@@ -201,6 +201,7 @@ class TorrentBatch:
         remove_from_client: bool = False,
         object_id: object = None,
     ) -> None:
+        """Remove one Arr queue entry and search again using its saved media identity."""
         self.logger.debug(
             "Deleting from queue: %s, [%s][Blocklisting:%s][Remove from client:%s]",
             hash_,
@@ -308,6 +309,7 @@ class TorrentBatch:
         *,
         cross_arr: bool,
     ) -> None:
+        """Queue Arr cleanup only for confirmed client removals."""
         if not to_delete_all:
             return
         if cross_arr:

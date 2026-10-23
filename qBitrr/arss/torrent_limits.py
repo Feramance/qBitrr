@@ -40,6 +40,8 @@ class TorrentLimits:
     def _get_torrent_limit_meta(
         self, torrent: qbittorrentapi.TorrentDictionary, *, seeding_policy=None, trackers=None
     ):
+        """Return effective configured and native limits for the supplied torrent policy."""
+
         def _to_number(value, default):
             if value is None or isinstance(value, bool):
                 return default
@@ -518,6 +520,7 @@ class TorrentLimits:
         from qBitrr.qbit_seeding_config import load_qbit_seeding_config
 
         def mode(policy: dict) -> str:
+            """Normalize supported HnR modes and reject invalid policy values."""
             raw = policy.get("HitAndRunMode", "disabled")
             if raw is True:
                 return "and"
@@ -757,6 +760,7 @@ class TorrentLimits:
         *,
         remove_mode: int | None = None,
     ) -> bool:
+        """Check configured ratio and time conditions under the selected removal mode."""
         mode = self.seeding_mode_global_remove_torrent if remove_mode is None else remove_mode
         # -1 = Never remove (regardless of ratio/time limits)
         if mode == -1:

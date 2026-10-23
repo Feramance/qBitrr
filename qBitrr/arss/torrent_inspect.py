@@ -502,6 +502,7 @@ class TorrentInspect:
         # torrent for some reason,
         # this ensures that we can safely remove it if the client is reporting
         # the status of the client as "Missing files"
+        """Queue a missing-files torrent for protected removal without blocklisting."""
         self.logger.info(
             "Deleting torrent with missing files: "
             "[Progress: %s%%][Added On: %s]"

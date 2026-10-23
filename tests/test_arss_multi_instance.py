@@ -114,6 +114,7 @@ class TestProcessFailedRetention(unittest.TestCase):
         self.assertIn("hash1", arr.delete)
 
     def test_prunes_hashes_after_successful_per_instance_delete(self) -> None:
+        """Verify prunes hashes after successful per instance delete."""
         arr = _bare_arr()
         arr.delete = {"hash1", "hash2"}
         arr.delete_by_instance = {"vpn": {"hash1"}, "default": {"hash2"}}
@@ -628,6 +629,7 @@ class TestLegacyDefaultClientRouting(unittest.TestCase):
         self.assertEqual(arr.pause, set())
 
     def test_legacy_delete_cannot_guess_primary_client(self) -> None:
+        """Verify legacy delete cannot guess primary client."""
         arr = _bare_arr()
         arr.delete = {"hash1"}
         arr.remove_from_qbit = set()

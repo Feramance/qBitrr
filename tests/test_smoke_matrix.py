@@ -29,6 +29,7 @@ class TestQueueDeleteBlocklistKwarg(unittest.TestCase):
     """pyarr v6 queue.delete uses blocklist= (not blacklist=)."""
 
     def test_delete_from_queue_passes_blocklist(self) -> None:
+        """Verify delete from queue passes blocklist."""
         from qBitrr.arss.arr_base import ArrBase
 
         arr = ArrBase.__new__(ArrBase)

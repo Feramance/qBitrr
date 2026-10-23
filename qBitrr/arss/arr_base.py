@@ -1979,6 +1979,7 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
         raise UnhandledError(f"{type(self).__name__} must implement _maybe_do_search_impl")
 
     def delete_from_queue(self, id_, remove_from_client=False, blacklist=True):
+        """Delete an Arr queue entry without delegating unverified client removal."""
         if remove_from_client:
             from qBitrr.arss.qbit_side_effects import (
                 delete_hashes_per_instance,
@@ -2129,6 +2130,7 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
         self.files_to_cleanup = retry
 
     def post_download_error_cleanup(self):
+        """Retry existing import-error paths that remain after protected cleanup."""
         pending = list(self.files_to_explicitly_delete)
         for downloads_id, file in pending:
             self.remove_and_maybe_blocklist(downloads_id, file)
@@ -2193,6 +2195,7 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
         return removed
 
     def all_folder_cleanup(self) -> None:
+        """Run pending imported-file and import-error cleanup when enabled."""
         if not self.auto_delete:
             return
         self._update_bad_queue_items()
@@ -3045,6 +3048,7 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
         return res
 
     def _update_bad_queue_items(self):
+        """Collect current import warnings configured for protected cleanup and blocklisting."""
         self.downloads_with_bad_error_message_blocklist.clear()
         self.files_to_explicitly_delete = iter(())
         if not self.arr_error_codes_to_blocklist:

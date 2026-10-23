@@ -25,11 +25,13 @@ from qBitrr.arss.torrent_limits import TorrentLimits
 
 
 def tracker(url="https://tracker.example/announce", status=2, msg=""):
+    """Build an isolated tracker response for removal-clearance tests."""
     return SimpleNamespace(url=url, status=status, msg=msg)
 
 
 class Worker(TorrentLimits, TorrentBatch):
     def __init__(self):
+        """Initialize a worker with mocked side effects and explicit removal state."""
         self.logger = logging.getLogger("hnr-test")
         self.monitored_trackers = []
         self.seeding_mode_global_remove_torrent = 1
@@ -63,9 +65,11 @@ class Worker(TorrentLimits, TorrentBatch):
         self._process_failed_dispatch_queue_deletes = MagicMock()
 
     def _get_qbit_client(self, instance):
+        """Return the mocked client registered for this instance."""
         return self.clients.get(instance)
 
     def add(self, instance="one", private=True, **values):
+        """Register a mock client and torrent with overridable accounting fields."""
         torrent = SimpleNamespace(
             hash="superman",
             name="Superman 2025 Hybrid",
@@ -91,11 +95,13 @@ class Worker(TorrentLimits, TorrentBatch):
         return torrent, client
 
     def _qbit_retry(self, fn, **kwargs):
+        """Run a mocked client action without sleeping."""
         return fn()
 
 
 class HnrRemovalTests(unittest.TestCase):
     def setUp(self):
+        """Install isolated seeding policy and client fixtures for each test."""
         self.policy = {
             "URI": "https://tracker.example",
             "HitAndRunMode": "and",
@@ -127,11 +133,13 @@ class HnrRemovalTests(unittest.TestCase):
         self.torrent, self.client = self.worker.add()
 
     def allowed(self):
+        """Evaluate HnR clearance against the current mocked client and policy."""
         return self.worker._hnr_allows_delete(
             self.torrent, "test", instance_name="one", client=self.client
         )
 
     def test_final_boundary_requires_every_protection(self):
+        """Verify final boundary requires every protection."""
         self.torrent.ratio = 2
         for key, value in (
             ("added_on", time.time()),
@@ -151,6 +159,7 @@ class HnrRemovalTests(unittest.TestCase):
         self.client.torrents_delete.assert_not_called()
 
     def test_stalled_grace_and_complete_seeding_policy_are_mandatory(self):
+        """Verify stalled grace and complete seeding policy are mandatory."""
         self.torrent.ratio = 2
         self.seeding["stalled_delay"] = -1
         self.assertFalse(delete_hashes_per_instance(self.worker, {"one": {"superman"}}))
@@ -170,6 +179,7 @@ class HnrRemovalTests(unittest.TestCase):
         )
 
     def test_candidate_rejects_readded_torrent_but_revalidates_activity(self):
+        """Verify candidate rejects readded torrent but revalidates activity."""
         from qBitrr.arss.qbit_side_effects import removal_candidate
 
         self.torrent.ratio = 2
@@ -186,6 +196,7 @@ class HnrRemovalTests(unittest.TestCase):
         )
 
     def test_arr_owner_uses_exact_then_longest_prefix_and_all_section_names(self):
+        """Verify arr owner uses exact then longest prefix and all section names."""
         settings = {
             "radarr.Category": "movies",
             "Radarr4K.Category": "movies/4k",
@@ -213,6 +224,7 @@ class HnrRemovalTests(unittest.TestCase):
                 self.worker._removal_arr_section(self.torrent, "one")
 
     def test_arr_tracker_override_applies_to_ordinary_limits_only(self):
+        """Verify arr tracker override applies to ordinary limits only."""
         self.torrent.progress = 1
         self.torrent.ratio = 2
         self.torrent.seeding_time = 9 * 86400
@@ -239,6 +251,7 @@ class HnrRemovalTests(unittest.TestCase):
             self.assertFalse(self.allowed())
 
     def test_older_qbit_privacy_uses_localized_discovery_rows(self):
+        """Verify older qbit privacy uses localized discovery rows."""
         self.client.torrents_properties.return_value = {}
         self.torrent.ratio = 2
         for message, private in (("", False), ("Ce torrent est privé", True)):
@@ -257,6 +270,7 @@ class HnrRemovalTests(unittest.TestCase):
         self.assertFalse(self.allowed())
 
     def test_unrelated_metadata_and_unsafe_files_do_not_veto_content_cleanup(self):
+        """Verify unrelated metadata and unsafe files do not veto content cleanup."""
         self.torrent.ratio = 2
         other, client = self.worker.add("two", save_path="/other")
         for files in ([], [SimpleNamespace(name="../unsafe")]):
@@ -269,6 +283,7 @@ class HnrRemovalTests(unittest.TestCase):
             client.torrents_files.reset_mock()
 
     def test_confirmed_queue_cleanup_retries_after_torrent_and_cache_disappear(self):
+        """Verify confirmed queue cleanup retries after torrent and cache disappear."""
         self.torrent.ratio = 2
         self.worker.delete.add("superman")
         self.worker.delete_by_instance["one"].add("superman")
@@ -298,6 +313,7 @@ class HnrRemovalTests(unittest.TestCase):
         self.client.torrents_delete.assert_called_once()
 
     def test_new_pass_discards_blocked_requests_for_fresh_classification(self):
+        """Verify new pass discards blocked requests for fresh classification."""
         self.worker.delete.add("superman")
         self.worker.delete_by_instance["one"].add("superman")
         self.worker._reset_removal_requests()
@@ -307,6 +323,7 @@ class HnrRemovalTests(unittest.TestCase):
         self.assertFalse(self.worker.delete_by_instance)
 
     def test_custom_format_reason_is_rechecked_before_deletion(self):
+        """Verify custom format reason is rechecked before deletion."""
         self.torrent.ratio = 2
         self.worker._removal_reasons = {("one", "superman"): "CF unmet deletion"}
         self.worker.custom_format_unmet_search = True
@@ -315,6 +332,7 @@ class HnrRemovalTests(unittest.TestCase):
         self.client.torrents_delete.assert_not_called()
 
     def test_actual_client_never_remove_cannot_use_another_clients_permission(self):
+        """Verify actual client never remove cannot use another clients permission."""
         self.torrent.ratio = 2
         self.worker._name = "placeholder"
         self.worker.category = "movies"
@@ -328,6 +346,7 @@ class HnrRemovalTests(unittest.TestCase):
         )
 
     def test_completed_cleanup_uses_real_client_and_tracker_limit_merge(self):
+        """Verify completed cleanup uses real client and tracker limit merge."""
         self.worker._name = "placeholder"
         self.worker.category = "movies"
         self.worker._get_torrent_limit_meta = (
@@ -348,6 +367,7 @@ class HnrRemovalTests(unittest.TestCase):
         )
 
     def test_shared_content_uses_owners_arr_hnr_policy(self):
+        """Verify shared content uses owners arr hnr policy."""
         self.torrent.ratio = 2
         self.worker._name = "Radarr-Worker"
         self.worker.category = "films"
@@ -365,6 +385,7 @@ class HnrRemovalTests(unittest.TestCase):
         self.client.torrents_delete.assert_not_called()
 
     def test_superman_cfunmet_cannot_remove_or_dispatch_arr_cleanup(self):
+        """Verify superman cfunmet cannot remove or dispatch arr cleanup."""
         self.worker.delete.add("superman")
         self.worker.delete_by_instance["one"].add("superman")
         self.worker._process_failed()
@@ -373,6 +394,7 @@ class HnrRemovalTests(unittest.TestCase):
         self.assertIn("superman", self.worker.delete_by_instance["one"])
 
     def test_partial_threshold_and_full_and_or_rules(self):
+        """Verify partial threshold and full and or rules."""
         self.torrent.progress = 0.0999
         self.assertTrue(self.allowed())
         self.torrent.progress = 0.10
@@ -390,6 +412,7 @@ class HnrRemovalTests(unittest.TestCase):
         self.assertTrue(self.allowed())
 
     def test_all_trackers_apply_despite_priority_or_remove_if_exists(self):
+        """Verify all trackers apply despite priority or remove if exists."""
         self.seeding["trackers"].append(
             {**self.policy, "Priority": 999, "HitAndRunMode": "disabled"}
         )
@@ -397,6 +420,7 @@ class HnrRemovalTests(unittest.TestCase):
         self.assertFalse(self.allowed())
 
     def test_dead_or_unavailable_tracker_is_not_clearance(self):
+        """Verify dead or unavailable tracker is not clearance."""
         self.torrent.ratio = 100
         self.torrent.seeding_time = 99999999
         self.client.torrents_trackers.return_value = [
@@ -407,6 +431,7 @@ class HnrRemovalTests(unittest.TestCase):
         self.assertFalse(self.allowed())
 
     def test_private_disabled_unknown_and_public(self):
+        """Verify private disabled unknown and public."""
         self.seeding["trackers"] = []
         self.assertFalse(self.allowed())
         self.client.torrents_properties.return_value = {}
@@ -415,6 +440,7 @@ class HnrRemovalTests(unittest.TestCase):
         self.assertTrue(self.allowed())
 
     def test_invalid_thresholds_do_not_allow_removal(self):
+        """Verify invalid thresholds do not allow removal."""
         self.policy["MinSeedRatio"] = float("nan")
         self.assertFalse(self.allowed())
         self.policy["MinSeedRatio"] = -1
@@ -424,6 +450,7 @@ class HnrRemovalTests(unittest.TestCase):
         self.assertFalse(self.allowed())
 
     def test_mode_validation_and_existing_case_insensitive_values(self):
+        """Verify mode validation and existing case insensitive values."""
         self.policy["HitAndRunMode"] = 0
         self.client.torrents_properties.return_value = {"is_private": False}
         self.assertFalse(self.allowed())
@@ -433,6 +460,7 @@ class HnrRemovalTests(unittest.TestCase):
         self.assertTrue(self.allowed())
 
     def test_category_override_applies_and_duration_is_preserved(self):
+        """Verify category override applies and duration is preserved."""
         self.seeding["trackers"] = []
         self.seeding["category_overrides"] = {
             "movies": {**self.policy, "MinSeedingTimeDays": "8d"}
@@ -444,6 +472,7 @@ class HnrRemovalTests(unittest.TestCase):
         self.assertTrue(self.allowed())
 
     def test_unique_eligible_removal_and_ambiguous_legacy_owner(self):
+        """Verify unique eligible removal and ambiguous legacy owner."""
         self.torrent.ratio = 2
         self.assertEqual(
             delete_hashes_on_primary(self.worker, {"superman"}), {("one", "superman")}
@@ -453,6 +482,7 @@ class HnrRemovalTests(unittest.TestCase):
         self.assertEqual(delete_hashes_on_primary(self.worker, {"superman"}), set())
 
     def test_same_hash_on_other_client_remains_protected_and_pending(self):
+        """Verify same hash on other client remains protected and pending."""
         self.torrent.ratio = 2
         self.worker.add("two")
         self.worker.delete_by_instance = {"one": {"superman"}, "two": {"superman"}}
@@ -466,13 +496,23 @@ class HnrRemovalTests(unittest.TestCase):
         self.worker._process_failed_dispatch_queue_deletes.assert_not_called()
 
     def test_other_protected_owner_blocks_content_deletion(self):
+        """Verify other protected owner blocks content deletion."""
         self.torrent.ratio = 2
         self.worker.add("two")
         self.assertFalse(content_removal_allowed(self.worker, [Path("/downloads/movie.mkv")]))
         self.assertEqual(delete_hashes_per_instance(self.worker, {"one": {"superman"}}), set())
         self.client.torrents_delete.assert_not_called()
 
+    def test_every_batched_content_target_needs_a_verified_owner(self):
+        """Verify every batched content target needs a verified owner."""
+        self.torrent.ratio = 2
+        targets = [Path("/downloads/movie.mkv"), Path("/downloads/unowned.txt")]
+        self.assertFalse(content_removal_allowed(self.worker, targets))
+        self.client.torrents_files.return_value.append(SimpleNamespace(name="unowned.txt"))
+        self.assertTrue(content_removal_allowed(self.worker, targets))
+
     def test_legacy_default_bucket_resolves_a_unique_actual_client(self):
+        """Verify legacy default bucket resolves a unique actual client."""
         self.torrent.ratio = 2
         self.worker.delete_by_instance = {"default": {"superman"}}
         self.worker.delete.add("superman")
@@ -482,12 +522,14 @@ class HnrRemovalTests(unittest.TestCase):
         self.assertFalse(self.worker.delete)
 
     def test_unsafe_file_paths_block_client_and_content_removal(self):
+        """Verify unsafe file paths block client and content removal."""
         self.torrent.ratio = 2
         self.client.torrents_files.return_value = [SimpleNamespace(name="../outside")]
         self.assertFalse(delete_hashes_per_instance(self.worker, {"one": {"superman"}}))
         self.client.torrents_delete.assert_not_called()
 
     def test_each_client_uses_its_own_rules(self):
+        """Verify each client uses its own rules."""
         self.torrent.ratio = 2
         other, client = self.worker.add("two", ratio=2)
         with patch(
@@ -505,6 +547,7 @@ class HnrRemovalTests(unittest.TestCase):
             )
 
     def test_tracker_cleanup_cannot_erase_an_outstanding_obligation(self):
+        """Verify tracker cleanup cannot erase an outstanding obligation."""
         from qBitrr.arss.torrent_dispatch import TorrentDispatch
 
         self.worker.tracker_delay = set()
@@ -524,15 +567,18 @@ class HnrRemovalTests(unittest.TestCase):
         self.torrent.remove_trackers.assert_not_called()
 
     def test_retry_rechecks_new_obligations(self):
+        """Verify retry rechecks new obligations."""
         self.torrent.ratio = 2
 
         def delete(**kwargs):
+            """Simulate accounting changing after a failed client deletion."""
             self.torrent.ratio = 0
             raise qbittorrentapi.exceptions.APIError("retry")
 
         self.client.torrents_delete.side_effect = delete
 
         def retry(fn, **kwargs):
+            """Retry once after the simulated client API failure."""
             try:
                 return fn()
             except qbittorrentapi.exceptions.APIError:
@@ -543,6 +589,7 @@ class HnrRemovalTests(unittest.TestCase):
         self.client.torrents_delete.assert_called_once()
 
     def test_queue_deletion_cannot_delegate_removal_to_arr(self):
+        """Verify queue deletion cannot delegate removal to arr."""
         arr = ArrBase.__new__(ArrBase)
         arr.cache = {}
         arr.client = MagicMock()
@@ -550,6 +597,7 @@ class HnrRemovalTests(unittest.TestCase):
         arr.client.queue.delete.assert_not_called()
 
     def test_error_cleanup_preserves_blocked_iterator_entries(self):
+        """Verify error cleanup preserves blocked iterator entries."""
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "movie.mkv"
             path.write_text("keep")
@@ -561,6 +609,7 @@ class HnrRemovalTests(unittest.TestCase):
             self.assertTrue(path.exists())
 
     def test_cleanup_resolves_download_hash_to_arr_queue_id_after_clearance(self):
+        """Verify cleanup resolves download hash to arr queue id after clearance."""
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "movie.mkv"
             path.write_text("keep")
@@ -591,6 +640,7 @@ class HnrRemovalTests(unittest.TestCase):
                 )
 
     def test_completed_folder_cleanup_drops_successful_and_unnecessary_entries(self):
+        """Verify completed folder cleanup drops successful and unnecessary entries."""
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "movie.mkv"
             path.write_text("valid media remains")
@@ -605,6 +655,7 @@ class HnrRemovalTests(unittest.TestCase):
             self.assertTrue(path.exists())
 
     def test_invalid_file_batch_uses_one_ownership_scan(self):
+        """Verify invalid file batch uses one ownership scan."""
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             movie = root / "movie.mkv"
@@ -628,6 +679,7 @@ class HnrRemovalTests(unittest.TestCase):
             self.assertTrue(all(not path.exists() for path in extras))
 
     def test_cleanup_cannot_escape_the_completed_folder(self):
+        """Verify cleanup cannot escape the completed folder."""
         with tempfile.TemporaryDirectory() as directory:
             arr = ArrBase.__new__(ArrBase)
             arr.completed_folder = Path(directory) / "owned"
@@ -637,6 +689,7 @@ class HnrRemovalTests(unittest.TestCase):
             self.assertTrue(outside.exists())
 
     def test_protected_file_cleanup_keeps_file(self):
+        """Verify protected file cleanup keeps file."""
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "movie.mkv"
             path.write_text("keep")
