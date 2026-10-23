@@ -34,6 +34,10 @@
 
 ## Unreleased
 
+### Safety
+
+Every torrent/content removal now requires fresh HnR clearance for all applicable rules. Dead tracker responses, unknown privacy/accounting, and ambiguous client ownership block removal. Blocked removals are reclassified on the next observation pass; Arr queue cleanup no longer delegates torrent removal. Every removal also requires effective minimum age, incomplete-torrent stalled grace, and the configured seeding removal policy. Changed or re-added torrents invalidate pending decisions.
+
 ### ⚠️ Important Configuration Change
 
 `StalledDelay` now uses conventional sentinel values: `-1` disables stalled

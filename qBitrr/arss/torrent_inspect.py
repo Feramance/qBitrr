@@ -218,6 +218,14 @@ class TorrentInspect:
             torrent.hash,
             extra,
         )
+        from qBitrr.arss.qbit_side_effects import removal_candidate
+
+        if not hasattr(self, "_removal_candidates"):
+            self._removal_candidates = {}
+        self._removal_candidates[(instance_name, torrent.hash)] = removal_candidate(torrent)
+        if not hasattr(self, "_removal_reasons"):
+            self._removal_reasons = {}
+        self._removal_reasons[(instance_name, torrent.hash)] = reason
         self.delete.add(torrent.hash)
         self.delete_by_instance.setdefault(instance_name, set()).add(torrent.hash)
 
@@ -510,6 +518,11 @@ class TorrentInspect:
             torrent.hash,
         )
         # We do not want to blacklist these!!
+        from qBitrr.arss.qbit_side_effects import removal_candidate
+
+        if not hasattr(self, "_removal_candidates"):
+            self._removal_candidates = {}
+        self._removal_candidates[(instance_name, torrent.hash)] = removal_candidate(torrent)
         self.remove_from_qbit_by_instance.setdefault(instance_name, set()).add(torrent.hash)
 
     def _process_single_torrent_uploading(

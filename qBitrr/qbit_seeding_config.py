@@ -20,6 +20,7 @@ _HNR_KEYS: dict[str, Any] = {
     "MinSeedRatio": 1.0,
     "MinSeedingTimeDays": 0,
     "HitAndRunPartialSeedRatio": 1.0,
+    "HitAndRunMinimumDownloadPercent": 10,
     "TrackerUpdateBuffer": 0,
 }
 

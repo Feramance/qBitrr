@@ -191,10 +191,12 @@ ArrErrorCodesToBlocklist = [
 
 When Radarr encounters these error messages during import, qBitrr will:
 
-1. ✅ Remove the failed files
-2. ✅ Mark the release as failed in Radarr
-3. ✅ Blacklist the release to prevent re-download
-4. ✅ Trigger a new search (if `ReSearch = true`)
+1. Verify the owning torrent and all applicable HnR obligations.
+2. Remove the torrent only after current clearance permits removal.
+3. Remove/blocklist its Radarr queue entry without delegating torrent removal to Radarr.
+4. Trigger a new search if `ReSearch = true`.
+
+Unmet or unknown HnR obligations preserve the torrent, its content, and removal-related queue actions for a later retry.
 
 **Common error codes to add:**
 

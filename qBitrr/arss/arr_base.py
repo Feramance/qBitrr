@@ -1978,11 +1978,21 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
         """Type-specific search command path; implemented on concrete Arr classes."""
         raise UnhandledError(f"{type(self).__name__} must implement _maybe_do_search_impl")
 
-    def delete_from_queue(self, id_, remove_from_client=True, blacklist=True):
+    def delete_from_queue(self, id_, remove_from_client=False, blacklist=True):
+        if remove_from_client:
+            from qBitrr.arss.qbit_side_effects import (
+                delete_hashes_per_instance,
+                resolve_removal_torrent,
+            )
+
+            hashes = [hash_ for hash_, entry in getattr(self, "cache", {}).items() if entry == id_]
+            current = resolve_removal_torrent(self, hashes[0]) if len(hashes) == 1 else None
+            if current is None or not delete_hashes_per_instance(self, {current[0]: {hashes[0]}}):
+                return False
         try:
             res = with_retry(
                 lambda: self.client.queue.delete(
-                    item_id=id_, remove_from_client=remove_from_client, blocklist=blacklist
+                    item_id=id_, remove_from_client=False, blocklist=blacklist
                 ),
                 retries=5,
                 backoff=0.5,
@@ -2100,9 +2110,9 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
                 invalid_files.add(file)
 
         if not probeable:
-            self.downloads_with_bad_error_message_blocklist.discard(downloads_id)
-            self.delete.discard(downloads_id)
-            self.remove_and_maybe_blocklist(downloads_id, folder)
+            if self.remove_and_maybe_blocklist(downloads_id, folder):
+                self.downloads_with_bad_error_message_blocklist.discard(downloads_id)
+                self.delete.discard(downloads_id)
         elif invalid_files:
             for file in invalid_files:
                 self.remove_and_maybe_blocklist(None, file)
@@ -2110,47 +2120,63 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
     def post_file_cleanup(self):
         for downloads_id, file in self.files_to_cleanup:
             self.folder_cleanup(downloads_id, file)
-        self.files_to_cleanup = set()
+        self.files_to_cleanup = {
+            (id_, path) for id_, path in self.files_to_cleanup if path.exists()
+        }
 
     def post_download_error_cleanup(self):
-        for downloads_id, file in self.files_to_explicitly_delete:
+        pending = list(self.files_to_explicitly_delete)
+        for downloads_id, file in pending:
             self.remove_and_maybe_blocklist(downloads_id, file)
+        self.files_to_explicitly_delete = iter(
+            {(id_, path) for id_, path in pending if path.exists()}
+        )
 
-    def remove_and_maybe_blocklist(self, downloads_id: str | None, file_or_folder: pathlib.Path):
+    def remove_and_maybe_blocklist(
+        self, downloads_id: str | None, file_or_folder: pathlib.Path
+    ) -> bool:
+        """Keep torrent content and Arr state intact unless every owner clears HnR."""
+        from qBitrr.arss.qbit_side_effects import (
+            content_removal_allowed,
+            delete_hashes_per_instance,
+            resolve_removal_torrent,
+        )
+
+        root = self.completed_folder.resolve()
+        target = file_or_folder.resolve()
+        if target == root or not target.is_relative_to(root):
+            return False
         if downloads_id is not None:
-            self.delete_from_queue(id_=downloads_id, blacklist=True)
-            self.logger.debug(
-                "Torrent removed and blocklisted: File was marked as failed by Arr " "| %s",
-                file_or_folder,
-            )
-        if file_or_folder != self.completed_folder:
+            cache = getattr(self, "cache", {})
+            hashes = [
+                hash_
+                for hash_, entry in cache.items()
+                if entry == downloads_id
+                or (isinstance(downloads_id, str) and hash_.lower() == downloads_id.lower())
+            ]
+            current = resolve_removal_torrent(self, hashes[0]) if len(hashes) == 1 else None
+            if current is None:
+                return False
+            removed = delete_hashes_per_instance(self, {current[0]: {hashes[0]}})
+            if not removed:
+                return False
+            self.delete_from_queue(id_=cache[hashes[0]], remove_from_client=False, blacklist=True)
+            return True
+        if not content_removal_allowed(self, [file_or_folder]):
+            return False
+        if file_or_folder.is_symlink():
+            return False
+        try:
             if file_or_folder.is_dir():
-                try:
-                    shutil.rmtree(file_or_folder, ignore_errors=True)
-                    self.logger.debug(
-                        "Folder removed: Folder was marked as failed by Arr, "
-                        "manually removing it | %s",
-                        file_or_folder,
-                    )
-                except (PermissionError, OSError):
-                    self.logger.debug(
-                        "Folder in use: Failed to remove Folder: Folder was marked as failed by Ar "
-                        "| %s",
-                        file_or_folder,
-                    )
+                shutil.rmtree(file_or_folder)
             else:
-                try:
-                    file_or_folder.unlink(missing_ok=True)
-                    self.logger.debug(
-                        "File removed: File was marked as failed by Arr, "
-                        "manually removing it | %s",
-                        file_or_folder,
-                    )
-                except (PermissionError, OSError):
-                    self.logger.debug(
-                        "File in use: Failed to remove file: File was marked as failed by Ar | %s",
-                        file_or_folder,
-                    )
+                file_or_folder.unlink(missing_ok=True)
+            return True
+        except OSError as exc:
+            self.logger.warning(
+                "Protected cleanup will retry %s: %s", file_or_folder, type(exc).__name__
+            )
+            return False
 
     def all_folder_cleanup(self) -> None:
         if not self.auto_delete:
@@ -2161,7 +2187,6 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
             return
         folder = self.completed_folder
         self.folder_cleanup(None, folder)
-        self.files_to_explicitly_delete = iter([])
         self.post_download_error_cleanup()
         self._remove_empty_folders()
         self.needs_cleanup = False
@@ -2463,6 +2488,7 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
         → ``_process_single_torrent_*`` (inspector) → ``process`` → ``_process_*`` (batch).
         """
         self._sync_loop_settings_from_config()
+        self._reset_removal_requests()
         try:
             try:
                 self._ensure_database_error_tracking()
@@ -3005,6 +3031,8 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
         return res
 
     def _update_bad_queue_items(self):
+        self.downloads_with_bad_error_message_blocklist.clear()
+        self.files_to_explicitly_delete = iter(())
         if not self.arr_error_codes_to_blocklist:
             return
         _temp = self.get_queue()
@@ -3027,6 +3055,8 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
                     for _m in m.get("messages", []):
                         if _m in self.arr_error_codes_to_blocklist:
                             e = entry.get("downloadId")
+                            if not e or not output_path:
+                                continue
                             _path_filter.add((e, pathlib.Path(output_path).joinpath(title)))
                             self.downloads_with_bad_error_message_blocklist.add(e)
             if len(_path_filter):

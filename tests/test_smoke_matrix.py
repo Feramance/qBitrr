@@ -37,10 +37,10 @@ class TestQueueDeleteBlocklistKwarg(unittest.TestCase):
         arr.client.queue.delete.return_value = {"ok": True}
 
         with patch("qBitrr.arss.arr_base.with_retry", side_effect=lambda fn, **_: fn()):
-            ArrBase.delete_from_queue(arr, id_=99, remove_from_client=True, blacklist=True)
+            ArrBase.delete_from_queue(arr, id_=99, remove_from_client=False, blacklist=True)
 
         arr.client.queue.delete.assert_called_once_with(
-            item_id=99, remove_from_client=True, blocklist=True
+            item_id=99, remove_from_client=False, blocklist=True
         )
 
 
