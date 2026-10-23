@@ -445,6 +445,42 @@ class HnrRemovalTests(unittest.TestCase):
         self.client.torrents_properties.return_value = {"is_private": False}
         self.assertTrue(self.allowed())
 
+    def test_verified_public_trackerless_torrents_keep_category_protections(self):
+        """Clear public DHT-only torrents while retaining category and privacy vetoes."""
+        self.client.torrents_properties.return_value = {"is_private": False}
+        self.torrent.progress = 1
+        self.torrent.ratio = 2
+        self.torrent.seeding_time = 9 * 86400
+        for trackers in (
+            [],
+            [tracker(url=f"** [{kind}] **", msg="") for kind in ("DHT", "PeX", "LSD")],
+        ):
+            with self.subTest(trackers=trackers):
+                self.client.torrents_trackers.return_value = trackers
+                self.seeding["category_overrides"] = {}
+                self.assertTrue(self.allowed())
+                self.assertTrue(
+                    content_removal_allowed(self.worker, [Path("/downloads/movie.mkv")])
+                )
+                self.assertEqual(
+                    delete_hashes_per_instance(self.worker, {"one": {"superman"}}),
+                    {("one", "superman")},
+                )
+                self.seeding["category_overrides"] = {"movies": {**self.policy, "MinSeedRatio": 3}}
+                self.assertFalse(self.allowed())
+                self.torrent.ratio = 3
+                self.assertTrue(self.allowed())
+                self.torrent.ratio = 2
+                self.client.torrents_properties.return_value = {"is_private": True}
+                self.assertFalse(self.allowed())
+                self.client.torrents_properties.return_value = {"is_private": False}
+        self.client.torrents_properties.return_value = {}
+        self.client.torrents_trackers.return_value = []
+        self.assertFalse(self.allowed())
+        self.client.torrents_properties.return_value = {"is_private": False}
+        self.client.torrents_trackers.side_effect = RuntimeError("offline")
+        self.assertFalse(self.allowed())
+
     def test_invalid_thresholds_do_not_allow_removal(self):
         """Verify invalid thresholds do not allow removal."""
         self.policy["MinSeedRatio"] = float("nan")

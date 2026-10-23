@@ -562,7 +562,7 @@ class TorrentLimits:
             if not isinstance(private, bool):
                 raise ValueError("Torrent privacy is unknown")
             actual = [t for t in trackers if _extract_tracker_host(t.url)]
-            if not actual:
+            if private and not actual:
                 raise ValueError("Tracker information is unavailable")
             seeding = load_qbit_seeding_config(instance_name, include_ignore_younger=False)
             category = dict(seeding["default_seeding"])
