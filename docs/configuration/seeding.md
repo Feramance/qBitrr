@@ -1241,11 +1241,11 @@ qBitrr's HnR protection acts as a **safety layer** on top of the existing seedin
 - **Downloads below [`HitAndRunMinimumDownloadPercent`](#hitandrunminimumdownloadpercent)%** (default 10%): Not subject to HnR (most trackers don't count these)
 - **[`TrackerUpdateBuffer`](#trackerupdatebuffer)**: Extra seconds subtracted from seeding time to account for tracker stats lag (~30 min behind the client)
 
-When [`HitAndRunMode`](#hitandrunmode) = `"disabled"` (default), behavior is identical to previous versions.
+When [`HitAndRunMode`](#hitandrunmode) = `"disabled"` (default), this rule supplies no clearance requirements. Private torrents still need verifiable clearance from another applicable rule.
 
 **No automatic bypass:** Unregistered, unauthorized, missing, or unhealthy tracker responses do not prove clearance. qBitrr preserves the torrent when its HnR obligations or tracker accounting cannot be verified. Tracker removal also requires clearance so cleanup cannot erase an outstanding obligation.
 
-When a torrent has multiple trackers, the tracker with the highest [`Priority`](#priority) determines which HnR settings apply.
+When a torrent has multiple trackers, every matching tracker with HnR enabled must clear. [`Priority`](#priority) affects sorting and ordinary limits only.
 
 ---
 
@@ -1355,5 +1355,9 @@ Every qBitrr torrent removal and deletion of torrent-owned content requires curr
 All applicable client/category and tracker obligations must clear. Tracker priority controls sorting and ordinary limits, not which HnR obligations apply. Existing AND/OR rules, partial-download thresholds, ratios, durations, and accounting buffers retain their meanings. Verified public torrents without configured obligations remain eligible for normal removal policies; private or unidentified torrents without verifiable requirements remain protected.
 
 qBitrr refreshes torrent and tracker information at the final deletion boundary and on retries. Blocked actions stay pending for a later processing cycle. If client identity or shared-file ownership is ambiguous, content and torrents are preserved. Arr receives queue-only cleanup after qBitrr confirms client removal; it is not independently instructed to remove the torrent. Deliberate queue-only workflows that leave the torrent seeding remain supported.
+
+On older qBittorrent versions without a privacy property, qBitrr uses the DHT/PeX/LSD tracker entries to verify privacy. Missing metadata or incomplete privacy information still blocks removal. An unrelated metadata download in a separate save folder does not block content cleanup. Ordinary tracker limits keep Arr overrides by URI; HnR obligations from both levels still apply.
+
+Completed file-cleanup entries are discarded even if valid media remains for seeding. Only blocked cleanup is retried. Confirmed client removals retain their Arr queue cleanup and replacement-search work across processing cycles if Arr is unavailable; these retries are held in memory until they succeed or qBitrr restarts.
 
 A protection log includes the requested reason, client, torrent, and blocking condition. Configure the real tracker obligations before expecting private torrents to be removed. This enforcement covers qBitrr actions; other applications and qBittorrent's own global removal actions operate independently.

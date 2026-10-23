@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import tempfile
 import time
 import unittest
@@ -42,7 +43,9 @@ class Worker(TorrentLimits, TorrentBatch):
         self._stalled_upload_idle_exceeds_limit = lambda *a: False
         self.clients = {}
         self.manager = SimpleNamespace(
-            qbit_manager=SimpleNamespace(get_all_instances=lambda: list(self.clients))
+            qbit_manager=SimpleNamespace(
+                get_all_instances=lambda: list(self.clients), name_cache={}
+            )
         )
         self.delete = set()
         self.delete_by_instance = defaultdict(set)
@@ -51,6 +54,9 @@ class Worker(TorrentLimits, TorrentBatch):
         self.skip_blacklist = set()
         self.missing_files_post_delete = set()
         self.downloads_with_bad_error_message_blocklist = set()
+        self.cache = {}
+        self.requeue_cache = {}
+        self.re_search = False
         self._log_deletion_summary_line = MagicMock()
         self._log_deletion_sample_debug = MagicMock()
         self._evict_hashes_from_qbit_side_caches = MagicMock()
@@ -163,7 +169,7 @@ class HnrRemovalTests(unittest.TestCase):
             delete_hashes_per_instance(self.worker, {"one": {"superman"}}), {("one", "superman")}
         )
 
-    def test_stale_pending_candidate_never_deletes_a_readded_or_active_torrent(self):
+    def test_candidate_rejects_readded_torrent_but_revalidates_activity(self):
         from qBitrr.arss.qbit_side_effects import removal_candidate
 
         self.torrent.ratio = 2
@@ -171,9 +177,125 @@ class HnrRemovalTests(unittest.TestCase):
         self.torrent.added_on = 2
         self.assertFalse(delete_hashes_per_instance(self.worker, {"one": {"superman"}}))
         self.torrent.added_on = 1
-        self.torrent.last_activity = 2
+        self.torrent.last_activity = time.time()
         self.assertFalse(delete_hashes_per_instance(self.worker, {"one": {"superman"}}))
         self.client.torrents_delete.assert_not_called()
+        self.torrent.last_activity = 2
+        self.assertEqual(
+            delete_hashes_per_instance(self.worker, {"one": {"superman"}}), {("one", "superman")}
+        )
+
+    def test_arr_owner_uses_exact_then_longest_prefix_and_all_section_names(self):
+        settings = {
+            "radarr.Category": "movies",
+            "Radarr4K.Category": "movies/4k",
+            "one.MatchSubcategories": True,
+        }
+        config = MagicMock()
+        config.sections.return_value = ["radarr", "Radarr4K"]
+        config.get.side_effect = lambda key, fallback=None: settings.get(key, fallback)
+        with patch("qBitrr.config.CONFIG", config):
+            for category, expected in (
+                ("movies", "radarr"),
+                ("movies/4k", "Radarr4K"),
+                ("movies/4k/new", "Radarr4K"),
+                ("unrelated", None),
+            ):
+                self.torrent.category = category
+                self.assertEqual(self.worker._removal_arr_section(self.torrent, "one"), expected)
+            settings["Radarr4K.MatchSubcategories"] = False
+            self.assertEqual(self.worker._removal_arr_section(self.torrent, "one"), None)
+            self.torrent.category = "movies/4k/new"
+            self.assertEqual(self.worker._removal_arr_section(self.torrent, "one"), "radarr")
+            settings["Radarr4K.Category"] = "movies"
+            self.torrent.category = "movies"
+            with self.assertRaises(ValueError):
+                self.worker._removal_arr_section(self.torrent, "one")
+
+    def test_arr_tracker_override_applies_to_ordinary_limits_only(self):
+        self.torrent.progress = 1
+        self.torrent.ratio = 2
+        self.torrent.seeding_time = 9 * 86400
+        self.seeding["trackers"][0]["MaxUploadRatio"] = 10
+        self.worker._get_torrent_limit_meta = lambda torrent, **kwargs: (
+            TorrentLimits._get_torrent_limit_meta(self.worker, torrent, **kwargs)
+        )
+        settings = {
+            "Radarr4K.Category": "movies",
+            "Radarr4K.Torrent.SeedingMode": {"RemoveTorrent": 1},
+            "Radarr4K.Torrent.Trackers": [{**self.policy, "MaxUploadRatio": 1}],
+        }
+        config = MagicMock()
+        config.sections.return_value = ["Radarr4K"]
+        config.get.side_effect = lambda key, fallback=None: settings.get(key, fallback)
+        config.get_duration.side_effect = lambda key, fallback=0, **kwargs: fallback
+        with patch("qBitrr.config.CONFIG", config):
+            self.assertTrue(
+                self.worker._deletion_rules_allow(
+                    self.torrent, "test", instance_name="one", client=self.client
+                )
+            )
+            self.seeding["trackers"][0]["MinSeedRatio"] = 10
+            self.assertFalse(self.allowed())
+
+    def test_older_qbit_privacy_uses_localized_discovery_rows(self):
+        self.client.torrents_properties.return_value = {}
+        self.torrent.ratio = 2
+        for message, private in (("", False), ("Ce torrent est privé", True)):
+            self.client.torrents_trackers.return_value = [tracker()] + [
+                tracker(url=f"** [{kind}] **", status=0, msg=message)
+                for kind in ("DHT", "PeX", "LSD")
+            ]
+            self.assertTrue(self.allowed())
+            self.seeding["trackers"] = []
+            self.assertEqual(self.allowed(), not private)
+            self.seeding["trackers"] = [self.policy]
+        self.torrent.state_enum = qbittorrentapi.TorrentStates.METADATA_DOWNLOAD
+        self.assertFalse(self.allowed())
+        self.torrent.state_enum = qbittorrentapi.TorrentStates.DOWNLOADING
+        self.client.torrents_trackers.return_value.pop()
+        self.assertFalse(self.allowed())
+
+    def test_unrelated_metadata_and_unsafe_files_do_not_veto_content_cleanup(self):
+        self.torrent.ratio = 2
+        other, client = self.worker.add("two", save_path="/other")
+        for files in ([], [SimpleNamespace(name="../unsafe")]):
+            client.torrents_files.return_value = files
+            self.assertTrue(content_removal_allowed(self.worker, [Path("/downloads/movie.mkv")]))
+            client.torrents_files.assert_not_called()
+            other.save_path = "/downloads"
+            self.assertFalse(content_removal_allowed(self.worker, [Path("/downloads/movie.mkv")]))
+            other.save_path = "/other"
+            client.torrents_files.reset_mock()
+
+    def test_confirmed_queue_cleanup_retries_after_torrent_and_cache_disappear(self):
+        self.torrent.ratio = 2
+        self.worker.delete.add("superman")
+        self.worker.delete_by_instance["one"].add("superman")
+        self.worker.cache = {"SUPERMAN": 17}
+        self.worker.requeue_cache = {17: 42}
+        self.worker.re_search = True
+        self.worker.process_entries = lambda hashes: ArrBase.process_entries(self.worker, hashes)
+        self.worker._process_failed_dispatch_queue_deletes = lambda *a, **kw: (
+            TorrentBatch._process_failed_dispatch_queue_deletes(self.worker, *a, **kw)
+        )
+        self.worker.delete_from_queue = MagicMock(side_effect=[RuntimeError("offline"), None])
+        self.worker._re_search_failed_media = MagicMock(
+            side_effect=[RuntimeError("offline"), None]
+        )
+        self.worker._process_failed()
+        self.assertIn(17, self.worker._pending_queue_deletes)
+        self.client.torrents_info.return_value = []
+        self.worker.cache.clear()
+        self.worker.requeue_cache.clear()
+        self.worker._reset_removal_requests()
+        self.worker._process_failed()
+        self.assertIn(17, self.worker._pending_queue_deletes)
+        self.worker.delete_from_queue.side_effect = None
+        self.worker._process_failed()
+        self.assertFalse(self.worker._pending_queue_deletes)
+        self.worker._re_search_failed_media.assert_called_with(42)
+        self.client.torrents_delete.assert_called_once()
 
     def test_new_pass_discards_blocked_requests_for_fresh_classification(self):
         self.worker.delete.add("superman")
@@ -445,6 +567,10 @@ class HnrRemovalTests(unittest.TestCase):
             arr = ArrBase.__new__(ArrBase)
             arr.completed_folder = Path(directory)
             arr.cache = {"SUPERMAN": 17}
+            arr.logger = MagicMock()
+            arr.manager = self.worker.manager
+            arr.requeue_cache = {}
+            arr.re_search = False
             arr.delete_from_queue = MagicMock()
             with (
                 patch(
@@ -463,6 +589,43 @@ class HnrRemovalTests(unittest.TestCase):
                 arr.delete_from_queue.assert_called_once_with(
                     id_=17, remove_from_client=False, blacklist=True
                 )
+
+    def test_completed_folder_cleanup_drops_successful_and_unnecessary_entries(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "movie.mkv"
+            path.write_text("valid media remains")
+            arr = ArrBase.__new__(ArrBase)
+            arr.files_to_cleanup = {("superman", path)}
+            arr.folder_cleanup = MagicMock(return_value=False)
+            arr.post_file_cleanup()
+            self.assertTrue(arr.files_to_cleanup)
+            arr.folder_cleanup.return_value = True
+            arr.post_file_cleanup()
+            self.assertFalse(arr.files_to_cleanup)
+            self.assertTrue(path.exists())
+
+    def test_invalid_file_batch_uses_one_ownership_scan(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            movie = root / "movie.mkv"
+            extras = [root / "one.txt", root / "two.txt"]
+            for path in [movie, *extras]:
+                path.write_text("content")
+            arr = ArrBase.__new__(ArrBase)
+            arr.auto_delete = True
+            arr.completed_folder = root
+            arr.logger = MagicMock()
+            arr.file_extension_allowlist = [".mkv"]
+            arr.file_extension_allowlist_re = re.compile(r"\.mkv$")
+            arr.file_is_probeable = lambda path: True
+            with patch(
+                "qBitrr.arss.qbit_side_effects.content_removal_allowed", return_value=True
+            ) as check:
+                self.assertTrue(arr.folder_cleanup(None, root))
+                check.assert_called_once()
+                self.assertEqual(set(check.call_args.args[1]), set(extras))
+            self.assertTrue(movie.exists())
+            self.assertTrue(all(not path.exists() for path in extras))
 
     def test_cleanup_cannot_escape_the_completed_folder(self):
         with tempfile.TemporaryDirectory() as directory:

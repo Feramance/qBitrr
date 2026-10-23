@@ -2077,9 +2077,10 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
                 return False
             return False
 
-    def folder_cleanup(self, downloads_id: str | None, folder: pathlib.Path):
+    def folder_cleanup(self, downloads_id: str | None, folder: pathlib.Path) -> bool:
+        """Clean invalid content and report whether all requested removals finished."""
         if not self.auto_delete:
-            return
+            return True
         self.logger.debug("Folder Cleanup: %s", folder)
         all_files_in_folder = list(absolute_file_paths(folder))
         invalid_files = set()
@@ -2110,19 +2111,22 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
                 invalid_files.add(file)
 
         if not probeable:
-            if self.remove_and_maybe_blocklist(downloads_id, folder):
+            removed = self.remove_and_maybe_blocklist(downloads_id, folder)
+            if removed:
                 self.downloads_with_bad_error_message_blocklist.discard(downloads_id)
                 self.delete.discard(downloads_id)
+            return removed
         elif invalid_files:
-            for file in invalid_files:
-                self.remove_and_maybe_blocklist(None, file)
+            return self._remove_content_paths(list(invalid_files))
+        return True
 
-    def post_file_cleanup(self):
+    def post_file_cleanup(self) -> None:
+        """Retain only existing paths whose cleanup could not finish."""
+        retry = set()
         for downloads_id, file in self.files_to_cleanup:
-            self.folder_cleanup(downloads_id, file)
-        self.files_to_cleanup = {
-            (id_, path) for id_, path in self.files_to_cleanup if path.exists()
-        }
+            if not self.folder_cleanup(downloads_id, file) and file.exists():
+                retry.add((downloads_id, file))
+        self.files_to_cleanup = retry
 
     def post_download_error_cleanup(self):
         pending = list(self.files_to_explicitly_delete)
@@ -2137,7 +2141,6 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
     ) -> bool:
         """Keep torrent content and Arr state intact unless every owner clears HnR."""
         from qBitrr.arss.qbit_side_effects import (
-            content_removal_allowed,
             delete_hashes_per_instance,
             resolve_removal_torrent,
         )
@@ -2160,23 +2163,34 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
             removed = delete_hashes_per_instance(self, {current[0]: {hashes[0]}})
             if not removed:
                 return False
-            self.delete_from_queue(id_=cache[hashes[0]], remove_from_client=False, blacklist=True)
+            self._queue_failed_delete(hashes[0], cache[hashes[0]], set())
+            self._retry_pending_queue_deletes()
             return True
-        if not content_removal_allowed(self, [file_or_folder]):
+        return self._remove_content_paths([file_or_folder])
+
+    def _remove_content_paths(self, paths: list[pathlib.Path]) -> bool:
+        """Check ownership once for a batch, then remove only safe completed-folder paths."""
+        from qBitrr.arss.qbit_side_effects import content_removal_allowed
+
+        root = self.completed_folder.resolve()
+        if any(
+            path.is_symlink() or path.resolve() == root or not path.resolve().is_relative_to(root)
+            for path in paths
+        ) or not content_removal_allowed(self, paths):
             return False
-        if file_or_folder.is_symlink():
-            return False
-        try:
-            if file_or_folder.is_dir():
-                shutil.rmtree(file_or_folder)
-            else:
-                file_or_folder.unlink(missing_ok=True)
-            return True
-        except OSError as exc:
-            self.logger.warning(
-                "Protected cleanup will retry %s: %s", file_or_folder, type(exc).__name__
-            )
-            return False
+        removed = True
+        for path in paths:
+            try:
+                if path.is_dir():
+                    shutil.rmtree(path)
+                else:
+                    path.unlink(missing_ok=True)
+            except OSError as exc:
+                self.logger.warning(
+                    "Protected cleanup will retry %s: %s", path, type(exc).__name__
+                )
+                removed = False
+        return removed
 
     def all_folder_cleanup(self) -> None:
         if not self.auto_delete:

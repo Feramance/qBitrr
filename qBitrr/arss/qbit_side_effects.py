@@ -207,19 +207,14 @@ def _torrent_file_paths(client: Any, torrent: Any) -> list[Path]:
 
 
 def removal_candidate(torrent: Any) -> tuple:
-    """Identify the torrent incarnation and activity behind a removal decision."""
+    """Identify the torrent incarnation; current activity is checked by removal rules."""
     return tuple(
         getattr(torrent, key, None)
         for key in (
             "added_on",
             "category",
-            "state",
-            "progress",
-            "last_activity",
             "save_path",
             "content_path",
-            "eta",
-            "availability",
         )
     )
 
@@ -234,6 +229,15 @@ def content_removal_allowed(worker: Any, paths: list[Path]) -> bool:
             if client is None:
                 return False
             for torrent in client.torrents_info():
+                root = Path(torrent.save_path)
+                if not root.is_absolute() or root.resolve() == root.resolve().parent:
+                    return False
+                root = root.resolve()
+                if not any(
+                    target.is_relative_to(root) or root.is_relative_to(target)
+                    for target in targets
+                ):
+                    continue
                 files = _torrent_file_paths(client, torrent)
                 if not files:
                     return False

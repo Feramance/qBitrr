@@ -10,6 +10,7 @@ Call graph (per loop):
 from __future__ import annotations
 
 import math
+import re
 import time
 from datetime import datetime, timedelta
 
@@ -332,23 +333,25 @@ class TorrentLimits:
         self, torrent: qbittorrentapi.TorrentDictionary, instance_name: str
     ) -> str | None:
         """Resolve the torrent's Arr owner independently of the worker doing cleanup."""
-        from qBitrr.category_paths import normalize_category
+        from qBitrr.category_paths import matches_configured, normalize_category
         from qBitrr.config import CONFIG
 
         category = normalize_category(torrent.category)
-        matches = []
+        owners = {}
+        eligible = []
         for section in CONFIG.sections():
-            if not section.startswith(("Radarr-", "Sonarr-", "Lidarr-", "Readarr-")):
+            if not re.match(r"(rad|son|lid|read)arr.*", section, re.IGNORECASE):
                 continue
             configured = normalize_category(CONFIG.get(f"{section}.Category", fallback=section))
             prefix = CONFIG.get(
                 f"{section}.MatchSubcategories",
                 fallback=CONFIG.get(f"{instance_name}.MatchSubcategories", fallback=False),
             )
-            if category == configured or (
-                configured and prefix and category.startswith(configured + "/")
-            ):
-                matches.append(section)
+            owners.setdefault(configured, []).append(section)
+            if category == configured or prefix:
+                eligible.append(configured)
+        owner = matches_configured(category, eligible, prefix=True)
+        matches = owners.get(owner, [])
         if len(matches) > 1:
             raise ValueError("Torrent Arr ownership is ambiguous")
         return matches[0] if matches else None
@@ -462,9 +465,12 @@ class TorrentLimits:
                 _extract_tracker_host(t.url)
                 for t in client.torrents_trackers(torrent_hash=torrent.hash)
             }
-            configured = list(loaded["trackers"])
-            if isinstance(arr_policy, dict):
-                configured += CONFIG.get(f"{arr_section}.Torrent.Trackers", fallback=[])
+            from qBitrr.arr_tracker_index import merge_tracker_configs
+
+            configured = merge_tracker_configs(
+                loaded["trackers"],
+                CONFIG.get(f"{arr_section}.Torrent.Trackers", fallback=[]) if arr_section else [],
+            )
             matching_trackers = [
                 item
                 for item in configured
@@ -530,9 +536,28 @@ class TorrentLimits:
                 instance_name, client, torrent = current
             properties = client.torrents_properties(torrent_hash=torrent.hash)
             private = properties.get("is_private")
+            trackers = list(client.torrents_trackers(torrent_hash=torrent.hash))
+            if "is_private" not in properties:
+                # Older qBit versions mark all three discovery rows with a localized private message.
+                discovery = {
+                    t.url: t
+                    for t in trackers
+                    if t.url in {"** [DHT] **", "** [PeX] **", "** [LSD] **"}
+                }
+                messages = [getattr(t, "msg", None) for t in discovery.values()]
+                if (
+                    len(discovery) == 3
+                    and all(isinstance(msg, str) for msg in messages)
+                    and len(set(messages)) == 1
+                    and torrent.state_enum
+                    not in (
+                        TorrentStates.METADATA_DOWNLOAD,
+                        TorrentStates.FORCED_METADATA_DOWNLOAD,
+                    )
+                ):
+                    private = bool(messages[0])
             if not isinstance(private, bool):
                 raise ValueError("Torrent privacy is unknown")
-            trackers = list(client.torrents_trackers(torrent_hash=torrent.hash))
             actual = [t for t in trackers if _extract_tracker_host(t.url)]
             if not actual:
                 raise ValueError("Tracker information is unavailable")

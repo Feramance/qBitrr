@@ -194,7 +194,12 @@ class TorrentBatch:
             self.import_torrents.clear()
 
     def _process_failed_individual(
-        self, hash_: str, entry: int, skip_blacklist: set[str], remove_from_client: bool = False
+        self,
+        hash_: str,
+        entry: int,
+        skip_blacklist: set[str],
+        remove_from_client: bool = False,
+        object_id: object = None,
     ) -> None:
         self.logger.debug(
             "Deleting from queue: %s, [%s][Blocklisting:%s][Remove from client:%s]",
@@ -211,7 +216,7 @@ class TorrentBatch:
             self.delete_from_queue(
                 id_=entry, remove_from_client=remove_from_client, blacklist=False
             )
-        object_id = self.requeue_cache.get(entry)
+        object_id = object_id if object_id is not None else self.requeue_cache.get(entry)
         if self.re_search and object_id:
             self._re_search_failed_media(object_id)
 
@@ -310,17 +315,39 @@ class TorrentBatch:
                 if payload := arr.process_entries(to_delete_all):
                     for entry, hash_ in payload:
                         if hash_ in arr.cache:
-                            arr._process_failed_individual(
-                                hash_=hash_, entry=entry, skip_blacklist=skip_blacklist
-                            )
+                            arr._queue_failed_delete(hash_, entry, skip_blacklist)
+                arr._retry_pending_queue_deletes()
         else:
             self.needs_cleanup = True
             payload = self.process_entries(to_delete_all)
             if payload:
                 for entry, hash_ in payload:
-                    self._process_failed_individual(
-                        hash_=hash_, entry=entry, skip_blacklist=skip_blacklist
-                    )
+                    self._queue_failed_delete(hash_, entry, skip_blacklist)
+            self._retry_pending_queue_deletes()
+
+    def _queue_failed_delete(self, hash_: str, entry: int, skip_blacklist: set[str]) -> None:
+        """Keep confirmed removal work independently of future torrent/Arr observations."""
+        if not hasattr(self, "_pending_queue_deletes"):
+            self._pending_queue_deletes = {}
+        self._pending_queue_deletes.setdefault(
+            entry, (hash_, hash_ in skip_blacklist, self.requeue_cache.get(entry))
+        )
+
+    def _retry_pending_queue_deletes(self) -> None:
+        """Retry queue cleanup and replacement searches after the torrent is gone."""
+        for entry, (hash_, skip, object_id) in list(
+            getattr(self, "_pending_queue_deletes", {}).items()
+        ):
+            try:
+                self._process_failed_individual(
+                    hash_, entry, {hash_} if skip else set(), object_id=object_id
+                )
+            except Exception as exc:
+                self.logger.warning(
+                    "Arr queue cleanup will retry %s: %s", entry, type(exc).__name__
+                )
+            else:
+                del self._pending_queue_deletes[entry]
 
     def _process_failed(self) -> None:
         self._process_failed_deletes(
@@ -352,6 +379,11 @@ class TorrentBatch:
         cross_arr: bool,
     ) -> None:
         """Delete queued failed torrents and optionally dispatch Arr queue deletes."""
+        if cross_arr:
+            for arr in self.manager.managed_objects.values():
+                arr._retry_pending_queue_deletes()
+        else:
+            self._retry_pending_queue_deletes()
         to_delete_all = self.delete.union(
             self.missing_files_post_delete, self.downloads_with_bad_error_message_blocklist
         )
