@@ -268,7 +268,7 @@ class PlaceHolderArr(ArrBase):
         try:
             try:
                 self._sync_loop_settings_from_config()
-                self._reset_removal_requests()
+                self._reset_removal_requests(cross_arr=True)
                 torrents_with_instances = with_retry(
                     lambda: self._get_torrents_from_all_instances(),
                     retries=5,

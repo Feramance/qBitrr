@@ -358,8 +358,14 @@ class TorrentBatch:
             cross_arr=False,
         )
 
-    def _reset_removal_requests(self) -> None:
+    def _reset_removal_requests(self, *, cross_arr: bool = False) -> None:
         """Reclassify blocked removals from current observations on every scan."""
+        # Queue retries must run even when the next torrent listing is empty.
+        if cross_arr:
+            for arr in self.manager.managed_objects.values():
+                arr._retry_pending_queue_deletes()
+        else:
+            self._retry_pending_queue_deletes()
         for name in (
             "delete",
             "remove_from_qbit",

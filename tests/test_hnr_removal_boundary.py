@@ -304,13 +304,19 @@ class HnrRemovalTests(unittest.TestCase):
         self.worker.cache.clear()
         self.worker.requeue_cache.clear()
         self.worker._reset_removal_requests()
-        self.worker._process_failed()
         self.assertIn(17, self.worker._pending_queue_deletes)
         self.worker.delete_from_queue.side_effect = None
         self.worker._process_failed()
         self.assertFalse(self.worker._pending_queue_deletes)
         self.worker._re_search_failed_media.assert_called_with(42)
         self.client.torrents_delete.assert_called_once()
+
+    def test_placeholder_scan_retries_arr_cleanup_before_empty_torrent_shortcut(self):
+        """Retry confirmed Arr work even after the placeholder category becomes empty."""
+        arr = MagicMock()
+        self.worker.manager.managed_objects = {"movies": arr}
+        self.worker._reset_removal_requests(cross_arr=True)
+        arr._retry_pending_queue_deletes.assert_called_once()
 
     def test_new_pass_discards_blocked_requests_for_fresh_classification(self):
         """Verify new pass discards blocked requests for fresh classification."""
