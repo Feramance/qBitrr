@@ -1360,4 +1360,6 @@ On older qBittorrent versions without a privacy property, qBitrr uses the DHT/Pe
 
 Completed file-cleanup entries are discarded even if valid media remains for seeding. Only blocked cleanup is retried. Confirmed client removals retain their Arr queue cleanup and replacement-search work across processing cycles if Arr is unavailable; these retries are held in memory until they succeed or qBitrr restarts.
 
+Blocked import-error paths also survive warning refreshes, including when Arr no longer reports the original warning. Existing paths are reconsidered under current removal protections on each cleanup pass.
+
 A protection log includes the requested reason, client, torrent, and blocking condition. Configure the real tracker obligations before expecting private torrents to be removed. This enforcement covers qBitrr actions; other applications and qBittorrent's own global removal actions operate independently.

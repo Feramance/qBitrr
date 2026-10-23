@@ -614,6 +614,34 @@ class HnrRemovalTests(unittest.TestCase):
             self.assertEqual(list(arr.files_to_explicitly_delete), [("superman", path)])
             self.assertTrue(path.exists())
 
+    def test_error_cleanup_retries_when_arr_warning_disappears(self):
+        """Keep blocked import-error paths scheduled across empty warning refreshes."""
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "movie.mkv"
+            path.write_text("keep")
+            arr = ArrBase.__new__(ArrBase)
+            arr.auto_delete = True
+            arr.needs_cleanup = False
+            arr.completed_folder = Path(directory)
+            arr.arr_error_codes_to_blocklist = ["bad import"]
+            arr.downloads_with_bad_error_message_blocklist = set()
+            arr.files_to_explicitly_delete = iter([("superman", path)])
+            arr.get_queue = MagicMock(return_value=[])
+            arr.post_file_cleanup = MagicMock()
+            arr.folder_cleanup = MagicMock(return_value=True)
+            arr._remove_empty_folders = MagicMock()
+            arr.remove_and_maybe_blocklist = MagicMock(return_value=False)
+            arr.all_folder_cleanup()
+            arr.remove_and_maybe_blocklist.assert_called_once_with("superman", path)
+            self.assertFalse(arr.needs_cleanup)
+            arr.remove_and_maybe_blocklist.reset_mock()
+            arr.arr_error_codes_to_blocklist = []
+            arr.all_folder_cleanup()
+            arr.remove_and_maybe_blocklist.assert_called_once_with("superman", path)
+            path.unlink()
+            arr.all_folder_cleanup()
+            self.assertFalse(list(arr.files_to_explicitly_delete))
+
     def test_cleanup_resolves_download_hash_to_arr_queue_id_after_clearance(self):
         """Verify cleanup resolves download hash to arr queue id after clearance."""
         with tempfile.TemporaryDirectory() as directory:

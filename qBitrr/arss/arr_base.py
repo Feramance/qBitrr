@@ -3049,8 +3049,11 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
 
     def _update_bad_queue_items(self):
         """Collect current import warnings configured for protected cleanup and blocklisting."""
+        pending = {(id_, path) for id_, path in self.files_to_explicitly_delete if path.exists()}
         self.downloads_with_bad_error_message_blocklist.clear()
-        self.files_to_explicitly_delete = iter(())
+        self.files_to_explicitly_delete = iter(pending)
+        if pending:
+            self.needs_cleanup = True
         if not self.arr_error_codes_to_blocklist:
             return
         _temp = self.get_queue()
@@ -3061,7 +3064,7 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
                 and x.get("trackedDownloadStatus") == "warning",
                 _temp,
             )
-            _path_filter = set()
+            _path_filter = pending
             _temp = list(_temp)
             for entry in _temp:
                 messages = entry.get("statusMessages", [])
