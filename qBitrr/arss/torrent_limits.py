@@ -337,6 +337,7 @@ class TorrentLimits:
         """Resolve the torrent's Arr owner independently of the worker doing cleanup."""
         from qBitrr.category_paths import matches_configured, normalize_category
         from qBitrr.config import CONFIG
+        from qBitrr.utils import qbit_sections
 
         category = normalize_category(torrent.category)
         owners = {}
@@ -354,6 +355,16 @@ class TorrentLimits:
             owners.setdefault(configured, []).append(section)
             if category == configured or prefix:
                 eligible.append(configured)
+        for section in qbit_sections(CONFIG):
+            for raw in CONFIG.get(f"{section}.ManagedCategories", fallback=[]):
+                configured = normalize_category(raw)
+                sections = owners.setdefault(configured, [])
+                if None not in sections:
+                    sections.append(None)
+                if category == configured or CONFIG.get(
+                    f"{instance_name}.MatchSubcategories", fallback=False
+                ):
+                    eligible.append(configured)
         owner = matches_configured(category, eligible, prefix=True)
         matches = owners.get(owner, [])
         if len(matches) > 1:

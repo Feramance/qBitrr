@@ -226,6 +226,54 @@ class HnrRemovalTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 self.worker._removal_arr_section(self.torrent, "one")
 
+    def test_qbit_managed_children_take_precedence_over_parent_arr(self) -> None:
+        """Resolve exact and longest-prefix ownership across Arr and qBit categories."""
+        settings = {
+            "Radarr-Parent.Managed": True,
+            "Radarr-Parent.Category": "movies",
+            "Radarr-Parent.MatchSubcategories": True,
+            "Radarr-Parent.Torrent.SeedingMode": {"RemoveTorrent": -1},
+            "qBit.ManagedCategories": [" movies/4k/ "],
+            "qBit-Other.ManagedCategories": ["movies/4k"],
+            "qBit.MatchSubcategories": False,
+        }
+        config = MagicMock()
+        config.sections.return_value = ["Radarr-Parent", "qBit", "qBit-Other"]
+        config.get.side_effect = lambda key, fallback=None: settings.get(key, fallback)
+        config.get_duration.side_effect = lambda key, fallback=0, **kwargs: fallback
+        self.torrent.category = "movies/4k"
+        self.torrent.progress = 1
+        self.torrent.ratio = 2
+        self.torrent.seeding_time = 9 * 86400
+        with patch("qBitrr.config.CONFIG", config):
+            self.assertIsNone(self.worker._removal_arr_section(self.torrent, "qBit"))
+            self.assertTrue(
+                self.worker._deletion_rules_allow(
+                    self.torrent, "test", instance_name="qBit", client=self.client
+                )
+            )
+            self.torrent.category = "movies/4k/new"
+            self.assertEqual(
+                self.worker._removal_arr_section(self.torrent, "qBit"), "Radarr-Parent"
+            )
+            settings["qBit.MatchSubcategories"] = True
+            self.assertIsNone(self.worker._removal_arr_section(self.torrent, "qBit"))
+            settings.update(
+                {
+                    "Sonarr-Child.Managed": True,
+                    "Sonarr-Child.Category": "movies/4k/new",
+                    "Sonarr-Child.MatchSubcategories": True,
+                }
+            )
+            config.sections.return_value.append("Sonarr-Child")
+            self.assertEqual(
+                self.worker._removal_arr_section(self.torrent, "qBit"), "Sonarr-Child"
+            )
+            self.torrent.category = "movies/4k/new/deeper"
+            self.assertEqual(
+                self.worker._removal_arr_section(self.torrent, "qBit"), "Sonarr-Child"
+            )
+
     def test_arr_tracker_override_applies_to_ordinary_limits_only(self):
         """Verify arr tracker override applies to ordinary limits only."""
         self.torrent.progress = 1
