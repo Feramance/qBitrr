@@ -264,12 +264,63 @@ def content_removal_allowed(worker: Any, paths: list[Path]) -> bool:
         return False
 
 
+def _confirm_removal_attempt(worker: Any, key: tuple[str, str]) -> None:
+    """Transfer saved Arr follow-up work only after client removal is confirmed."""
+    _, followups, _ = worker._pending_client_removals.pop(key)
+    for arr, entry, hash_, skip, object_id in followups:
+        arr._queue_failed_delete(hash_, entry, {hash_} if skip else set(), object_id=object_id)
+
+
+def complete_removal_followups(worker: Any, hashes: set[str]) -> None:
+    """Release saved follow-ups after every targeted client confirmed removal."""
+    targets = {hash_.lower() for hash_ in hashes}
+    for key in list(getattr(worker, "_pending_client_removals", {})):
+        if key[1].lower() in targets:
+            _confirm_removal_attempt(worker, key)
+
+
+def reconcile_removal_attempts(worker: Any) -> None:
+    """Confirm uncertain deletions by successful absence lookups, retaining outages for retry."""
+    for key, (snapshot, _, peers) in list(getattr(worker, "_pending_client_removals", {}).items()):
+        instance, hash_ = key
+        try:
+            client = worker._get_qbit_client(instance)
+            if client is None:
+                continue
+            matches = [
+                t
+                for t in client.torrents_info(torrent_hashes=hash_)
+                if t.hash.lower() == hash_.lower()
+            ]
+            if matches:
+                if len(matches) != 1 or removal_candidate(matches[0]) != snapshot:
+                    del worker._pending_client_removals[key]
+                continue
+            absent = True
+            for peer in peers - {instance}:
+                peer_client = worker._get_qbit_client(peer)
+                if peer_client is None or any(
+                    t.hash.lower() == hash_.lower()
+                    for t in peer_client.torrents_info(torrent_hashes=hash_)
+                ):
+                    absent = False
+                    break
+            if not absent:
+                continue
+            _confirm_removal_attempt(worker, key)
+        except Exception as exc:
+            worker.logger.warning(
+                "Removal confirmation will retry %s on %s: %s", hash_, instance, type(exc).__name__
+            )
+
+
 def delete_hashes_per_instance(
     worker: Any,
     batches: dict[str, set[str]],
     *,
     use_qbit_retry: bool = True,
     delete_files: bool = True,
+    queue_followups: dict[str, list[tuple]] | None = None,
 ) -> set[tuple[str, str]]:
     """Delete only freshly cleared torrents; preserve client identity in confirmed results."""
     deleted = set()
@@ -282,7 +333,15 @@ def delete_hashes_per_instance(
                 nonlocal expected
                 current = resolve_removal_torrent(worker, hash_, instance_name)
                 if current is None:
-                    return False
+                    if (instance_name, hash_) not in getattr(
+                        worker, "_pending_client_removals", {}
+                    ):
+                        return False
+                    client = worker._get_qbit_client(instance_name)
+                    return client is not None and not any(
+                        t.hash.lower() == hash_.lower()
+                        for t in client.torrents_info(torrent_hashes=hash_)
+                    )
                 instance, client, torrent = current
                 snapshot = removal_candidate(torrent)
                 if expected is None:
@@ -312,7 +371,25 @@ def delete_hashes_per_instance(
                     )
                 ):
                     return False
+                if not hasattr(worker, "_pending_client_removals"):
+                    worker._pending_client_removals = {}
+                key = (instance_name, hash_)
+                peers = {instance_name} | {
+                    instance
+                    for name in ("delete_by_instance", "remove_from_qbit_by_instance")
+                    for instance, pending in getattr(worker, name, {}).items()
+                    if any(h.lower() == hash_.lower() for h in pending)
+                }
+                previous = worker._pending_client_removals.get(key)
+                if previous is None or previous[0] != snapshot:
+                    worker._pending_client_removals[key] = (
+                        snapshot,
+                        (queue_followups or {}).get(hash_.lower(), []),
+                        peers,
+                    )
                 result = client.torrents_delete(hashes=[hash_], delete_files=delete_files)
+                if result is False or not worker._pending_client_removals[key][1]:
+                    worker._pending_client_removals.pop(key, None)
                 return result is not False
 
             try:
@@ -346,6 +423,7 @@ def delete_hashes_on_primary(
     use_qbit_retry: bool = True,
     warn_if_missing: bool = False,
     error_label: str = "from qBit",
+    queue_followups: dict[str, list[tuple]] | None = None,
 ) -> set[tuple[str, str]]:
     """Compatibility entry point: resolve unique owners instead of falling back to a primary."""
     batches = defaultdict(set)
@@ -357,4 +435,6 @@ def delete_hashes_on_primary(
             worker.logger.warning(
                 "Removal blocked for %s: owning client is unavailable or ambiguous", hash_
             )
-    return delete_hashes_per_instance(worker, batches, use_qbit_retry=use_qbit_retry)
+    return delete_hashes_per_instance(
+        worker, batches, use_qbit_retry=use_qbit_retry, queue_followups=queue_followups
+    )

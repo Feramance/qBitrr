@@ -40,6 +40,8 @@ Every torrent/content removal now requires fresh HnR clearance for all applicabl
 
 Removal clearance preserves exact/longest-prefix Arr ownership, case-insensitive Arr section names, and ordinary tracker overrides. Older qBittorrent privacy responses remain supported. Unrelated metadata downloads no longer block content cleanup, completed cleanup entries stop recurring, and confirmed removals retry Arr cleanup/search work after transient failures.
 
+Lost client deletion responses are reconciled before Arr follow-up work is released. Unmanaged Arr sections no longer claim removal ownership, and final minimum-age checks honor the global environment override.
+
 ### ⚠️ Important Configuration Change
 
 `StalledDelay` now uses conventional sentinel values: `-1` disables stalled

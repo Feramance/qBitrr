@@ -2143,6 +2143,7 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
     ) -> bool:
         """Keep torrent content and Arr state intact unless every owner clears HnR."""
         from qBitrr.arss.qbit_side_effects import (
+            complete_removal_followups,
             delete_hashes_per_instance,
             resolve_removal_torrent,
         )
@@ -2162,9 +2163,14 @@ class ArrBase(TorrentBatch, TorrentInspect, TorrentDispatch, TorrentLimits):
             current = resolve_removal_torrent(self, hashes[0]) if len(hashes) == 1 else None
             if current is None:
                 return False
-            removed = delete_hashes_per_instance(self, {current[0]: {hashes[0]}})
+            removed = delete_hashes_per_instance(
+                self,
+                {current[0]: {hashes[0]}},
+                queue_followups=self._removal_queue_followups({hashes[0]}, set()),
+            )
             if not removed:
                 return False
+            complete_removal_followups(self, {hashes[0]})
             self._queue_failed_delete(hashes[0], cache[hashes[0]], set())
             self._retry_pending_queue_deletes()
             return True

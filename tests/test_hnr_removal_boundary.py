@@ -8,6 +8,7 @@ import tempfile
 import time
 import unittest
 from collections import defaultdict
+from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -198,6 +199,8 @@ class HnrRemovalTests(unittest.TestCase):
     def test_arr_owner_uses_exact_then_longest_prefix_and_all_section_names(self):
         """Verify arr owner uses exact then longest prefix and all section names."""
         settings = {
+            "radarr.Managed": True,
+            "Radarr4K.Managed": True,
             "radarr.Category": "movies",
             "Radarr4K.Category": "movies/4k",
             "one.MatchSubcategories": True,
@@ -233,6 +236,7 @@ class HnrRemovalTests(unittest.TestCase):
             TorrentLimits._get_torrent_limit_meta(self.worker, torrent, **kwargs)
         )
         settings = {
+            "Radarr4K.Managed": True,
             "Radarr4K.Category": "movies",
             "Radarr4K.Torrent.SeedingMode": {"RemoveTorrent": 1},
             "Radarr4K.Torrent.Trackers": [{**self.policy, "MaxUploadRatio": 1}],
@@ -378,6 +382,8 @@ class HnrRemovalTests(unittest.TestCase):
         self.worker._name = "Radarr-Worker"
         self.worker.category = "films"
         settings = {
+            "Radarr-Worker.Managed": True,
+            "Sonarr-Owner.Managed": True,
             "Radarr-Worker.Category": "films",
             "Sonarr-Owner.Category": "movies",
             "Sonarr-Owner.Torrent.Trackers": [{**self.policy, "HitAndRunPartialSeedRatio": 5}],
@@ -445,7 +451,7 @@ class HnrRemovalTests(unittest.TestCase):
         self.client.torrents_properties.return_value = {"is_private": False}
         self.assertTrue(self.allowed())
 
-    def test_verified_public_trackerless_torrents_keep_category_protections(self):
+    def test_verified_public_trackerless_torrents_keep_category_protections(self) -> None:
         """Clear public DHT-only torrents while retaining category and privacy vetoes."""
         self.client.torrents_properties.return_value = {"is_private": False}
         self.torrent.progress = 1
@@ -480,6 +486,187 @@ class HnrRemovalTests(unittest.TestCase):
         self.client.torrents_properties.return_value = {"is_private": False}
         self.client.torrents_trackers.side_effect = RuntimeError("offline")
         self.assertFalse(self.allowed())
+
+    def test_unmanaged_sections_do_not_own_removal_policies(self) -> None:
+        """Ignore unmanaged duplicate categories and unmanaged qBit category owners."""
+        settings = {
+            "Radarr-Active.Managed": True,
+            "Radarr-Active.Category": "movies",
+            "Radarr-Old.Managed": False,
+            "Radarr-Old.Category": "movies",
+        }
+        config = MagicMock()
+        config.sections.return_value = ["Radarr-Old", "Radarr-Active"]
+        config.get.side_effect = lambda key, fallback=None: settings.get(key, fallback)
+        with patch("qBitrr.config.CONFIG", config):
+            self.assertEqual(
+                self.worker._removal_arr_section(self.torrent, "one"), "Radarr-Active"
+            )
+            settings["Radarr-Active.Managed"] = False
+            self.assertIsNone(self.worker._removal_arr_section(self.torrent, "one"))
+
+    def test_removal_age_uses_environment_fallback_and_explicit_client_age(self) -> None:
+        """Honor the effective global age without weakening explicit client/category overrides."""
+        self.patch.stop()
+        from qBitrr.qbit_seeding_config import load_qbit_seeding_config
+
+        settings = {"one.CategorySeeding.RemoveTorrent": 1}
+        durations = {
+            "Settings.IgnoreTorrentsYoungerThan": 86400,
+            "one.CategorySeeding.StalledDelay": 0,
+        }
+        config = MagicMock()
+        config.sections.return_value = []
+        config.get.side_effect = lambda key, fallback=None: settings.get(key, fallback)
+        config.get_duration.side_effect = lambda key, fallback=0, **kwargs: durations.get(
+            key, fallback
+        )
+        env = SimpleNamespace(settings=SimpleNamespace(ignore_torrents_younger_than=180))
+        self.torrent.added_on = self.torrent.last_activity = time.time() - 600
+        self.client.torrents_properties.return_value = {"is_private": False}
+        with (
+            patch("qBitrr.config.CONFIG", config),
+            patch("qBitrr.qbit_seeding_config.CONFIG", config),
+            patch("qBitrr.config.ENVIRO_CONFIG", env),
+        ):
+            self.assertEqual(load_qbit_seeding_config("one")["ignore_torrents_younger_than"], 180)
+            self.assertTrue(
+                self.worker._deletion_rules_allow(
+                    self.torrent, "test", instance_name="one", client=self.client
+                )
+            )
+            durations["one.CategorySeeding.IgnoreTorrentsYoungerThan"] = 1800
+            self.assertFalse(
+                self.worker._deletion_rules_allow(
+                    self.torrent, "test", instance_name="one", client=self.client
+                )
+            )
+            durations.pop("one.CategorySeeding.IgnoreTorrentsYoungerThan")
+            settings["one.CategorySeeding.Categories"] = [
+                {"Name": "movies", "IgnoreTorrentsYoungerThan": 1800}
+            ]
+            self.assertFalse(
+                self.worker._deletion_rules_allow(
+                    self.torrent, "test", instance_name="one", client=self.client
+                )
+            )
+
+    def test_lost_delete_response_is_confirmed_on_retry(self) -> None:
+        """A successful absence lookup after a sent delete preserves Arr follow-up work."""
+        self.torrent.ratio = 2
+        self.worker.cache = {"SUPERMAN": 17}
+        self.worker.requeue_cache = {17: 42}
+        followups = self.worker._removal_queue_followups({"superman"}, set())
+
+        def delete(**kwargs: object) -> None:
+            """Remove the torrent but lose the client's response."""
+            self.client.torrents_info.return_value = []
+            raise qbittorrentapi.exceptions.APIConnectionError("response lost")
+
+        def retry(fn: Callable[[], bool], **kwargs: object) -> bool:
+            """Retry the failed deletion without waiting."""
+            try:
+                return fn()
+            except qbittorrentapi.exceptions.APIConnectionError:
+                return fn()
+
+        self.client.torrents_delete.side_effect = delete
+        self.worker._qbit_retry = retry
+        self.assertEqual(
+            delete_hashes_per_instance(
+                self.worker, {"one": {"superman"}}, queue_followups=followups
+            ),
+            {("one", "superman")},
+        )
+        self.client.torrents_delete.assert_called_once()
+        self.worker._reset_removal_requests()
+        # No Arr API fake exists here: confirmation queues the saved work for retry.
+        self.assertEqual(self.worker._pending_queue_deletes[17], ("SUPERMAN", False, 42))
+
+    def test_lost_delete_response_survives_offline_scans_and_lost_arr_cache(self) -> None:
+        """Keep uncertain client deletion and original media IDs until a successful absence lookup."""
+        self.torrent.ratio = 2
+        self.worker.delete = {"superman"}
+        self.worker.delete_by_instance["one"].add("superman")
+        self.worker.cache = {"SUPERMAN": 17}
+        self.worker.requeue_cache = {17: 42}
+        self.worker.re_search = True
+        self.worker.delete_from_queue = MagicMock()
+        self.worker._re_search_failed_media = MagicMock()
+
+        def delete(**kwargs: object) -> None:
+            """Lose the deletion response and all subsequent client lookups."""
+            self.client.torrents_info.side_effect = qbittorrentapi.exceptions.APIConnectionError(
+                "offline"
+            )
+            self.client.torrents_info.return_value = []
+            raise qbittorrentapi.exceptions.APIConnectionError("response lost")
+
+        self.client.torrents_delete.side_effect = delete
+        self.worker._process_failed()
+        self.worker.cache.clear()
+        self.worker.requeue_cache.clear()
+        self.worker._reset_removal_requests()
+        self.assertTrue(self.worker._pending_client_removals)
+        self.worker.delete_from_queue.assert_not_called()
+        self.client.torrents_info.side_effect = None
+        self.worker._reset_removal_requests()
+        self.worker.delete_from_queue.assert_called_once_with(
+            id_=17, remove_from_client=False, blacklist=True
+        )
+        self.worker._re_search_failed_media.assert_called_once_with(42)
+        self.assertFalse(self.worker._pending_client_removals)
+        self.client.torrents_delete.assert_called_once()
+
+    def test_uncertain_delete_does_not_cleanup_readded_or_other_targeted_torrent(self) -> None:
+        """Require all targeted clients to be absent and reject a re-added incarnation."""
+        self.torrent.ratio = 2
+        self.worker.add("two", ratio=0)
+        self.worker.delete_by_instance = {"one": {"superman"}, "two": {"superman"}}
+        self.worker.cache = {"SUPERMAN": 17}
+        followups = self.worker._removal_queue_followups({"superman"}, set())
+
+        def delete(**kwargs: object) -> None:
+            """Lose the response after deleting from only one of the targeted clients."""
+            self.client.torrents_info.return_value = []
+            raise qbittorrentapi.exceptions.APIConnectionError("response lost")
+
+        self.client.torrents_delete.side_effect = delete
+        with patch("qBitrr.arss.qbit_side_effects.content_removal_allowed", return_value=True):
+            delete_hashes_per_instance(
+                self.worker, {"one": {"superman"}}, queue_followups=followups
+            )
+        self.worker._reset_removal_requests()
+        self.assertTrue(self.worker._pending_client_removals)
+        self.assertFalse(getattr(self.worker, "_pending_queue_deletes", {}))
+        self.torrent.added_on = 2
+        self.client.torrents_info.return_value = [self.torrent]
+        self.worker._reset_removal_requests()
+        self.assertFalse(self.worker._pending_client_removals)
+        self.assertFalse(getattr(self.worker, "_pending_queue_deletes", {}))
+
+    def test_confirmed_partial_batch_waits_for_all_targeted_clients(self) -> None:
+        """Keep saved queue work until every targeted copy has disappeared."""
+        self.torrent.ratio = 2
+        _, other_client = self.worker.add("two", ratio=0)
+        self.worker.delete_by_instance = {"one": {"superman"}, "two": {"superman"}}
+        self.worker.cache = {"SUPERMAN": 17}
+        followups = self.worker._removal_queue_followups({"superman"}, set())
+        with patch("qBitrr.arss.qbit_side_effects.content_removal_allowed", return_value=True):
+            self.assertEqual(
+                delete_hashes_per_instance(
+                    self.worker, {"one": {"superman"}}, queue_followups=followups
+                ),
+                {("one", "superman")},
+            )
+        self.client.torrents_info.return_value = []
+        self.worker._reset_removal_requests()
+        self.assertTrue(self.worker._pending_client_removals)
+        self.assertFalse(getattr(self.worker, "_pending_queue_deletes", {}))
+        other_client.torrents_info.return_value = []
+        self.worker._reset_removal_requests()
+        self.assertFalse(self.worker._pending_client_removals)
+        self.assertIn(17, self.worker._pending_queue_deletes)
 
     def test_invalid_thresholds_do_not_allow_removal(self):
         """Verify invalid thresholds do not allow removal."""

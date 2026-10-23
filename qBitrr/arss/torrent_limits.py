@@ -344,6 +344,8 @@ class TorrentLimits:
         for section in CONFIG.sections():
             if not re.match(r"(rad|son|lid|read)arr.*", section, re.IGNORECASE):
                 continue
+            if not CONFIG.get(f"{section}.Managed", fallback=False):
+                continue
             configured = normalize_category(CONFIG.get(f"{section}.Category", fallback=section))
             prefix = CONFIG.get(
                 f"{section}.MatchSubcategories",
@@ -367,7 +369,7 @@ class TorrentLimits:
         client: qbittorrentapi.Client,
     ) -> bool:
         """Require all applicable protection rules immediately before destructive work."""
-        from qBitrr.config import CONFIG
+        from qBitrr.config import CONFIG, get_ignore_torrents_younger_than_effective
         from qBitrr.qbit_seeding_config import load_qbit_seeding_config
 
         try:
@@ -403,7 +405,7 @@ class TorrentLimits:
                 policy.update(loaded["category_overrides"][max(matches, key=len)])
             arr_section = self._removal_arr_section(torrent, instance_name)
             age = max(
-                CONFIG.get_duration("Settings.IgnoreTorrentsYoungerThan", fallback=180),
+                get_ignore_torrents_younger_than_effective(),
                 loaded.get("ignore_torrents_younger_than", 180),
                 parse_duration(policy.get("IgnoreTorrentsYoungerThan", 0), fallback=-1),
                 (
