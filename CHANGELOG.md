@@ -1,5 +1,12 @@
 # Changelog
 
+## v5.14.6-2 (19/10/2026)
+
+### 🔧 Maintenance
+- [chore(deps): bump github/codeql-action from 4.38.2 to 4.39.0 (#627)](https://github.com/Feramance/qBitrr/commit/30b9b6fcd91c3f43a1686f61da668add81e205ee) - @Feramance
+
+---
+
 ## v5.14.6-1 (06/10/2026)
 
 ### 🐛 Bug Fixes
