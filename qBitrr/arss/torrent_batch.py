@@ -19,7 +19,6 @@ from qBitrr.arss.arr_shared import (
     _QBIT_TORRENT_DELETE_EXCEPTIONS,
     _QBIT_WRITE_RETRY_EXCEPTIONS,
     _collect_instance_hash_map_hashes,
-    _prune_instance_hash_map,
     execute_command,
     validate_and_return_torrent_file,
     with_retry,
@@ -195,8 +194,14 @@ class TorrentBatch:
             self.import_torrents.clear()
 
     def _process_failed_individual(
-        self, hash_: str, entry: int, skip_blacklist: set[str], remove_from_client: bool = True
+        self,
+        hash_: str,
+        entry: int,
+        skip_blacklist: set[str],
+        remove_from_client: bool = False,
+        object_id: object = None,
     ) -> None:
+        """Remove one Arr queue entry and search again using its saved media identity."""
         self.logger.debug(
             "Deleting from queue: %s, [%s][Blocklisting:%s][Remove from client:%s]",
             hash_,
@@ -212,7 +217,7 @@ class TorrentBatch:
             self.delete_from_queue(
                 id_=entry, remove_from_client=remove_from_client, blacklist=False
             )
-        object_id = self.requeue_cache.get(entry)
+        object_id = object_id if object_id is not None else self.requeue_cache.get(entry)
         if self.re_search and object_id:
             self._re_search_failed_media(object_id)
 
@@ -304,6 +309,7 @@ class TorrentBatch:
         *,
         cross_arr: bool,
     ) -> None:
+        """Queue Arr cleanup only for confirmed client removals."""
         if not to_delete_all:
             return
         if cross_arr:
@@ -311,17 +317,67 @@ class TorrentBatch:
                 if payload := arr.process_entries(to_delete_all):
                     for entry, hash_ in payload:
                         if hash_ in arr.cache:
-                            arr._process_failed_individual(
-                                hash_=hash_, entry=entry, skip_blacklist=skip_blacklist
-                            )
+                            arr._queue_failed_delete(hash_, entry, skip_blacklist)
+                arr._retry_pending_queue_deletes()
         else:
             self.needs_cleanup = True
             payload = self.process_entries(to_delete_all)
             if payload:
                 for entry, hash_ in payload:
-                    self._process_failed_individual(
-                        hash_=hash_, entry=entry, skip_blacklist=skip_blacklist
+                    self._queue_failed_delete(hash_, entry, skip_blacklist)
+            self._retry_pending_queue_deletes()
+
+    def _removal_queue_followups(
+        self, hashes: set[str], skip_blacklist: set[str], *, cross_arr: bool = False
+    ) -> dict[str, list[tuple]]:
+        """Snapshot Arr queue and media identities before attempting client deletion."""
+        targets = {hash_.lower() for hash_ in hashes}
+        followups = defaultdict(list)
+        arrs = self.manager.managed_objects.values() if cross_arr else [self]
+        for arr in arrs:
+            for hash_, entry in getattr(arr, "cache", {}).items():
+                if hash_.lower() in targets:
+                    followups[hash_.lower()].append(
+                        (
+                            arr,
+                            entry,
+                            hash_,
+                            hash_.upper() in skip_blacklist,
+                            getattr(arr, "requeue_cache", {}).get(entry),
+                        )
                     )
+        return dict(followups)
+
+    def _queue_failed_delete(
+        self, hash_: str, entry: int, skip_blacklist: set[str], *, object_id: object = None
+    ) -> None:
+        """Keep confirmed removal work independently of future torrent/Arr observations."""
+        if not hasattr(self, "_pending_queue_deletes"):
+            self._pending_queue_deletes = {}
+        self._pending_queue_deletes.setdefault(
+            entry,
+            (
+                hash_,
+                hash_ in skip_blacklist,
+                object_id if object_id is not None else self.requeue_cache.get(entry),
+            ),
+        )
+
+    def _retry_pending_queue_deletes(self) -> None:
+        """Retry queue cleanup and replacement searches after the torrent is gone."""
+        for entry, (hash_, skip, object_id) in list(
+            getattr(self, "_pending_queue_deletes", {}).items()
+        ):
+            try:
+                self._process_failed_individual(
+                    hash_, entry, {hash_} if skip else set(), object_id=object_id
+                )
+            except Exception as exc:
+                self.logger.warning(
+                    "Arr queue cleanup will retry %s: %s", entry, type(exc).__name__
+                )
+            else:
+                del self._pending_queue_deletes[entry]
 
     def _process_failed(self) -> None:
         self._process_failed_deletes(
@@ -329,6 +385,30 @@ class TorrentBatch:
             warn_if_missing=False,
             cross_arr=False,
         )
+
+    def _reset_removal_requests(self, *, cross_arr: bool = False) -> None:
+        """Reclassify blocked removals from current observations on every scan."""
+        from qBitrr.arss.qbit_side_effects import reconcile_removal_attempts
+
+        reconcile_removal_attempts(self)
+        # Queue retries must run even when the next torrent listing is empty.
+        if cross_arr:
+            for arr in self.manager.managed_objects.values():
+                arr._retry_pending_queue_deletes()
+        else:
+            self._retry_pending_queue_deletes()
+        for name in (
+            "delete",
+            "remove_from_qbit",
+            "skip_blacklist",
+            "missing_files_post_delete",
+            "downloads_with_bad_error_message_blocklist",
+            "delete_by_instance",
+            "remove_from_qbit_by_instance",
+        ):
+            getattr(self, name, {}).clear()
+        self._removal_candidates = {}
+        self._removal_reasons = {}
 
     def _process_failed_deletes(
         self,
@@ -338,6 +418,11 @@ class TorrentBatch:
         cross_arr: bool,
     ) -> None:
         """Delete queued failed torrents and optionally dispatch Arr queue deletes."""
+        if cross_arr:
+            for arr in self.manager.managed_objects.values():
+                arr._retry_pending_queue_deletes()
+        else:
+            self._retry_pending_queue_deletes()
         to_delete_all = self.delete.union(
             self.missing_files_post_delete, self.downloads_with_bad_error_message_blocklist
         )
@@ -345,6 +430,9 @@ class TorrentBatch:
         skip_blacklist = {
             i.upper() for i in self.skip_blacklist.union(self.missing_files_post_delete)
         }
+        queue_followups = self._removal_queue_followups(
+            queue_delete_targets, skip_blacklist, cross_arr=cross_arr
+        )
         if not (
             to_delete_all
             or self.remove_from_qbit
@@ -356,10 +444,25 @@ class TorrentBatch:
         self._log_deletion_summary_line()
         self._log_deletion_sample_debug(to_delete_all)
         from qBitrr.arss.qbit_side_effects import (
+            complete_removal_followups,
             delete_hashes_on_primary,
             delete_hashes_per_instance,
+            resolve_removal_torrent,
         )
 
+        if "default" not in self.manager.qbit_manager.get_all_instances():
+            for mapping in (self.remove_from_qbit_by_instance, self.delete_by_instance):
+                for hash_ in list(mapping.get("default", set())):
+                    current = resolve_removal_torrent(self, hash_)
+                    if current:
+                        for name in ("_removal_candidates", "_removal_reasons"):
+                            records = getattr(self, name, {})
+                            if ("default", hash_) in records:
+                                records[(current[0], hash_)] = records.pop(("default", hash_))
+                        mapping.setdefault(current[0], set()).add(hash_)
+                        mapping["default"].discard(hash_)
+                if "default" in mapping and not mapping["default"]:
+                    del mapping["default"]
         per_instance_batches: dict[str, set[str]] = {}
         for inst_name, hashes in self.remove_from_qbit_by_instance.items():
             if hashes:
@@ -367,25 +470,29 @@ class TorrentBatch:
         for inst_name, hashes in self.delete_by_instance.items():
             if hashes:
                 per_instance_batches.setdefault(inst_name, set()).update(hashes)
-        after_success = self._evict_hashes_from_qbit_side_caches if use_qbit_retry else None
-        per_instance_deleted = delete_hashes_per_instance(
+        confirmed_pairs = delete_hashes_per_instance(
             self,
             per_instance_batches,
             use_qbit_retry=use_qbit_retry,
-            after_success=after_success,
+            queue_followups=queue_followups,
         )
-        deleted_hashes: set[str] = set(per_instance_deleted)
-        _prune_instance_hash_map(self.remove_from_qbit_by_instance, per_instance_deleted)
-        _prune_instance_hash_map(self.delete_by_instance, per_instance_deleted)
+        for instance, hash_ in confirmed_pairs:
+            for mapping in (self.remove_from_qbit_by_instance, self.delete_by_instance):
+                if instance in mapping:
+                    mapping[instance].discard(hash_)
+                    if not mapping[instance]:
+                        del mapping[instance]
         pending_per_instance = _collect_instance_hash_map_hashes(
             self.delete_by_instance, self.remove_from_qbit_by_instance
         )
+        per_instance_deleted = {hash_ for _, hash_ in confirmed_pairs} - pending_per_instance
+        deleted_hashes = set(per_instance_deleted)
         to_delete_all = to_delete_all - per_instance_deleted
         to_delete_default = to_delete_all - pending_per_instance
-        primary_deleted: set[str] = set()
+        primary_pairs: set[tuple[str, str]] = set()
         if self.remove_from_qbit or self.skip_blacklist or to_delete_default:
             if to_delete_default:
-                primary_deleted.update(
+                primary_pairs.update(
                     delete_hashes_on_primary(
                         self,
                         to_delete_default,
@@ -394,11 +501,16 @@ class TorrentBatch:
                         error_label=(
                             "from qBit (to_delete_all)" if warn_if_missing else "from qBit"
                         ),
+                        queue_followups=queue_followups,
                     )
                 )
             if self.remove_from_qbit or self.skip_blacklist:
-                rest = self.remove_from_qbit.union(self.skip_blacklist) - deleted_hashes
-                primary_deleted.update(
+                rest = (
+                    self.remove_from_qbit.union(self.skip_blacklist)
+                    - deleted_hashes
+                    - pending_per_instance
+                )
+                primary_pairs.update(
                     delete_hashes_on_primary(
                         self,
                         rest,
@@ -407,12 +519,17 @@ class TorrentBatch:
                         error_label=(
                             "from qBit (remove/blacklist)" if warn_if_missing else "from qBit"
                         ),
+                        queue_followups=queue_followups,
                     )
                 )
+            primary_deleted = {hash_ for _, hash_ in primary_pairs}
             self._evict_hashes_from_qbit_side_caches(deleted_hashes | primary_deleted)
+        primary_deleted = {hash_ for _, hash_ in primary_pairs}
         confirmed_deleted = deleted_hashes | primary_deleted
+        self._evict_hashes_from_qbit_side_caches(confirmed_deleted)
         dispatch_targets = confirmed_deleted & queue_delete_targets
         if dispatch_targets:
+            complete_removal_followups(self, dispatch_targets)
             self._process_failed_dispatch_queue_deletes(
                 dispatch_targets, skip_blacklist, cross_arr=cross_arr
             )

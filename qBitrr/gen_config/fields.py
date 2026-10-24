@@ -781,7 +781,7 @@ QBIT_FIELDS: tuple[ConfigField, ...] = (
         ("CategorySeeding", "HitAndRunMode"),
         "disabled",
         (
-            "Hit and Run mode: and = require both ratio and time; or = either clears; disabled = no HnR.",
+            "Hit and Run mode: and = require both ratio and time; or = either clears; disabled = no clearance requirements from this rule; private torrents still need verified clearance.",
         ),
         label="Hit and Run Mode",
         kind="select",

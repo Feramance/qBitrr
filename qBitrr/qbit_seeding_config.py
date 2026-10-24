@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from qBitrr.config import CONFIG
+from qBitrr.config import CONFIG, get_ignore_torrents_younger_than_effective
 from qBitrr.duration_config import parse_duration
 
 _SEEDING_KEYS = (
@@ -20,6 +20,7 @@ _HNR_KEYS: dict[str, Any] = {
     "MinSeedRatio": 1.0,
     "MinSeedingTimeDays": 0,
     "HitAndRunPartialSeedRatio": 1.0,
+    "HitAndRunMinimumDownloadPercent": 10,
     "TrackerUpdateBuffer": 0,
 }
 
@@ -81,6 +82,6 @@ def load_qbit_seeding_config(
     if include_ignore_younger:
         result["ignore_torrents_younger_than"] = CONFIG.get_duration(
             f"{section}.CategorySeeding.IgnoreTorrentsYoungerThan",
-            fallback=CONFIG.get_duration("Settings.IgnoreTorrentsYoungerThan", fallback=180),
+            fallback=get_ignore_torrents_younger_than_effective(),
         )
     return result

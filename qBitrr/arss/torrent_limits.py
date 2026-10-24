@@ -9,6 +9,8 @@ Call graph (per loop):
 
 from __future__ import annotations
 
+import math
+import re
 import time
 from datetime import datetime, timedelta
 
@@ -35,7 +37,11 @@ class TorrentLimits:
             return "and"
         return "disabled"
 
-    def _get_torrent_limit_meta(self, torrent: qbittorrentapi.TorrentDictionary):
+    def _get_torrent_limit_meta(
+        self, torrent: qbittorrentapi.TorrentDictionary, *, seeding_policy=None, trackers=None
+    ):
+        """Return effective configured and native limits for the supplied torrent policy."""
+
         def _to_number(value, default):
             if value is None or isinstance(value, bool):
                 return default
@@ -68,41 +74,61 @@ class TorrentLimits:
                 return tracker_parsed
             return global_value
 
-        _, monitored_trackers = self._get_torrent_important_trackers(torrent)
-        most_important_tracker, _unique_tags = self._get_most_important_tracker_and_tags(
-            monitored_trackers, {}
-        )
+        if trackers is None:
+            _, monitored_trackers = self._get_torrent_important_trackers(torrent)
+            most_important_tracker, _unique_tags = self._get_most_important_tracker_and_tags(
+                monitored_trackers, {}
+            )
+        else:
+            most_important_tracker = max(
+                (item for item in trackers if item.get("RemoveIfExists") is not True),
+                key=lambda item: item.get("Priority", -100),
+                default={},
+            )
+        policy = seeding_policy or {}
 
         data_settings = {
             "ratio_limit": _positive_or_sentinel(
                 _prefer_limit(
                     most_important_tracker.get("MaxUploadRatio"),
-                    self.seeding_mode_global_max_upload_ratio,
+                    policy.get(
+                        "MaxUploadRatio", getattr(self, "seeding_mode_global_max_upload_ratio", -1)
+                    ),
                 )
             ),
             "seeding_time_limit": _positive_or_sentinel(
                 _prefer_limit(
                     most_important_tracker.get("MaxSeedingTime"),
-                    self.seeding_mode_global_max_seeding_time,
+                    policy.get(
+                        "MaxSeedingTime", getattr(self, "seeding_mode_global_max_seeding_time", -1)
+                    ),
                 )
             ),
             "dl_limit": _positive_or_sentinel(
                 most_important_tracker.get(
-                    "DownloadRateLimit", self.seeding_mode_global_download_limit
+                    "DownloadRateLimit",
+                    policy.get(
+                        "DownloadRateLimitPerTorrent",
+                        getattr(self, "seeding_mode_global_download_limit", -1),
+                    ),
                 )
             ),
             "up_limit": _positive_or_sentinel(
                 most_important_tracker.get(
-                    "UploadRateLimit", self.seeding_mode_global_upload_limit
+                    "UploadRateLimit",
+                    policy.get(
+                        "UploadRateLimitPerTorrent",
+                        getattr(self, "seeding_mode_global_upload_limit", -1),
+                    ),
                 )
             ),
             "super_seeding": most_important_tracker.get("SuperSeedMode", torrent.super_seeding),
             "max_eta": _to_number(
                 _prefer_limit(
                     most_important_tracker.get("MaximumETA"),
-                    self.maximum_eta,
+                    policy.get("MaximumETA", getattr(self, "maximum_eta", -1)),
                 ),
-                self.maximum_eta,
+                policy.get("MaximumETA", getattr(self, "maximum_eta", -1)),
             ),
             "hnr_clear_mode": self._resolve_hnr_clear_mode(most_important_tracker),
             "hnr_min_seed_ratio": _to_number(
@@ -305,86 +331,361 @@ class TorrentLimits:
         except Exception:
             return False
 
+    def _removal_arr_section(
+        self, torrent: qbittorrentapi.TorrentDictionary, instance_name: str
+    ) -> str | None:
+        """Resolve the torrent's Arr owner independently of the worker doing cleanup."""
+        from qBitrr.category_paths import matches_configured, normalize_category
+        from qBitrr.config import CONFIG
+        from qBitrr.utils import qbit_sections
+
+        category = normalize_category(torrent.category)
+        owners = {}
+        eligible = []
+        for section in CONFIG.sections():
+            if not re.match(r"(rad|son|lid|read)arr.*", section, re.IGNORECASE):
+                continue
+            if not CONFIG.get(f"{section}.Managed", fallback=False):
+                continue
+            configured = normalize_category(CONFIG.get(f"{section}.Category", fallback=section))
+            prefix = CONFIG.get(
+                f"{section}.MatchSubcategories",
+                fallback=CONFIG.get(f"{instance_name}.MatchSubcategories", fallback=False),
+            )
+            owners.setdefault(configured, []).append(section)
+            if category == configured or prefix:
+                eligible.append(configured)
+        for section in qbit_sections(CONFIG):
+            for raw in CONFIG.get(f"{section}.ManagedCategories", fallback=[]):
+                configured = normalize_category(raw)
+                sections = owners.setdefault(configured, [])
+                if None not in sections:
+                    sections.append(None)
+                if category == configured or CONFIG.get(
+                    f"{instance_name}.MatchSubcategories", fallback=False
+                ):
+                    eligible.append(configured)
+        owner = matches_configured(category, eligible, prefix=True)
+        matches = owners.get(owner, [])
+        if len(matches) > 1:
+            raise ValueError("Torrent Arr ownership is ambiguous")
+        return matches[0] if matches else None
+
+    def _deletion_rules_allow(
+        self,
+        torrent: qbittorrentapi.TorrentDictionary,
+        reason: str,
+        *,
+        instance_name: str,
+        client: qbittorrentapi.Client,
+    ) -> bool:
+        """Require all applicable protection rules immediately before destructive work."""
+        from qBitrr.config import CONFIG, get_ignore_torrents_younger_than_effective
+        from qBitrr.qbit_seeding_config import load_qbit_seeding_config
+
+        try:
+            for key in ("progress", "ratio", "seeding_time", "added_on", "last_activity"):
+                value = getattr(torrent, key)
+                if isinstance(value, bool) or not math.isfinite(value) or value < 0:
+                    return False
+            if torrent.progress > 1:
+                return False
+            if not self._hnr_allows_delete(
+                torrent, reason, instance_name=instance_name, client=client
+            ):
+                return False
+            if CONFIG.get(f"{instance_name}.Disabled", fallback=False):
+                return False
+            tags = {tag.strip() for tag in (getattr(torrent, "tags", "") or "").split(",")}
+            if tags & {"qBitrr-ignored", "qBitrr-free_space_paused"}:
+                return False
+            if torrent.super_seeding or torrent.state_enum == TorrentStates.FORCED_UPLOAD:
+                return False
+            loaded = load_qbit_seeding_config(instance_name)
+            policy = dict(loaded["default_seeding"])
+            matches = [
+                name
+                for name in loaded["category_overrides"]
+                if torrent.category == name
+                or (
+                    loaded["match_subcategories"]
+                    and torrent.category.startswith(name.rstrip("/") + "/")
+                )
+            ]
+            if matches:
+                policy.update(loaded["category_overrides"][max(matches, key=len)])
+            arr_section = self._removal_arr_section(torrent, instance_name)
+            age = max(
+                get_ignore_torrents_younger_than_effective(),
+                loaded.get("ignore_torrents_younger_than", 180),
+                parse_duration(policy.get("IgnoreTorrentsYoungerThan", 0), fallback=-1),
+                (
+                    CONFIG.get_duration(
+                        f"{arr_section}.Torrent.IgnoreTorrentsYoungerThan", fallback=0
+                    )
+                    if arr_section
+                    else 0
+                ),
+            )
+            now = time.time()
+            if not 0 < torrent.added_on <= now or now - torrent.added_on < age:
+                return False
+            arr_policy = (
+                CONFIG.get(f"{arr_section}.Torrent.SeedingMode", fallback={})
+                if arr_section
+                else None
+            )
+            if isinstance(arr_policy, dict):
+                for key in ("MaxUploadRatio", "MaxSeedingTime", "RemoveTorrent"):
+                    value = arr_policy.get(key, -1)
+                    if key == "MaxSeedingTime":
+                        value = parse_duration(value, fallback=-1)
+                    if value > 0:
+                        policy[key] = value
+            for key in ("MaxUploadRatio", "MaxSeedingTime"):
+                value = policy.get(key, -1)
+                if key == "MaxSeedingTime":
+                    value = parse_duration(value, fallback=float("nan"))
+                if isinstance(value, bool) or not math.isfinite(value):
+                    return False
+                policy[key] = value
+            mode = policy.get("RemoveTorrent", -1)
+            if isinstance(arr_policy, dict):
+                mode = arr_policy.get("RemoveTorrent", -1)
+            if isinstance(mode, bool) or mode not in (1, 2, 3, 4):
+                return False
+            if torrent.progress < 1:
+                delay = parse_duration(
+                    policy.get("StalledDelay", loaded.get("stalled_delay", -1)),
+                    unit="minutes",
+                    fallback=-1,
+                )
+                if arr_section:
+                    delay = CONFIG.get_duration(
+                        f"{arr_section}.Torrent.StalledDelay", fallback=15, unit="minutes"
+                    )
+                reference = (
+                    torrent.added_on
+                    if torrent.state_enum
+                    in (TorrentStates.METADATA_DOWNLOAD, TorrentStates.FORCED_METADATA_DOWNLOAD)
+                    else torrent.last_activity
+                )
+                return (
+                    math.isfinite(delay)
+                    and delay >= 0
+                    and 0 < reference <= now
+                    and now - reference >= max(age, delay * 60)
+                )
+            actual_hosts = {
+                _extract_tracker_host(t.url)
+                for t in client.torrents_trackers(torrent_hash=torrent.hash)
+            }
+            from qBitrr.arr_tracker_index import merge_tracker_configs
+
+            configured = merge_tracker_configs(
+                loaded["trackers"],
+                CONFIG.get(f"{arr_section}.Torrent.Trackers", fallback=[]) if arr_section else [],
+            )
+            matching_trackers = [
+                item
+                for item in configured
+                if any(
+                    host == (configured_host := _extract_tracker_host(item.get("URI", "")))
+                    or (configured_host and host.endswith("." + configured_host))
+                    for host in actual_hosts
+                )
+            ]
+            settings, native = self._get_torrent_limit_meta(
+                torrent, seeding_policy=policy, trackers=matching_trackers
+            )
+            ratio = max(settings.get("ratio_limit", -1), native.get("ratio_limit", -1))
+            seed_time = max(
+                settings.get("seeding_time_limit", -1), native.get("seeding_time_limit", -1)
+            )
+            if not math.isfinite(ratio) or not math.isfinite(seed_time):
+                return False
+            if settings.get("ratio_limit", -1) <= 0:
+                ratio = max(ratio, policy.get("MaxUploadRatio", -1))
+            if settings.get("seeding_time_limit", -1) <= 0:
+                seed_time = max(seed_time, policy.get("MaxSeedingTime", -1))
+            return self.torrent_limit_check(torrent, seed_time, ratio, remove_mode=mode)
+        except Exception as exc:
+            self.logger.warning(
+                "Removal rules unavailable for %s on %s: %s",
+                torrent.hash,
+                instance_name,
+                type(exc).__name__,
+            )
+            return False
+
     def _hnr_allows_delete(
         self,
         torrent: qbittorrentapi.TorrentDictionary,
         reason: str,
         *,
         data_settings: dict | None = None,
+        instance_name: str | None = None,
+        client: qbittorrentapi.Client | None = None,
     ) -> bool:
-        """Check if HnR obligations allow deleting this torrent.
+        """Require verified clearance for every applicable tracker and category obligation."""
+        from qBitrr.arss.qbit_side_effects import resolve_removal_torrent
+        from qBitrr.config import CONFIG
+        from qBitrr.qbit_seeding_config import load_qbit_seeding_config
 
-        Fetches tracker metadata and checks HnR. Returns True if deletion
-        is allowed, False if HnR protection blocks it.
-        """
-        if not any(self._resolve_hnr_clear_mode(t) != "disabled" for t in self.monitored_trackers):
-            return True  # Fast path: no HnR on any tracker
+        def mode(policy: dict) -> str:
+            """Normalize supported HnR modes and reject invalid policy values."""
+            raw = policy.get("HitAndRunMode", "disabled")
+            if raw is True:
+                return "and"
+            if raw is False:
+                return "disabled"
+            if isinstance(raw, str) and raw.strip().lower() in ("and", "or", "disabled"):
+                return raw.strip().lower()
+            raise ValueError("Invalid HnR mode")
 
-        # If the HnR-enabled tracker reports the torrent as unregistered/dead,
-        # HnR no longer applies (tracker has removed the torrent).
-        if self._hnr_tracker_is_dead(torrent):
-            self.logger.debug(
-                "HnR bypass: tracker reports torrent as unregistered/dead [%s]",
-                torrent.name,
-            )
-            return True
-
-        if data_settings is None:
-            try:
-                data_settings, _ = self._get_torrent_limit_meta(torrent)
-            except _TrackerDataUnavailable as exc:
-                self.logger.warning(
-                    "HnR check skipped for torrent '%s' (%s): %s",
-                    getattr(torrent, "name", "<unknown>"),
-                    getattr(torrent, "hash", "<unknown>"),
-                    str(exc),
-                )
-                # Fail safe: without tracker metadata, do not allow deletion.
-                return False
-        if self._hnr_safe_to_remove(torrent, data_settings):
-            return True
-        self.logger.info(
-            "HnR protection: blocking %s of [%s] (ratio=%.2f, seeding=%s, progress=%.1f%%)",
-            reason,
-            torrent.name,
-            torrent.ratio,
-            timedelta(seconds=torrent.seeding_time),
-            torrent.progress * 100,
-        )
-        return False
-
-    def _hnr_tracker_is_dead(self, torrent: qbittorrentapi.TorrentDictionary) -> bool:
-        """Check if the HnR-enabled tracker reports the torrent as unregistered or dead.
-
-        If a tracker says the torrent is unregistered/unauthorized, the torrent
-        no longer exists on the tracker and HnR obligations cannot apply.
-        """
-        _dead_keywords = {
-            "unregistered torrent",
-            "torrent not registered",
-            "info hash is not authorized",
-            "torrent is not authorized",
-            "torrent not found",
-        }
-        # Build set of HnR-enabled tracker hostnames
-        hnr_hosts = {
-            _extract_tracker_host(t.get("URI") or "")
-            for t in self.monitored_trackers
-            if self._resolve_hnr_clear_mode(t) != "disabled"
-        } - {""}
-        if not hnr_hosts:
-            return False
         try:
-            for tracker in torrent.trackers:
-                tracker_url = (getattr(tracker, "url", None) or "").rstrip("/")
-                if not tracker_url or _extract_tracker_host(tracker_url) not in hnr_hosts:
-                    continue
-                message_text = (getattr(tracker, "msg", "") or "").lower()
-                if any(keyword in message_text for keyword in _dead_keywords):
-                    return True
-        except Exception:
-            pass
-        return False
+            instance_name = instance_name or getattr(torrent, "_qbitrr_instance", None)
+            if client is None:
+                current = resolve_removal_torrent(self, torrent.hash, instance_name)
+                if current is None:
+                    return False
+                instance_name, client, torrent = current
+            properties = client.torrents_properties(torrent_hash=torrent.hash)
+            private = properties.get("is_private")
+            trackers = list(client.torrents_trackers(torrent_hash=torrent.hash))
+            if "is_private" not in properties:
+                # Older qBit versions mark all three discovery rows with a localized private message.
+                discovery = {
+                    t.url: t
+                    for t in trackers
+                    if t.url in {"** [DHT] **", "** [PeX] **", "** [LSD] **"}
+                }
+                messages = [getattr(t, "msg", None) for t in discovery.values()]
+                if (
+                    len(discovery) == 3
+                    and all(isinstance(msg, str) for msg in messages)
+                    and len(set(messages)) == 1
+                    and torrent.state_enum
+                    not in (
+                        TorrentStates.METADATA_DOWNLOAD,
+                        TorrentStates.FORCED_METADATA_DOWNLOAD,
+                    )
+                ):
+                    private = bool(messages[0])
+            if not isinstance(private, bool):
+                raise ValueError("Torrent privacy is unknown")
+            actual = [t for t in trackers if _extract_tracker_host(t.url)]
+            if private and not actual:
+                raise ValueError("Tracker information is unavailable")
+            seeding = load_qbit_seeding_config(instance_name, include_ignore_younger=False)
+            category = dict(seeding["default_seeding"])
+            overrides = seeding["category_overrides"]
+            matching = [
+                name
+                for name in overrides
+                if torrent.category == name
+                or (
+                    seeding["match_subcategories"]
+                    and torrent.category.startswith(name.rstrip("/") + "/")
+                )
+            ]
+            if matching:
+                category.update(overrides[max(matching, key=len)])
+            arr_section = self._removal_arr_section(torrent, instance_name)
+            configs = list(seeding["trackers"]) + list(
+                CONFIG.get(f"{arr_section}.Torrent.Trackers", fallback=[])
+                if arr_section
+                else getattr(self, "monitored_trackers", []) if not hasattr(self, "_name") else []
+            )
+            policies = []
+            hosts = set()
+            for tracker in actual:
+                host = _extract_tracker_host(tracker.url)
+                matched = [
+                    c
+                    for c in configs
+                    if (configured := _extract_tracker_host(c.get("URI", "")))
+                    and (host == configured or host.endswith("." + configured))
+                ]
+                enabled = [c for c in matched if mode(c) != "disabled"]
+                if enabled:
+                    if tracker.status != 2 or (getattr(tracker, "msg", "") or "").strip():
+                        raise ValueError("Tracker accounting is unhealthy or unknown")
+                    hosts.add(host)
+                    policies.extend(enabled)
+            category_enabled = mode(category) != "disabled"
+            if category_enabled:
+                if any(t.status != 2 or (getattr(t, "msg", "") or "").strip() for t in actual):
+                    raise ValueError("Category accounting is unhealthy or unknown")
+                policies.append(category)
+            if (
+                private
+                and not category_enabled
+                and any(_extract_tracker_host(t.url) not in hosts for t in actual)
+            ):
+                raise ValueError("Private tracker has no verified clearance requirements")
+            for policy in policies:
+                settings = {"hnr_clear_mode": mode(policy)}
+                for source, target, default in (
+                    ("MinSeedRatio", "hnr_min_seed_ratio", 1),
+                    ("MinSeedingTimeDays", "hnr_min_seeding_time_days", 0),
+                    ("HitAndRunMinimumDownloadPercent", "hnr_min_download_percent", 10),
+                    ("HitAndRunPartialSeedRatio", "hnr_partial_seed_ratio", 1),
+                    ("TrackerUpdateBuffer", "hnr_tracker_update_buffer", 0),
+                ):
+                    value = policy.get(
+                        source,
+                        (
+                            policy.get("MinSeedingTime", default)
+                            if source == "MinSeedingTimeDays"
+                            else default
+                        ),
+                    )
+                    if isinstance(value, str) and source == "TrackerUpdateBuffer":
+                        value = parse_duration(value, unit="seconds", fallback=-1)
+                    elif (
+                        isinstance(value, str)
+                        and source == "MinSeedingTimeDays"
+                        and not value.replace(".", "", 1).isdigit()
+                    ):
+                        value = parse_duration(value, unit="seconds", fallback=-86400) / 86400
+                    elif (
+                        isinstance(value, str)
+                        and source == "MinSeedingTimeDays"
+                        and not value.replace(".", "", 1).isdigit()
+                    ):
+                        value = parse_duration(value, unit="seconds", fallback=-86400) / 86400
+                    if (
+                        isinstance(value, bool)
+                        or not math.isfinite(float(value))
+                        or float(value) < 0
+                    ):
+                        raise ValueError("Invalid HnR threshold")
+                    settings[target] = float(value)
+                if settings["hnr_min_download_percent"] > 100:
+                    raise ValueError("Invalid download threshold")
+                if (
+                    any(
+                        not math.isfinite(float(getattr(torrent, name)))
+                        or float(getattr(torrent, name)) < 0
+                        for name in ("progress", "ratio", "seeding_time")
+                    )
+                    or torrent.progress > 1
+                ):
+                    raise ValueError("Invalid torrent accounting")
+                if not self._hnr_safe_to_remove(torrent, settings):
+                    raise ValueError("Configured HnR obligations remain unmet")
+            return True
+        except Exception as exc:
+            self.logger.info(
+                "HnR blocked %s of %s on %s (%s): %s",
+                reason,
+                getattr(torrent, "name", "unknown"),
+                instance_name or "unknown client",
+                getattr(torrent, "hash", "unknown"),
+                str(exc) if isinstance(exc, ValueError) else type(exc).__name__,
+            )
+            return False
 
     def _hnr_safe_to_remove(
         self, torrent: qbittorrentapi.TorrentDictionary, tracker_meta: dict
@@ -427,7 +728,7 @@ class TorrentLimits:
             if min_time_secs > 0:
                 return time_met
             return True
-        return True
+        return False
 
     def _touch_stalled_up_since(self, torrent: qbittorrentapi.TorrentDictionary) -> float | None:
         """Record or clear the first time this hash was seen in ``stalledUP``.
@@ -465,10 +766,17 @@ class TorrentLimits:
         return (time.time() - since) >= seeding_time_limit
 
     def torrent_limit_check(
-        self, torrent: qbittorrentapi.TorrentDictionary, seeding_time_limit, ratio_limit
+        self,
+        torrent: qbittorrentapi.TorrentDictionary,
+        seeding_time_limit,
+        ratio_limit,
+        *,
+        remove_mode: int | None = None,
     ) -> bool:
+        """Check configured ratio and time conditions under the selected removal mode."""
+        mode = self.seeding_mode_global_remove_torrent if remove_mode is None else remove_mode
         # -1 = Never remove (regardless of ratio/time limits)
-        if self.seeding_mode_global_remove_torrent == -1:
+        if mode == -1:
             return False
 
         # Treat limits <= 0 as unset; only consider a limit "met" when it is set (>0) and satisfied
@@ -491,7 +799,6 @@ class TorrentLimits:
             )
         time_met = seeding_time_met or idle_met
 
-        mode = self.seeding_mode_global_remove_torrent
         if mode in (1, 2, 3, 4) and not ratio_limit_valid and not time_limit_valid:
             if not self._warned_no_seeding_limits:
                 self.logger.warning(

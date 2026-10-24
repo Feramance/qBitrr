@@ -31,6 +31,7 @@ class TorrentDispatch:
         instance_name: str = "default",
         managed_tag_pool: frozenset[str] | None = None,
     ):
+        """Synchronize tracker settings and tags without erasing uncleared obligations."""
         if torrent.hash in self.tracker_delay:
             return
         self.tracker_delay.add(torrent.hash)
@@ -61,6 +62,12 @@ class TorrentDispatch:
                     or _extract_tracker_host(tracker_url) in self._remove_tracker_hosts
                 ):
                     _remove_urls.add(tracker_url)
+        if _remove_urls and not self._hnr_allows_delete(
+            torrent,
+            "tracker removal",
+            instance_name=instance_name if instance_name != "default" else None,
+        ):
+            _remove_urls.clear()
         if _remove_urls:
             self.logger.trace(
                 "Removing trackers from torrent: %s (%s) - %s",
@@ -235,6 +242,8 @@ class TorrentDispatch:
         instance_name: str = "default",
         managed_tag_pool: frozenset[str] | None = None,
     ):
+        """Classify one torrent and queue actions for its owning client."""
+        torrent._qbitrr_instance = instance_name if instance_name != "default" else None
         if torrent.category != get_recheck_category_effective():
             self.manager.qbit_manager.cache[torrent.hash] = torrent.category
         category = getattr(torrent, "category", None)
@@ -310,13 +319,13 @@ class TorrentDispatch:
                 instance_name=instance_name,
             )
         elif torrent.category == get_failed_category_effective():
-            # Bypass everything if manually marked as failed
+            # A failed-category request still requires every final removal protection.
             self._process_single_torrent_failed_cat(torrent, instance_name)
         elif torrent.category == get_recheck_category_effective():
             # Bypass everything else if manually marked for rechecking
             self._process_single_torrent_recheck_cat(torrent, instance_name)
         elif self._is_missing_files_torrent(torrent):
-            # Missing-files (and ERROR+missingFiles): bypass all other processing, delete from client.
+            # Missing-files requests still pass the shared final removal checks.
             self._process_single_torrent_missing_files(torrent, instance_name)
         elif self.is_ignored_state(torrent):
             self._process_single_torrent_ignored(torrent)

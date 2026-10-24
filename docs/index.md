@@ -75,7 +75,7 @@
 - **Automatic HnR tracking** – prevent torrent removal until seeding obligations are met
 - **Configurable thresholds** – per-tracker minimum ratio, seeding time, and download percentage
 - **Partial download handling** – ratio-only clearing for incomplete downloads
-- **Dead tracker bypass** – auto-exempt torrents from unregistered/unauthorized trackers
+- **Mandatory HnR clearance** – preserve torrents when tracker obligations or accounting are unmet or unknown
 - **Tracker inheritance** – define HnR rules once at qBit level, inherited by all Arr instances
 
 ### 💾 Disk Space & Resource Management

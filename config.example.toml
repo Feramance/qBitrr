@@ -219,7 +219,7 @@ MaxSeedingTime = -1
 #    4 = Remove when both conditions are met (AND)
 RemoveTorrent = -1
 
-# Hit and Run mode: and = require both ratio and time; or = either clears; disabled = no HnR
+# Hit and Run mode: and = require both ratio and time; or = either clears; disabled = no clearance requirements from this rule; private torrents still need verified clearance
 HitAndRunMode = "disabled"
 
 # Minimum seed ratio before removal allowed (HnR protection)
