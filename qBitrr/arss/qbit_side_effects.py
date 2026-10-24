@@ -281,7 +281,7 @@ def complete_removal_followups(worker: Any, hashes: set[str]) -> None:
 
 def reconcile_removal_attempts(worker: Any) -> None:
     """Confirm uncertain deletions by successful absence lookups, retaining outages for retry."""
-    for key, (snapshot, _, peers) in list(getattr(worker, "_pending_client_removals", {}).items()):
+    for key, (_, _, peers) in list(getattr(worker, "_pending_client_removals", {}).items()):
         instance, hash_ = key
         try:
             client = worker._get_qbit_client(instance)
@@ -293,8 +293,7 @@ def reconcile_removal_attempts(worker: Any) -> None:
                 if t.hash.lower() == hash_.lower()
             ]
             if matches:
-                if len(matches) != 1 or removal_candidate(matches[0]) != snapshot:
-                    del worker._pending_client_removals[key]
+                del worker._pending_client_removals[key]
                 continue
             absent = True
             for peer in peers - {instance}:
@@ -338,11 +337,19 @@ def delete_hashes_per_instance(
                     ):
                         return False
                     client = worker._get_qbit_client(instance_name)
-                    return client is not None and not any(
+                    if client is None:
+                        return False
+                    present = any(
                         t.hash.lower() == hash_.lower()
                         for t in client.torrents_info(torrent_hashes=hash_)
                     )
+                    if present:
+                        worker._pending_client_removals.pop((instance_name, hash_), None)
+                    return not present
                 instance, client, torrent = current
+                key = (instance_name, hash_)
+                # Fresh presence disproves the old uncertain removal, even if this retry refuses.
+                getattr(worker, "_pending_client_removals", {}).pop(key, None)
                 snapshot = removal_candidate(torrent)
                 if expected is None:
                     expected = snapshot
@@ -373,20 +380,17 @@ def delete_hashes_per_instance(
                     return False
                 if not hasattr(worker, "_pending_client_removals"):
                     worker._pending_client_removals = {}
-                key = (instance_name, hash_)
                 peers = {instance_name} | {
                     instance
                     for name in ("delete_by_instance", "remove_from_qbit_by_instance")
                     for instance, pending in getattr(worker, name, {}).items()
                     if any(h.lower() == hash_.lower() for h in pending)
                 }
-                previous = worker._pending_client_removals.get(key)
-                if previous is None or previous[0] != snapshot:
-                    worker._pending_client_removals[key] = (
-                        snapshot,
-                        (queue_followups or {}).get(hash_.lower(), []),
-                        peers,
-                    )
+                worker._pending_client_removals[key] = (
+                    snapshot,
+                    (queue_followups or {}).get(hash_.lower(), []),
+                    peers,
+                )
                 result = client.torrents_delete(hashes=[hash_], delete_files=delete_files)
                 if result is False or not worker._pending_client_removals[key][1]:
                     worker._pending_client_removals.pop(key, None)

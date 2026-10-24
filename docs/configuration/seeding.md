@@ -1364,7 +1364,7 @@ Completed file-cleanup entries are discarded even if valid media remains for see
 
 Blocked import-error paths also survive warning refreshes, including when Arr no longer reports the original warning. Existing paths are reconsidered under current removal protections on each cleanup pass.
 
-If a client deletion response is lost, qBitrr retains the attempted torrent identity and original Arr queue/media IDs. A later successful lookup must confirm absence from every targeted client before Arr follow-up work proceeds. An unavailable client keeps the confirmation pending; a re-added torrent invalidates the old attempt. These records are held in memory and clear on restart.
+If a client deletion response is lost, qBitrr retains the attempted torrent identity and original Arr queue/media IDs. A later successful lookup must confirm absence from every targeted client before Arr follow-up work proceeds. An unavailable client keeps the confirmation pending. A fresh lookup that still finds the torrent invalidates the old attempt, including when a retry refuses deletion, so a later unrelated removal cannot release stale Arr follow-up work. These records are held in memory and clear on restart.
 
 Only Arr sections with `Managed = true` participate in removal ownership. Exact matches and the longest eligible prefix are resolved across both Arr and qBit-managed categories, so a qBit-managed child does not inherit its parent Arr's removal policy. The global minimum age uses the effective environment override, including the fallback for clients without an explicit age. Explicit client, category, and Arr age protections still apply.
 

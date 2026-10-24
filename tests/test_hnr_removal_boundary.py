@@ -865,6 +865,88 @@ class HnrRemovalTests(unittest.TestCase):
         self.assertEqual(delete_hashes_per_instance(self.worker, {"one": {"superman"}}), set())
         self.client.torrents_delete.assert_called_once()
 
+    def test_refused_retries_discard_uncertain_arr_followups(self) -> None:
+        """Refusals after fresh presence cannot release Arr work on a later unrelated removal."""
+        for refusal in (
+            "identity",
+            "cf",
+            "rules",
+            "files",
+            "path_error",
+            "post_scan",
+            "lookup_recovery",
+        ):
+            with self.subTest(refusal=refusal):
+                worker = Worker()
+                torrent, client = worker.add(ratio=2)
+                worker.cache = {"SUPERMAN": 17}
+                worker.requeue_cache = {17: 42}
+                worker.custom_format_unmet_search = True
+                worker.custom_format_unmet_check = MagicMock(return_value=True)
+                if refusal == "cf":
+                    worker._removal_reasons = {("one", "superman"): "CF unmet deletion"}
+                if refusal == "post_scan":
+                    worker._deletion_rules_allow = MagicMock(side_effect=[True, True, True, False])
+
+                def delete(**kwargs: object) -> None:
+                    """Leave the torrent present and make the next removal check refuse."""
+                    if refusal == "identity":
+                        torrent.added_on = 2
+                    elif refusal == "cf":
+                        worker.custom_format_unmet_check.return_value = False
+                    elif refusal == "rules":
+                        torrent.ratio = 0
+                    elif refusal == "files":
+                        client.torrents_files.return_value = []
+                    elif refusal == "path_error":
+                        client.torrents_files.return_value = [SimpleNamespace(name="../escape")]
+                    elif refusal == "lookup_recovery":
+                        client.torrents_info.side_effect = [
+                            qbittorrentapi.exceptions.APIConnectionError("offline"),
+                            [torrent],
+                        ]
+                    raise qbittorrentapi.exceptions.APIError("request failed")
+
+                def retry(fn: Callable[[], bool], **kwargs: object) -> bool:
+                    """Retry the failed request immediately with current torrent data."""
+                    try:
+                        return fn()
+                    except qbittorrentapi.exceptions.APIError:
+                        return fn()
+
+                client.torrents_delete.side_effect = delete
+                worker._qbit_retry = retry
+                self.assertFalse(
+                    delete_hashes_per_instance(
+                        worker,
+                        {"one": {"superman"}},
+                        queue_followups=worker._removal_queue_followups({"superman"}, set()),
+                    )
+                )
+                client.torrents_delete.assert_called_once()
+                self.assertFalse(worker._pending_client_removals)
+                client.torrents_info.side_effect = None
+                client.torrents_info.return_value = []
+                worker._reset_removal_requests()
+                self.assertFalse(getattr(worker, "_pending_queue_deletes", {}))
+
+    def test_fresh_presence_cancels_uncertain_deletion_before_reclassification(self) -> None:
+        """A present torrent invalidates uncertain Arr work even when no retry is classified."""
+        self.torrent.ratio = 2
+        self.worker.cache = {"SUPERMAN": 17}
+        self.client.torrents_delete.side_effect = qbittorrentapi.exceptions.APIError("offline")
+        delete_hashes_per_instance(
+            self.worker,
+            {"one": {"superman"}},
+            queue_followups=self.worker._removal_queue_followups({"superman"}, set()),
+        )
+        self.assertTrue(self.worker._pending_client_removals)
+        self.worker._reset_removal_requests()
+        self.assertFalse(self.worker._pending_client_removals)
+        self.client.torrents_info.return_value = []
+        self.worker._reset_removal_requests()
+        self.assertFalse(getattr(self.worker, "_pending_queue_deletes", {}))
+
     def test_queue_deletion_cannot_delegate_removal_to_arr(self):
         """Verify queue deletion cannot delegate removal to arr."""
         arr = ArrBase.__new__(ArrBase)
