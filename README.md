@@ -78,7 +78,7 @@ Use `:stable` for production (feature/fix releases). `:latest` also includes wee
 - **🎯 Request Integration** – Pull requests from Overseerr/Ombi, prioritize user-requested media
 - **📊 Quality Management** – RSS sync, queue refresh, profile switching, custom format enforcement
 - **🌱 Seeding Control** – Per-tracker settings, ratio/time limits, tracker injection
-- **🛡️ Hit and Run Protection** – Automatic HnR obligation tracking with configurable thresholds, partial download handling, and dead tracker bypass
+- **🛡️ Hit and Run Protection** – Automatic HnR obligation tracking with configurable thresholds, partial download handling, and mandatory clearance before removal
 - **💾 Disk Space Management** – Auto-pause when low on space, configurable thresholds
 - **🔄 Auto-Updates** – GitHub release-based updates with scheduled cron support
 - **💻 Modern WebUI** – Live process monitoring, log viewer, Arr insights, config editor

@@ -114,18 +114,28 @@ class TestProcessFailedRetention(unittest.TestCase):
         self.assertIn("hash1", arr.delete)
 
     def test_prunes_hashes_after_successful_per_instance_delete(self) -> None:
+        """Verify prunes hashes after successful per instance delete."""
         arr = _bare_arr()
         arr.delete = {"hash1", "hash2"}
         arr.delete_by_instance = {"vpn": {"hash1"}, "default": {"hash2"}}
         vpn_client = MagicMock()
         default_client = MagicMock()
+        for client, hash_ in ((vpn_client, "hash1"), (default_client, "hash2")):
+            client.torrents_info.return_value = [
+                SimpleNamespace(hash=hash_, save_path="/downloads")
+            ]
+            client.torrents_files.return_value = [SimpleNamespace(name=hash_)]
+        arr._deletion_rules_allow = MagicMock(return_value=True)
 
         def get_client(name: str) -> MagicMock | None:
             return {"vpn": vpn_client, "default": default_client}.get(name)
 
         arr.manager.qbit_manager.get_client.side_effect = get_client
 
-        with patch.object(arr, "_qbit_retry", side_effect=lambda fn, **_: fn()):
+        with (
+            patch.object(arr, "_qbit_retry", side_effect=lambda fn, **_: fn()),
+            patch("qBitrr.arss.qbit_side_effects.content_removal_allowed", return_value=True),
+        ):
             arr._process_failed()
 
         self.assertNotIn("hash1", arr.delete_by_instance.get("vpn", set()))
@@ -618,7 +628,8 @@ class TestLegacyDefaultClientRouting(unittest.TestCase):
         legacy_client.torrents_pause.assert_called_once_with(torrent_hashes=["hash1"])
         self.assertEqual(arr.pause, set())
 
-    def test_legacy_delete_uses_primary_client(self) -> None:
+    def test_legacy_delete_cannot_guess_primary_client(self) -> None:
+        """Verify legacy delete cannot guess primary client."""
         arr = _bare_arr()
         arr.delete = {"hash1"}
         arr.remove_from_qbit = set()
@@ -635,7 +646,8 @@ class TestLegacyDefaultClientRouting(unittest.TestCase):
         ):
             arr._process_failed()
 
-        legacy_client.torrents_delete.assert_called_once()
+        legacy_client.torrents_delete.assert_not_called()
+        self.assertIn("hash1", arr.delete)
 
 
 class TestWorkerQbitPreflight(unittest.TestCase):

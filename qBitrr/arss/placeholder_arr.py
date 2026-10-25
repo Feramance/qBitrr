@@ -264,9 +264,11 @@ class PlaceHolderArr(ArrBase):
             self._apply_qbit_seeding_config()
 
     def process_torrents(self):
+        """Classify current placeholder-category torrents and rebuild removal requests."""
         try:
             try:
                 self._sync_loop_settings_from_config()
+                self._reset_removal_requests(cross_arr=True)
                 torrents_with_instances = with_retry(
                     lambda: self._get_torrents_from_all_instances(),
                     retries=5,
