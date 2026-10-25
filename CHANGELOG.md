@@ -1,5 +1,21 @@
 # Changelog
 
+## v5.14.7-1 (25/10/2026)
+
+### 🐛 Bug Fixes
+- [[patch] fix: require removal protections across torrent cleanup paths (#628)](https://github.com/Feramance/qBitrr/commit/f8e0d68163f8ae9e2454da337a1375d08752dab3) - @Feramance
+
+### 🔧 Maintenance
+- [chore(deps-dev): align Vitest coverage provider with test runner](https://github.com/Feramance/qBitrr/commit/82440f51ec5e8f03de27a150cdfd92e194c3ca0c) - @Feramance
+- [[pre-commit.ci] pre-commit autoupdate](https://github.com/Feramance/qBitrr/commit/50b10e3a9601b1d313a56ea02f6367dbe2d09f48) - @Feramance
+- [chore(deps-dev): bump eslint from 10.10.0 to 10.12.0 in /webui](https://github.com/Feramance/qBitrr/commit/497e94f44d440f8080d36c7c7c530cf9db4951f2) - @Feramance
+- [chore(deps-dev): bump vite from 8.3.0 to 8.3.4 in /webui](https://github.com/Feramance/qBitrr/commit/f6343ad0e625f0b0eddaacd99491ea861865fc50) - @Feramance
+- [chore(deps-dev): bump jsdom from 30.1.1 to 30.1.2 in /webui](https://github.com/Feramance/qBitrr/commit/c34e4012dc98c382492cc087d0f0700118d704d4) - @Feramance
+- [chore(deps-dev): bump vitest from 4.1.11 to 5.0.3 in /webui](https://github.com/Feramance/qBitrr/commit/e1703a538207756c852a92fd8b61f466238a43c1) - @Feramance
+- [chore(deps-dev): bump typescript-eslint from 8.71.0 to 8.71.1 in /webui](https://github.com/Feramance/qBitrr/commit/c8247a2c7fa1d1aed6a7bab05624d8098246bc85) - @Feramance
+
+---
+
 ## v5.14.6-2 (19/10/2026)
 
 ### 🔧 Maintenance
