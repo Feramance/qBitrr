@@ -1,5 +1,12 @@
 # Changelog
 
+## v5.14.7-2 (26/10/2026)
+
+### 🔧 Maintenance
+- [chore(deps): bump @tanstack/react-table from 9.2.4 to 9.3.1 in /webui (#636)](https://github.com/Feramance/qBitrr/commit/2d8dce3e946f7a77eb600dc3a6e139e958c1148e) - @Feramance
+
+---
+
 ## v5.14.7-1 (25/10/2026)
 
 ### 🐛 Bug Fixes
