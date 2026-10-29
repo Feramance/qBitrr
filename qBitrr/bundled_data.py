@@ -1,4 +1,4 @@
-version = "5.14.7-2"
+version = "5.14.7-3"
 license_text = (
     "Licence can be found on:\n\nhttps://github.com/Feramance/qBitrr/blob/master/LICENSE"
 )
