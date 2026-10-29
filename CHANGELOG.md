@@ -1,5 +1,19 @@
 # Changelog
 
+## v5.14.7-3 (29/10/2026)
+
+### 🔧 Maintenance
+- [chore(deps-dev): patch vulnerable undici and zod dependencies](https://github.com/Feramance/qBitrr/commit/bd24eeeba78313f788493690d1414b75dc210a22) - @Feramance
+- [chore(deps-dev): bump @testing-library/user-event in /webui](https://github.com/Feramance/qBitrr/commit/ab117197a7b673a3bcf117489908ad224c5eb12d) - @Feramance
+- [chore(deps): bump immer from 11.1.16 to 11.2.9 in /webui](https://github.com/Feramance/qBitrr/commit/12e99b4c9089f51adc57114b6a1ba1f28a5be017) - @Feramance
+- [chore(deps): bump actions/setup-python from 7.0.0 to 7.1.0](https://github.com/Feramance/qBitrr/commit/7cd65c937f361205c94527a65e02399d4392d03e) - @Feramance
+- [chore(deps-dev): bump eslint from 10.12.0 to 10.13.0 in /webui](https://github.com/Feramance/qBitrr/commit/c20c24d9cf4163d042d9cf2d89f6473004862db8) - @Feramance
+- [chore(deps-dev): bump postcss from 8.5.29 to 8.5.31 in /webui](https://github.com/Feramance/qBitrr/commit/24c2ef210bfcac573371f021bb2f70cc2c91aa1b) - @Feramance
+- [chore(deps): bump docker/login-action from 4.6.0 to 4.7.0](https://github.com/Feramance/qBitrr/commit/6e35214ef3113a8e8bb46ef15b271e03e42c4744) - @Feramance
+- [chore(deps): bump github/codeql-action from 4.39.0 to 4.39.1](https://github.com/Feramance/qBitrr/commit/f66299e8d48f4846943ad30c73bfbe4618cbcfbf) - @Feramance
+
+---
+
 ## v5.14.7-2 (26/10/2026)
 
 ### 🔧 Maintenance
