@@ -1,5 +1,12 @@
 # Changelog
 
+## v5.14.8-1 (30/10/2026)
+
+### 🐛 Bug Fixes
+- [[patch] fix: remove verified metadata-only torrents (#638)](https://github.com/Feramance/qBitrr/commit/6322645fb4dd4b45d5d4ed8594db4706b58415eb) - @Feramance
+
+---
+
 ## Unreleased
 
 ### Bug Fixes
