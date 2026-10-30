@@ -20,6 +20,7 @@ from qBitrr.arss.qbit_side_effects import (
     content_removal_allowed,
     delete_hashes_on_primary,
     delete_hashes_per_instance,
+    is_metadata_only_torrent,
 )
 from qBitrr.arss.torrent_batch import TorrentBatch
 from qBitrr.arss.torrent_limits import TorrentLimits
@@ -76,6 +77,7 @@ class Worker(TorrentLimits, TorrentBatch):
             name="Superman 2025 Hybrid",
             category="movies",
             progress=0.5416,
+            downloaded=1024,
             ratio=0.000249,
             seeding_time=0,
             save_path="/downloads",
@@ -320,6 +322,117 @@ class HnrRemovalTests(unittest.TestCase):
         self.torrent.state_enum = qbittorrentapi.TorrentStates.DOWNLOADING
         self.client.torrents_trackers.return_value.pop()
         self.assertFalse(self.allowed())
+
+    def test_metadata_only_removal_confirms_arr_followups_without_deleting_files(self) -> None:
+        """Remove empty magnets despite unknown privacy, then release Arr queue cleanup."""
+        self.torrent.progress = 0
+        self.torrent.downloaded = 0
+        self.client.torrents_files.return_value = []
+        self.client.torrents_properties.return_value = {}
+        self.client.torrents_trackers.side_effect = RuntimeError("No tracker metadata")
+        for state in (
+            qbittorrentapi.TorrentStates.METADATA_DOWNLOAD,
+            qbittorrentapi.TorrentStates.FORCED_METADATA_DOWNLOAD,
+        ):
+            with self.subTest(state=state):
+                self.torrent.state_enum = state
+                self.worker.delete.add("superman")
+                self.worker.delete_by_instance["one"].add("superman")
+                self.worker._process_failed()
+                self.client.torrents_delete.assert_called_with(
+                    hashes=["superman"], delete_files=False
+                )
+                self.worker._process_failed_dispatch_queue_deletes.assert_called_with(
+                    {"superman"}, set(), cross_arr=False
+                )
+                self.assertNotIn("one", self.worker.delete_by_instance)
+        self.client.torrents_properties.assert_not_called()
+        self.client.torrents_trackers.assert_not_called()
+
+    def test_metadata_only_removal_preserves_age_stall_and_never_remove_rules(self) -> None:
+        """Having no payload does not authorize early or disabled torrent removal."""
+        self.torrent.state_enum = qbittorrentapi.TorrentStates.METADATA_DOWNLOAD
+        self.torrent.progress = 0
+        self.torrent.downloaded = 0
+        self.client.torrents_files.return_value = []
+        for values, policy in (
+            ({"added_on": time.time()}, {}),
+            ({"added_on": time.time() - 3600}, {"StalledDelay": 240}),
+            ({"added_on": 1}, {"StalledDelay": -1}),
+            ({"added_on": 1}, {"RemoveTorrent": -1}),
+            ({"added_on": 1, "tags": "qBitrr-ignored"}, {}),
+        ):
+            with self.subTest(values=values, policy=policy):
+                self.torrent.__dict__.update(values)
+                original = dict(self.seeding["default_seeding"])
+                self.seeding["default_seeding"].update(policy)
+                self.assertFalse(delete_hashes_per_instance(self.worker, {"one": {"superman"}}))
+                self.client.torrents_delete.assert_not_called()
+                self.seeding["default_seeding"] = original
+
+    def test_metadata_only_requires_verified_empty_payload(self) -> None:
+        """Unknown accounting, ordinary states, and nonempty file lists stay protected."""
+        self.torrent.state_enum = qbittorrentapi.TorrentStates.METADATA_DOWNLOAD
+        self.torrent.progress = 0
+        self.torrent.downloaded = 0
+        self.client.torrents_files.return_value = []
+        self.assertTrue(is_metadata_only_torrent(self.client, self.torrent))
+        for key, value in (
+            ("downloaded", None),
+            ("downloaded", False),
+            ("downloaded", -1),
+            ("downloaded", 1),
+            ("progress", 0.1),
+            ("progress", False),
+            ("state_enum", qbittorrentapi.TorrentStates.DOWNLOADING),
+        ):
+            with self.subTest(key=key, value=value):
+                original = getattr(self.torrent, key)
+                setattr(self.torrent, key, value)
+                self.assertFalse(is_metadata_only_torrent(self.client, self.torrent))
+                setattr(self.torrent, key, original)
+        for files in (None, [SimpleNamespace(name="movie.mkv")]):
+            self.client.torrents_files.return_value = files
+            self.assertFalse(is_metadata_only_torrent(self.client, self.torrent))
+        self.client.torrents_files.side_effect = RuntimeError("Unavailable files")
+        self.assertFalse(delete_hashes_per_instance(self.worker, {"one": {"superman"}}))
+        self.client.torrents_delete.assert_not_called()
+
+    def test_metadata_only_candidate_rechecks_new_metadata_before_removal(self) -> None:
+        """Do not use metadata-only clearance after metadata or payload appears."""
+        self.torrent.state_enum = qbittorrentapi.TorrentStates.METADATA_DOWNLOAD
+        self.torrent.progress = 0
+        self.torrent.downloaded = 0
+        self.client.torrents_files.return_value = []
+        replacement = SimpleNamespace(**vars(self.torrent))
+        replacement.state_enum = qbittorrentapi.TorrentStates.DOWNLOADING
+        self.client.torrents_info.side_effect = [[self.torrent], [replacement]]
+        self.assertFalse(delete_hashes_per_instance(self.worker, {"one": {"superman"}}))
+        self.client.torrents_delete.assert_not_called()
+        self.client.torrents_info.side_effect = None
+        self.client.torrents_files.side_effect = [[], [], [SimpleNamespace(name="movie.mkv")]]
+        self.assertFalse(delete_hashes_per_instance(self.worker, {"one": {"superman"}}))
+        self.client.torrents_delete.assert_not_called()
+
+    def test_metadata_only_peer_does_not_veto_shared_folder_cleanup(self) -> None:
+        """Ignore empty magnets on another client while retaining real file owners."""
+        self.torrent.ratio = 2
+        other, client = self.worker.add(
+            "two",
+            hash="magnet",
+            progress=0,
+            downloaded=0,
+            state_enum=qbittorrentapi.TorrentStates.METADATA_DOWNLOAD,
+        )
+        client.torrents_files.return_value = []
+        targets = [Path("/downloads/movie.mkv")]
+        self.assertTrue(content_removal_allowed(self.worker, targets))
+        other.downloaded = 1
+        self.assertFalse(content_removal_allowed(self.worker, targets))
+        other.downloaded = 0
+        other.progress = 0.5
+        client.torrents_files.return_value = [SimpleNamespace(name="movie.mkv")]
+        self.assertFalse(content_removal_allowed(self.worker, targets))
 
     def test_unrelated_metadata_and_unsafe_files_do_not_veto_content_cleanup(self):
         """Verify unrelated metadata and unsafe files do not veto content cleanup."""

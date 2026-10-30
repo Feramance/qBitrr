@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Bug Fixes
+- Remove verified empty metadata-stuck magnets after removal policies clear, and prevent them from blocking cleanup of other torrents sharing their save folder (#637).
+
 ## v5.14.7-3 (29/10/2026)
 
 ### 🔧 Maintenance

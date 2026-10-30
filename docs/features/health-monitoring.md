@@ -115,6 +115,8 @@ A torrent is considered "stalled" when:
 
 Metadata-stuck torrents use the same `StalledDelay`, `ReSearchStalled`, and `IgnoreTorrentsYoungerThan` settings as stalled downloads. Timing is based on `added_on` for metadata states because qBittorrent can keep updating `last_activity` during metadata retries.
 
+When a metadata-stuck torrent has zero downloaded payload bytes, zero progress, and a verified empty file list, qBitrr removes only its client entry after the removal rules clear. Missing privacy or tracker metadata does not block this empty-magnet cleanup, and the magnet does not block cleanup of other torrents in its save folder. Arr queue removal and blocklisting follow successful client removal. Unknown payload accounting or an unavailable file list keeps the torrent protected.
+
 ### Configuration
 
 ```toml
