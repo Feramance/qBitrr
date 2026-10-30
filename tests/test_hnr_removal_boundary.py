@@ -23,6 +23,8 @@ from qBitrr.arss.qbit_side_effects import (
     is_metadata_only_torrent,
 )
 from qBitrr.arss.torrent_batch import TorrentBatch
+from qBitrr.arss.torrent_dispatch import TorrentDispatch
+from qBitrr.arss.torrent_inspect import TorrentInspect
 from qBitrr.arss.torrent_limits import TorrentLimits
 
 
@@ -31,7 +33,7 @@ def tracker(url="https://tracker.example/announce", status=2, msg=""):
     return SimpleNamespace(url=url, status=status, msg=msg)
 
 
-class Worker(TorrentLimits, TorrentBatch):
+class Worker(TorrentLimits, TorrentBatch, TorrentDispatch, TorrentInspect):
     def __init__(self):
         """Initialize a worker with mocked side effects and explicit removal state."""
         self.logger = logging.getLogger("hnr-test")
@@ -323,10 +325,23 @@ class HnrRemovalTests(unittest.TestCase):
         self.client.torrents_trackers.return_value.pop()
         self.assertFalse(self.allowed())
 
-    def test_metadata_only_removal_confirms_arr_followups_without_deleting_files(self) -> None:
-        """Remove empty magnets despite unknown privacy, then release Arr queue cleanup."""
+    def test_expired_metadata_dispatch_removes_client_and_confirms_arr_followups(self) -> None:
+        """Dispatch both empty-magnet states after positive stalled grace expires."""
         self.torrent.progress = 0
         self.torrent.downloaded = 0
+        self.torrent.added_on = time.time() - 1200
+        self.torrent.last_activity = time.time()
+        self.worker.logger = MagicMock()
+        self.worker.stalled_delay = 15
+        self.worker.allowed_stalled = True
+        self.worker.custom_format_unmet_search = False
+        self.worker.in_tags = MagicMock(return_value=False)
+        self.worker._should_leave_alone = MagicMock(return_value=(False, -1, False, None, None))
+        self.worker.manager.qbit_manager.cache = {}
+        self.worker.manager.policy_manager_owns_tracker_sync_for_category = MagicMock(
+            return_value=True
+        )
+        self.seeding["stalled_delay"] = 15
         self.client.torrents_files.return_value = []
         self.client.torrents_properties.return_value = {}
         self.client.torrents_trackers.side_effect = RuntimeError("No tracker metadata")
@@ -336,13 +351,18 @@ class HnrRemovalTests(unittest.TestCase):
         ):
             with self.subTest(state=state):
                 self.torrent.state_enum = state
-                self.worker.delete.add("superman")
-                self.worker.delete_by_instance["one"].add("superman")
+                self.client.torrents_delete.reset_mock()
+                self.worker._process_failed_dispatch_queue_deletes.reset_mock()
+                self.assertFalse(self.worker.delete)
+                self.assertFalse(self.worker.delete_by_instance)
+                self.worker._process_single_torrent(self.torrent, "one")
+                self.assertEqual(self.worker.delete, {"superman"})
+                self.assertEqual(self.worker.delete_by_instance, {"one": {"superman"}})
                 self.worker._process_failed()
-                self.client.torrents_delete.assert_called_with(
+                self.client.torrents_delete.assert_called_once_with(
                     hashes=["superman"], delete_files=False
                 )
-                self.worker._process_failed_dispatch_queue_deletes.assert_called_with(
+                self.worker._process_failed_dispatch_queue_deletes.assert_called_once_with(
                     {"superman"}, set(), cross_arr=False
                 )
                 self.assertNotIn("one", self.worker.delete_by_instance)
