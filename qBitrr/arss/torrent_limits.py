@@ -528,7 +528,10 @@ class TorrentLimits:
         client: qbittorrentapi.Client | None = None,
     ) -> bool:
         """Require verified clearance for every applicable tracker and category obligation."""
-        from qBitrr.arss.qbit_side_effects import resolve_removal_torrent
+        from qBitrr.arss.qbit_side_effects import (
+            is_metadata_only_torrent,
+            resolve_removal_torrent,
+        )
         from qBitrr.config import CONFIG
         from qBitrr.qbit_seeding_config import load_qbit_seeding_config
 
@@ -550,6 +553,8 @@ class TorrentLimits:
                 if current is None:
                     return False
                 instance_name, client, torrent = current
+            if is_metadata_only_torrent(client, torrent):
+                return True
             properties = client.torrents_properties(torrent_hash=torrent.hash)
             private = properties.get("is_private")
             trackers = list(client.torrents_trackers(torrent_hash=torrent.hash))

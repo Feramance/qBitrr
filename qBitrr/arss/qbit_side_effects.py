@@ -8,6 +8,8 @@ from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any
 
+from qbittorrentapi import TorrentStates
+
 from qBitrr.arss.arr_shared import (
     _QBIT_TORRENT_DELETE_EXCEPTIONS,
     _QBIT_WRITE_RETRY_EXCEPTIONS,
@@ -190,6 +192,20 @@ def resolve_removal_torrent(
     return matches[0] if len(matches) == 1 else None
 
 
+def is_metadata_only_torrent(client: Any, torrent: Any) -> bool:
+    """Verify a metadata download has no payload accounting or declared files."""
+    downloaded = getattr(torrent, "downloaded", None)
+    return (
+        getattr(torrent, "state_enum", None)
+        in (TorrentStates.METADATA_DOWNLOAD, TorrentStates.FORCED_METADATA_DOWNLOAD)
+        and type(downloaded) is int
+        and downloaded == 0
+        and not isinstance(torrent.progress, bool)
+        and torrent.progress == 0
+        and client.torrents_files(torrent_hash=torrent.hash) == []
+    )
+
+
 def _torrent_file_paths(client: Any, torrent: Any) -> list[Path]:
     """Resolve only file paths contained within the torrent's declared save root."""
     root = Path(torrent.save_path)
@@ -238,6 +254,8 @@ def content_removal_allowed(worker: Any, paths: list[Path]) -> bool:
                     target.is_relative_to(root) or root.is_relative_to(target)
                     for target in targets
                 ):
+                    continue
+                if is_metadata_only_torrent(client, torrent):
                     continue
                 files = _torrent_file_paths(client, torrent)
                 if not files:
@@ -364,7 +382,8 @@ def delete_hashes_per_instance(
                     torrent, "final torrent removal", instance_name=instance, client=client
                 ):
                     return False
-                if delete_files:
+                metadata_only = is_metadata_only_torrent(client, torrent)
+                if delete_files and not metadata_only:
                     paths = _torrent_file_paths(client, torrent)
                     if not paths or not content_removal_allowed(worker, paths):
                         return False
@@ -373,6 +392,7 @@ def delete_hashes_per_instance(
                 if (
                     current is None
                     or removal_candidate(current[2]) != snapshot
+                    or (metadata_only and not is_metadata_only_torrent(client, current[2]))
                     or not worker._deletion_rules_allow(
                         current[2], "final torrent removal", instance_name=instance, client=client
                     )
@@ -391,7 +411,9 @@ def delete_hashes_per_instance(
                     (queue_followups or {}).get(hash_.lower(), []),
                     peers,
                 )
-                result = client.torrents_delete(hashes=[hash_], delete_files=delete_files)
+                result = client.torrents_delete(
+                    hashes=[hash_], delete_files=delete_files and not metadata_only
+                )
                 if result is False or not worker._pending_client_removals[key][1]:
                     worker._pending_client_removals.pop(key, None)
                 return result is not False
