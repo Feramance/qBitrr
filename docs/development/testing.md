@@ -403,3 +403,7 @@ cd webui && npm test
 - [Development Guide](index.md) - Complete development setup
 - [Contributing](contributing.md) - Contribution guidelines
 - [Code Style](code-style.md) - Code formatting rules
+
+## CI Python version
+
+GitHub Actions selects the latest available Python 3.12 patch release for backend checks and packaged builds. Using the minor version keeps the runtime compatible with updated hosted runner images.
