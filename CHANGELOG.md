@@ -1,5 +1,12 @@
 # Changelog
 
+## v5.14.8-2 (02/11/2026)
+
+### 🔧 Maintenance
+- [chore(deps-dev): bump @vitest/coverage-v8 from 5.0.3 to 5.0.5 in /webui (#643)](https://github.com/Feramance/qBitrr/commit/24b9ab3f7e054bdadb79fd82d700b7770a85fb8e) - @Feramance
+
+---
+
 ## v5.14.8-1 (30/10/2026)
 
 ### 🐛 Bug Fixes
