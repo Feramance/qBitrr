@@ -208,18 +208,19 @@ class TorrentInspect:
                     % (seeding_time_limit if seeding_time_limit > 0 else "unset")
                 )
             extra = " [%s]" % ", ".join(parts)
-        self.logger.info(
-            "Marking for deletion (%s): [Progress: %s%%][Ratio: %s][Seeding time: %s] | %s (%s)%s",
-            reason,
-            round(torrent.progress * 100, 2),
-            torrent.ratio,
-            timedelta(seconds=torrent.seeding_time),
-            torrent.name,
-            torrent.hash,
-            extra,
-        )
-        from qBitrr.arss.qbit_side_effects import removal_candidate
+        from qBitrr.arss.qbit_side_effects import removal_candidate, removal_retry_deferred
 
+        if not removal_retry_deferred(self, instance_name, torrent):
+            self.logger.info(
+                "Marking for deletion (%s): [Progress: %s%%][Ratio: %s][Seeding time: %s] | %s (%s)%s",
+                reason,
+                round(torrent.progress * 100, 2),
+                torrent.ratio,
+                timedelta(seconds=torrent.seeding_time),
+                torrent.name,
+                torrent.hash,
+                extra,
+            )
         if not hasattr(self, "_removal_candidates"):
             self._removal_candidates = {}
         self._removal_candidates[(instance_name, torrent.hash)] = removal_candidate(torrent)

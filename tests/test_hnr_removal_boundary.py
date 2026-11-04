@@ -143,6 +143,88 @@ class HnrRemovalTests(unittest.TestCase):
             self.torrent, "test", instance_name="one", client=self.client
         )
 
+    def test_blocked_candidate_backs_off_without_repeated_marking(self) -> None:
+        """Log a refusal once and retry unchanged candidates only after five minutes."""
+        self.torrent.ratio = 2
+        self.worker.logger = MagicMock()
+        self.seeding["default_seeding"]["RemoveTorrent"] = -1
+        with patch("qBitrr.arss.qbit_side_effects.time.monotonic", return_value=100) as clock:
+            self.worker._mark_for_deletion(self.torrent, "Stalled State", instance_name="one")
+            self.worker._process_failed()
+            self.worker._log_deletion_summary_line.assert_called_with(1, 0, 0)
+            messages = [str(call) for call in self.worker.logger.info.call_args_list]
+            self.assertTrue(any("RemoveTorrent=-1" in message for message in messages))
+            self.worker.logger.reset_mock()
+            self.worker._reset_removal_requests()
+            self.worker._mark_for_deletion(self.torrent, "Stalled State", instance_name="one")
+            with patch.object(self.worker, "_deletion_rules_allow") as rules:
+                self.worker._process_failed()
+                rules.assert_not_called()
+            self.worker.logger.info.assert_not_called()
+            clock.return_value = 400
+            self.worker._reset_removal_requests()
+            self.worker._mark_for_deletion(self.torrent, "Stalled State", instance_name="one")
+            self.worker._process_failed()
+            self.assertEqual(
+                self.worker.logger.info.call_count, 1
+            )  # Marking, same refusal stays quiet.
+            self.client.torrents_delete.assert_not_called()
+
+    def test_backoff_ends_after_activity_change_and_rechecks_protections(self) -> None:
+        """Activity changes trigger fresh rules and successful deletion clears backoff."""
+        self.torrent.ratio = 2
+        self.seeding["default_seeding"]["RemoveTorrent"] = -1
+        self.worker._mark_for_deletion(self.torrent, "Stalled State", instance_name="one")
+        self.worker._process_failed()
+        self.seeding["default_seeding"]["RemoveTorrent"] = 1
+        self.torrent.last_activity = 2
+        self.worker._reset_removal_requests()
+        self.worker._mark_for_deletion(self.torrent, "Stalled State", instance_name="one")
+        self.worker._process_failed()
+        self.client.torrents_delete.assert_called_once()
+        self.worker._log_deletion_summary_line.assert_called_with(1, 1, 0)
+        self.assertFalse(self.worker._blocked_removals)
+
+    def test_content_and_identity_refusals_are_logged(self) -> None:
+        """Explain previously silent identity and file-ownership refusals."""
+        self.torrent.ratio = 2
+        self.worker.logger = MagicMock()
+        self.worker._mark_for_deletion(self.torrent, "Stalled State", instance_name="one")
+        self.torrent.added_on = 2
+        self.worker._process_failed()
+        self.assertIn("identity or location changed", str(self.worker.logger.info.call_args))
+        self.torrent.last_activity = 2
+        self.worker._reset_removal_requests()
+        self.worker._mark_for_deletion(self.torrent, "Stalled State", instance_name="one")
+        with patch("qBitrr.arss.qbit_side_effects.content_removal_allowed", return_value=False):
+            self.worker._process_failed()
+        self.assertIn("shared content ownership", str(self.worker.logger.info.call_args))
+        self.client.torrents_delete.assert_not_called()
+
+    def test_summary_counts_instances_and_uncertain_api_results(self) -> None:
+        """The same hash on two clients represents two separate candidate outcomes."""
+        self.torrent.ratio = 2
+        other, client = self.worker.add("two", ratio=2)
+        client.torrents_delete.side_effect = qbittorrentapi.exceptions.APIError("offline")
+        self.worker.cache = {"SUPERMAN": 17}
+        for instance, torrent in (("one", self.torrent), ("two", other)):
+            self.worker._mark_for_deletion(torrent, "Stalled State", instance_name=instance)
+        self.worker._process_failed()
+        self.worker._log_deletion_summary_line.assert_called_with(2, 1, 1)
+        self.worker._process_failed_dispatch_queue_deletes.assert_not_called()
+
+    def test_summary_logs_blocked_and_confirmed_separately(self) -> None:
+        """Summary values describe outcomes instead of pending-set sizes."""
+        self.worker.logger = MagicMock()
+        TorrentBatch._log_deletion_summary_line(self.worker, 4, 1, 1)
+        self.worker.logger.info.assert_called_once_with(
+            "Deletion summary: candidates=%d, blocked=%d, pending=%d, confirmed_removed=%d",
+            4,
+            2,
+            1,
+            1,
+        )
+
     def test_final_boundary_requires_every_protection(self):
         """Verify final boundary requires every protection."""
         self.torrent.ratio = 2

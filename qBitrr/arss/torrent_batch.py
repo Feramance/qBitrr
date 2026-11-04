@@ -259,24 +259,14 @@ class TorrentBatch:
                     self.timed_ignore_cache.add(k)
         self.recheck_by_instance = still_pending
 
-    def _log_deletion_summary_line(self) -> None:
-        n_delete = len(self.delete)
-        n_missing = len(self.missing_files_post_delete)
-        n_bad_msg = len(self.downloads_with_bad_error_message_blocklist)
-        n_remove = len(self.remove_from_qbit)
-        n_remove_by_inst = sum(len(s) for s in self.remove_from_qbit_by_instance.values())
-        n_delete_by_inst = sum(len(s) for s in self.delete_by_instance.values())
-        n_skip = len(self.skip_blacklist)
+    def _log_deletion_summary_line(self, candidates: int, removed: int, pending: int) -> None:
+        """Report actual client outcomes, counting deferred refusals as blocked."""
         self.logger.info(
-            "Deletion summary: delete=%d, missing_files=%d, bad_error_blocklist=%d, "
-            "remove_from_qbit=%d, remove_by_instance=%d, delete_by_instance=%d, skip_blacklist=%d",
-            n_delete,
-            n_missing,
-            n_bad_msg,
-            n_remove,
-            n_remove_by_inst,
-            n_delete_by_inst,
-            n_skip,
+            "Deletion summary: candidates=%d, blocked=%d, pending=%d, confirmed_removed=%d",
+            candidates,
+            candidates - removed - pending,
+            pending,
+            removed,
         )
 
     def _log_deletion_sample_debug(self, to_delete_all: set[str]) -> None:
@@ -441,7 +431,6 @@ class TorrentBatch:
             or self.delete_by_instance
         ):
             return
-        self._log_deletion_summary_line()
         self._log_deletion_sample_debug(to_delete_all)
         from qBitrr.arss.qbit_side_effects import (
             complete_removal_followups,
@@ -470,6 +459,11 @@ class TorrentBatch:
         for inst_name, hashes in self.delete_by_instance.items():
             if hashes:
                 per_instance_batches.setdefault(inst_name, set()).update(hashes)
+        mapped_hashes = _collect_instance_hash_map_hashes(per_instance_batches)
+        legacy_hashes = to_delete_all | self.remove_from_qbit | self.skip_blacklist
+        candidate_count = sum(map(len, per_instance_batches.values())) + len(
+            legacy_hashes - mapped_hashes
+        )
         confirmed_pairs = delete_hashes_per_instance(
             self,
             per_instance_batches,
@@ -533,6 +527,17 @@ class TorrentBatch:
             self._process_failed_dispatch_queue_deletes(
                 dispatch_targets, skip_blacklist, cross_arr=cross_arr
             )
+        removed_pairs = confirmed_pairs | primary_pairs
+        pending_count = sum(
+            key not in removed_pairs
+            and (
+                key[0] in per_instance_batches
+                and key[1] in per_instance_batches[key[0]]
+                or key[1] in legacy_hashes - mapped_hashes
+            )
+            for key in getattr(self, "_pending_client_removals", {})
+        )
+        self._log_deletion_summary_line(candidate_count, len(removed_pairs), pending_count)
         all_deleted = confirmed_deleted
         if self.missing_files_post_delete:
             self.missing_files_post_delete -= all_deleted

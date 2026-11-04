@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import time
 from collections import defaultdict
 from collections.abc import Callable, Iterable
 from pathlib import Path
@@ -235,6 +236,31 @@ def removal_candidate(torrent: Any) -> tuple:
     )
 
 
+def removal_observation(torrent: Any) -> tuple:
+    """Capture identity and activity changes that should end removal backoff."""
+    return removal_candidate(torrent) + tuple(
+        getattr(torrent, key, None)
+        for key in (
+            "state_enum",
+            "progress",
+            "downloaded",
+            "ratio",
+            "seeding_time",
+            "last_activity",
+            "tags",
+            "super_seeding",
+        )
+    )
+
+
+def removal_retry_deferred(worker: Any, instance: str, torrent: Any) -> bool:
+    """Defer unchanged refused candidates for five minutes, without authorizing removal."""
+    previous = getattr(worker, "_blocked_removals", {}).get((instance, torrent.hash))
+    return bool(
+        previous and previous[0] == removal_observation(torrent) and time.monotonic() < previous[2]
+    )
+
+
 def content_removal_allowed(worker: Any, paths: list[Path]) -> bool:
     """Verify HnR for every current torrent referencing any targeted content path."""
     owners = []
@@ -345,48 +371,81 @@ def delete_hashes_per_instance(
         for hash_ in hashes:
             expected = getattr(worker, "_removal_candidates", {}).get((instance_name, hash_))
 
+            observed = None
+
+            def refuse(reason: str, torrent: Any = None, *, warning: bool = False) -> bool:
+                """Log a changed refusal once and defer this candidate's next attempt."""
+                if not hasattr(worker, "_blocked_removals"):
+                    worker._blocked_removals = {}
+                key = (instance_name, hash_)
+                observation = removal_observation(torrent) if torrent is not None else None
+                previous = worker._blocked_removals.get(key)
+                if previous is None or previous[:2] != (observation, reason):
+                    log = worker.logger.warning if warning else worker.logger.info
+                    log(
+                        "Removal blocked for %s on %s: %s; retry in 300s or after activity changes",
+                        hash_,
+                        instance_name,
+                        reason,
+                    )
+                worker._blocked_removals[key] = (observation, reason, time.monotonic() + 300)
+                return False
+
             def attempt() -> bool:
                 """Recheck identity and removal protections before each client deletion attempt."""
-                nonlocal expected
+                nonlocal expected, observed
                 current = resolve_removal_torrent(worker, hash_, instance_name)
                 if current is None:
                     if (instance_name, hash_) not in getattr(
                         worker, "_pending_client_removals", {}
                     ):
-                        return False
+                        return refuse("torrent lookup unavailable or torrent absent")
                     client = worker._get_qbit_client(instance_name)
                     if client is None:
-                        return False
+                        return refuse("owning client unavailable")
                     present = any(
                         t.hash.lower() == hash_.lower()
                         for t in client.torrents_info(torrent_hashes=hash_)
                     )
                     if present:
                         worker._pending_client_removals.pop((instance_name, hash_), None)
-                    return not present
+                    return (
+                        refuse("torrent still present after uncertain removal")
+                        if present
+                        else True
+                    )
                 instance, client, torrent = current
+                observed = torrent
                 key = (instance_name, hash_)
                 # Fresh presence disproves the old uncertain removal, even if this retry refuses.
                 getattr(worker, "_pending_client_removals", {}).pop(key, None)
+                if expected is not None and removal_retry_deferred(worker, instance, torrent):
+                    return False
                 snapshot = removal_candidate(torrent)
                 if expected is None:
                     expected = snapshot
                 if expected != snapshot:
-                    return False
+                    return refuse("torrent identity or location changed", torrent)
                 reason = getattr(worker, "_removal_reasons", {}).get((instance, hash_))
                 if reason == "CF unmet deletion" and not (
                     worker.custom_format_unmet_search and worker.custom_format_unmet_check(torrent)
                 ):
-                    return False
+                    return refuse("custom-format failure no longer applies", torrent)
                 if not worker._deletion_rules_allow(
                     torrent, "final torrent removal", instance_name=instance, client=client
                 ):
-                    return False
+                    return refuse(
+                        getattr(worker, "_removal_rule_reason", "removal rules refused"), torrent
+                    )
                 metadata_only = is_metadata_only_torrent(client, torrent)
                 if delete_files and not metadata_only:
                     paths = _torrent_file_paths(client, torrent)
-                    if not paths or not content_removal_allowed(worker, paths):
-                        return False
+                    if not paths:
+                        return refuse("no verified content paths", torrent)
+                    if not content_removal_allowed(worker, paths):
+                        return refuse(
+                            "shared content ownership or removal protections refused", torrent
+                        )
                 # A content scan can be lengthy; refresh the candidate again before mutation.
                 current = resolve_removal_torrent(worker, hash_, instance)
                 if (
@@ -397,7 +456,10 @@ def delete_hashes_per_instance(
                         current[2], "final torrent removal", instance_name=instance, client=client
                     )
                 ):
-                    return False
+                    return refuse(
+                        "torrent changed or removal protections refused after content scan",
+                        torrent,
+                    )
                 if not hasattr(worker, "_pending_client_removals"):
                     worker._pending_client_removals = {}
                 peers = {instance_name} | {
@@ -416,7 +478,9 @@ def delete_hashes_per_instance(
                 )
                 if result is False or not worker._pending_client_removals[key][1]:
                     worker._pending_client_removals.pop(key, None)
-                return result is not False
+                return (
+                    refuse("qBittorrent rejected deletion", torrent) if result is False else True
+                )
 
             try:
                 result = (
@@ -431,13 +495,14 @@ def delete_hashes_per_instance(
                     )
                 )
                 if result:
+                    getattr(worker, "_blocked_removals", {}).pop((instance_name, hash_), None)
                     deleted.add((instance_name, hash_))
                     worker.logger.info(
                         "Removed torrent %s from %s after HnR clearance", hash_, instance_name
                     )
             except Exception as exc:
-                worker.logger.warning(
-                    "Removal retained for %s on %s: %s", hash_, instance_name, type(exc).__name__
+                refuse(
+                    f"removal lookup or API failure ({type(exc).__name__})", observed, warning=True
                 )
     return deleted
 
