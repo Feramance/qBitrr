@@ -381,6 +381,13 @@ class TorrentBatch:
         from qBitrr.arss.qbit_side_effects import reconcile_removal_attempts
 
         reconcile_removal_attempts(self)
+        observations = getattr(self, "_removal_observations", {})
+        self._blocked_removals = {
+            key: value
+            for key, value in getattr(self, "_blocked_removals", {}).items()
+            if key in observations
+        }
+        self._removal_observations = {}
         # Queue retries must run even when the next torrent listing is empty.
         if cross_arr:
             for arr in self.manager.managed_objects.values():
@@ -459,11 +466,15 @@ class TorrentBatch:
         for inst_name, hashes in self.delete_by_instance.items():
             if hashes:
                 per_instance_batches.setdefault(inst_name, set()).update(hashes)
-        mapped_hashes = _collect_instance_hash_map_hashes(per_instance_batches)
+        candidate_pairs = {
+            (instance, hash_.lower())
+            for instance, hashes in per_instance_batches.items()
+            for hash_ in hashes
+        }
+        mapped_hashes = {hash_ for _, hash_ in candidate_pairs}
         legacy_hashes = to_delete_all | self.remove_from_qbit | self.skip_blacklist
-        candidate_count = sum(map(len, per_instance_batches.values())) + len(
-            legacy_hashes - mapped_hashes
-        )
+        legacy_targets = {hash_.lower() for hash_ in legacy_hashes} - mapped_hashes
+        candidate_count = len(candidate_pairs) + len(legacy_targets)
         confirmed_pairs = delete_hashes_per_instance(
             self,
             per_instance_batches,
@@ -476,13 +487,19 @@ class TorrentBatch:
                     mapping[instance].discard(hash_)
                     if not mapping[instance]:
                         del mapping[instance]
-        pending_per_instance = _collect_instance_hash_map_hashes(
-            self.delete_by_instance, self.remove_from_qbit_by_instance
-        )
-        per_instance_deleted = {hash_ for _, hash_ in confirmed_pairs} - pending_per_instance
+        pending_per_instance = {
+            hash_.lower()
+            for hash_ in _collect_instance_hash_map_hashes(
+                self.delete_by_instance, self.remove_from_qbit_by_instance
+            )
+        }
+        per_instance_deleted = {
+            hash_ for _, hash_ in confirmed_pairs if hash_.lower() not in pending_per_instance
+        }
         deleted_hashes = set(per_instance_deleted)
-        to_delete_all = to_delete_all - per_instance_deleted
-        to_delete_default = to_delete_all - pending_per_instance
+        to_delete_default = {
+            hash_ for hash_ in to_delete_all if hash_.lower() not in mapped_hashes
+        }
         primary_pairs: set[tuple[str, str]] = set()
         if self.remove_from_qbit or self.skip_blacklist or to_delete_default:
             if to_delete_default:
@@ -499,11 +516,14 @@ class TorrentBatch:
                     )
                 )
             if self.remove_from_qbit or self.skip_blacklist:
-                rest = (
-                    self.remove_from_qbit.union(self.skip_blacklist)
-                    - deleted_hashes
-                    - pending_per_instance
-                )
+                handled_hashes = mapped_hashes | {
+                    hash_.lower() for _, hash_ in confirmed_pairs | primary_pairs
+                }
+                rest = {
+                    hash_
+                    for hash_ in self.remove_from_qbit | self.skip_blacklist
+                    if hash_.lower() not in handled_hashes
+                }
                 primary_pairs.update(
                     delete_hashes_on_primary(
                         self,
@@ -521,31 +541,42 @@ class TorrentBatch:
         primary_deleted = {hash_ for _, hash_ in primary_pairs}
         confirmed_deleted = deleted_hashes | primary_deleted
         self._evict_hashes_from_qbit_side_caches(confirmed_deleted)
-        dispatch_targets = confirmed_deleted & queue_delete_targets
+        removed_hashes = {hash_.lower() for hash_ in confirmed_deleted}
+        dispatch_targets = {
+            hash_ for hash_ in queue_delete_targets if hash_.lower() in removed_hashes
+        }
         if dispatch_targets:
             complete_removal_followups(self, dispatch_targets)
             self._process_failed_dispatch_queue_deletes(
                 dispatch_targets, skip_blacklist, cross_arr=cross_arr
             )
-        removed_pairs = confirmed_pairs | primary_pairs
-        pending_count = sum(
-            key not in removed_pairs
-            and (
-                key[0] in per_instance_batches
-                and key[1] in per_instance_batches[key[0]]
-                or key[1] in legacy_hashes - mapped_hashes
-            )
-            for key in getattr(self, "_pending_client_removals", {})
+        removed_pairs = {
+            (instance, hash_.lower()) for instance, hash_ in confirmed_pairs | primary_pairs
+        }
+        removed_legacy = {hash_ for _, hash_ in removed_pairs} & legacy_targets
+        pending_pairs = {
+            (instance, hash_.lower())
+            for instance, hash_ in getattr(self, "_pending_client_removals", {})
+        }
+        pending_legacy = ({hash_ for _, hash_ in pending_pairs} & legacy_targets) - removed_legacy
+        pending_count = len((pending_pairs & candidate_pairs) - removed_pairs) + len(
+            pending_legacy
         )
-        self._log_deletion_summary_line(candidate_count, len(removed_pairs), pending_count)
-        all_deleted = confirmed_deleted
-        if self.missing_files_post_delete:
-            self.missing_files_post_delete -= all_deleted
-        if self.downloads_with_bad_error_message_blocklist:
-            self.downloads_with_bad_error_message_blocklist -= all_deleted
-        self.skip_blacklist -= all_deleted
-        self.remove_from_qbit -= all_deleted
-        self.delete -= all_deleted
+        self._log_deletion_summary_line(
+            candidate_count,
+            len(removed_pairs & candidate_pairs) + len(removed_legacy),
+            pending_count,
+        )
+        for requests in (
+            self.missing_files_post_delete,
+            self.downloads_with_bad_error_message_blocklist,
+            self.skip_blacklist,
+            self.remove_from_qbit,
+            self.delete,
+        ):
+            requests.difference_update(
+                {hash_ for hash_ in requests if hash_.lower() in removed_hashes}
+            )
 
     def _apply_file_priority_update(
         self,

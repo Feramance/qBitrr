@@ -245,7 +245,6 @@ def removal_observation(torrent: Any) -> tuple:
             "progress",
             "downloaded",
             "ratio",
-            "seeding_time",
             "last_activity",
             "tags",
             "super_seeding",
@@ -255,9 +254,13 @@ def removal_observation(torrent: Any) -> tuple:
 
 def removal_retry_deferred(worker: Any, instance: str, torrent: Any) -> bool:
     """Defer unchanged refused candidates for five minutes, without authorizing removal."""
-    previous = getattr(worker, "_blocked_removals", {}).get((instance, torrent.hash))
+    key = (instance, torrent.hash.lower())
+    observation = removal_observation(torrent)
+    previous = getattr(worker, "_blocked_removals", {}).get(key)
     return bool(
-        previous and previous[0] == removal_observation(torrent) and time.monotonic() < previous[2]
+        previous
+        and (previous[0] is None or previous[0] == observation)
+        and time.monotonic() < previous[2]
     )
 
 
@@ -351,6 +354,10 @@ def reconcile_removal_attempts(worker: Any) -> None:
             if not absent:
                 continue
             _confirm_removal_attempt(worker, key)
+            getattr(worker, "_blocked_removals", {}).pop((instance, hash_.lower()), None)
+            worker.logger.info(
+                "Confirmed removal of %s on %s after uncertain response", hash_, instance
+            )
         except Exception as exc:
             worker.logger.warning(
                 "Removal confirmation will retry %s on %s: %s", hash_, instance, type(exc).__name__
@@ -370,6 +377,18 @@ def delete_hashes_per_instance(
     for instance_name, hashes in batches.items():
         for hash_ in hashes:
             expected = getattr(worker, "_removal_candidates", {}).get((instance_name, hash_))
+            key = (instance_name, hash_.lower())
+            if not hasattr(worker, "_removal_observations"):
+                worker._removal_observations = {}
+            observation = worker._removal_observations.setdefault(key, None)
+            previous = getattr(worker, "_blocked_removals", {}).get(key)
+            if (
+                previous
+                and (previous[0] is None or previous[0] == observation)
+                and time.monotonic() < previous[2]
+                and (instance_name, hash_) not in getattr(worker, "_pending_client_removals", {})
+            ):
+                continue
 
             observed = None
 
@@ -377,8 +396,12 @@ def delete_hashes_per_instance(
                 """Log a changed refusal once and defer this candidate's next attempt."""
                 if not hasattr(worker, "_blocked_removals"):
                     worker._blocked_removals = {}
-                key = (instance_name, hash_)
-                observation = removal_observation(torrent) if torrent is not None else None
+                key = (instance_name, hash_.lower())
+                observation = (
+                    removal_observation(torrent)
+                    if torrent is not None
+                    else worker._removal_observations.get(key)
+                )
                 previous = worker._blocked_removals.get(key)
                 if previous is None or previous[:2] != (observation, reason):
                     log = worker.logger.warning if warning else worker.logger.info
@@ -419,7 +442,7 @@ def delete_hashes_per_instance(
                 key = (instance_name, hash_)
                 # Fresh presence disproves the old uncertain removal, even if this retry refuses.
                 getattr(worker, "_pending_client_removals", {}).pop(key, None)
-                if expected is not None and removal_retry_deferred(worker, instance, torrent):
+                if removal_retry_deferred(worker, instance, torrent):
                     return False
                 snapshot = removal_candidate(torrent)
                 if expected is None:
@@ -495,7 +518,9 @@ def delete_hashes_per_instance(
                     )
                 )
                 if result:
-                    getattr(worker, "_blocked_removals", {}).pop((instance_name, hash_), None)
+                    getattr(worker, "_blocked_removals", {}).pop(
+                        (instance_name, hash_.lower()), None
+                    )
                     deleted.add((instance_name, hash_))
                     worker.logger.info(
                         "Removed torrent %s from %s after HnR clearance", hash_, instance_name

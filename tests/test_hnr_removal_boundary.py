@@ -164,11 +164,141 @@ class HnrRemovalTests(unittest.TestCase):
             clock.return_value = 400
             self.worker._reset_removal_requests()
             self.worker._mark_for_deletion(self.torrent, "Stalled State", instance_name="one")
-            self.worker._process_failed()
+            with patch.object(
+                self.worker, "_deletion_rules_allow", wraps=self.worker._deletion_rules_allow
+            ) as rules:
+                self.worker._process_failed()
+                rules.assert_called_once()
             self.assertEqual(
                 self.worker.logger.info.call_count, 1
             )  # Marking, same refusal stays quiet.
             self.client.torrents_delete.assert_not_called()
+
+    def test_seeding_clock_does_not_cancel_backoff(self) -> None:
+        """Elapsed seeding time alone must not re-run unchanged removal decisions."""
+        self.torrent.ratio = 2
+        self.worker.logger = MagicMock()
+        self.seeding["default_seeding"]["RemoveTorrent"] = -1
+        self.worker._mark_for_deletion(self.torrent, "Stalled State", instance_name="one")
+        self.worker._process_failed()
+        self.torrent.seeding_time += 6
+        self.worker._reset_removal_requests()
+        self.worker.logger.reset_mock()
+        self.worker._mark_for_deletion(self.torrent, "Stalled State", instance_name="one")
+        with patch.object(self.worker, "_deletion_rules_allow") as rules:
+            self.worker._process_failed()
+            rules.assert_not_called()
+        self.worker.logger.info.assert_not_called()
+
+    def test_inactive_refusals_are_pruned_without_losing_current_backoff(self) -> None:
+        """Retain refusals across active scans, then discard entries after a scan without them."""
+        self.worker._mark_for_deletion(self.torrent, "Stalled State", instance_name="one")
+        self.worker._process_failed()
+        for _ in range(2):
+            self.worker._reset_removal_requests()
+            self.assertIn(("one", "superman"), self.worker._blocked_removals)
+            self.worker._mark_for_deletion(self.torrent, "Stalled State", instance_name="one")
+            self.worker._process_failed()
+        self.worker._reset_removal_requests()
+        self.worker._reset_removal_requests()
+        self.assertFalse(self.worker._blocked_removals)
+
+    def test_lookup_failure_defers_until_expiry_or_changed_observation(self) -> None:
+        """An unavailable targeted lookup still backs off using the scan's observation."""
+        self.worker.logger = MagicMock()
+        with (
+            patch("qBitrr.arss.qbit_side_effects.time.monotonic", return_value=100) as clock,
+            patch(
+                "qBitrr.arss.qbit_side_effects.resolve_removal_torrent", return_value=None
+            ) as lookup,
+        ):
+            self.worker._mark_for_deletion(self.torrent, "Stalled State", instance_name="one")
+            self.worker._process_failed()
+            lookup.assert_called_once()
+            self.worker._reset_removal_requests()
+            self.worker.logger.reset_mock()
+            lookup.reset_mock()
+            self.worker._mark_for_deletion(self.torrent, "Stalled State", instance_name="one")
+            self.worker._process_failed()
+            lookup.assert_not_called()
+            self.worker.logger.info.assert_not_called()
+            self.torrent.progress += 0.01
+            self.worker._reset_removal_requests()
+            self.worker._mark_for_deletion(self.torrent, "Stalled State", instance_name="one")
+            self.worker._process_failed()
+            lookup.assert_called_once()
+            lookup.reset_mock()
+            clock.return_value = 400
+            self.worker._reset_removal_requests()
+            self.worker._mark_for_deletion(self.torrent, "Stalled State", instance_name="one")
+            self.worker._process_failed()
+            lookup.assert_called_once()
+        self.client.torrents_delete.assert_not_called()
+
+    def test_direct_removal_without_candidate_snapshot_honors_backoff(self) -> None:
+        """Content cleanup callers defer refusals and still recheck changed torrent identity."""
+        self.assertFalse(delete_hashes_per_instance(self.worker, {"one": {"superman"}}))
+        with patch.object(self.worker, "_deletion_rules_allow") as rules:
+            self.assertFalse(delete_hashes_per_instance(self.worker, {"one": {"superman"}}))
+            rules.assert_not_called()
+        self.torrent.added_on = 2
+        with patch.object(self.worker, "_deletion_rules_allow", return_value=False) as rules:
+            self.assertFalse(delete_hashes_per_instance(self.worker, {"one": {"superman"}}))
+            rules.assert_called_once()
+        self.client.torrents_delete.assert_not_called()
+
+    def test_missing_files_log_honors_backoff(self) -> None:
+        """Missing-files observations keep their requests without repeating deletion messages."""
+        self.torrent.availability = 0
+        self.torrent.eta = 0
+        self.worker.logger = MagicMock()
+        self.worker._process_single_torrent_missing_files(self.torrent, "one")
+        self.worker._process_failed()
+        self.worker._reset_removal_requests()
+        self.worker.logger.reset_mock()
+        self.worker._process_single_torrent_missing_files(self.torrent, "one")
+        self.worker._process_failed()
+        self.worker.logger.info.assert_not_called()
+        self.assertEqual(self.worker.remove_from_qbit_by_instance["one"], {"superman"})
+        self.client.torrents_delete.assert_not_called()
+
+    def test_summary_deduplicates_mixed_case_mapped_and_legacy_hashes(self) -> None:
+        """Hash casing cannot create a second removal request or a fictitious blocked result."""
+        self.torrent.ratio = 2
+        self.worker.delete_by_instance["one"].add("superman")
+        self.worker.delete.add("SUPERMAN")
+        self.worker._process_failed()
+        self.client.torrents_delete.assert_called_once()
+        self.worker._log_deletion_summary_line.assert_called_with(1, 1, 0)
+        self.assertFalse(self.worker.delete)
+
+    def test_mixed_case_copies_wait_for_every_targeted_client(self) -> None:
+        """An uppercase confirmed request cannot release Arr work while a lowercase copy stays."""
+        self.torrent.ratio = 2
+        self.worker.add("two")
+        self.worker.delete_by_instance = {"one": {"SUPERMAN"}, "two": {"superman"}}
+        self.worker.delete = {"SUPERMAN"}
+        with patch("qBitrr.arss.qbit_side_effects.content_removal_allowed", return_value=True):
+            self.worker._process_failed()
+        self.worker._process_failed_dispatch_queue_deletes.assert_not_called()
+        self.worker._log_deletion_summary_line.assert_called_with(2, 1, 0)
+        self.assertEqual(self.worker.delete, {"SUPERMAN"})
+
+    def test_legacy_pending_summary_counts_hashes_and_prefers_confirmed_results(self) -> None:
+        """Stale pending records for other instances cannot double-count legacy candidates."""
+        self.worker.remove_from_qbit = {"SUPERMAN"}
+        self.worker._pending_client_removals = {
+            (instance, "superman"): ((), [], {instance}) for instance in ("one", "two")
+        }
+        with patch(
+            "qBitrr.arss.qbit_side_effects.delete_hashes_on_primary", return_value=set()
+        ) as delete:
+            self.worker._process_failed()
+            self.worker._log_deletion_summary_line.assert_called_with(1, 0, 1)
+            delete.return_value = {("three", "superman")}
+            self.worker._process_failed()
+            self.worker._log_deletion_summary_line.assert_called_with(1, 1, 0)
+        self.assertFalse(self.worker.remove_from_qbit)
 
     def test_backoff_ends_after_activity_change_and_rechecks_protections(self) -> None:
         """Activity changes trigger fresh rules and successful deletion clears backoff."""
@@ -261,9 +391,13 @@ class HnrRemovalTests(unittest.TestCase):
         self.seeding["default_seeding"]["RemoveTorrent"] = 4
         self.assertFalse(delete_hashes_per_instance(self.worker, {"one": {"superman"}}))
         self.seeding["default_seeding"]["RemoveTorrent"] = 3
-        self.assertEqual(
-            delete_hashes_per_instance(self.worker, {"one": {"superman"}}), {("one", "superman")}
-        )
+        with patch(
+            "qBitrr.arss.qbit_side_effects.time.monotonic", return_value=time.monotonic() + 301
+        ):
+            self.assertEqual(
+                delete_hashes_per_instance(self.worker, {"one": {"superman"}}),
+                {("one", "superman")},
+            )
 
     def test_candidate_rejects_readded_torrent_but_revalidates_activity(self):
         """Verify candidate rejects readded torrent but revalidates activity."""
@@ -614,9 +748,13 @@ class HnrRemovalTests(unittest.TestCase):
         self.client.torrents_delete.assert_not_called()
         self.seeding["default_seeding"]["RemoveTorrent"] = 1
         self.seeding["stalled_delay"] = 0
-        self.assertEqual(
-            delete_hashes_per_instance(self.worker, {"one": {"superman"}}), {("one", "superman")}
-        )
+        with patch(
+            "qBitrr.arss.qbit_side_effects.time.monotonic", return_value=time.monotonic() + 301
+        ):
+            self.assertEqual(
+                delete_hashes_per_instance(self.worker, {"one": {"superman"}}),
+                {("one", "superman")},
+            )
 
     def test_completed_cleanup_uses_real_client_and_tracker_limit_merge(self):
         """Verify completed cleanup uses real client and tracker limit merge."""
@@ -635,9 +773,13 @@ class HnrRemovalTests(unittest.TestCase):
         )
         self.assertFalse(delete_hashes_per_instance(self.worker, {"one": {"superman"}}))
         self.seeding["trackers"][0]["MaxUploadRatio"] = 1
-        self.assertEqual(
-            delete_hashes_per_instance(self.worker, {"one": {"superman"}}), {("one", "superman")}
-        )
+        with patch(
+            "qBitrr.arss.qbit_side_effects.time.monotonic", return_value=time.monotonic() + 301
+        ):
+            self.assertEqual(
+                delete_hashes_per_instance(self.worker, {"one": {"superman"}}),
+                {("one", "superman")},
+            )
 
     def test_shared_content_uses_owners_arr_hnr_policy(self):
         """Verify shared content uses owners arr hnr policy."""
@@ -873,7 +1015,11 @@ class HnrRemovalTests(unittest.TestCase):
         self.assertTrue(self.worker._pending_client_removals)
         self.worker.delete_from_queue.assert_not_called()
         self.client.torrents_info.side_effect = None
+        self.worker.logger = MagicMock()
         self.worker._reset_removal_requests()
+        self.worker.logger.info.assert_called_with(
+            "Confirmed removal of %s on %s after uncertain response", "superman", "one"
+        )
         self.worker.delete_from_queue.assert_called_once_with(
             id_=17, remove_from_client=False, blacklist=True
         )
