@@ -6,7 +6,7 @@ RUN cd webui && npm ci
 COPY webui webui
 RUN mkdir -p qBitrr/static && cd webui && npm run build
 
-FROM python:3.14-slim
+FROM python:3.15-slim
 
 ARG VERSION="5.14.9-1"
 LABEL Name="qBitrr"
