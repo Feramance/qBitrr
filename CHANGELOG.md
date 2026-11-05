@@ -1,5 +1,19 @@
 # Changelog
 
+## v5.14.9-1 (05/11/2026)
+
+### 🐛 Bug Fixes
+- [[patch] fix: explain and back off refused torrent removals (#647)](https://github.com/Feramance/qBitrr/commit/eba50d17a872132878eeec2498dedbb66ee163c4) - @Feramance
+
+### 🔧 Maintenance
+- [chore(deps): update React and React DOM to 19.3.1 (#644)](https://github.com/Feramance/qBitrr/commit/279ad70d9a07b915335ea8e77c19ef337c0d5585) - @Feramance
+- [chore(deps-dev): bump @types/node from 26.6.4 to 26.6.6 in /webui (#642)](https://github.com/Feramance/qBitrr/commit/02e3ce8da0b95c5e40d748f6892815d1c50df83c) - @Feramance
+- [chore(deps-dev): bump vite from 8.3.4 to 8.3.5 in /webui (#641)](https://github.com/Feramance/qBitrr/commit/db16f5fe739b7738c45467c6c7f2591c9b582349) - @Feramance
+- [chore: update isort and repair Python CI setup (#645)](https://github.com/Feramance/qBitrr/commit/6ec44d86f9b0cb52eb0b1d80e1aec0c66a3eadc7) - @Feramance
+- [chore(deps-dev): bump vitest from 5.0.3 to 5.0.5 in /webui (#640)](https://github.com/Feramance/qBitrr/commit/6a8d046ef017ec08ad24a31a64184b16d8602ed5) - @Feramance
+
+---
+
 ## v5.14.8-2 (02/11/2026)
 
 ### 🔧 Maintenance
