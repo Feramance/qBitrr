@@ -208,21 +208,31 @@ class TorrentInspect:
                     % (seeding_time_limit if seeding_time_limit > 0 else "unset")
                 )
             extra = " [%s]" % ", ".join(parts)
-        self.logger.info(
-            "Marking for deletion (%s): [Progress: %s%%][Ratio: %s][Seeding time: %s] | %s (%s)%s",
-            reason,
-            round(torrent.progress * 100, 2),
-            torrent.ratio,
-            timedelta(seconds=torrent.seeding_time),
-            torrent.name,
-            torrent.hash,
-            extra,
+        from qBitrr.arss.qbit_side_effects import (
+            removal_candidate,
+            removal_observation,
+            removal_retry_deferred,
         )
-        from qBitrr.arss.qbit_side_effects import removal_candidate
 
+        if not removal_retry_deferred(self, instance_name, torrent):
+            self.logger.info(
+                "Marking for deletion (%s): [Progress: %s%%][Ratio: %s][Seeding time: %s] | %s (%s)%s",
+                reason,
+                round(torrent.progress * 100, 2),
+                torrent.ratio,
+                timedelta(seconds=torrent.seeding_time),
+                torrent.name,
+                torrent.hash,
+                extra,
+            )
         if not hasattr(self, "_removal_candidates"):
             self._removal_candidates = {}
         self._removal_candidates[(instance_name, torrent.hash)] = removal_candidate(torrent)
+        if not hasattr(self, "_removal_observations"):
+            self._removal_observations = {}
+        self._removal_observations[(instance_name, torrent.hash.lower())] = removal_observation(
+            torrent
+        )
         if not hasattr(self, "_removal_reasons"):
             self._removal_reasons = {}
         self._removal_reasons[(instance_name, torrent.hash)] = reason
@@ -503,27 +513,36 @@ class TorrentInspect:
         # this ensures that we can safely remove it if the client is reporting
         # the status of the client as "Missing files"
         """Queue a missing-files torrent for protected removal without blocklisting."""
-        self.logger.info(
-            "Deleting torrent with missing files: "
-            "[Progress: %s%%][Added On: %s]"
-            "[Availability: %s%%][Time Left: %s]"
-            "[Last active: %s] "
-            "| [%s] | %s (%s)",
-            round(torrent.progress * 100, 2),
-            datetime.fromtimestamp(torrent.added_on),
-            round(torrent.availability * 100, 2),
-            timedelta(seconds=torrent.eta),
-            datetime.fromtimestamp(torrent.last_activity),
-            torrent.state_enum,
-            torrent.name,
-            torrent.hash,
+        from qBitrr.arss.qbit_side_effects import (
+            removal_candidate,
+            removal_observation,
+            removal_retry_deferred,
         )
-        # We do not want to blacklist these!!
-        from qBitrr.arss.qbit_side_effects import removal_candidate
 
+        if not removal_retry_deferred(self, instance_name, torrent):
+            self.logger.info(
+                "Deleting torrent with missing files: "
+                "[Progress: %s%%][Added On: %s]"
+                "[Availability: %s%%][Time Left: %s]"
+                "[Last active: %s] "
+                "| [%s] | %s (%s)",
+                round(torrent.progress * 100, 2),
+                datetime.fromtimestamp(torrent.added_on),
+                round(torrent.availability * 100, 2),
+                timedelta(seconds=torrent.eta),
+                datetime.fromtimestamp(torrent.last_activity),
+                torrent.state_enum,
+                torrent.name,
+                torrent.hash,
+            )
         if not hasattr(self, "_removal_candidates"):
             self._removal_candidates = {}
         self._removal_candidates[(instance_name, torrent.hash)] = removal_candidate(torrent)
+        if not hasattr(self, "_removal_observations"):
+            self._removal_observations = {}
+        self._removal_observations[(instance_name, torrent.hash.lower())] = removal_observation(
+            torrent
+        )
         self.remove_from_qbit_by_instance.setdefault(instance_name, set()).add(torrent.hash)
 
     def _process_single_torrent_uploading(

@@ -383,24 +383,30 @@ class TorrentLimits:
         from qBitrr.config import CONFIG, get_ignore_torrents_younger_than_effective
         from qBitrr.qbit_seeding_config import load_qbit_seeding_config
 
+        def refuse(message: str) -> bool:
+            """Expose the final rule refusal to the shared removal logger."""
+            self._removal_rule_reason = message
+            return False
+
+        self._removal_rule_reason = "removal rules refused"
         try:
             for key in ("progress", "ratio", "seeding_time", "added_on", "last_activity"):
                 value = getattr(torrent, key)
                 if isinstance(value, bool) or not math.isfinite(value) or value < 0:
-                    return False
+                    return refuse("invalid or unknown torrent accounting")
             if torrent.progress > 1:
-                return False
+                return refuse("progress exceeds 100%")
             if not self._hnr_allows_delete(
                 torrent, reason, instance_name=instance_name, client=client
             ):
-                return False
+                return refuse("HnR obligations unmet or unverified")
             if CONFIG.get(f"{instance_name}.Disabled", fallback=False):
-                return False
+                return refuse("qBittorrent instance disabled")
             tags = {tag.strip() for tag in (getattr(torrent, "tags", "") or "").split(",")}
             if tags & {"qBitrr-ignored", "qBitrr-free_space_paused"}:
-                return False
+                return refuse("ignored or free-space-paused tag")
             if torrent.super_seeding or torrent.state_enum == TorrentStates.FORCED_UPLOAD:
-                return False
+                return refuse("super-seeding or forced upload")
             loaded = load_qbit_seeding_config(instance_name)
             policy = dict(loaded["default_seeding"])
             matches = [
@@ -429,7 +435,7 @@ class TorrentLimits:
             )
             now = time.time()
             if not 0 < torrent.added_on <= now or now - torrent.added_on < age:
-                return False
+                return refuse("minimum torrent age not reached or added_on invalid")
             arr_policy = (
                 CONFIG.get(f"{arr_section}.Torrent.SeedingMode", fallback={})
                 if arr_section
@@ -447,13 +453,13 @@ class TorrentLimits:
                 if key == "MaxSeedingTime":
                     value = parse_duration(value, fallback=float("nan"))
                 if isinstance(value, bool) or not math.isfinite(value):
-                    return False
+                    return refuse("invalid seeding limit")
                 policy[key] = value
             mode = policy.get("RemoveTorrent", -1)
             if isinstance(arr_policy, dict):
                 mode = arr_policy.get("RemoveTorrent", -1)
             if isinstance(mode, bool) or mode not in (1, 2, 3, 4):
-                return False
+                return refuse("RemoveTorrent=-1 (never remove) or invalid removal mode")
             if torrent.progress < 1:
                 delay = parse_duration(
                     policy.get("StalledDelay", loaded.get("stalled_delay", -1)),
@@ -470,11 +476,14 @@ class TorrentLimits:
                     in (TorrentStates.METADATA_DOWNLOAD, TorrentStates.FORCED_METADATA_DOWNLOAD)
                     else torrent.last_activity
                 )
-                return (
+                allowed = (
                     math.isfinite(delay)
                     and delay >= 0
                     and 0 < reference <= now
                     and now - reference >= max(age, delay * 60)
+                )
+                return allowed or refuse(
+                    "StalledDelay disabled, grace not expired, or activity unknown"
                 )
             actual_hosts = {
                 _extract_tracker_host(t.url)
@@ -503,12 +512,14 @@ class TorrentLimits:
                 settings.get("seeding_time_limit", -1), native.get("seeding_time_limit", -1)
             )
             if not math.isfinite(ratio) or not math.isfinite(seed_time):
-                return False
+                return refuse("invalid effective seeding limits")
             if settings.get("ratio_limit", -1) <= 0:
                 ratio = max(ratio, policy.get("MaxUploadRatio", -1))
             if settings.get("seeding_time_limit", -1) <= 0:
                 seed_time = max(seed_time, policy.get("MaxSeedingTime", -1))
-            return self.torrent_limit_check(torrent, seed_time, ratio, remove_mode=mode)
+            return self.torrent_limit_check(torrent, seed_time, ratio, remove_mode=mode) or refuse(
+                "ratio/time removal policy not satisfied"
+            )
         except Exception as exc:
             self.logger.warning(
                 "Removal rules unavailable for %s on %s: %s",
@@ -516,7 +527,7 @@ class TorrentLimits:
                 instance_name,
                 type(exc).__name__,
             )
-            return False
+            return refuse(f"removal rules unavailable ({type(exc).__name__})")
 
     def _hnr_allows_delete(
         self,

@@ -10,8 +10,23 @@ blocks every removal reason, including custom-format failures and failed categor
 Completed torrents must pass their effective ratio/time policy using its configured
 AND/OR mode. Incomplete torrents must pass minimum age and stalled grace: `-1` holds
 them indefinitely, `0` adds no stalled grace, and positive values require idle minutes.
-Blocked requests are reclassified on the next scan. Changed activity, category, location,
-or a re-added torrent invalidates the previous decision. Saving settings never deletes torrents.
+Blocked candidates remain subject to current classification on each scan. Unchanged refused
+candidates back off for five minutes before repeating the final removal and content checks,
+including direct content-cleanup calls and unavailable targeted lookups. Elapsed seeding
+time alone does not cancel the delay. Refusal records are pruned after a scan no longer
+observes the candidate.
+Changed activity, progress, ratio, tags, category, location, or a re-added torrent ends that
+backoff immediately; tracker or policy changes are checked on the next retry. All protections
+are checked again before deletion. Saving settings never deletes torrents.
+
+The INFO log names each new refusal reason per torrent and qBittorrent instance, including
+never-remove policy, age or stalled grace, HnR, changed identity, and unverified shared-content
+ownership. Unchanged refusals do not repeat their reason or mark the torrent again during
+backoff. `Deletion summary` reports `candidates`, `blocked` (including deferred refusals),
+`pending` (uncertain client responses), and `confirmed_removed` (successful client responses)
+separately. Hash comparisons ignore case; legacy pending work is counted once per hash.
+When a later lookup confirms an uncertain removal, an INFO message identifies the hash
+and client instance. Arr queue removal and blocklisting still wait for client removal confirmation.
 
 ## Overview
 

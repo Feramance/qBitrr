@@ -115,6 +115,12 @@ A torrent is considered "stalled" when:
 
 Metadata-stuck torrents use the same `StalledDelay`, `ReSearchStalled`, and `IgnoreTorrentsYoungerThan` settings as stalled downloads. Timing is based on `added_on` for metadata states because qBittorrent can keep updating `last_activity` during metadata retries.
 
+`RemoveTorrent = -1` prevents removal even after stalled grace expires. To enable cleanup,
+choose removal mode 1–4 and keep the required HnR protections configured. Refused candidates
+log their reason once and retry after five minutes, or sooner when torrent activity changes.
+The deletion summary separates candidates, blocked requests, uncertain pending responses,
+and successful client removals.
+
 When a metadata-stuck torrent has zero downloaded payload bytes, zero progress, and a verified empty file list, qBitrr removes only its client entry after the removal rules clear. Missing privacy or tracker metadata does not block this empty-magnet cleanup, and the magnet does not block cleanup of other torrents in its save folder. Arr queue removal and blocklisting follow successful client removal. Unknown downloaded bytes disable this shortcut; a failed file-list lookup during metadata-only verification blocks that clearance attempt. Ordinary HnR clearance does not require a downloaded-byte count or file-list lookup, though content deletion still requires verified file ownership.
 
 ### Configuration
