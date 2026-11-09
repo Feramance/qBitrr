@@ -1,5 +1,12 @@
 # Changelog
 
+## v5.14.9-2 (09/11/2026)
+
+### 🔧 Maintenance
+- [chore(deps-dev): bump vitest from 5.0.5 to 5.1.0 in /webui (#656)](https://github.com/Feramance/qBitrr/commit/c91b6c7f30a5ade5547686d08dc336f7b09872e1) - @Feramance
+
+---
+
 ## v5.14.9-1 (05/11/2026)
 
 ### 🐛 Bug Fixes
