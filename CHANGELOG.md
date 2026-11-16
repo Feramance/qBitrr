@@ -1,5 +1,12 @@
 # Changelog
 
+## v5.14.9-3 (16/11/2026)
+
+### 🔧 Maintenance
+- [chore(deps-dev): bump vite from 8.3.5 to 8.3.8 in /webui (#659)](https://github.com/Feramance/qBitrr/commit/ecb71d60ad194abd7b3f49fadcb8488186ee2faa) - @Feramance
+
+---
+
 ## v5.14.9-2 (09/11/2026)
 
 ### 🔧 Maintenance
