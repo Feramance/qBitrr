@@ -1,5 +1,12 @@
 # Changelog
 
+## v5.14.9-4 (23/11/2026)
+
+### 🔧 Maintenance
+- [chore(deps-dev): bump typescript-eslint from 8.71.1 to 8.73.0 in /webui (#663)](https://github.com/Feramance/qBitrr/commit/3986affbc9838ac820401a06a47b17a4ec9c0235) - @Feramance
+
+---
+
 ## v5.14.9-3 (16/11/2026)
 
 ### 🔧 Maintenance
